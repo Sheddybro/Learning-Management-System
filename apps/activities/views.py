@@ -76,7 +76,7 @@ class ActivityListView(InstitutionPermissionMixin, ListView):
     paginate_by = 12
 
     def get_queryset(self):
-        queryset = Activity.objects.select_related(
+        queryset = super().get_queryset().select_related(
             "category", "coordinator", "academic_session"
         ).prefetch_related("enrollments")
 
@@ -633,7 +633,7 @@ class CompetitionListView(InstitutionPermissionMixin, ListView):
 
     def get_queryset(self):
         return (
-            Competition.objects.filter(is_active=True)
+            super().get_queryset().filter(is_active=True)
             .select_related("activity__category")
             .order_by("-start_date")
         )

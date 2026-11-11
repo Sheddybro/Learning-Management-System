@@ -44,3 +44,21 @@ class PublicPageSmokeTests(TestCase):
             with self.subTest(page=name):
                 response = self.client.get(reverse(name), follow=True)
                 self.assertEqual(response.status_code, 200)
+
+    def test_superuser_can_open_institution_management(self):
+        Institution.objects.create(
+            name="Smoke Test School", code="DEFAULT", short_name="Smoke",
+            institution_type="high_school", ownership_type="private",
+        )
+        user = get_user_model().objects.create_superuser(
+            email="admin-smoke@example.com", password="test-only-password"
+        )
+        self.client.force_login(user)
+        for name in (
+            "core:institution_list",
+            "core:institution_create",
+            "core:school_admin_dashboard",
+        ):
+            with self.subTest(page=name):
+                response = self.client.get(reverse(name), follow=True)
+                self.assertEqual(response.status_code, 200)

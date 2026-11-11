@@ -1406,6 +1406,7 @@ class ClassMaterialForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         self.fields["subject"].queryset = Subject.objects.filter(is_active=True)
         self.fields["class_assigned"].queryset = Class.objects.filter(status="active")
@@ -1421,6 +1422,14 @@ class ClassMaterialForm(forms.ModelForm):
         self.fields["parent_material"].queryset = ClassMaterial.objects.filter(
             status="active"
         ).exclude(pk=self.instance.pk)
+        if institution is not None:
+            for field in (
+                "subject", "class_assigned", "teacher", "academic_session",
+                "allowed_students", "parent_material",
+            ):
+                self.fields[field].queryset = self.fields[field].queryset.filter(
+                    institution=institution
+                )
 
         self.fields["subject"].empty_label = _("Select Subject")
         self.fields["class_assigned"].empty_label = _("Select Class")

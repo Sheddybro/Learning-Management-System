@@ -586,14 +586,24 @@ class Payment(CoreBaseModel):
                     + self.amount
                 )
 
-            locked_invoices = {}
-            for invoice_id in invoice_deltas:
-                locked_invoices[invoice_id] = (
-                    Invoice.objects.select_for_update().get(pk=invoice_id)
+            # Always lock and validate the target invoice, even for pending payments.
+            invoice_ids = set(invoice_deltas)
+            invoice_ids.add(self.invoice_id)
+            locked_invoices = {
+                invoice_id: Invoice.objects.select_for_update().get(pk=invoice_id)
+                for invoice_id in invoice_ids
+            }
+
+            target_invoice = locked_invoices[self.invoice_id]
+            if (
+                target_invoice.institution_id != self.institution_id
+                or target_invoice.student_id != self.student_id
+            ):
+                raise ValidationError(
+                    _("The payment, student, and invoice must belong to the same school and student.")
                 )
 
-            target_invoice = locked_invoices.get(self.invoice_id)
-            if self.status == self.PaymentStatus.COMPLETED and target_invoice:
+            if self.status == self.PaymentStatus.COMPLETED:
                 resulting_paid = (
                     target_invoice.amount_paid
                     + invoice_deltas.get(self.invoice_id, Decimal("0.00"))

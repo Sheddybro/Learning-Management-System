@@ -831,17 +831,20 @@ class EnrollmentForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         self.fields["student"].queryset = Student.objects.filter(
-            status="active"
+            status="active", institution=institution
         ).select_related("user")
         self.fields["class_enrolled"].queryset = Class.objects.filter(
-            status="active"
+            status="active", institution=institution
         ).select_related("grade_level", "academic_session")
         self.fields["academic_session"].queryset = AcademicSession.objects.filter(
-            status="active"
+            status="active", institution=institution
         )
-        self.fields["department"].queryset = Department.objects.filter(status="active")
+        self.fields["department"].queryset = Department.objects.filter(
+            status="active", institution=institution
+        )
 
         self.fields["student"].empty_label = _("Select Student")
         self.fields["class_enrolled"].empty_label = _("Select Class")

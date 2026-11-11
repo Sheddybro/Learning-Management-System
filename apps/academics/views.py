@@ -3,6 +3,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.views import View
 from django.views.generic import (
     ListView,
@@ -2639,6 +2640,8 @@ class GetClassInfoView(AcademicsAccessMixin, View):
     """API view to get detailed class information including grade level education stage."""
 
     def get(self, request):
+        from apps.core.middleware import get_current_institution
+
         class_id = request.GET.get("class_id")
 
         if not class_id:
@@ -2649,7 +2652,7 @@ class GetClassInfoView(AcademicsAccessMixin, View):
         try:
             class_obj = Class.objects.select_related(
                 "grade_level", "class_teacher__user", "academic_session"
-            ).get(id=class_id)
+            ).get(id=class_id, institution=get_current_institution())
 
             # Get current enrollment count
             current_students = class_obj.enrollments.filter(
@@ -2692,18 +2695,37 @@ class GetClassInfoView(AcademicsAccessMixin, View):
             return JsonResponse(
                 {"success": False, "message": "Class not found"}, status=404
             )
-        except Exception as e:
-            return JsonResponse({"success": False, "message": str(e)}, status=500)
+        except (ValueError, TypeError, ValidationError):
+            return JsonResponse(
+                {"success": False, "message": "Invalid class ID"}, status=400
+            )
 
 
 class GetClassesByGradeView(AcademicsAccessMixin, View):
     """AJAX view to get classes by grade level."""
 
     def get(self, request):
+        from apps.core.middleware import get_current_institution
+
         grade_level_id = request.GET.get("grade_level_id")
         session_id = request.GET.get("session_id")
 
-        classes = Class.objects.filter(grade_level_id=grade_level_id, status="active")
+        if not grade_level_id:
+            return JsonResponse({"classes": []})
+        try:
+            from uuid import UUID
+
+            UUID(str(grade_level_id))
+            if session_id:
+                UUID(str(session_id))
+        except (ValueError, TypeError):
+            return JsonResponse({"classes": [], "error": "Invalid identifier"}, status=400)
+
+        classes = Class.objects.filter(
+            grade_level_id=grade_level_id,
+            status="active",
+            institution=get_current_institution(),
+        )
 
         if session_id:
             classes = classes.filter(academic_session_id=session_id)
@@ -2717,6 +2739,9 @@ class GetTimetableByClassView(AcademicsAccessMixin, View):
     """AJAX view to get timetable for a class."""
 
     def get(self, request, class_id=None, *args, **kwargs):
+        from apps.core.middleware import get_current_institution
+        from uuid import UUID
+
         # Accept `class_id` either as path kwarg or GET param
         if not class_id:
             class_id = request.GET.get("class_id")
@@ -2725,14 +2750,25 @@ class GetTimetableByClassView(AcademicsAccessMixin, View):
         if not class_id:
             return JsonResponse({"error": "Class ID required"}, status=400)
 
+        try:
+            UUID(str(class_id))
+            if session_id:
+                UUID(str(session_id))
+        except (ValueError, TypeError):
+            return JsonResponse({"error": "Invalid identifier"}, status=400)
+
         timetable_entries = Timetable.objects.filter(
-            class_assigned_id=class_id, is_published=True
+            class_assigned_id=class_id,
+            institution=get_current_institution(),
+            is_published=True,
         )
 
         if session_id:
             timetable_entries = timetable_entries.filter(academic_session_id=session_id)
         else:
-            current_session = AcademicSession.objects.filter(is_current=True).first()
+            current_session = AcademicSession.objects.filter(
+                is_current=True, institution=get_current_institution()
+            ).first()
             if current_session:
                 timetable_entries = timetable_entries.filter(
                     academic_session=current_session

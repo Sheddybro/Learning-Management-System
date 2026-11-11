@@ -15,7 +15,7 @@ from django.urls import reverse_lazy
 from django.db import models
 from django.db.models import Q, Count, Sum
 from django.utils import timezone
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, Http404
 from django.core.paginator import Paginator
 from django.utils.translation import gettext_lazy as _
 from decimal import Decimal
@@ -1079,6 +1079,16 @@ class GenerateInvoiceAPIView(AccountantRequiredMixin, View):
         except json.JSONDecodeError:
             return JsonResponse(
                 {"success": False, "message": _("Invalid JSON data.")}, status=400
+            )
+        except Http404:
+            return JsonResponse(
+                {"success": False, "message": _("Requested school or session was not found.")},
+                status=404,
+            )
+        except (ValueError, TypeError):
+            return JsonResponse(
+                {"success": False, "message": _("Invalid invoice generation parameters.")},
+                status=400,
             )
         except Exception:
             import logging

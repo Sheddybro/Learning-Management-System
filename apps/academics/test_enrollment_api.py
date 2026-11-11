@@ -53,6 +53,16 @@ class EnrollmentApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(self.session, list(response.context["sessions"]))
 
+    def test_enrollment_list_malformed_filters_do_not_crash(self):
+        self.client.force_login(self.user)
+        for key in ("class", "session"):
+            with self.subTest(key=key):
+                response = self.client.get(reverse("academics:enrollment_list"), {
+                    key: "invalid-uuid",
+                })
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(list(response.context["enrollments"]), [])
+
     def test_enrollment_form_excludes_other_school_sessions(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse("academics:enrollment_create"))

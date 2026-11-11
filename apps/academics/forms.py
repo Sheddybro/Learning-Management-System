@@ -2276,11 +2276,29 @@ class BulkEnrollmentForm(forms.Form):
         widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
     )
 
+    def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
+        super().__init__(*args, **kwargs)
+        if institution is not None:
+            for field in ("students", "class_enrolled", "academic_session"):
+                self.fields[field].queryset = self.fields[field].queryset.filter(
+                    institution=institution
+                )
+
     def clean(self):
         cleaned_data = super().clean()
         students = cleaned_data.get("students")
         class_enrolled = cleaned_data.get("class_enrolled")
         academic_session = cleaned_data.get("academic_session")
+
+        if class_enrolled and academic_session and class_enrolled.academic_session_id != academic_session.pk:
+            self.add_error("academic_session", _("The selected class belongs to a different academic session."))
+
+        enrollment_date = cleaned_data.get("enrollment_date")
+        if academic_session and enrollment_date and not (
+            academic_session.start_date <= enrollment_date <= academic_session.end_date
+        ):
+            self.add_error("enrollment_date", _("Enrollment date must fall within the academic session."))
 
         if students and class_enrolled and academic_session:
             # Check for existing enrollments to prevent duplicates

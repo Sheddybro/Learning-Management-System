@@ -68,10 +68,10 @@ urlpatterns = [
     path('leaves/create/',
          views.LeaveApplicationCreateView.as_view(),
          name='leave_create'),
-    path('leaves/<int:pk>/review/',
+    path('leaves/<uuid:pk>/review/',
          views.LeaveApplicationUpdateView.as_view(),
          name='leave_review'),
-    path('leaves/<int:pk>/delete/',
+    path('leaves/<uuid:pk>/delete/',
          views.LeaveApplicationDeleteView.as_view(),
          name='leave_delete'),
     

@@ -2,7 +2,7 @@
 
 import uuid
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, RequestFactory
 from django.urls import resolve, reverse
 
 from apps.attendance.views import (
@@ -18,6 +18,7 @@ from apps.attendance.views import (
     BehaviorRecordCreateView,
     BehaviorRecordUpdateView,
     BehaviorRecordDeleteView,
+    LeaveApplicationListView,
 )
 
 
@@ -55,3 +56,13 @@ class AttendanceNavigationTests(SimpleTestCase):
                 match = resolve(url)
                 self.assertEqual(match.view_name, route)
                 self.assertEqual(match.kwargs["pk"], record_id)
+
+    def test_leave_search_uses_existing_email_field(self):
+        # Avoid querying the database: validate the generated SQL for a search.
+        # User has no username field, so the old lookup raised FieldError.
+        view = LeaveApplicationListView()
+        request = RequestFactory().get("/attendance/leaves/?search=example")
+        request.user = type("UserStub", (), {"is_staff": True})()
+        view.request = request
+        queryset = view.get_queryset()
+        self.assertIn("email", str(queryset.query).lower())

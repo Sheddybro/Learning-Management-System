@@ -90,7 +90,10 @@ class FeeStructureForm(InstitutionScopedModelForm):
 
         # Unique constraint check
         if academic_session and fee_type:
+            if applicable_class and applicable_class.institution_id != academic_session.institution_id:
+                self.add_error("applicable_class", _("Choose a class from the selected school's institution."))
             duplicate_fee = FeeStructure.objects.filter(
+                institution=self.institution,
                 academic_session=academic_session,
                 fee_type=fee_type,
                 applicable_class=applicable_class
@@ -284,7 +287,7 @@ class PaymentForm(InstitutionScopedModelForm):
         fields = [
             'invoice', 'student', 'amount', 'payment_method', 'payment_date',
             'received_by', 'status', 'reference_number', 'bank_name',
-            'cheque_number', 'transaction_id', 'notes', 'receipt_issued', 'status'
+            'cheque_number', 'transaction_id', 'notes', 'receipt_issued'
         ]
         widgets = {
             'invoice': forms.Select(attrs={'class': 'form-control'}),
@@ -400,8 +403,7 @@ class FinancialReportForm(InstitutionScopedModelForm):
         model = FinancialReport
         fields = [
             'report_type', 'title', 'academic_session', 'start_date',
-            'end_date', 'generated_by', 'report_data', 'summary',
-            'is_published', 'status'
+            'end_date', 'report_data', 'summary', 'is_published', 'status'
         ]
         widgets = {
             'report_type': forms.Select(attrs={'class': 'form-control'}),
@@ -409,7 +411,6 @@ class FinancialReportForm(InstitutionScopedModelForm):
             'academic_session': forms.Select(attrs={'class': 'form-control'}),
             'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'end_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'generated_by': forms.Select(attrs={'class': 'form-control'}),
             'report_data': forms.Textarea(attrs={'class': 'form-control', 'rows': 5, 'placeholder': _('JSON data for the report content')}),
             'summary': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'is_published': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -425,10 +426,8 @@ class FinancialReportForm(InstitutionScopedModelForm):
         self.fields['academic_session'].queryset = self.scope(
             AcademicSession.objects.filter(status="active")
         )
-        self.fields['generated_by'].queryset = self.staff_users()
 
         self.fields['academic_session'].empty_label = _("Select Academic Session")
-        self.fields['generated_by'].empty_label = _("Select Generator")
 
     def clean(self):
         cleaned_data = super().clean()

@@ -9,7 +9,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.core.models import Institution
-from .models import AcademicSession, Class, Student, Teacher, Timetable
+from .models import AcademicSession, Class, Student, Teacher, Timetable, Enrollment
 from apps.core.models import InstitutionUser
 
 
@@ -106,6 +106,36 @@ class EnrollmentApiTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertIn("class_enrolled", response.context["form"].errors)
+
+    def test_bulk_enrollment_creates_real_school_scoped_records(self):
+        session = AcademicSession.objects.create(
+            name="Home Session", institution=self.school,
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        school_class = Class.objects.create(
+            name="Home Class", code="HOME-C1", institution=self.school,
+            academic_session=session,
+        )
+        student_user = get_user_model().objects.create_user(
+            email="bulk-student@example.com", password="test-only-password"
+        )
+        student = Student.objects.create(
+            user=student_user, institution=self.school,
+            student_id="HOME-STU", admission_number="HOME-001",
+            admission_date=date(2026, 1, 1),
+            date_of_birth=date(2010, 1, 1), gender="female",
+        )
+        self.client.force_login(self.user)
+        response = self.client.post(reverse("academics:bulk_enrollment"), {
+            "students": [str(student.pk)],
+            "class_enrolled": str(school_class.pk),
+            "academic_session": str(session.pk),
+            "enrollment_date": "2026-04-02",
+        })
+        self.assertRedirects(response, reverse("academics:enrollment_list"))
+        record = Enrollment.objects.get(student=student, academic_session=session)
+        self.assertEqual(record.institution, self.school)
+        self.assertEqual(record.class_enrolled, school_class)
 
     def test_enrollment_form_excludes_other_school_sessions(self):
         self.client.force_login(self.user)

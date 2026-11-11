@@ -115,6 +115,32 @@ class FinanceObjectScopeMixin:
         return queryset.none()
 
 
+class FinanceInstitutionFormMixin:
+    """Pass the active school to forms and assign it on newly created records."""
+
+    def get_active_institution(self):
+        from apps.core.middleware import get_current_institution
+
+        return get_current_institution()
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = self.get_active_institution()
+        return kwargs
+
+    def form_valid(self, form):
+        if getattr(form.instance._state, "adding", False):
+            institution = self.get_active_institution()
+            if institution is None:
+                form.add_error(
+                    None,
+                    _("Select an active school before creating finance records."),
+                )
+                return self.form_invalid(form)
+            form.instance.institution = institution
+        return super().form_valid(form)
+
+
 # =============================================================================
 # DASHBOARD VIEWS
 # =============================================================================
@@ -247,7 +273,7 @@ class FeeStructureDetailView(FinanceObjectScopeMixin, FinanceAccessMixin, Detail
     context_object_name = "fee_structure"
 
 
-class FeeStructureCreateView(AccountantRequiredMixin, CreateView):
+class FeeStructureCreateView(FinanceInstitutionFormMixin, AccountantRequiredMixin, CreateView):
     """Create a new fee structure."""
 
     model = FeeStructure
@@ -260,7 +286,7 @@ class FeeStructureCreateView(AccountantRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class FeeStructureUpdateView(FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
+class FeeStructureUpdateView(FinanceInstitutionFormMixin, FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
     """Update an existing fee structure."""
 
     model = FeeStructure
@@ -334,7 +360,7 @@ class FeeDiscountDetailView(FinanceObjectScopeMixin, FinanceAccessMixin, DetailV
     context_object_name = "fee_discount"
 
 
-class FeeDiscountCreateView(AccountantRequiredMixin, CreateView):
+class FeeDiscountCreateView(FinanceInstitutionFormMixin, AccountantRequiredMixin, CreateView):
     """Create a new fee discount."""
 
     model = FeeDiscount
@@ -347,7 +373,7 @@ class FeeDiscountCreateView(AccountantRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class FeeDiscountUpdateView(FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
+class FeeDiscountUpdateView(FinanceInstitutionFormMixin, FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
     """Update an existing fee discount."""
 
     model = FeeDiscount
@@ -439,7 +465,7 @@ class InvoiceDetailView(FinanceObjectScopeMixin, FinanceAccessMixin, DetailView)
         return context
 
 
-class InvoiceCreateView(AccountantRequiredMixin, CreateView):
+class InvoiceCreateView(FinanceInstitutionFormMixin, AccountantRequiredMixin, CreateView):
     """Create a new invoice."""
 
     model = Invoice
@@ -452,7 +478,7 @@ class InvoiceCreateView(AccountantRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class InvoiceUpdateView(FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
+class InvoiceUpdateView(FinanceInstitutionFormMixin, FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
     """Update an existing invoice."""
 
     model = Invoice
@@ -582,7 +608,7 @@ class PaymentSuccessView(FinanceAccessMixin, View):
         )
 
 
-class PaymentCreateView(AccountantRequiredMixin, CreateView):
+class PaymentCreateView(FinanceInstitutionFormMixin, AccountantRequiredMixin, CreateView):
     """Create a new payment."""
 
     model = Payment
@@ -595,7 +621,7 @@ class PaymentCreateView(AccountantRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class PaymentUpdateView(FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
+class PaymentUpdateView(FinanceInstitutionFormMixin, FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
     """Update an existing payment."""
 
     model = Payment
@@ -682,7 +708,7 @@ class ExpenseDetailView(FinanceObjectScopeMixin, FinanceAccessMixin, DetailView)
     context_object_name = "expense"
 
 
-class ExpenseCreateView(AccountantRequiredMixin, CreateView):
+class ExpenseCreateView(FinanceInstitutionFormMixin, AccountantRequiredMixin, CreateView):
     """Create a new expense."""
 
     model = Expense
@@ -695,7 +721,7 @@ class ExpenseCreateView(AccountantRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ExpenseUpdateView(FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
+class ExpenseUpdateView(FinanceInstitutionFormMixin, FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
     """Update an existing expense."""
 
     model = Expense
@@ -777,7 +803,7 @@ class FinancialReportDetailView(FinanceObjectScopeMixin, FinanceAccessMixin, Det
     context_object_name = "report"
 
 
-class FinancialReportCreateView(AccountantRequiredMixin, CreateView):
+class FinancialReportCreateView(FinanceInstitutionFormMixin, AccountantRequiredMixin, CreateView):
     """Create a new financial report."""
 
     model = FinancialReport
@@ -791,7 +817,7 @@ class FinancialReportCreateView(AccountantRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class FinancialReportUpdateView(FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
+class FinancialReportUpdateView(FinanceInstitutionFormMixin, FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
     """Update an existing financial report."""
 
     model = FinancialReport

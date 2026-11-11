@@ -1933,9 +1933,11 @@ class EnrollmentListView(StaffRequiredMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
         queryset = Enrollment.objects.select_related(
             "student__user", "class_enrolled", "academic_session", "department"
-        )
+        ).filter(institution=get_current_institution())
 
         # Filter by class if provided
         class_id = self.request.GET.get("class")
@@ -1955,9 +1957,15 @@ class EnrollmentListView(StaffRequiredMixin, ListView):
         return queryset.order_by("-enrollment_date")
 
     def get_context_data(self, **kwargs):
+        from apps.core.middleware import get_current_institution
+
         context = super().get_context_data(**kwargs)
-        context["classes"] = Class.objects.filter(status="active")
-        context["sessions"] = AcademicSession.objects.all()
+        context["classes"] = Class.objects.filter(
+            status="active", institution=get_current_institution()
+        )
+        context["sessions"] = AcademicSession.objects.filter(
+            institution=get_current_institution()
+        )
         return context
 
 
@@ -1970,6 +1978,20 @@ class EnrollmentCreateView(StaffRequiredMixin, CreateView):
     success_url = reverse_lazy("academics:enrollment_list")
 
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        institution = get_current_institution()
+        if not institution:
+            form.add_error(None, _("Select a school before creating an enrollment."))
+            return self.form_invalid(form)
+        if (
+            form.cleaned_data["student"].institution_id != institution.pk
+            or form.cleaned_data["class_enrolled"].institution_id != institution.pk
+            or (form.cleaned_data.get("academic_session") and form.cleaned_data["academic_session"].institution_id != institution.pk)
+        ):
+            form.add_error(None, _("Student, class, and session must belong to the selected school."))
+            return self.form_invalid(form)
+        form.instance.institution = institution
         messages.success(self.request, _("Enrollment created successfully."))
         return super().form_valid(form)
 
@@ -1982,7 +2004,20 @@ class EnrollmentUpdateView(StaffRequiredMixin, UpdateView):
     template_name = "academics/enrollments/enrollment_form.html"
     success_url = reverse_lazy("academics:enrollment_list")
 
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
     def form_valid(self, form):
+        institution = self.object.institution
+        if (
+            form.cleaned_data["student"].institution_id != institution.pk
+            or form.cleaned_data["class_enrolled"].institution_id != institution.pk
+            or (form.cleaned_data.get("academic_session") and form.cleaned_data["academic_session"].institution_id != institution.pk)
+        ):
+            form.add_error(None, _("Student, class, and session must belong to this school."))
+            return self.form_invalid(form)
         messages.success(self.request, _("Enrollment updated successfully."))
         return super().form_valid(form)
 

@@ -4,9 +4,12 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
 from django.contrib.auth import views as auth_views
+from apps.core.pwa import web_manifest, service_worker
 
 
 urlpatterns = [
+    path("app.webmanifest", web_manifest, name="app_manifest"),
+    path("service-worker.js", service_worker, name="app_service_worker"),
     path("admin/", admin.site.urls),
     path("", RedirectView.as_view(pattern_name="users:guest_home"), name="home"),
     path("users/", include("apps.users.urls", namespace="users")),

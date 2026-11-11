@@ -2,6 +2,7 @@
 
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
+from django.views.generic import RedirectView
 from . import views
 
 app_name = 'library'
@@ -94,8 +95,8 @@ urlpatterns = [
     path('reports/member-activity/', views.MemberActivityReportView.as_view(), name='report_member_activity'),
     path('reports/fine-collection/', views.FineCollectionReportView.as_view(), name='report_fine_collection'),
     
-    # Authentication URLs (for library-specific login if needed)
-    path('login/', auth_views.LoginView.as_view(template_name='library/login.html'), name='login'),
+    # Reuse the common sign-in flow rather than an unmaintained second template.
+    path('login/', RedirectView.as_view(pattern_name='users:login', permanent=False), name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='library:login'), name='logout'),
 ]
 

@@ -184,7 +184,7 @@ class AuthorListView(InstitutionPermissionMixin, ListView):
                 | Q(nationality__icontains=search_query)
             )
 
-        return queryset
+        return queryset.order_by("pk")
 
 
 class AuthorDetailView(LoginRequiredMixin, DetailView):
@@ -440,7 +440,7 @@ class LibraryMemberListView(InstitutionPermissionMixin, ListView):
         if member_type_filter:
             queryset = queryset.filter(member_type=member_type_filter)
 
-        return queryset
+        return queryset.order_by("pk")
 
 
 class LibraryMemberDetailView(LoginRequiredMixin, DetailView):
@@ -1659,7 +1659,7 @@ class PublisherListView(LoginRequiredMixin, ListView):
                 | Q(email__icontains=search_query)
             )
 
-        return queryset
+        return queryset.order_by("pk")
 
 
 class PublisherDetailView(LoginRequiredMixin, DetailView):
@@ -1715,7 +1715,7 @@ class BookCategoryListView(LoginRequiredMixin, ListView):
                 Q(name__icontains=search_query) | Q(code__icontains=search_query)
             )
 
-        return queryset
+        return queryset.order_by("pk")
 
 
 class BookCategoryDetailView(LoginRequiredMixin, DetailView):

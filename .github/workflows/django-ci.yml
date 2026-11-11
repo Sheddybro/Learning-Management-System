@@ -1,0 +1,37 @@
+name: Django security and regression checks
+
+on:
+  push:
+    branches: [main, codex/**]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  django:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SECRET_KEY: ci-only-secret-not-for-production
+      EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Validate Django configuration
+        run: python manage.py check
+      - name: Ensure migrations are committed
+        run: python manage.py makemigrations --check --dry-run
+      - name: Run Django regression tests
+        run: python manage.py test apps.core.test_tenant_security apps.core.test_pwa apps.core.test_template_compilation apps.users.test_password_reset_security apps.attendance.test_navigation_regression --verbosity 2
+      - name: Run database-backed leave workflow tests
+        run: |
+          python -c 'import os; os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings"); import django; django.setup(); from django.conf import settings; from django.apps import apps; settings.MIGRATION_MODULES = {app.label: None for app in apps.get_app_configs()}; from django.core.management import call_command; call_command("test", "apps.attendance.test_leave_integration", verbosity=2, interactive=False)'
+      - name: Smoke-test public and authenticated pages
+        run: |
+          python -c 'import os; os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings"); import django; django.setup(); from django.conf import settings; from django.apps import apps; settings.MIGRATION_MODULES = {app.label: None for app in apps.get_app_configs()}; from django.core.management import call_command; call_command("test", "apps.users.test_public_page_smoke", "apps.academics.test_enrollment_api", verbosity=2, interactive=False)'

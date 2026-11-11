@@ -282,7 +282,7 @@ class EnrollmentForm {
             this.elements.availableClassesList.innerHTML = `
                 <div class="text-center text-muted py-3">
                     <i class="bi bi-exclamation-circle display-6"></i>
-                    <p class="mt-2 mb-0">{% trans "No classes available for this session" %}</p>
+                    <p class="mt-2 mb-0">No classes available for this session</p>
                 </div>
             `;
             return;
@@ -516,7 +516,7 @@ class EnrollmentForm {
         this.elements.availableClassesList.innerHTML = `
             <div class="text-center text-muted py-3">
                 <i class="bi bi-exclamation-circle display-6"></i>
-                <p class="mt-2 mb-0">{% trans "No classes available" %}</p>
+                <p class="mt-2 mb-0">No classes available</p>
             </div>
         `;
     }

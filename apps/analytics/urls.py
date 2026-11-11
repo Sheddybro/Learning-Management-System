@@ -13,8 +13,11 @@ urlpatterns = [
     
     # Report URLs
     path('reports/', login_required(views.report_list), name='report_list'),
+    path('reports/export/', login_required(views.export_reports), name='export_reports'),
     path('reports/<uuid:report_id>/', login_required(views.report_detail), name='report_detail'),
     path('reports/<uuid:report_id>/download/', login_required(views.download_report), name='download_report'),
+    path('reports/<uuid:report_id>/delete/', login_required(views.delete_report), name='delete_report'),
+    path('reports/generate/', login_required(views.report_type_picker), name='report_type_picker'),
     path('reports/generate/<uuid:report_type_id>/', login_required(views.generate_report), name='generate_report'),
     
     # KPI URLs

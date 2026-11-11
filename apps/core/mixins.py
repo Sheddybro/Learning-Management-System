@@ -355,7 +355,16 @@ def super_admin_required(view_func):
 # and ensure consistent permission checking across the entire system.
 
 
-class StudentRequiredMixin(UserPassesTestMixin):
+class AuthenticatedRoleTestMixin(UserPassesTestMixin):
+    """Authenticate before evaluating role tests, including in mixed-in views."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        return super().dispatch(request, *args, **kwargs)
+
+
+class StudentRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user is a student.
     Consolidated from: academics, assessment, attendance, health
@@ -365,7 +374,7 @@ class StudentRequiredMixin(UserPassesTestMixin):
         return hasattr(self.request.user, "student_profile")
 
 
-class TeacherRequiredMixin(UserPassesTestMixin):
+class TeacherRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user is a teacher, staff, or admin.
     Consolidated from: academics, assessment, attendance
@@ -387,7 +396,7 @@ class TeacherRequiredMixin(UserPassesTestMixin):
         return any(role.role.role_type in admin_roles for role in user_roles)
 
 
-class ParentRequiredMixin(UserPassesTestMixin):
+class ParentRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user is a parent.
     Consolidated from: users
@@ -398,7 +407,7 @@ class ParentRequiredMixin(UserPassesTestMixin):
         return any(role.role.role_type == "parent" for role in user_roles)
 
 
-class StaffRequiredMixin(UserPassesTestMixin):
+class StaffRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user is staff.
     Consolidated from: academics
@@ -408,7 +417,7 @@ class StaffRequiredMixin(UserPassesTestMixin):
         return self.request.user.is_staff
 
 
-class AdminRequiredMixin(UserPassesTestMixin):
+class AdminRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user has admin, principal, or super_admin role, or is a Django superuser.
     Consolidated from: academics
@@ -427,7 +436,7 @@ class AdminRequiredMixin(UserPassesTestMixin):
         return any(role.role.role_type in admin_roles for role in user_roles)
 
 
-class AdminOrTeacherRequiredMixin(UserPassesTestMixin):
+class AdminOrTeacherRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user has admin, principal, super_admin, school_admin role, or is a teacher.
     Consolidated from: assessment
@@ -446,7 +455,7 @@ class AdminOrTeacherRequiredMixin(UserPassesTestMixin):
         return any(role.role.role_type in allowed_roles for role in user_roles)
 
 
-class SupportStaffRequiredMixin(UserPassesTestMixin):
+class SupportStaffRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user is support staff.
     Consolidated from: support
@@ -463,7 +472,7 @@ class SupportStaffRequiredMixin(UserPassesTestMixin):
         return any(role.role.role_type in support_roles for role in user_roles)
 
 
-class TransportManagerRequiredMixin(UserPassesTestMixin):
+class TransportManagerRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user is a transport manager, staff, or admin.
     Consolidated from: transport
@@ -482,7 +491,7 @@ class TransportManagerRequiredMixin(UserPassesTestMixin):
         return any(role.role.role_type in transport_roles for role in user_roles)
 
 
-class LibrarianRequiredMixin(UserPassesTestMixin):
+class LibrarianRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user is a librarian, staff, or admin.
     Consolidated from: library
@@ -501,7 +510,7 @@ class LibrarianRequiredMixin(UserPassesTestMixin):
         return any(role.role.role_type in library_roles for role in user_roles)
 
 
-class HostelWardenRequiredMixin(UserPassesTestMixin):
+class HostelWardenRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user is a hostel warden, staff, or admin.
     Consolidated from: hostels
@@ -547,7 +556,7 @@ class FinanceAccessMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
-class AccountantRequiredMixin(UserPassesTestMixin):
+class AccountantRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user is an accountant, staff, or admin.
     Consolidated from: finance
@@ -566,7 +575,7 @@ class AccountantRequiredMixin(UserPassesTestMixin):
         return any(role.role.role_type in finance_roles for role in user_roles)
 
 
-class CommunicationStaffRequiredMixin(UserPassesTestMixin):
+class CommunicationStaffRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user is staff or admin for communication management.
     Consolidated from: communication
@@ -585,7 +594,7 @@ class CommunicationStaffRequiredMixin(UserPassesTestMixin):
         return any(role.role.role_type in comm_roles for role in user_roles)
 
 
-class CounselorRequiredMixin(UserPassesTestMixin):
+class CounselorRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user is a counselor.
     Consolidated from: academics
@@ -598,7 +607,7 @@ class CounselorRequiredMixin(UserPassesTestMixin):
         return False
 
 
-class CommitteeRequiredMixin(UserPassesTestMixin):
+class CommitteeRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user is a committee member.
     Consolidated from: academics
@@ -606,6 +615,8 @@ class CommitteeRequiredMixin(UserPassesTestMixin):
 
     def test_func(self):
         user = self.request.user
+        if not user.is_authenticated or not hasattr(user, "teacher_profile"):
+            return False
         # Check if user is a committee member
         return AcademicPlanningCommittee.objects.filter(
             models.Q(chairperson=user.teacher_profile)
@@ -665,7 +676,7 @@ class AcademicsAccessMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
-class DepartmentHeadRequiredMixin(UserPassesTestMixin):
+class DepartmentHeadRequiredMixin(AuthenticatedRoleTestMixin):
     """
     Mixin to ensure user is a department head.
     Consolidated from: academics

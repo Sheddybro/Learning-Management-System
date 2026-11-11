@@ -1210,8 +1210,10 @@ def create_notification(
     except Exception:
         inst = None
 
+    # Never assign a notification to an unrelated school's data. Users may
+    # exist before onboarding or a school membership is created.
     if not inst:
-        inst = Institution.objects.first()
+        return None
 
     notification = RealTimeNotification.objects.create(
         recipient=user,

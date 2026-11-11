@@ -1490,7 +1490,8 @@ class TransportReportView(LoginRequiredMixin, View):
             else:
                 accessible_insts = get_user_accessible_institutions(request.user)
         except Exception:
-            accessible_insts = None
+            # Fail closed: a failed institution lookup must not reveal all schools.
+            accessible_insts = None if request.user.is_superuser else []
 
         if report_type == "fuel":
             fuel_data = FuelRecord.objects.all()
@@ -1534,11 +1535,13 @@ class TransportReportView(LoginRequiredMixin, View):
             context["incident_data"] = incident_data.select_related("route_schedule")
 
         else:  # summary report
-            context["summary_data"] = self._get_summary_report(date_from, date_to)
+            context["summary_data"] = self._get_summary_report(
+                date_from, date_to, accessible_insts
+            )
 
         return render(request, self.template_name, context)
 
-    def _get_summary_report(self, date_from, date_to):
+    def _get_summary_report(self, date_from, date_to, accessible_insts):
         # Generate summary report data
         summary = {}
 

@@ -3,6 +3,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.views import View
 from django.views.generic import (
     ListView,
@@ -12,11 +13,13 @@ from django.views.generic import (
     DeleteView,
 )
 from django.urls import reverse_lazy
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q, Count, Avg, Sum
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
 import csv
+import io
+from uuid import UUID
 from django.core.paginator import Paginator
 from django.utils.translation import gettext_lazy as _
 
@@ -73,6 +76,7 @@ from .forms import (
     StudentSearchForm,
     TeacherSearchForm,
     BulkEnrollmentForm,
+    BulkEnrollmentCsvForm,
 )
 from apps.users.forms import (
     UserCreationForm,
@@ -1599,26 +1603,40 @@ class ClassListView(AcademicsAccessMixin, ListView):
     paginate_by = 12
 
     def get_queryset(self):
-        queryset = Class.objects.filter(status="active").select_related(
+        from apps.core.middleware import get_current_institution
+
+        queryset = Class.objects.filter(
+            status="active", institution=get_current_institution()
+        ).select_related(
             "grade_level", "class_teacher", "academic_session"
         )
 
         # Filter by grade level if provided
         grade_level_id = self.request.GET.get("grade_level")
         if grade_level_id:
-            queryset = queryset.filter(grade_level_id=grade_level_id)
+            try:
+                queryset = queryset.filter(grade_level_id=UUID(grade_level_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
 
         # Filter by academic session if provided
         session_id = self.request.GET.get("session")
         if session_id:
-            queryset = queryset.filter(academic_session_id=session_id)
+            try:
+                queryset = queryset.filter(academic_session_id=UUID(session_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
 
         return queryset
 
     def get_context_data(self, **kwargs):
+        from apps.core.middleware import get_current_institution
+
         context = super().get_context_data(**kwargs)
         context["grade_levels"] = GradeLevel.objects.filter(status="active")
-        context["sessions"] = AcademicSession.objects.all()
+        context["sessions"] = AcademicSession.objects.filter(
+            institution=get_current_institution()
+        )
         return context
 
 
@@ -1628,6 +1646,11 @@ class ClassDetailView(AcademicsAccessMixin, DetailView):
     model = Class
     template_name = "academics/classes/class_detail.html"
     context_object_name = "class_obj"
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1663,7 +1686,17 @@ class ClassCreateView(AdminRequiredMixin, CreateView):
     template_name = "academics/classes/class_form.html"
     success_url = reverse_lazy("academics:class_list")
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        form.instance.institution = get_current_institution()
         messages.success(self.request, _("Class created successfully."))
         return super().form_valid(form)
 
@@ -1675,6 +1708,18 @@ class ClassUpdateView(AdminRequiredMixin, UpdateView):
     form_class = ClassForm
     template_name = "academics/classes/class_form.html"
     success_url = reverse_lazy("academics:class_list")
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, _("Class updated successfully."))
@@ -1695,7 +1740,11 @@ class StudentListView(AcademicsAccessMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = Student.objects.filter(status="active").select_related("user")
+        from apps.core.middleware import get_current_institution
+
+        queryset = Student.objects.filter(
+            status="active", institution=get_current_institution()
+        ).select_related("user")
 
         # Apply search filters
         form = StudentSearchForm(self.request.GET)
@@ -1741,9 +1790,13 @@ class StudentListView(AcademicsAccessMixin, ListView):
         return queryset.distinct()
 
     def get_context_data(self, **kwargs):
+        from apps.core.middleware import get_current_institution
+
         context = super().get_context_data(**kwargs)
         context["search_form"] = StudentSearchForm(self.request.GET)
-        context["classes"] = Class.objects.filter(status="active")
+        context["classes"] = Class.objects.filter(
+            status="active", institution=get_current_institution()
+        )
         return context
 
 
@@ -1753,6 +1806,11 @@ class StudentDetailView(AcademicsAccessMixin, DetailView):
     model = Student
     template_name = "academics/students/student_detail.html"
     context_object_name = "student"
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1794,7 +1852,17 @@ class StudentCreateView(AdminRequiredMixin, CreateView):
     template_name = "academics/students/student_form.html"
     success_url = reverse_lazy("academics:student_list")
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        form.instance.institution = get_current_institution()
         messages.success(self.request, _("Student profile created successfully."))
         return super().form_valid(form)
 
@@ -1806,6 +1874,18 @@ class StudentUpdateView(AdminRequiredMixin, UpdateView):
     form_class = StudentForm
     template_name = "academics/students/student_form.html"
     success_url = reverse_lazy("academics:student_list")
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, _("Student profile updated successfully."))
@@ -1826,7 +1906,11 @@ class TeacherListView(AcademicsAccessMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = Teacher.objects.filter(status="active").select_related(
+        from apps.core.middleware import get_current_institution
+
+        queryset = Teacher.objects.filter(
+            status="active", institution=get_current_institution()
+        ).select_related(
             "user", "department"
         )
 
@@ -1856,9 +1940,13 @@ class TeacherListView(AcademicsAccessMixin, ListView):
         return queryset
 
     def get_context_data(self, **kwargs):
+        from apps.core.middleware import get_current_institution
+
         context = super().get_context_data(**kwargs)
         context["search_form"] = TeacherSearchForm(self.request.GET)
-        context["departments"] = Department.objects.filter(status="active")
+        context["departments"] = Department.objects.filter(
+            status="active", institution=get_current_institution()
+        )
         return context
 
 
@@ -1869,10 +1957,17 @@ class TeacherDetailView(AcademicsAccessMixin, DetailView):
     template_name = "academics/teachers/teacher_detail.html"
     context_object_name = "teacher"
 
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         teacher = self.object
-        current_session = AcademicSession.objects.filter(is_current=True).first()
+        current_session = AcademicSession.objects.filter(
+            is_current=True, institution=teacher.institution
+        ).first()
 
         if current_session:
             # Current subject assignments
@@ -1901,7 +1996,17 @@ class TeacherCreateView(AdminRequiredMixin, CreateView):
     template_name = "academics/teachers/teacher_form.html"
     success_url = reverse_lazy("academics:teacher_list")
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        form.instance.institution = get_current_institution()
         messages.success(self.request, _("Teacher profile created successfully."))
         return super().form_valid(form)
 
@@ -1913,6 +2018,18 @@ class TeacherUpdateView(AdminRequiredMixin, UpdateView):
     form_class = TeacherForm
     template_name = "academics/teachers/teacher_form.html"
     success_url = reverse_lazy("academics:teacher_list")
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, _("Teacher profile updated successfully."))
@@ -1933,19 +2050,27 @@ class EnrollmentListView(StaffRequiredMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
         queryset = Enrollment.objects.select_related(
             "student__user", "class_enrolled", "academic_session", "department"
-        )
+        ).filter(institution=get_current_institution())
 
         # Filter by class if provided
         class_id = self.request.GET.get("class")
         if class_id:
-            queryset = queryset.filter(class_enrolled_id=class_id)
+            try:
+                queryset = queryset.filter(class_enrolled_id=UUID(class_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
 
         # Filter by academic session if provided
         session_id = self.request.GET.get("session")
         if session_id:
-            queryset = queryset.filter(academic_session_id=session_id)
+            try:
+                queryset = queryset.filter(academic_session_id=UUID(session_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
 
         # Filter by status if provided
         status = self.request.GET.get("status")
@@ -1955,9 +2080,15 @@ class EnrollmentListView(StaffRequiredMixin, ListView):
         return queryset.order_by("-enrollment_date")
 
     def get_context_data(self, **kwargs):
+        from apps.core.middleware import get_current_institution
+
         context = super().get_context_data(**kwargs)
-        context["classes"] = Class.objects.filter(status="active")
-        context["sessions"] = AcademicSession.objects.all()
+        context["classes"] = Class.objects.filter(
+            status="active", institution=get_current_institution()
+        )
+        context["sessions"] = AcademicSession.objects.filter(
+            institution=get_current_institution()
+        )
         return context
 
 
@@ -1969,7 +2100,28 @@ class EnrollmentCreateView(StaffRequiredMixin, CreateView):
     template_name = "academics/enrollments/enrollment_form.html"
     success_url = reverse_lazy("academics:enrollment_list")
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        institution = get_current_institution()
+        if not institution:
+            form.add_error(None, _("Select a school before creating an enrollment."))
+            return self.form_invalid(form)
+        if (
+            form.cleaned_data["student"].institution_id != institution.pk
+            or form.cleaned_data["class_enrolled"].institution_id != institution.pk
+            or (form.cleaned_data.get("academic_session") and form.cleaned_data["academic_session"].institution_id != institution.pk)
+        ):
+            form.add_error(None, _("Student, class, and session must belong to the selected school."))
+            return self.form_invalid(form)
+        form.instance.institution = institution
         messages.success(self.request, _("Enrollment created successfully."))
         return super().form_valid(form)
 
@@ -1982,7 +2134,25 @@ class EnrollmentUpdateView(StaffRequiredMixin, UpdateView):
     template_name = "academics/enrollments/enrollment_form.html"
     success_url = reverse_lazy("academics:enrollment_list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = self.object.institution
+        return kwargs
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
     def form_valid(self, form):
+        institution = self.object.institution
+        if (
+            form.cleaned_data["student"].institution_id != institution.pk
+            or form.cleaned_data["class_enrolled"].institution_id != institution.pk
+            or (form.cleaned_data.get("academic_session") and form.cleaned_data["academic_session"].institution_id != institution.pk)
+        ):
+            form.add_error(None, _("Student, class, and session must belong to this school."))
+            return self.form_invalid(form)
         messages.success(self.request, _("Enrollment updated successfully."))
         return super().form_valid(form)
 
@@ -2046,13 +2216,60 @@ class BulkEnrollmentView(StaffRequiredMixin, View):
     """Bulk enroll students in a class."""
 
     def get(self, request):
-        form = BulkEnrollmentForm()
-        return render(
-            request, "academics/enrollments/bulk_enrollment.html", {"form": form}
+        from apps.core.middleware import get_current_institution
+
+        institution = get_current_institution()
+        return render(request, "academics/enrollments/bulk_enrollment_form.html", {
+            "form": BulkEnrollmentForm(institution=institution),
+            "csv_form": BulkEnrollmentCsvForm(institution=institution),
+        })
+
+    @transaction.atomic
+    def post(self, request):
+        from apps.core.middleware import get_current_institution
+
+        institution = get_current_institution()
+        csv_form = BulkEnrollmentCsvForm(
+            request.POST if request.POST.get("import_type") == "csv" else None,
+            request.FILES if request.POST.get("import_type") == "csv" else None,
+            institution=institution,
+        )
+        form = BulkEnrollmentForm(
+            request.POST if request.POST.get("import_type") != "csv" else None,
+            institution=institution,
         )
 
-    def post(self, request):
-        form = BulkEnrollmentForm(request.POST)
+        if request.POST.get("import_type") == "csv" and csv_form.is_valid():
+            try:
+                content = csv_form.cleaned_data["csv_file"].read().decode("utf-8-sig")
+                reader = csv.DictReader(io.StringIO(content))
+                if not reader.fieldnames or "student_id" not in reader.fieldnames:
+                    raise ValueError("A student_id column is required.")
+                student_ids = []
+                for row in reader:
+                    student_id = (row.get("student_id") or "").strip()
+                    if not student_id:
+                        raise ValueError("Every row needs a student_id.")
+                    student_ids.append(student_id)
+                    if len(student_ids) > 1000:
+                        raise ValueError("Maximum 1,000 student records per import.")
+                if not student_ids or len(set(student_ids)) != len(student_ids):
+                    raise ValueError("The CSV must contain unique student IDs.")
+                students = list(Student.objects.filter(
+                    institution=institution, status="active", student_id__in=student_ids
+                ))
+                if len(students) != len(student_ids):
+                    raise ValueError("One or more student IDs do not belong to this school.")
+                data = request.POST.copy()
+                data.setlist("students", [str(student.pk) for student in students])
+                form = BulkEnrollmentForm(data, institution=institution)
+            except (UnicodeError, csv.Error, ValueError) as error:
+                csv_form.add_error("csv_file", str(error))
+
+        if request.POST.get("import_type") == "csv" and csv_form.errors:
+            return render(request, "academics/enrollments/bulk_enrollment_form.html", {
+                "form": BulkEnrollmentForm(institution=institution), "csv_form": csv_form,
+            })
 
         if form.is_valid():
             students = form.cleaned_data["students"]
@@ -2081,6 +2298,7 @@ class BulkEnrollmentView(StaffRequiredMixin, View):
                     roll_number = last_roll.roll_number + 1 if last_roll else 1
 
                     Enrollment.objects.create(
+                        institution=institution,
                         student=student,
                         class_enrolled=class_enrolled,
                         academic_session=academic_session,
@@ -2098,9 +2316,9 @@ class BulkEnrollmentView(StaffRequiredMixin, View):
             )
             return redirect("academics:enrollment_list")
 
-        return render(
-            request, "academics/enrollments/bulk_enrollment.html", {"form": form}
-        )
+        return render(request, "academics/enrollments/bulk_enrollment_form.html", {
+            "form": form, "csv_form": csv_form,
+        })
 
 
 # =============================================================================
@@ -2117,10 +2335,12 @@ class TimetableListView(AcademicsAccessMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
         queryset = (
             super()
             .get_queryset()
-            .filter(status="active", is_published=True)
+            .filter(status="active", is_published=True, institution=get_current_institution())
             .select_related("class_assigned", "subject", "teacher", "academic_session")
             .order_by(
                 "academic_session", "class_assigned", "day_of_week", "period_number"
@@ -2137,47 +2357,11 @@ class TimetableDetailView(AcademicsAccessMixin, DetailView):
     context_object_name = "timetable"
 
     def get_queryset(self):
-        queryset = Timetable.objects.filter(is_published=True).select_related(
-            "class_assigned", "subject", "teacher"
-        )
+        from apps.core.middleware import get_current_institution
 
-        # Filter by class if provided
-        class_id = self.request.GET.get("class")
-        if class_id:
-            queryset = queryset.filter(class_assigned_id=class_id)
-
-        # Filter by teacher if provided
-        teacher_id = self.request.GET.get("teacher")
-        if teacher_id:
-            queryset = queryset.filter(teacher_id=teacher_id)
-
-        # Filter by academic session if provided
-        session_id = self.request.GET.get("session")
-        if session_id:
-            queryset = queryset.filter(academic_session_id=session_id)
-        else:
-            # Default to current session
-            current_session = AcademicSession.objects.filter(is_current=True).first()
-            if current_session:
-                queryset = queryset.filter(academic_session=current_session)
-
-        return queryset.order_by("day_of_week", "period_number")
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["classes"] = Class.objects.filter(status="active")
-        context["teachers"] = Teacher.objects.filter(status="active")
-        context["sessions"] = AcademicSession.objects.all()
-
-        # Group timetable by day for easier display
-        timetable_data = {}
-        for entry in context["timetable_entries"]:
-            if entry.day_of_week not in timetable_data:
-                timetable_data[entry.day_of_week] = []
-            timetable_data[entry.day_of_week].append(entry)
-
-        context["timetable_data"] = timetable_data
-        return context
+        return Timetable.objects.filter(
+            is_published=True, institution=get_current_institution()
+        ).select_related("class_assigned", "subject", "teacher", "academic_session")
 
 
 class StudentTimetableView(StudentRequiredMixin, View):
@@ -2309,7 +2493,17 @@ class TimetableCreateView(StaffRequiredMixin, CreateView):
     template_name = "academics/timetable/timetable_form.html"
     success_url = reverse_lazy("academics:timetable_list")
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        form.instance.institution = get_current_institution()
         messages.success(self.request, _("Timetable entry created successfully."))
         return super().form_valid(form)
 
@@ -2321,6 +2515,18 @@ class TimetableUpdateView(StaffRequiredMixin, UpdateView):
     form_class = TimetableForm
     template_name = "academics/timetable/timetable_form.html"
     success_url = reverse_lazy("academics:timetable_list")
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, _("Timetable entry updated successfully."))
@@ -2341,19 +2547,28 @@ class ClassMaterialListView(AcademicsAccessMixin, ListView):
     paginate_by = 15
 
     def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
         queryset = ClassMaterial.objects.filter(
-            is_public=True, publish_date__lte=timezone.now()
+            is_public=True, publish_date__lte=timezone.now(),
+            institution=get_current_institution(),
         ).select_related("subject", "class_assigned", "teacher")
 
         # Filter by subject if provided
         subject_id = self.request.GET.get("subject")
         if subject_id:
-            queryset = queryset.filter(subject_id=subject_id)
+            try:
+                queryset = queryset.filter(subject_id=UUID(subject_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
 
         # Filter by class if provided
         class_id = self.request.GET.get("class")
         if class_id:
-            queryset = queryset.filter(class_assigned_id=class_id)
+            try:
+                queryset = queryset.filter(class_assigned_id=UUID(class_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
 
         # Filter by material type if provided
         material_type = self.request.GET.get("type")
@@ -2363,9 +2578,15 @@ class ClassMaterialListView(AcademicsAccessMixin, ListView):
         return queryset.order_by("-publish_date")
 
     def get_context_data(self, **kwargs):
+        from apps.core.middleware import get_current_institution
+
         context = super().get_context_data(**kwargs)
-        context["subjects"] = Subject.objects.filter(status="active")
-        context["classes"] = Class.objects.filter(status="active")
+        context["subjects"] = Subject.objects.filter(
+            status="active", institution=get_current_institution()
+        )
+        context["classes"] = Class.objects.filter(
+            status="active", institution=get_current_institution()
+        )
         return context
 
 
@@ -2375,6 +2596,11 @@ class ClassMaterialDetailView(AcademicsAccessMixin, DetailView):
     model = ClassMaterial
     template_name = "academics/materials/material_detail.html"
     context_object_name = "material"
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
 
     def get(self, request, *args, **kwargs):
         # Increment view count
@@ -2392,6 +2618,13 @@ class ClassMaterialCreateView(TeacherRequiredMixin, CreateView):
     form_class = ClassMaterialForm
     template_name = "academics/materials/material_form.html"
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         user = self.request.user
@@ -2403,61 +2636,61 @@ class ClassMaterialCreateView(TeacherRequiredMixin, CreateView):
         return form
 
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        institution = get_current_institution()
+        if institution is None:
+            form.add_error(None, _("Select a school before uploading materials."))
+            return self.form_invalid(form)
+        form.instance.institution = institution
         user = self.request.user
 
         if hasattr(user, "teacher_profile"):
+            if user.teacher_profile.institution_id != institution.pk:
+                form.add_error(None, _("Your teacher profile belongs to another school."))
+                return self.form_invalid(form)
             form.instance.teacher = user.teacher_profile
         else:
-            # User is admin/staff without teacher profile, assign system admin teacher
-            admin_teacher = self.get_or_create_system_admin_teacher()
+            # Staff without a teacher profile use a disabled school-local service account.
+            admin_teacher = self.get_or_create_system_admin_teacher(institution)
             form.instance.teacher = admin_teacher
 
         messages.success(self.request, _("Class material created successfully."))
         return super().form_valid(form)
 
-    def get_or_create_system_admin_teacher(self):
-        """Get or create the system admin teacher account."""
-        from apps.users.models import User, Role
+    def get_or_create_system_admin_teacher(self, institution):
+        """Provide a disabled upload attribution account isolated to this school."""
+        from apps.users.models import User
 
-        # Try to find existing system admin teacher
-        admin_teacher = Teacher.objects.filter(is_system_admin=True).first()
-        if admin_teacher:
-            return admin_teacher
-
-        # Create a system user for admin if it doesn't exist
-        admin_role = Role.objects.filter(role_type=Role.RoleType.ADMIN).first()
-        if not admin_role:
-            # Fallback to first admin-like role
-            admin_role = Role.objects.filter(
-                role_type__in=["admin", "principal", "super_admin"]
-            ).first()
+        if institution is None:
+            raise ValidationError(_("Select a school before uploading materials."))
 
         system_user, created = User.objects.get_or_create(
-            username="system_admin_teacher",
+            email=f"materials-system-{institution.pk.hex}@internal.invalid",
             defaults={
-                "first_name": "System",
-                "last_name": "Admin Teacher",
-                "email": "admin@school.local",
-                "is_staff": True,
-                "is_superuser": False,
+                "first_name": "Materials", "last_name": "System",
+                "is_active": False, "is_staff": False, "is_superuser": False,
             },
         )
+        if created:
+            system_user.set_unusable_password()
+            system_user.save(update_fields=["password"])
 
-        # Assign admin role if not already assigned
-        if admin_role and not system_user.user_roles.filter(role=admin_role).exists():
-            system_user.user_roles.create(role=admin_role)
-
-        # Create the teacher profile
-        admin_teacher = Teacher.objects.create(
+        identifier = f"MAT{institution.pk.hex[:12].upper()}"
+        teacher, _ = Teacher.objects.get_or_create(
             user=system_user,
-            teacher_id="SYSTEM_ADMIN",
-            employee_id="SYS_ADMIN_001",
-            joining_date=timezone.now().date(),
-            is_system_admin=True,
-            bio="System Administrator Teacher account for materials uploaded by admin users.",
+            defaults={
+                "institution": institution,
+                "teacher_id": identifier,
+                "employee_id": identifier,
+                "joining_date": timezone.now().date(),
+                "is_system_admin": True,
+                "bio": "Non-login attribution profile for school staff uploads.",
+            },
         )
-
-        return admin_teacher
+        if teacher.institution_id != institution.pk:
+            raise ValidationError(_("Materials attribution belongs to another school."))
+        return teacher
 
     def get_success_url(self):
         return reverse_lazy("academics:material_detail", kwargs={"pk": self.object.pk})
@@ -2469,6 +2702,18 @@ class ClassMaterialUpdateView(TeacherRequiredMixin, UpdateView):
     model = ClassMaterial
     form_class = ClassMaterialForm
     template_name = "academics/materials/material_form.html"
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, _("Class material updated successfully."))
@@ -2492,8 +2737,10 @@ class SchoolPolicyListView(AcademicsAccessMixin, ListView):
     paginate_by = 10
 
     def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
         queryset = (
-            SchoolPolicy.objects.filter(status="active")
+            SchoolPolicy.objects.filter(status="active", institution=get_current_institution())
             .select_related("academic_session", "department")
             .prefetch_related("attachments")
         )
@@ -2507,18 +2754,28 @@ class SchoolPolicyListView(AcademicsAccessMixin, ListView):
         if policy_type:
             queryset = queryset.filter(policy_type=policy_type)
         if academic_session_id:
-            queryset = queryset.filter(academic_session_id=academic_session_id)
+            try:
+                queryset = queryset.filter(academic_session_id=UUID(academic_session_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
         if department_id:
-            queryset = queryset.filter(department_id=department_id)
+            try:
+                queryset = queryset.filter(department_id=UUID(department_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
         if is_active:
             queryset = queryset.filter(is_active=(is_active.lower() == "true"))
 
         return queryset.order_by("-effective_date", "policy_name")
 
     def get_context_data(self, **kwargs):
+        from apps.core.middleware import get_current_institution
+
         context = super().get_context_data(**kwargs)
         context["policy_types"] = SchoolPolicy.PolicyType.choices
-        context["academic_sessions"] = AcademicSession.objects.filter(status="active")
+        context["academic_sessions"] = AcademicSession.objects.filter(
+            status="active", institution=get_current_institution()
+        )
         context["departments"] = Department.objects.filter(status="active")
 
         # Pass current filter values for form pre-population
@@ -2539,6 +2796,11 @@ class SchoolPolicyDetailView(AcademicsAccessMixin, DetailView):
     template_name = "academics/policies/policy_detail.html"
     context_object_name = "policy"
 
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["attachments"] = self.object.attachments.all()
@@ -2553,7 +2815,17 @@ class SchoolPolicyCreateView(StaffRequiredMixin, CreateView):
     template_name = "academics/policies/policy_form.html"
     success_url = reverse_lazy("academics:policy_list")
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        form.instance.institution = get_current_institution()
         messages.success(self.request, _("School policy created successfully."))
         return super().form_valid(form)
 
@@ -2571,6 +2843,18 @@ class SchoolPolicyUpdateView(StaffRequiredMixin, UpdateView):
     form_class = SchoolPolicyForm
     template_name = "academics/policies/policy_form.html"
     success_url = reverse_lazy("academics:policy_list")
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, _("School policy updated successfully."))
@@ -2592,6 +2876,8 @@ class GetClassInfoView(AcademicsAccessMixin, View):
     """API view to get detailed class information including grade level education stage."""
 
     def get(self, request):
+        from apps.core.middleware import get_current_institution
+
         class_id = request.GET.get("class_id")
 
         if not class_id:
@@ -2602,7 +2888,7 @@ class GetClassInfoView(AcademicsAccessMixin, View):
         try:
             class_obj = Class.objects.select_related(
                 "grade_level", "class_teacher__user", "academic_session"
-            ).get(id=class_id)
+            ).get(id=class_id, institution=get_current_institution())
 
             # Get current enrollment count
             current_students = class_obj.enrollments.filter(
@@ -2645,18 +2931,37 @@ class GetClassInfoView(AcademicsAccessMixin, View):
             return JsonResponse(
                 {"success": False, "message": "Class not found"}, status=404
             )
-        except Exception as e:
-            return JsonResponse({"success": False, "message": str(e)}, status=500)
+        except (ValueError, TypeError, ValidationError):
+            return JsonResponse(
+                {"success": False, "message": "Invalid class ID"}, status=400
+            )
 
 
 class GetClassesByGradeView(AcademicsAccessMixin, View):
     """AJAX view to get classes by grade level."""
 
     def get(self, request):
+        from apps.core.middleware import get_current_institution
+
         grade_level_id = request.GET.get("grade_level_id")
         session_id = request.GET.get("session_id")
 
-        classes = Class.objects.filter(grade_level_id=grade_level_id, status="active")
+        if not grade_level_id:
+            return JsonResponse({"classes": []})
+        try:
+            from uuid import UUID
+
+            UUID(str(grade_level_id))
+            if session_id:
+                UUID(str(session_id))
+        except (ValueError, TypeError):
+            return JsonResponse({"classes": [], "error": "Invalid identifier"}, status=400)
+
+        classes = Class.objects.filter(
+            grade_level_id=grade_level_id,
+            status="active",
+            institution=get_current_institution(),
+        )
 
         if session_id:
             classes = classes.filter(academic_session_id=session_id)
@@ -2670,6 +2975,9 @@ class GetTimetableByClassView(AcademicsAccessMixin, View):
     """AJAX view to get timetable for a class."""
 
     def get(self, request, class_id=None, *args, **kwargs):
+        from apps.core.middleware import get_current_institution
+        from uuid import UUID
+
         # Accept `class_id` either as path kwarg or GET param
         if not class_id:
             class_id = request.GET.get("class_id")
@@ -2678,14 +2986,25 @@ class GetTimetableByClassView(AcademicsAccessMixin, View):
         if not class_id:
             return JsonResponse({"error": "Class ID required"}, status=400)
 
+        try:
+            UUID(str(class_id))
+            if session_id:
+                UUID(str(session_id))
+        except (ValueError, TypeError):
+            return JsonResponse({"error": "Invalid identifier"}, status=400)
+
         timetable_entries = Timetable.objects.filter(
-            class_assigned_id=class_id, is_published=True
+            class_assigned_id=class_id,
+            institution=get_current_institution(),
+            is_published=True,
         )
 
         if session_id:
             timetable_entries = timetable_entries.filter(academic_session_id=session_id)
         else:
-            current_session = AcademicSession.objects.filter(is_current=True).first()
+            current_session = AcademicSession.objects.filter(
+                is_current=True, institution=get_current_institution()
+            ).first()
             if current_session:
                 timetable_entries = timetable_entries.filter(
                     academic_session=current_session
@@ -2714,8 +3033,19 @@ class AcademicCalendarView(AcademicsAccessMixin, View):
     """Academic calendar view."""
 
     def get(self, request):
-        current_session = AcademicSession.objects.filter(is_current=True).first()
-        holidays = Holiday.objects.filter(academic_session=current_session)
+        from apps.core.middleware import get_current_institution
+
+        school = get_current_institution()
+        current_session = AcademicSession.objects.filter(
+            is_current=True, institution=school
+        ).first()
+        if current_session is None:
+            return render(request, "academics/calendar/no_session.html", {
+                "current_session": None,
+            })
+        holidays = Holiday.objects.filter(
+            academic_session=current_session, institution=school
+        )
 
         context = {
             "current_session": current_session,
@@ -3306,6 +3636,15 @@ class HolidayDetailView(AcademicsAccessMixin, DetailView):
     model = Holiday
     template_name = "academics/holidays/holiday_detail.html"
     context_object_name = "holiday"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["other_holidays"] = (
+            self.object.academic_session.holidays.exclude(pk=self.object.pk)
+            .order_by("date")
+            if self.object.academic_session_id else []
+        )
+        return context
 
 
 class HolidayCreateView(StaffRequiredMixin, CreateView):
@@ -4477,11 +4816,13 @@ class AcademicWarningsView(CounselorRequiredMixin, ListView):
 # =============================================================================
 
 
-class CommitteeRequiredMixin(UserPassesTestMixin):
+class CommitteeRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
     """Mixin to ensure user is a committee member."""
 
     def test_func(self):
         user = self.request.user
+        if not user.is_authenticated or not hasattr(user, "teacher_profile"):
+            return False
         # Check if user is a committee member
         return AcademicPlanningCommittee.objects.filter(
             models.Q(chairperson=user.teacher_profile)

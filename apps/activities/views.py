@@ -17,8 +17,12 @@ from django.template.loader import render_to_string
 from django.core.paginator import Paginator
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
+from django.db import transaction
+from django.views.decorators.http import require_POST
+from uuid import UUID
 
 from apps.core.mixins import InstitutionPermissionMixin
+from apps.core.middleware import get_user_accessible_institutions
 
 from .models import (
     ActivityCategory,
@@ -172,6 +176,13 @@ class ActivityCreateView(
     success_url = reverse_lazy("activities:activity_list")
 
     def form_valid(self, form):
+        membership = self.request.user.institution_memberships.order_by(
+            "-is_primary"
+        ).first()
+        if membership is None:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied("An institution assignment is required")
+        form.instance.institution = membership.institution
         messages.success(self.request, _("Activity created successfully."))
         return super().form_valid(form)
 
@@ -186,6 +197,14 @@ class ActivityUpdateView(
     def get_success_url(self):
         return reverse("activities:activity_detail", kwargs={"pk": self.object.pk})
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(
+                institution__in=get_user_accessible_institutions(self.request.user)
+            )
+        return queryset
+
     def form_valid(self, form):
         messages.success(self.request, _("Activity updated successfully."))
         return super().form_valid(form)
@@ -197,6 +216,14 @@ class ActivityDeleteView(
     model = Activity
     template_name = "activities/activity_confirm_delete.html"
     success_url = reverse_lazy("activities:activity_list")
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(
+                institution__in=get_user_accessible_institutions(self.request.user)
+            )
+        return queryset
 
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, _("Activity deleted successfully."))
@@ -334,11 +361,16 @@ def update_enrollment_status(request, pk):
     if request.method != "POST":
         return JsonResponse({"success": False, "error": "Method not allowed"})
 
-    enrollment = get_object_or_404(ActivityEnrollment, pk=pk)
+    enrollments = ActivityEnrollment.objects.select_related("activity")
+    if not request.user.is_superuser:
+        enrollments = enrollments.filter(
+            activity__institution__in=get_user_accessible_institutions(request.user)
+        )
+    enrollment = get_object_or_404(enrollments, pk=pk)
 
     # Check permissions
-    if not (request.user.is_staff or enrollment.activity.coordinator == request.user):
-        return JsonResponse({"success": False, "error": "Permission denied"})
+    if not (request.user.is_superuser or request.user.is_staff or enrollment.activity.coordinator == request.user):
+        return JsonResponse({"success": False, "error": "Permission denied"}, status=403)
 
     new_status = request.POST.get("status")
     if new_status not in dict(ActivityEnrollment.EnrollmentStatus.choices):
@@ -354,6 +386,35 @@ def update_enrollment_status(request, pk):
             "status_class": enrollment.status,
         }
     )
+
+
+@login_required
+@require_POST
+def bulk_update_enrollment_status(request):
+    """Change selected enrolments only when each is inside the user's scope."""
+    raw_ids = request.POST.getlist("enrollment_ids")
+    status = request.POST.get("status")
+    if not raw_ids or len(raw_ids) > 100 or status not in dict(ActivityEnrollment.EnrollmentStatus.choices):
+        return JsonResponse({"success": False, "error": "Invalid selection or status"}, status=400)
+    try:
+        ids = {UUID(value) for value in raw_ids}
+    except (ValueError, TypeError):
+        return JsonResponse({"success": False, "error": "Invalid enrollment ID"}, status=400)
+
+    enrollments = ActivityEnrollment.objects.filter(pk__in=ids)
+    if not request.user.is_superuser:
+        enrollments = enrollments.filter(
+            activity__institution__in=get_user_accessible_institutions(request.user)
+        )
+        if not request.user.is_staff:
+            enrollments = enrollments.filter(activity__coordinator=request.user)
+    if enrollments.count() != len(ids):
+        return JsonResponse({"success": False, "error": "Selection contains inaccessible records"}, status=403)
+
+    with transaction.atomic():
+        updated = enrollments.update(status=status)
+    messages.success(request, _("Updated %(count)s enrollments.") % {"count": updated})
+    return redirect("activities:enrollment_list")
 
 
 class ActivityAttendanceView(
@@ -454,6 +515,10 @@ class EquipmentListView(InstitutionPermissionMixin, ListView):
 
     def get_queryset(self):
         queryset = Equipment.objects.all()
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(
+                institution__in=get_user_accessible_institutions(self.request.user)
+            )
 
         # Filter by type, condition, availability
         equipment_type = self.request.GET.get("type")
@@ -481,6 +546,13 @@ class EquipmentCreateView(
     success_url = reverse_lazy("activities:equipment_list")
 
     def form_valid(self, form):
+        membership = self.request.user.institution_memberships.order_by(
+            "-is_primary"
+        ).first()
+        if membership is None:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied("An institution assignment is required")
+        form.instance.institution = membership.institution
         messages.success(self.request, _("Equipment added successfully."))
         return super().form_valid(form)
 
@@ -493,7 +565,15 @@ class EquipmentUpdateView(
     template_name = "activities/equipment_form.html"
 
     def get_success_url(self):
-        return reverse("activities:equipment_detail", kwargs={"pk": self.object.pk})
+        return reverse("activities:equipment_list")
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(
+                institution__in=get_user_accessible_institutions(self.request.user)
+            )
+        return queryset
 
     def form_valid(self, form):
         messages.success(self.request, _("Equipment updated successfully."))
@@ -508,6 +588,10 @@ class ActivityBudgetListView(InstitutionPermissionMixin, ListView):
 
     def get_queryset(self):
         queryset = ActivityBudget.objects.select_related("activity", "approved_by")
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(
+                institution__in=get_user_accessible_institutions(self.request.user)
+            )
 
         activity_id = self.request.GET.get("activity")
         budget_type = self.request.GET.get("type")

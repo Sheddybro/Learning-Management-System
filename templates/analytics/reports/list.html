@@ -13,7 +13,7 @@
 {% block page_actions %}
 <div class="page-actions">
     <div class="btn-group" role="group">
-        <a href="{% url 'analytics:generate_report' %}" class="btn btn-success">
+        <a href="{% url 'analytics:report_type_picker' %}" class="btn btn-success">
             <i class="bi bi-plus-circle me-2"></i>{% trans "Generate Report" %}
         </a>
         <button type="button" class="btn btn-outline-primary" id="exportAllBtn">
@@ -392,7 +392,7 @@
 
                 <div class="report-actions">
                     {% if report.status == 'completed' %}
-                    <a href="{% url 'analytics:report_download' report.pk %}" class="btn btn-success btn-action">
+                    <a href="{% url 'analytics:download_report' report.pk %}" class="btn btn-success btn-action">
                         <i class="bi bi-download me-1"></i>{% trans "Download" %}
                     </a>
                     <a href="{% url 'analytics:report_detail' report.pk %}" class="btn btn-outline-primary btn-action">
@@ -403,9 +403,9 @@
                         <i class="bi bi-arrow-repeat me-1"></i>{% trans "Generating..." %}
                     </button>
                     {% elif report.status == 'failed' %}
-                    <button class="btn btn-outline-danger btn-action" onclick="retryReport({{ report.pk }})">
-                        <i class="bi bi-arrow-clockwise me-1"></i>{% trans "Retry" %}
-                    </button>
+                    <a class="btn btn-outline-primary btn-action" href="{% url 'analytics:report_type_picker' %}">
+                        <i class="bi bi-plus-circle me-1"></i>{% trans "New report" %}
+                    </a>
                     {% endif %}
                     <div class="dropdown">
                         <button class="btn btn-outline-secondary btn-action dropdown-toggle" type="button" data-bs-toggle="dropdown">
@@ -415,13 +415,15 @@
                             <li><a class="dropdown-item" href="{% url 'analytics:report_detail' report.pk %}">
                                 <i class="bi bi-info-circle me-2"></i>{% trans "Details" %}
                             </a></li>
-                            <li><a class="dropdown-item" href="{% url 'analytics:duplicate_report' report.pk %}">
-                                <i class="bi bi-copy me-2"></i>{% trans "Duplicate" %}
-                            </a></li>
+                            {% if request.user.is_superuser or report.generated_by_id == request.user.pk %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-danger" href="#" onclick="deleteReport({{ report.pk }}, '{{ report.name }}')">
-                                <i class="bi bi-trash me-2"></i>{% trans "Delete" %}
-                            </a></li>
+                            <li>
+                                <form method="post" action="{% url 'analytics:delete_report' report.pk %}" onsubmit="return confirm('{% trans "Delete this report? This cannot be undone." %}')">
+                                    {% csrf_token %}
+                                    <button class="dropdown-item text-danger" type="submit"><i class="bi bi-trash me-2"></i>{% trans "Delete" %}</button>
+                                </form>
+                            </li>
+                            {% endif %}
                         </ul>
                     </div>
                 </div>
@@ -449,14 +451,14 @@
             </li>
             {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %>&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&amp;{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
             </li>
             {% endif %}
             {% endfor %}
 
             {% if page_obj.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %>&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&amp;{{ key }}={{ value }}{% endif %}{% endfor %}">
                     {% trans "Next" %} <i class="bi bi-chevron-right"></i>
                 </a>
             </li>
@@ -475,7 +477,7 @@
         <p class="text-muted mb-4">
             {% trans "No reports have been generated yet. Create your first analytics report to get started." %}
         </p>
-        <a href="{% url 'analytics:generate_report' %}" class="btn btn-success btn-lg">
+        <a href="{% url 'analytics:report_type_picker' %}" class="btn btn-success btn-lg">
             <i class="bi bi-plus-circle me-2"></i>{% trans "Generate First Report" %}
         </a>
     </div>
@@ -514,48 +516,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-
-    // Retry report functionality
-    window.retryReport = function(reportId) {
-        if (confirm('{% trans "Retry generating this report?" %}')) {
-            fetch(`{% url "analytics:retry_report" 0 %}`.replace('0', reportId), {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast('{% trans "Report regeneration started" %}', 'success');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    showToast('{% trans "Failed to retry report" %}', 'error');
-                }
-            })
-            .catch(error => {
-                showToast('{% trans "Error retrying report" %}', 'error');
-            });
-        }
-    };
-
-    // Delete report functionality
-    window.deleteReport = function(reportId, reportName) {
-        if (confirm(`{% trans "Are you sure you want to delete the report" %} "${reportName}"?`)) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = `{% url "analytics:delete_report" 0 %}`.replace('0', reportId);
-
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = 'csrfmiddlewaretoken';
-            csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-            form.appendChild(csrfInput);
-            document.body.appendChild(form);
-            form.submit();
-        }
-    };
 
     function showToast(message, type = 'info') {
         const toast = document.createElement('div');

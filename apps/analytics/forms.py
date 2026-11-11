@@ -152,7 +152,7 @@ class ReportForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        from apps.core.models import AcademicSession
+        from apps.academics.models import AcademicSession
         self.fields['academic_session'].queryset = AcademicSession.objects.filter(status='active')
 
     def clean_parameters(self):
@@ -491,7 +491,7 @@ class KPIMeasurementForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        from apps.core.models import AcademicSession
+        from apps.academics.models import AcademicSession
         self.fields['academic_session'].queryset = AcademicSession.objects.filter(status='active')
 
     def clean_measured_at(self):
@@ -880,7 +880,7 @@ class ReportSearchForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        from apps.core.models import AcademicSession
+        from apps.academics.models import AcademicSession
         self.fields['academic_session'].queryset = AcademicSession.objects.filter(status='active')
 
     def clean(self):

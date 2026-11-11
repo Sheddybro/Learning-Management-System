@@ -29,6 +29,11 @@ urlpatterns = [
         views.update_enrollment_status,
         name="update_enrollment_status",
     ),
+    path(
+        "enrollments/bulk-status/",
+        views.bulk_update_enrollment_status,
+        name="bulk_update_enrollment_status",
+    ),
     # Attendance
     path(
         "<uuid:pk>/attendance/",

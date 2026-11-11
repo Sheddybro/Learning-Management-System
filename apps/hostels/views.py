@@ -1145,17 +1145,27 @@ def api_hostel_list(request):
     """
     API view for mobile app to get hostel list.
     """
-    hostels = Hostel.objects.filter(is_active=True).values(
-        "id",
-        "name",
-        "code",
-        "hostel_type",
-        "category",
-        "capacity",
-        "current_occupancy",
-        "available_beds",
-    )
-    return JsonResponse(list(hostels), safe=False)
+    from apps.core.middleware import get_user_accessible_institutions
+
+    hostels = Hostel.objects.filter(is_active=True)
+    if not request.user.is_superuser:
+        hostels = hostels.filter(
+            institution__in=get_user_accessible_institutions(request.user)
+        )
+    result = [
+        {
+            "id": str(hostel.pk),
+            "name": hostel.name,
+            "code": hostel.code,
+            "hostel_type": hostel.hostel_type,
+            "category": hostel.category,
+            "capacity": hostel.capacity,
+            "current_occupancy": hostel.current_occupancy,
+            "available_beds": hostel.available_beds,
+        }
+        for hostel in hostels.order_by("name")
+    ]
+    return JsonResponse(result, safe=False)
 
 
 @login_required

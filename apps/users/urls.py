@@ -22,8 +22,13 @@ urlpatterns = [
     path('login/', views.custom_login, name='login'),
     path('logout/', views.custom_logout, name='logout'),
     
-    # Custom password retrieval view (sends password directly)
-    path('password-reset/', views.custom_password_retrieval, name='password_reset'),
+    # Django's token-based reset never exposes or overwrites a password in email.
+    path('password-reset/', auth_views.PasswordResetView.as_view(
+        template_name='users/password_retrieval.html',
+        email_template_name='users/emails/password_reset_email.html',
+        subject_template_name='users/emails/password_reset_subject.txt',
+        success_url='/users/password-reset/done/',
+    ), name='password_reset'),
     
     path('password-reset/done/', 
          auth_views.PasswordResetDoneView.as_view(

@@ -848,13 +848,41 @@ class FinancialReportDeleteView(FinanceObjectScopeMixin, AccountantRequiredMixin
 
 
 class ReceiptDownloadView(FinanceAccessMixin, View):
-    """Placeholder view for downloading receipts."""
+    """Render a printable receipt for a completed, school-scoped payment."""
 
     def get(self, request, pk):
-        messages.info(
-            request, _(f"Receipt download for Payment ID {pk}. (Placeholder)")
+        from apps.core.middleware import get_user_accessible_institutions
+
+        payment = get_object_or_404(
+            Payment.objects.select_related(
+                "institution",
+                "invoice__academic_session",
+                "student__user",
+                "received_by",
+            ),
+            pk=pk,
+            invoice__student__institution__in=get_user_accessible_institutions(request.user),
         )
-        return HttpResponse(_("Receipt Download Placeholder"))
+        if payment.status != Payment.PaymentStatus.COMPLETED:
+            messages.warning(
+                request,
+                _("A receipt can only be issued for a completed payment."),
+            )
+            return redirect("finance:payment_detail", pk=payment.pk)
+
+        if not payment.receipt_issued:
+            Payment.objects.filter(pk=payment.pk).update(receipt_issued=True)
+            payment.receipt_issued = True
+
+        return render(
+            request,
+            "finance/payments/payment_receipt.html",
+            {
+                "payment": payment,
+                "institution": payment.institution,
+                "receipt_date": timezone.localdate(),
+            },
+        )
 
 
 class PaystackWebhookView(View):

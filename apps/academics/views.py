@@ -2057,12 +2057,18 @@ class EnrollmentListView(StaffRequiredMixin, ListView):
         # Filter by class if provided
         class_id = self.request.GET.get("class")
         if class_id:
-            queryset = queryset.filter(class_enrolled_id=class_id)
+            try:
+                queryset = queryset.filter(class_enrolled_id=UUID(class_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
 
         # Filter by academic session if provided
         session_id = self.request.GET.get("session")
         if session_id:
-            queryset = queryset.filter(academic_session_id=session_id)
+            try:
+                queryset = queryset.filter(academic_session_id=UUID(session_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
 
         # Filter by status if provided
         status = self.request.GET.get("status")

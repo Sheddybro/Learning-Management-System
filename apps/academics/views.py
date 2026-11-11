@@ -1850,7 +1850,17 @@ class StudentCreateView(AdminRequiredMixin, CreateView):
     template_name = "academics/students/student_form.html"
     success_url = reverse_lazy("academics:student_list")
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        form.instance.institution = get_current_institution()
         messages.success(self.request, _("Student profile created successfully."))
         return super().form_valid(form)
 
@@ -1862,6 +1872,18 @@ class StudentUpdateView(AdminRequiredMixin, UpdateView):
     form_class = StudentForm
     template_name = "academics/students/student_form.html"
     success_url = reverse_lazy("academics:student_list")
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, _("Student profile updated successfully."))
@@ -1972,7 +1994,17 @@ class TeacherCreateView(AdminRequiredMixin, CreateView):
     template_name = "academics/teachers/teacher_form.html"
     success_url = reverse_lazy("academics:teacher_list")
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        form.instance.institution = get_current_institution()
         messages.success(self.request, _("Teacher profile created successfully."))
         return super().form_valid(form)
 
@@ -1984,6 +2016,18 @@ class TeacherUpdateView(AdminRequiredMixin, UpdateView):
     form_class = TeacherForm
     template_name = "academics/teachers/teacher_form.html"
     success_url = reverse_lazy("academics:teacher_list")
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, _("Teacher profile updated successfully."))

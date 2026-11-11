@@ -899,10 +899,25 @@ class GenerateInvoiceAPIView(AccountantRequiredMixin, View):
                     status=400,
                 )
 
+            from apps.core.middleware import get_user_accessible_institutions
+
+            accessible_institutions = get_user_accessible_institutions(request.user)
             academic_session = get_object_or_404(
-                AcademicSession, id=academic_session_id
+                AcademicSession,
+                id=academic_session_id,
+                institution__in=accessible_institutions,
             )
-            students = Student.objects.filter(id__in=student_ids, status="active")
+            # A selected student must belong to the selected school's session.
+            students = Student.objects.filter(
+                id__in=student_ids,
+                status="active",
+                institution=academic_session.institution,
+            )
+            if students.count() != len(set(student_ids)):
+                return JsonResponse(
+                    {"success": False, "message": _("One or more students are not eligible for this school.")},
+                    status=400,
+                )
 
             issue_date = timezone.datetime.strptime(issue_date_str, "%Y-%m-%d").date()
             due_date = timezone.datetime.strptime(due_date_str, "%Y-%m-%d").date()
@@ -945,9 +960,10 @@ class GenerateInvoiceAPIView(AccountantRequiredMixin, View):
                         continue
 
                     applicable_fees = FeeStructure.objects.filter(
-                        Q(academic_session=academic_session),
                         Q(applicable_class=current_enrollment.class_enrolled)
                         | Q(applicable_class__isnull=True),
+                        academic_session=academic_session,
+                        institution=academic_session.institution,
                         status="active",
                     )
 
@@ -963,6 +979,7 @@ class GenerateInvoiceAPIView(AccountantRequiredMixin, View):
 
                     # Create invoice
                     invoice = Invoice.objects.create(
+                        institution=academic_session.institution,
                         student=student,
                         academic_session=academic_session,
                         billing_period=billing_period,
@@ -984,6 +1001,7 @@ class GenerateInvoiceAPIView(AccountantRequiredMixin, View):
                         discount_amount = Decimal("0.00")
                         if fee.discount_eligible:
                             applicable_discounts = FeeDiscount.objects.filter(
+                                institution=academic_session.institution,
                                 applicable_fee_types=fee,
                                 is_active=True,
                                 start_date__lte=issue_date,
@@ -1008,6 +1026,7 @@ class GenerateInvoiceAPIView(AccountantRequiredMixin, View):
                         line_total = fee.amount + tax_amount - discount_amount
 
                         InvoiceItem.objects.create(
+                            institution=academic_session.institution,
                             invoice=invoice,
                             fee_structure=fee,
                             quantity=1,
@@ -1061,8 +1080,14 @@ class GenerateInvoiceAPIView(AccountantRequiredMixin, View):
             return JsonResponse(
                 {"success": False, "message": _("Invalid JSON data.")}, status=400
             )
-        except Exception as e:
-            return JsonResponse({"success": False, "message": str(e)}, status=500)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("Invoice generation failed")
+            return JsonResponse(
+                {"success": False, "message": _("Invoice generation failed. Please contact support.")},
+                status=500,
+            )
 
 
 class GetStudentOutstandingFeesAPIView(FinanceAccessMixin, View):

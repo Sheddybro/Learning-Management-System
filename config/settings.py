@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(os.getcwd())
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load environment variables from .env file in setup directory
 load_dotenv(BASE_DIR / "setup" / ".env")
@@ -20,6 +20,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # Check if we're on PythonAnywhere (defined early for CHANNEL_LAYERS)
 ON_PYTHONANYWHERE = "PYTHONANYWHERE_DOMAIN" in os.environ
+SITE_HOSTNAME = os.environ.get("SITE_DOMAIN", "learningmanagementsystem.pythonanywhere.com").lower()
 
 # ============================
 # SECURITY & DEBUG SETTINGS
@@ -28,12 +29,7 @@ ON_PYTHONANYWHERE = "PYTHONANYWHERE_DOMAIN" in os.environ
 if ON_PYTHONANYWHERE:
     # Production settings for PythonAnywhere
     DEBUG = False
-    ALLOWED_HOSTS = [
-        "NordaLMS.pythonanywhere.com",
-        "www.NordaLMS.pythonanywhere.com",
-        # Add tenant subdomains dynamically as institutions are created
-        # Example: 'school1.NordaLMS.pythonanywhere.com', 'school2.NordaLMS.pythonanywhere.com'
-    ]
+    ALLOWED_HOSTS = [SITE_HOSTNAME]
 else:
     # Development settings
     DEBUG = True
@@ -225,8 +221,8 @@ MEDIA_URL = "/media/"
 
 if ON_PYTHONANYWHERE:
     # Production static files setup for PythonAnywhere
-    STATIC_ROOT = BASE_DIR / "static"
-    STATICFILES_DIRS = []  # Clear STATICFILES_DIRS in production
+    STATIC_ROOT = BASE_DIR / "staticfiles"
+    STATICFILES_DIRS = [BASE_DIR / "static"]
     MEDIA_ROOT = BASE_DIR / "media"
 else:
     # Development static files setup
@@ -364,11 +360,7 @@ if ON_PYTHONANYWHERE:
     SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 
     # CSRF trusted origins for PythonAnywhere
-    CSRF_TRUSTED_ORIGINS = [
-        "https://NordaLMS.pythonanywhere.com",
-        "https://www.NordaLMS.pythonanywhere.com",
-        # Add tenant subdomains dynamically: 'https://*.NordaLMS.pythonanywhere.com'
-    ]
+    CSRF_TRUSTED_ORIGINS = [f"https://{SITE_HOSTNAME}"]
 else:
     # Development mode overrides
     CSRF_COOKIE_SECURE = False
@@ -387,7 +379,7 @@ else:
 # ============================
 
 # Default tenant domain used by TenantMiddleware when resolving subdomains
-TENANT_DOMAIN = os.environ.get("TENANT_DOMAIN", "localhost")
+TENANT_DOMAIN = os.environ.get("TENANT_DOMAIN", SITE_HOSTNAME if ON_PYTHONANYWHERE else "localhost")
 
 # Control implicit creation of a DEFAULT institution from model/save/signals.
 # Set to False to prevent automatic creation of default institutions.
@@ -423,7 +415,7 @@ TENANT_DATA_ISOLATION = True
 
 SITE_ID = 1
 SITE_NAME = "Nexus Intelligence School Management System"
-SITE_DOMAIN = "NordaLMS.pythonanywhere.com"
+SITE_DOMAIN = SITE_HOSTNAME
 
 # ============================
 # LOGGING CONFIGURATION
@@ -492,7 +484,7 @@ def configure_production_site():
     try:
         from django.contrib.sites.models import Site
 
-        site_domain = os.environ.get("SITE_DOMAIN", "NordaLMS.pythonanywhere.com")
+        site_domain = SITE_DOMAIN
         site_name = os.environ.get(
             "SITE_NAME", "Nexus Intelligence School Management System"
         )

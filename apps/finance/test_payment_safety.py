@@ -17,6 +17,7 @@ from apps.finance.views import (
     APIPaymentStatusView,
     GetInvoiceDetailsAPIView,
     GenerateInvoiceAPIView,
+    StudentInvoiceDetailView,
 )
 
 
@@ -171,3 +172,32 @@ class InvoiceStatusInitializationTests(SimpleTestCase):
         invoice.save()
         base_save.assert_called_once()
         self.assertEqual(invoice.status, Invoice.InvoiceStatus.PAID)
+
+
+class StudentInvoiceUiTests(SimpleTestCase):
+    @patch("apps.finance.views.Invoice.objects.filter")
+    def test_student_invoice_detail_filters_by_logged_in_owner(self, filter_mock):
+        request = staff_request("/finance/student/invoices/")
+        request.user = SimpleNamespace(is_authenticated=True, pk="student-user")
+        view = StudentInvoiceDetailView()
+        view.request = request
+        view.get_queryset()
+        self.assertIs(
+            filter_mock.call_args.kwargs["student__user"],
+            request.user,
+        )
+
+    def test_student_invoice_links_resolve_to_separate_detail_view(self):
+        from uuid import uuid4
+        from django.urls import resolve, reverse
+
+        url = reverse("finance:student_invoice_detail", kwargs={"pk": uuid4()})
+        self.assertIs(
+            resolve(url).func.view_class,
+            StudentInvoiceDetailView,
+        )
+
+    def test_student_invoice_template_is_available(self):
+        from django.template.loader import get_template
+
+        self.assertIsNotNone(get_template("finance/student/invoice_detail.html"))

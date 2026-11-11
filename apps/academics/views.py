@@ -2547,19 +2547,28 @@ class ClassMaterialListView(AcademicsAccessMixin, ListView):
     paginate_by = 15
 
     def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
         queryset = ClassMaterial.objects.filter(
-            is_public=True, publish_date__lte=timezone.now()
+            is_public=True, publish_date__lte=timezone.now(),
+            institution=get_current_institution(),
         ).select_related("subject", "class_assigned", "teacher")
 
         # Filter by subject if provided
         subject_id = self.request.GET.get("subject")
         if subject_id:
-            queryset = queryset.filter(subject_id=subject_id)
+            try:
+                queryset = queryset.filter(subject_id=UUID(subject_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
 
         # Filter by class if provided
         class_id = self.request.GET.get("class")
         if class_id:
-            queryset = queryset.filter(class_assigned_id=class_id)
+            try:
+                queryset = queryset.filter(class_assigned_id=UUID(class_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
 
         # Filter by material type if provided
         material_type = self.request.GET.get("type")
@@ -2569,9 +2578,15 @@ class ClassMaterialListView(AcademicsAccessMixin, ListView):
         return queryset.order_by("-publish_date")
 
     def get_context_data(self, **kwargs):
+        from apps.core.middleware import get_current_institution
+
         context = super().get_context_data(**kwargs)
-        context["subjects"] = Subject.objects.filter(status="active")
-        context["classes"] = Class.objects.filter(status="active")
+        context["subjects"] = Subject.objects.filter(
+            status="active", institution=get_current_institution()
+        )
+        context["classes"] = Class.objects.filter(
+            status="active", institution=get_current_institution()
+        )
         return context
 
 
@@ -2581,6 +2596,11 @@ class ClassMaterialDetailView(AcademicsAccessMixin, DetailView):
     model = ClassMaterial
     template_name = "academics/materials/material_detail.html"
     context_object_name = "material"
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
 
     def get(self, request, *args, **kwargs):
         # Increment view count
@@ -2598,6 +2618,13 @@ class ClassMaterialCreateView(TeacherRequiredMixin, CreateView):
     form_class = ClassMaterialForm
     template_name = "academics/materials/material_form.html"
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         user = self.request.user
@@ -2609,6 +2636,9 @@ class ClassMaterialCreateView(TeacherRequiredMixin, CreateView):
         return form
 
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        form.instance.institution = get_current_institution()
         user = self.request.user
 
         if hasattr(user, "teacher_profile"):
@@ -2675,6 +2705,18 @@ class ClassMaterialUpdateView(TeacherRequiredMixin, UpdateView):
     model = ClassMaterial
     form_class = ClassMaterialForm
     template_name = "academics/materials/material_form.html"
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, _("Class material updated successfully."))

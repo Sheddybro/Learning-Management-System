@@ -18,6 +18,7 @@ from django.db.models import Q, Count, Avg, Sum
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
 import csv
+from uuid import UUID
 from django.core.paginator import Paginator
 from django.utils.translation import gettext_lazy as _
 
@@ -1611,12 +1612,18 @@ class ClassListView(AcademicsAccessMixin, ListView):
         # Filter by grade level if provided
         grade_level_id = self.request.GET.get("grade_level")
         if grade_level_id:
-            queryset = queryset.filter(grade_level_id=grade_level_id)
+            try:
+                queryset = queryset.filter(grade_level_id=UUID(grade_level_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
 
         # Filter by academic session if provided
         session_id = self.request.GET.get("session")
         if session_id:
-            queryset = queryset.filter(academic_session_id=session_id)
+            try:
+                queryset = queryset.filter(academic_session_id=UUID(session_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
 
         return queryset
 
@@ -1677,7 +1684,17 @@ class ClassCreateView(AdminRequiredMixin, CreateView):
     template_name = "academics/classes/class_form.html"
     success_url = reverse_lazy("academics:class_list")
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        form.instance.institution = get_current_institution()
         messages.success(self.request, _("Class created successfully."))
         return super().form_valid(form)
 
@@ -1689,6 +1706,18 @@ class ClassUpdateView(AdminRequiredMixin, UpdateView):
     form_class = ClassForm
     template_name = "academics/classes/class_form.html"
     success_url = reverse_lazy("academics:class_list")
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, _("Class updated successfully."))

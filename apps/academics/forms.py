@@ -2306,13 +2306,11 @@ class BulkEnrollmentForm(forms.Form):
                 if Enrollment.objects.filter(
                     student=student,
                     academic_session=academic_session,
-                    class_enrolled=class_enrolled,
-                    enrollment_status="active",
                 ).exists():
                     self.add_error(
                         "students",
                         _(
-                            f"{student.user.get_full_name()} is already actively enrolled in {class_enrolled.name} for this session."
+                            f"{student.user.get_full_name()} is already enrolled in this academic session."
                         ),
                     )
 

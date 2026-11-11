@@ -18,6 +18,7 @@ from django.db.models import Q, Count, Avg, Sum
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
 import csv
+import io
 from uuid import UUID
 from django.core.paginator import Paginator
 from django.utils.translation import gettext_lazy as _
@@ -75,6 +76,7 @@ from .forms import (
     StudentSearchForm,
     TeacherSearchForm,
     BulkEnrollmentForm,
+    BulkEnrollmentCsvForm,
 )
 from apps.users.forms import (
     UserCreationForm,
@@ -2216,14 +2218,57 @@ class BulkEnrollmentView(StaffRequiredMixin, View):
     def get(self, request):
         from apps.core.middleware import get_current_institution
 
-        form = BulkEnrollmentForm(institution=get_current_institution())
-        return render(request, "academics/enrollments/bulk_enrollment_form.html", {"form": form})
+        institution = get_current_institution()
+        return render(request, "academics/enrollments/bulk_enrollment_form.html", {
+            "form": BulkEnrollmentForm(institution=institution),
+            "csv_form": BulkEnrollmentCsvForm(institution=institution),
+        })
 
     def post(self, request):
         from apps.core.middleware import get_current_institution
 
         institution = get_current_institution()
-        form = BulkEnrollmentForm(request.POST, institution=institution)
+        csv_form = BulkEnrollmentCsvForm(
+            request.POST if request.POST.get("import_type") == "csv" else None,
+            request.FILES if request.POST.get("import_type") == "csv" else None,
+            institution=institution,
+        )
+        form = BulkEnrollmentForm(
+            request.POST if request.POST.get("import_type") != "csv" else None,
+            institution=institution,
+        )
+
+        if request.POST.get("import_type") == "csv" and csv_form.is_valid():
+            try:
+                content = csv_form.cleaned_data["csv_file"].read().decode("utf-8-sig")
+                reader = csv.DictReader(io.StringIO(content))
+                if not reader.fieldnames or "student_id" not in reader.fieldnames:
+                    raise ValueError("A student_id column is required.")
+                student_ids = []
+                for row in reader:
+                    student_id = (row.get("student_id") or "").strip()
+                    if not student_id:
+                        raise ValueError("Every row needs a student_id.")
+                    student_ids.append(student_id)
+                    if len(student_ids) > 1000:
+                        raise ValueError("Maximum 1,000 student records per import.")
+                if not student_ids or len(set(student_ids)) != len(student_ids):
+                    raise ValueError("The CSV must contain unique student IDs.")
+                students = list(Student.objects.filter(
+                    institution=institution, status="active", student_id__in=student_ids
+                ))
+                if len(students) != len(student_ids):
+                    raise ValueError("One or more student IDs do not belong to this school.")
+                data = request.POST.copy()
+                data.setlist("students", [str(student.pk) for student in students])
+                form = BulkEnrollmentForm(data, institution=institution)
+            except (UnicodeError, csv.Error, ValueError) as error:
+                csv_form.add_error("csv_file", str(error))
+
+        if request.POST.get("import_type") == "csv" and csv_form.errors:
+            return render(request, "academics/enrollments/bulk_enrollment_form.html", {
+                "form": BulkEnrollmentForm(institution=institution), "csv_form": csv_form,
+            })
 
         if form.is_valid():
             students = form.cleaned_data["students"]
@@ -2270,7 +2315,9 @@ class BulkEnrollmentView(StaffRequiredMixin, View):
             )
             return redirect("academics:enrollment_list")
 
-        return render(request, "academics/enrollments/bulk_enrollment_form.html", {"form": form})
+        return render(request, "academics/enrollments/bulk_enrollment_form.html", {
+            "form": form, "csv_form": csv_form,
+        })
 
 
 # =============================================================================

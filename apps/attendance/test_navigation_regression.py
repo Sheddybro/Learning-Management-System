@@ -1,6 +1,8 @@
 """Regression checks for attendance links exposed by the user interface."""
 
 import uuid
+from unittest.mock import Mock, patch
+from types import SimpleNamespace
 
 from django.test import SimpleTestCase, RequestFactory
 from django.urls import resolve, reverse
@@ -64,5 +66,29 @@ class AttendanceNavigationTests(SimpleTestCase):
         request = RequestFactory().get("/attendance/leaves/?search=example")
         request.user = type("UserStub", (), {"is_staff": True})()
         view.request = request
-        queryset = view.get_queryset()
+        with patch('apps.attendance.views.filter_queryset_by_institution', side_effect=lambda qs, user: qs), patch('apps.attendance.views.get_current_institution', return_value=None):
+            queryset = view.get_queryset()
         self.assertIn("email", str(queryset.query).lower())
+
+    def test_leave_submission_requires_an_authorized_school(self):
+        view = LeaveApplicationCreateView()
+        view.request = RequestFactory().post('/attendance/leaves/create/')
+        view.request.user = Mock()
+        form = Mock()
+        view.form_invalid = Mock(return_value='invalid form')
+        with patch('apps.attendance.views.get_current_institution', return_value=None):
+            self.assertEqual(view.form_valid(form), 'invalid form')
+        form.add_error.assert_called_once()
+
+    def test_leave_submission_rejects_oversize_documents(self):
+        view = LeaveApplicationCreateView()
+        view.request = RequestFactory().post('/attendance/leaves/create/')
+        view.request.user = Mock()
+        view.request.FILES.getlist = Mock(return_value=[
+            SimpleNamespace(name='oversize.pdf', size=11 * 1024 * 1024)
+        ])
+        form = Mock()
+        view.form_invalid = Mock(return_value='invalid form')
+        with patch('apps.attendance.views.get_current_institution', return_value=Mock()), patch('apps.attendance.views.user_can_access_institution', return_value=True):
+            self.assertEqual(view.form_valid(form), 'invalid form')
+        form.add_error.assert_called_once()

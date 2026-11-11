@@ -879,7 +879,13 @@ class APIPaymentStatusView(FinanceAccessMixin, View):
     """API to get payment status (placeholder)."""
 
     def get(self, request, payment_id):
-        payment = get_object_or_404(Payment, pk=payment_id)
+        from apps.core.middleware import get_user_accessible_institutions
+
+        payment = get_object_or_404(
+            Payment,
+            pk=payment_id,
+            invoice__student__institution__in=get_user_accessible_institutions(request.user),
+        )
         data = {
             "payment_number": payment.payment_number,
             "status": payment.get_status_display(),
@@ -1088,7 +1094,13 @@ class GetStudentOutstandingFeesAPIView(FinanceAccessMixin, View):
     """API to get outstanding fees for a specific student."""
 
     def get(self, request, student_id):
-        student = get_object_or_404(Student, id=student_id)
+        from apps.core.middleware import get_user_accessible_institutions
+
+        student = get_object_or_404(
+            Student,
+            id=student_id,
+            institution__in=get_user_accessible_institutions(request.user),
+        )
         current_session = AcademicSession.objects.filter(is_current=True).first()
 
         if not current_session:
@@ -1199,7 +1211,13 @@ class GetInvoiceDetailsAPIView(FinanceAccessMixin, View):
     """API to get details of a single invoice."""
 
     def get(self, request, pk):
-        invoice = get_object_or_404(Invoice, pk=pk)
+        from apps.core.middleware import get_user_accessible_institutions
+
+        invoice = get_object_or_404(
+            Invoice,
+            pk=pk,
+            student__institution__in=get_user_accessible_institutions(request.user),
+        )
         data = {
             "success": True,
             "invoice_number": invoice.invoice_number,
@@ -1218,7 +1236,13 @@ class PublishFinancialReportAPIView(AccountantRequiredMixin, View):
     """API to publish a financial report."""
 
     def post(self, request, pk):
-        report = get_object_or_404(FinancialReport, pk=pk)
+        from apps.core.middleware import get_user_accessible_institutions
+
+        report = get_object_or_404(
+            FinancialReport,
+            pk=pk,
+            institution__in=get_user_accessible_institutions(request.user),
+        )
         if report.is_published:
             return JsonResponse(
                 {"success": False, "message": _("Report is already published.")},

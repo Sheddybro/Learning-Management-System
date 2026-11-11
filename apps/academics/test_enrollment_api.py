@@ -47,6 +47,13 @@ class EnrollmentApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(self.session, list(response.context["sessions"]))
 
+    def test_enrollment_form_excludes_other_school_sessions(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("academics:enrollment_create"))
+        self.assertEqual(response.status_code, 200)
+        available_sessions = response.context["form"].fields["academic_session"].queryset
+        self.assertNotIn(self.session, list(available_sessions))
+
     def test_regular_user_cannot_read_student_lookup(self):
         ordinary_user = get_user_model().objects.create_user(
             email="ordinary@example.com", password="test-only-password"

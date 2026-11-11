@@ -671,6 +671,7 @@ class StudentForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         # Limit user choices to those not already linked to a student profile
         if self.instance.pk:
@@ -681,6 +682,10 @@ class StudentForm(forms.ModelForm):
             self.fields["user"].queryset = User.objects.filter(
                 student_profile__isnull=True, is_active=True
             )
+        if institution is not None:
+            self.fields["user"].queryset = self.fields["user"].queryset.filter(
+                institution_memberships__institution=institution
+            ).distinct()
         self.fields["user"].empty_label = _("Select User Account")
 
         # Configure department field
@@ -778,6 +783,7 @@ class TeacherForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         # Limit user choices to those not already linked to a teacher profile
         if self.instance.pk:
@@ -788,6 +794,10 @@ class TeacherForm(forms.ModelForm):
             self.fields["user"].queryset = User.objects.filter(
                 teacher_profile__isnull=True, is_active=True
             )
+        if institution is not None:
+            self.fields["user"].queryset = self.fields["user"].queryset.filter(
+                institution_memberships__institution=institution
+            ).distinct()
         self.fields["user"].empty_label = _("Select User Account")
         self.fields["department"].queryset = Department.objects.filter(status="active")
         self.fields["department"].empty_label = _("Select Department (Optional)")

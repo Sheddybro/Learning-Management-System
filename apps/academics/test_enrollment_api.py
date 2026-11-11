@@ -41,6 +41,20 @@ class EnrollmentApiTests(TestCase):
                 response = self.client.get(reverse(name), {"session_id": str(self.session.pk)})
                 self.assertEqual(response.status_code, 404)
 
+    def test_enrollment_list_excludes_other_school_sessions(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("academics:enrollment_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(self.session, list(response.context["sessions"]))
+
+    def test_regular_user_cannot_read_student_lookup(self):
+        ordinary_user = get_user_model().objects.create_user(
+            email="ordinary@example.com", password="test-only-password"
+        )
+        self.client.force_login(ordinary_user)
+        response = self.client.get(reverse("academics:api_students_available"))
+        self.assertEqual(response.status_code, 403)
+
     def test_roll_number_rejects_cross_school_session(self):
         self.client.force_login(self.user)
         response = self.client.post(

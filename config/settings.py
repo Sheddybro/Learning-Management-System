@@ -121,9 +121,15 @@ TEMPLATES = [
         "APP_DIRS": True,
         "OPTIONS": {
             "builtins": [
+                "django.templatetags.i18n",
+                "django.templatetags.static",
                 "apps.attendance.templatetags.attendance_filters",
                 "apps.users.templatetags.user_filters",
                 "apps.communication.templatetags.communication_tags",
+                "apps.core.templatetags.filters",
+                "apps.academics.templatetags.academics_filters",
+                "apps.activities.templatetags.activity_filters",
+                "apps.assessment.templatetags.assessment_tags",
             ],
             "context_processors": [
                 "django.template.context_processors.debug",

@@ -10,6 +10,8 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView, D
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.db.models import Q, Count, Avg, Sum
+from django.db import transaction
+from pathlib import Path
 from django.core.paginator import Paginator
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -26,6 +28,11 @@ from .forms import (
 from apps.academics.models import BehaviorRecord, Student, Class, AcademicSession
 from apps.users.models import User
 from apps.core.mixins import TeacherRequiredMixin
+from apps.core.middleware import (
+    get_current_institution, user_can_access_institution,
+    filter_queryset_by_institution,
+)
+from apps.academics.models import FileAttachment
 
 
 # ==================== MIXIN CLASSES ====================
@@ -60,7 +67,7 @@ class AttendanceConfigUpdateView(UpdateView):
     model = AttendanceConfig
     form_class = AttendanceConfigForm
     template_name = 'attendance/config/config_form.html'
-    success_url = reverse_lazy('config')
+    success_url = reverse_lazy('attendance:config')
 
     def get_object(self):
         # Get or create config for current academic session
@@ -139,7 +146,7 @@ class AttendanceSessionCreateView(CreateView):
     model = AttendanceSession
     template_name = 'attendance/sessions/session_form.html'
     fields = ['name', 'session_type', 'start_time', 'end_time', 'academic_session', 'is_active']
-    success_url = reverse_lazy('session_list')
+    success_url = reverse_lazy('attendance:session_list')
     
     def get_initial(self):
         initial = super().get_initial()
@@ -156,7 +163,7 @@ class AttendanceSessionUpdateView(UpdateView):
     model = AttendanceSession
     template_name = 'attendance/sessions/session_form.html'
     fields = ['name', 'session_type', 'start_time', 'end_time', 'academic_session', 'is_active']
-    success_url = reverse_lazy('session_list')
+    success_url = reverse_lazy('attendance:session_list')
 
 
 # ==================== DAILY ATTENDANCE VIEWS ====================
@@ -229,7 +236,7 @@ class DailyAttendanceCreateView(CreateView):
     fields = ['student', 'date', 'attendance_session', 'status', 'check_in_time', 'check_out_time', 'remarks']
 
     def get_success_url(self):
-        return reverse_lazy('daily_list')
+        return reverse_lazy('attendance:daily_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -273,7 +280,7 @@ class DailyAttendanceUpdateView(UpdateView):
     fields = ['student', 'date', 'attendance_session', 'status', 'check_in_time', 'check_out_time', 'remarks']
 
     def get_success_url(self):
-        return reverse_lazy('daily_list')
+        return reverse_lazy('attendance:daily_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -303,7 +310,7 @@ class DailyAttendanceDeleteView(DeleteView):
     """Delete a daily attendance record"""
     model = DailyAttendance
     template_name = 'attendance/daily/daily_confirm_delete.html'
-    success_url = reverse_lazy('daily_list')
+    success_url = reverse_lazy('attendance:daily_list')
 
     def get_success_url(self):
         messages.success(self.request, "Attendance record deleted successfully.")
@@ -488,7 +495,12 @@ class LeaveApplicationListView(AttendancePermissionMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = LeaveApplication.objects.all()
+        queryset = filter_queryset_by_institution(
+            LeaveApplication.objects.all(), self.request.user
+        )
+        institution = get_current_institution()
+        if institution:
+            queryset = queryset.filter(institution=institution)
 
         # Filter by status
         status = self.request.GET.get('status')
@@ -506,22 +518,23 @@ class LeaveApplicationListView(AttendancePermissionMixin, ListView):
             queryset = queryset.filter(
                 Q(applicant__first_name__icontains=search) |
                 Q(applicant__last_name__icontains=search) |
-                Q(applicant__username__icontains=search)
+                Q(applicant__email__icontains=search)
             )
 
         # Restrict access based on user role
-        if not self.request.user.is_staff:
-            if hasattr(self.request.user, 'student_profile') or hasattr(self.request.user, 'teacher_profile'):
-                queryset = queryset.filter(applicant=self.request.user)
+        if not (self.request.user.is_staff or self.request.user.has_perm('attendance.change_leaveapplication')):
+            queryset = queryset.filter(applicant=self.request.user)
 
         return queryset.select_related('applicant', 'applicant__profile', 'leave_type', 'approved_by').order_by('-created_at')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['status_choices'] = LeaveApplication.LeaveStatus.choices
-        context['leave_types'] = LeaveType.objects.filter(
+        leave_types = LeaveType.objects.filter(
             Q(allowed_for_students=True) | Q(allowed_for_teachers=True)
         )
+        institution = get_current_institution()
+        context['leave_types'] = leave_types.filter(institution=institution) if institution else leave_types.none()
         return context
 
 
@@ -530,24 +543,57 @@ class LeaveApplicationCreateView(CreateView):
     """Create a new leave application"""
     model = LeaveApplication
     template_name = 'attendance/leave/leave_form.html'
-    fields = ['leave_type', 'start_date', 'end_date', 'reason', 'supporting_documents']
+    # Uploaded files are handled separately; the model field expects existing
+    # FileAttachment primary keys, not the bytes sent by the file input.
+    fields = ['leave_type', 'start_date', 'end_date', 'reason']
     
     def get_success_url(self):
-        return reverse_lazy('leave_list')
+        return reverse_lazy('attendance:leave_list')
     
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
+        institution = get_current_institution()
+        if institution and user_can_access_institution(self.request.user, institution):
+            form.fields['leave_type'].queryset = LeaveType.objects.filter(institution=institution)
+        else:
+            form.fields['leave_type'].queryset = LeaveType.objects.none()
         # Filter leave types based on user role
         if hasattr(self.request.user, 'student_profile'):
-            form.fields['leave_type'].queryset = LeaveType.objects.filter(allowed_for_students=True)
+            form.fields['leave_type'].queryset = form.fields['leave_type'].queryset.filter(allowed_for_students=True)
         elif hasattr(self.request.user, 'teacher_profile'):
-            form.fields['leave_type'].queryset = LeaveType.objects.filter(allowed_for_teachers=True)
+            form.fields['leave_type'].queryset = form.fields['leave_type'].queryset.filter(allowed_for_teachers=True)
         return form
     
     def form_valid(self, form):
+        institution = get_current_institution()
+        if not institution or not user_can_access_institution(self.request.user, institution):
+            form.add_error(None, "Select a school you belong to before applying for leave.")
+            return self.form_invalid(form)
+
+        documents = self.request.FILES.getlist('supporting_documents')
+        allowed_extensions = {'.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'}
+        if len(documents) > 5:
+            form.add_error(None, "Attach no more than five supporting documents.")
+            return self.form_invalid(form)
+        for document in documents:
+            if Path(document.name).suffix.lower() not in allowed_extensions or document.size > 10 * 1024 * 1024:
+                form.add_error(None, "Documents must be PDF, DOC, DOCX, JPG or PNG and at most 10 MB each.")
+                return self.form_invalid(form)
+
         form.instance.applicant = self.request.user
+        form.instance.institution = institution
+        with transaction.atomic():
+            response = super().form_valid(form)
+            for document in documents:
+                attachment = FileAttachment.objects.create(
+                    institution=institution,
+                    uploaded_by=self.request.user,
+                    title=Path(document.name).name[:200],
+                    file=document,
+                )
+                self.object.supporting_documents.add(attachment)
         messages.success(self.request, "Leave application submitted successfully.")
-        return super().form_valid(form)
+        return response
 
 
 @method_decorator(login_required, name='dispatch')
@@ -558,10 +604,29 @@ class LeaveApplicationUpdateView(UpdateView):
     template_name = 'attendance/leave/leave_review.html'
     fields = ['status', 'rejection_reason']
 
+    def get_queryset(self):
+        queryset = filter_queryset_by_institution(super().get_queryset(), self.request.user)
+        institution = get_current_institution()
+        return queryset.filter(institution=institution) if institution else queryset.none()
+
     def get_success_url(self):
-        return reverse_lazy('leave_list')
+        return reverse_lazy('attendance:leave_list')
 
     def form_valid(self, form):
+        if self.object.applicant_id == self.request.user.pk:
+            form.add_error(None, "You cannot approve or reject your own leave application.")
+            return self.form_invalid(form)
+        if not LeaveApplication.objects.filter(
+            pk=self.object.pk, status=LeaveApplication.LeaveStatus.PENDING
+        ).exists():
+            form.add_error(None, "Only pending applications can be reviewed.")
+            return self.form_invalid(form)
+        if form.instance.status not in (LeaveApplication.LeaveStatus.APPROVED, LeaveApplication.LeaveStatus.REJECTED):
+            form.add_error('status', "Select Approve or Reject.")
+            return self.form_invalid(form)
+        if form.instance.status == LeaveApplication.LeaveStatus.REJECTED and not form.cleaned_data.get('rejection_reason', '').strip():
+            form.add_error('rejection_reason', "Please provide a reason for rejection.")
+            return self.form_invalid(form)
         if form.instance.status == LeaveApplication.LeaveStatus.APPROVED:
             form.instance.approved_by = self.request.user
             form.instance.approved_at = timezone.now()
@@ -575,7 +640,12 @@ class LeaveApplicationDeleteView(DeleteView):
     """Delete leave application"""
     model = LeaveApplication
     template_name = 'attendance/leave/leave_confirm_delete.html'
-    success_url = reverse_lazy('leave_list')
+    success_url = reverse_lazy('attendance:leave_list')
+
+    def get_queryset(self):
+        queryset = filter_queryset_by_institution(super().get_queryset(), self.request.user)
+        institution = get_current_institution()
+        return queryset.filter(institution=institution) if institution else queryset.none()
 
     def get_success_url(self):
         messages.success(self.request, "Leave application deleted successfully.")
@@ -974,7 +1044,7 @@ class BehaviorRecordCreateView(CreateView):
         'parent_meeting_scheduled', 'parent_meeting_date', 'escalated_to',
         'escalation_date', 'escalation_reason', 'tags'
     ]
-    success_url = reverse_lazy('behavior_list')
+    success_url = reverse_lazy('attendance:behavior_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1024,7 +1094,7 @@ class BehaviorRecordUpdateView(UpdateView):
         'parent_meeting_scheduled', 'parent_meeting_date', 'escalated_to',
         'escalation_date', 'escalation_reason', 'tags'
     ]
-    success_url = reverse_lazy('behavior_list')
+    success_url = reverse_lazy('attendance:behavior_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1050,7 +1120,7 @@ class BehaviorRecordDeleteView(DeleteView):
     """Delete a behavior record"""
     model = BehaviorRecord
     template_name = 'attendance/behavior/behavior_confirm_delete.html'
-    success_url = reverse_lazy('behavior_list')
+    success_url = reverse_lazy('attendance:behavior_list')
 
     def get_success_url(self):
         messages.success(self.request, "Behavior record deleted successfully.")

@@ -1768,7 +1768,6 @@ def custom_login(request):
     if request.method == "POST":
         email = request.POST.get("email")
         password = request.POST.get("password")
-        print(f"Login attempt - Email: {email}")  # Debug line
         remember_me = request.POST.get("remember_me")
         new_password = request.POST.get("new_password")
         confirm_password = request.POST.get("confirm_password")
@@ -1847,7 +1846,6 @@ def custom_login(request):
             # Normal login attempt
             # Authenticate user
             user = authenticate(request, email=email, password=password)
-            print(f"Authentication result: {user}")  # Debug line
 
             # Log login attempt
             login_history = LoginHistory(

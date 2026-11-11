@@ -817,7 +817,9 @@ class SchoolAdminDashboardView(InstitutionPermissionMixin, LoginRequiredMixin, V
         # Get current academic session
         from apps.academics.models import AcademicSession
 
-        current_session = AcademicSession.objects.filter(is_current=True).first()
+        current_session = AcademicSession.objects.filter(
+            is_current=True, institution=current_institution
+        ).first()
 
         # School Statistics - FILTERED BY INSTITUTION
         total_students = 0
@@ -886,7 +888,10 @@ class SchoolAdminDashboardView(InstitutionPermissionMixin, LoginRequiredMixin, V
             current_year = timezone.now().year
 
             monthly_summaries = AttendanceSummary.objects.filter(
-                academic_session=current_session, month=current_month, year=current_year
+                academic_session=current_session,
+                institution=current_institution,
+                month=current_month,
+                year=current_year,
             )
 
             if monthly_summaries.exists():
@@ -939,7 +944,9 @@ class SchoolAdminDashboardView(InstitutionPermissionMixin, LoginRequiredMixin, V
             if current_session:
                 # Average class performance
                 results = Result.objects.filter(
-                    academic_session=current_session, exam_type__is_final=True
+                    academic_session=current_session,
+                    institution=current_institution,
+                    exam_type__is_final=True,
                 )
                 if results.exists():
                     avg_percentage = results.aggregate(avg=models.Avg("percentage"))[
@@ -959,14 +966,18 @@ class SchoolAdminDashboardView(InstitutionPermissionMixin, LoginRequiredMixin, V
             current_month = timezone.now().replace(day=1)
             next_month = (current_month + timezone.timedelta(days=32)).replace(day=1)
             monthly_incidents = BehaviorRecord.objects.filter(
-                incident_date__gte=current_month, incident_date__lt=next_month
+                institution=current_institution,
+                incident_date__gte=current_month,
+                incident_date__lt=next_month,
             ).count()
             principal_stats["monthly_behavior_incidents"] = monthly_incidents
 
             # Academic warnings
-            from apps.academic.models import AcademicWarning
+            from apps.academics.models import AcademicWarning
 
-            active_warnings = AcademicWarning.objects.filter(is_resolved=False).count()
+            active_warnings = AcademicWarning.objects.filter(
+                institution=current_institution, is_resolved=False
+            ).count()
             principal_stats["active_academic_warnings"] = active_warnings
 
         # Quick Actions Data

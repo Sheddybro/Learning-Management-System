@@ -1,6 +1,6 @@
 import threading
 from django.utils.deprecation import MiddlewareMixin
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import PermissionDenied
 from django.conf import settings
 from .models import Institution
 
@@ -24,14 +24,28 @@ class TenantMiddleware(MiddlewareMixin):
         3. User's primary institution
         4. Default institution (if configured)
         """
+        # Never leak a tenant from a prior request on a reused worker thread,
+        # including requests which are rejected before process_response runs.
+        _local.current_institution = None
         institution = None
 
         # Check subdomain
         institution = self._get_institution_from_subdomain(request)
 
+        # An authenticated user cannot choose an unrelated school merely by
+        # visiting its hostname. Never silently fall back to another school.
+        if (institution is not None and request.user.is_authenticated
+                and not user_can_access_institution(request.user, institution)):
+            raise PermissionDenied("You do not have access to this school.")
+
         # If no subdomain match, check session
         if not institution:
             institution = self._get_institution_from_session(request)
+            if (institution is not None and
+                    (not request.user.is_authenticated or
+                     not user_can_access_institution(request.user, institution))):
+                institution = None
+                request.session.pop("current_institution_id", None)
 
         # If still no match, check user profile
         if not institution and request.user.is_authenticated:
@@ -43,8 +57,8 @@ class TenantMiddleware(MiddlewareMixin):
             # Also store in request for convenience
             request.institution = institution
             # Store in session for persistence across requests
-            request.session["current_institution_id"] = str(institution.id)
-            request.session.modified = True
+            if request.session.get("current_institution_id") != str(institution.id):
+                request.session["current_institution_id"] = str(institution.id)
         else:
             # No institution found - store None
             _local.current_institution = None
@@ -76,7 +90,7 @@ class TenantMiddleware(MiddlewareMixin):
             host = host.split(":")[0]
 
         # Check if host ends with our domain
-        if host.endswith(domain):
+        if host == domain or host.endswith(f".{domain}"):
             subdomain = host.replace(f".{domain}", "").replace(domain, "")
 
             if subdomain and subdomain != "www":
@@ -127,7 +141,7 @@ class TenantMiddleware(MiddlewareMixin):
 
             if primary_membership:
                 return primary_membership.institution
-        except:
+        except (InstitutionUser.DoesNotExist, ValueError, TypeError):
             pass
 
         # If no primary found, get the first active institution the user belongs to
@@ -140,7 +154,7 @@ class TenantMiddleware(MiddlewareMixin):
 
             if membership:
                 return membership.institution
-        except:
+        except (InstitutionUser.DoesNotExist, ValueError, TypeError):
             pass
 
         return None
@@ -170,18 +184,17 @@ def user_can_access_institution(user, institution):
     - User belongs to the institution via InstitutionUser
     """
     # Superuser can access all institutions
+    if not user.is_authenticated or institution is None:
+        return False
     if user.is_superuser:
         return True
 
     # Check if user belongs to this institution
     from .models import InstitutionUser
 
-    try:
-        return InstitutionUser.objects.filter(
-            user=user, institution=institution, institution__is_active=True
-        ).exists()
-    except:
-        return False
+    return InstitutionUser.objects.filter(
+        user=user, institution=institution, institution__is_active=True
+    ).exists()
 
 
 def filter_queryset_by_institution(queryset, user, institution_field="institution"):

@@ -513,6 +513,7 @@ class ClassForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         self.fields["grade_level"].queryset = GradeLevel.objects.filter(status="active")
         self.fields["class_teacher"].queryset = Teacher.objects.filter(
@@ -521,6 +522,13 @@ class ClassForm(forms.ModelForm):
         self.fields["academic_session"].queryset = AcademicSession.objects.filter(
             status="active"
         )
+        if institution is not None:
+            self.fields["class_teacher"].queryset = self.fields[
+                "class_teacher"
+            ].queryset.filter(institution=institution)
+            self.fields["academic_session"].queryset = self.fields[
+                "academic_session"
+            ].queryset.filter(institution=institution)
 
         self.fields["grade_level"].empty_label = _("Select Grade Level")
         self.fields["class_teacher"].empty_label = _("Select Class Teacher (Optional)")
@@ -663,6 +671,7 @@ class StudentForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         # Limit user choices to those not already linked to a student profile
         if self.instance.pk:
@@ -673,6 +682,10 @@ class StudentForm(forms.ModelForm):
             self.fields["user"].queryset = User.objects.filter(
                 student_profile__isnull=True, is_active=True
             )
+        if institution is not None:
+            self.fields["user"].queryset = self.fields["user"].queryset.filter(
+                institution_memberships__institution=institution
+            ).distinct()
         self.fields["user"].empty_label = _("Select User Account")
 
         # Configure department field
@@ -770,6 +783,7 @@ class TeacherForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         # Limit user choices to those not already linked to a teacher profile
         if self.instance.pk:
@@ -780,6 +794,10 @@ class TeacherForm(forms.ModelForm):
             self.fields["user"].queryset = User.objects.filter(
                 teacher_profile__isnull=True, is_active=True
             )
+        if institution is not None:
+            self.fields["user"].queryset = self.fields["user"].queryset.filter(
+                institution_memberships__institution=institution
+            ).distinct()
         self.fields["user"].empty_label = _("Select User Account")
         self.fields["department"].queryset = Department.objects.filter(status="active")
         self.fields["department"].empty_label = _("Select Department (Optional)")
@@ -831,17 +849,20 @@ class EnrollmentForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         self.fields["student"].queryset = Student.objects.filter(
-            status="active"
+            status="active", institution=institution
         ).select_related("user")
         self.fields["class_enrolled"].queryset = Class.objects.filter(
-            status="active"
+            status="active", institution=institution
         ).select_related("grade_level", "academic_session")
         self.fields["academic_session"].queryset = AcademicSession.objects.filter(
-            status="active"
+            status="active", institution=institution
         )
-        self.fields["department"].queryset = Department.objects.filter(status="active")
+        self.fields["department"].queryset = Department.objects.filter(
+            status="active", institution=institution
+        )
 
         self.fields["student"].empty_label = _("Select Student")
         self.fields["class_enrolled"].empty_label = _("Select Class")
@@ -1087,6 +1108,7 @@ class TimetableForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         self.fields["class_assigned"].queryset = Class.objects.filter(status="active")
         self.fields["academic_session"].queryset = AcademicSession.objects.filter(
@@ -1099,6 +1121,11 @@ class TimetableForm(forms.ModelForm):
         self.fields["shared_with_classes"].queryset = Class.objects.filter(
             status="active"
         )
+        if institution is not None:
+            for field in ("class_assigned", "academic_session", "subject", "teacher", "shared_with_classes"):
+                self.fields[field].queryset = self.fields[field].queryset.filter(
+                    institution=institution
+                )
 
         self.fields["class_assigned"].empty_label = _("Select Class (Optional)")
         self.fields["academic_session"].empty_label = _("Select Academic Session")
@@ -1379,6 +1406,7 @@ class ClassMaterialForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         self.fields["subject"].queryset = Subject.objects.filter(is_active=True)
         self.fields["class_assigned"].queryset = Class.objects.filter(status="active")
@@ -1394,6 +1422,14 @@ class ClassMaterialForm(forms.ModelForm):
         self.fields["parent_material"].queryset = ClassMaterial.objects.filter(
             status="active"
         ).exclude(pk=self.instance.pk)
+        if institution is not None:
+            for field in (
+                "subject", "class_assigned", "teacher", "academic_session",
+                "allowed_students", "parent_material",
+            ):
+                self.fields[field].queryset = self.fields[field].queryset.filter(
+                    institution=institution
+                )
 
         self.fields["subject"].empty_label = _("Select Subject")
         self.fields["class_assigned"].empty_label = _("Select Class")
@@ -2091,6 +2127,7 @@ class SchoolPolicyForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         self.fields["academic_session"].queryset = AcademicSession.objects.filter(
             status="active"
@@ -2099,6 +2136,13 @@ class SchoolPolicyForm(forms.ModelForm):
         self.fields["attachments"].queryset = FileAttachment.objects.filter(
             status="active"
         )
+        if institution is not None:
+            self.fields["academic_session"].queryset = self.fields[
+                "academic_session"
+            ].queryset.filter(institution=institution)
+            self.fields["attachments"].queryset = self.fields[
+                "attachments"
+            ].queryset.filter(institution=institution)
 
         self.fields["academic_session"].empty_label = _(
             "Select Academic Session (Optional)"
@@ -2112,22 +2156,11 @@ class SchoolPolicyForm(forms.ModelForm):
         cleaned_data = super().clean()
         effective_date = cleaned_data.get("effective_date")
         expiry_date = cleaned_data.get("expiry_date")
-        policy_content = cleaned_data.get("policy_content")
 
         if effective_date and expiry_date and expiry_date <= effective_date:
             self.add_error(
                 "expiry_date", _("Expiry date must be after effective date.")
             )
-
-        if policy_content:
-            import json
-
-            try:
-                json.loads(policy_content)
-            except json.JSONDecodeError:
-                self.add_error(
-                    "policy_content", _("Invalid JSON format for policy content.")
-                )
 
         return cleaned_data
 
@@ -2249,11 +2282,29 @@ class BulkEnrollmentForm(forms.Form):
         widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
     )
 
+    def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
+        super().__init__(*args, **kwargs)
+        if institution is not None:
+            for field in ("students", "class_enrolled", "academic_session"):
+                self.fields[field].queryset = self.fields[field].queryset.filter(
+                    institution=institution
+                )
+
     def clean(self):
         cleaned_data = super().clean()
         students = cleaned_data.get("students")
         class_enrolled = cleaned_data.get("class_enrolled")
         academic_session = cleaned_data.get("academic_session")
+
+        if class_enrolled and academic_session and class_enrolled.academic_session_id != academic_session.pk:
+            self.add_error("academic_session", _("The selected class belongs to a different academic session."))
+
+        enrollment_date = cleaned_data.get("enrollment_date")
+        if academic_session and enrollment_date and not (
+            academic_session.start_date <= enrollment_date <= academic_session.end_date
+        ):
+            self.add_error("enrollment_date", _("Enrollment date must fall within the academic session."))
 
         if students and class_enrolled and academic_session:
             # Check for existing enrollments to prevent duplicates
@@ -2261,13 +2312,11 @@ class BulkEnrollmentForm(forms.Form):
                 if Enrollment.objects.filter(
                     student=student,
                     academic_session=academic_session,
-                    class_enrolled=class_enrolled,
-                    enrollment_status="active",
                 ).exists():
                     self.add_error(
                         "students",
                         _(
-                            f"{student.user.get_full_name()} is already actively enrolled in {class_enrolled.name} for this session."
+                            f"{student.user.get_full_name()} is already enrolled in this academic session."
                         ),
                     )
 
@@ -2279,3 +2328,23 @@ class BulkEnrollmentForm(forms.Form):
                     _("Adding these students would exceed the class capacity."),
                 )
         return cleaned_data
+
+
+class BulkEnrollmentCsvForm(BulkEnrollmentForm):
+    """CSV upload of existing student IDs, using the same class/session validation."""
+
+    csv_file = forms.FileField(
+        label=_("CSV file"),
+        help_text=_("UTF-8 CSV with a student_id header, maximum 1,000 students and 5 MB."),
+        widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".csv,text/csv"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        del self.fields["students"]
+
+    def clean_csv_file(self):
+        upload = self.cleaned_data["csv_file"]
+        if not upload.name.lower().endswith(".csv") or upload.size > 5 * 1024 * 1024:
+            raise forms.ValidationError(_("Upload a CSV file of 5 MB or less."))
+        return upload

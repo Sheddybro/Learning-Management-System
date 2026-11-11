@@ -73,7 +73,7 @@ class HealthAccessMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
-class NurseRequiredMixin(UserPassesTestMixin):
+class NurseRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
     """Mixin to ensure user is a nurse or health staff."""
 
     def test_func(self):
@@ -93,7 +93,7 @@ class NurseRequiredMixin(UserPassesTestMixin):
         return any(role.role.role_type in health_staff_roles for role in user_roles)
 
 
-class StudentRequiredMixin(UserPassesTestMixin):
+class StudentRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
     """Mixin to ensure user is a student."""
 
     def test_func(self):

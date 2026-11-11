@@ -60,7 +60,7 @@ class AttendanceConfigUpdateView(UpdateView):
     model = AttendanceConfig
     form_class = AttendanceConfigForm
     template_name = 'attendance/config/config_form.html'
-    success_url = reverse_lazy('config')
+    success_url = reverse_lazy('attendance:config')
 
     def get_object(self):
         # Get or create config for current academic session
@@ -139,7 +139,7 @@ class AttendanceSessionCreateView(CreateView):
     model = AttendanceSession
     template_name = 'attendance/sessions/session_form.html'
     fields = ['name', 'session_type', 'start_time', 'end_time', 'academic_session', 'is_active']
-    success_url = reverse_lazy('session_list')
+    success_url = reverse_lazy('attendance:session_list')
     
     def get_initial(self):
         initial = super().get_initial()
@@ -156,7 +156,7 @@ class AttendanceSessionUpdateView(UpdateView):
     model = AttendanceSession
     template_name = 'attendance/sessions/session_form.html'
     fields = ['name', 'session_type', 'start_time', 'end_time', 'academic_session', 'is_active']
-    success_url = reverse_lazy('session_list')
+    success_url = reverse_lazy('attendance:session_list')
 
 
 # ==================== DAILY ATTENDANCE VIEWS ====================
@@ -229,7 +229,7 @@ class DailyAttendanceCreateView(CreateView):
     fields = ['student', 'date', 'attendance_session', 'status', 'check_in_time', 'check_out_time', 'remarks']
 
     def get_success_url(self):
-        return reverse_lazy('daily_list')
+        return reverse_lazy('attendance:daily_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -273,7 +273,7 @@ class DailyAttendanceUpdateView(UpdateView):
     fields = ['student', 'date', 'attendance_session', 'status', 'check_in_time', 'check_out_time', 'remarks']
 
     def get_success_url(self):
-        return reverse_lazy('daily_list')
+        return reverse_lazy('attendance:daily_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -303,7 +303,7 @@ class DailyAttendanceDeleteView(DeleteView):
     """Delete a daily attendance record"""
     model = DailyAttendance
     template_name = 'attendance/daily/daily_confirm_delete.html'
-    success_url = reverse_lazy('daily_list')
+    success_url = reverse_lazy('attendance:daily_list')
 
     def get_success_url(self):
         messages.success(self.request, "Attendance record deleted successfully.")
@@ -533,7 +533,7 @@ class LeaveApplicationCreateView(CreateView):
     fields = ['leave_type', 'start_date', 'end_date', 'reason', 'supporting_documents']
     
     def get_success_url(self):
-        return reverse_lazy('leave_list')
+        return reverse_lazy('attendance:leave_list')
     
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
@@ -559,7 +559,7 @@ class LeaveApplicationUpdateView(UpdateView):
     fields = ['status', 'rejection_reason']
 
     def get_success_url(self):
-        return reverse_lazy('leave_list')
+        return reverse_lazy('attendance:leave_list')
 
     def form_valid(self, form):
         if form.instance.status == LeaveApplication.LeaveStatus.APPROVED:
@@ -575,7 +575,7 @@ class LeaveApplicationDeleteView(DeleteView):
     """Delete leave application"""
     model = LeaveApplication
     template_name = 'attendance/leave/leave_confirm_delete.html'
-    success_url = reverse_lazy('leave_list')
+    success_url = reverse_lazy('attendance:leave_list')
 
     def get_success_url(self):
         messages.success(self.request, "Leave application deleted successfully.")
@@ -974,7 +974,7 @@ class BehaviorRecordCreateView(CreateView):
         'parent_meeting_scheduled', 'parent_meeting_date', 'escalated_to',
         'escalation_date', 'escalation_reason', 'tags'
     ]
-    success_url = reverse_lazy('behavior_list')
+    success_url = reverse_lazy('attendance:behavior_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1024,7 +1024,7 @@ class BehaviorRecordUpdateView(UpdateView):
         'parent_meeting_scheduled', 'parent_meeting_date', 'escalated_to',
         'escalation_date', 'escalation_reason', 'tags'
     ]
-    success_url = reverse_lazy('behavior_list')
+    success_url = reverse_lazy('attendance:behavior_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1050,7 +1050,7 @@ class BehaviorRecordDeleteView(DeleteView):
     """Delete a behavior record"""
     model = BehaviorRecord
     template_name = 'attendance/behavior/behavior_confirm_delete.html'
-    success_url = reverse_lazy('behavior_list')
+    success_url = reverse_lazy('attendance:behavior_list')
 
     def get_success_url(self):
         messages.success(self.request, "Behavior record deleted successfully.")

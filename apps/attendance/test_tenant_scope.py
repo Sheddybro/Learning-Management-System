@@ -43,3 +43,25 @@ class StudentAttendanceTenantScopeTests(SimpleTestCase):
         self.assertIs(scope_queryset.call_args.args[1], user)
         lookup.assert_called_once()
         self.assertEqual(lookup.call_args.kwargs["pk"], "student-id")
+
+
+class AttendanceUuidRouteTests(SimpleTestCase):
+    def test_uuid_backed_attendance_routes_reverse(self):
+        from uuid import uuid4
+        from django.urls import reverse
+
+        record_id = uuid4()
+        routes = [
+            ("attendance:session_edit", {"pk": record_id}),
+            ("attendance:daily_edit", {"pk": record_id}),
+            ("attendance:bulk_mark", {"class_id": record_id}),
+            ("attendance:student_attendance", {"pk": record_id}),
+            ("attendance:behavior_edit", {"pk": record_id}),
+            ("attendance:behavior_delete", {"pk": record_id}),
+            ("attendance:student_behavior_detail", {"pk": record_id}),
+            ("attendance:api_student_attendance", {"student_id": record_id}),
+        ]
+        for route_name, kwargs in routes:
+            with self.subTest(route=route_name):
+                self.assertTrue(reverse(route_name, kwargs=kwargs).startswith("/"))
+        self.assertTrue(reverse("attendance:student_my_attendance").startswith("/"))

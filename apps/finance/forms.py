@@ -179,7 +179,7 @@ class InvoiceForm(InstitutionScopedModelForm):
         model = Invoice
         fields = [
             'student', 'academic_session', 'billing_period', 'issue_date',
-            'due_date', 'status', 'notes', 'terms_and_conditions', 'status'
+            'due_date', 'status', 'notes', 'terms_and_conditions'
         ]
         widgets = {
             'student': forms.Select(attrs={'class': 'form-control'}),
@@ -303,7 +303,6 @@ class PaymentForm(InstitutionScopedModelForm):
             'transaction_id': forms.TextInput(attrs={'class': 'form-control'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'receipt_issued': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'status': forms.Select(attrs={'class': 'form-control'}),
         }
         help_texts = {
             'invoice': _('Select the invoice this payment is for.'),
@@ -418,7 +417,6 @@ class FinancialReportForm(InstitutionScopedModelForm):
         }
         help_texts = {
             'report_data': _('Raw JSON data representing the report content.'),
-            'generated_by': _('Staff member who generated this report.'),
         }
 
     def __init__(self, *args, **kwargs):

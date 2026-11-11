@@ -279,7 +279,7 @@ class FeeStructureCreateView(FinanceInstitutionFormMixin, AccountantRequiredMixi
     model = FeeStructure
     form_class = FeeStructureForm
     template_name = "finance/fee_structures/fee_structure_form.html"
-    success_url = reverse_lazy("finance:fee_structure_list")
+    success_url = reverse_lazy("finance:feestructure_list")
 
     def form_valid(self, form):
         messages.success(self.request, _("Fee structure created successfully."))
@@ -292,7 +292,7 @@ class FeeStructureUpdateView(FinanceInstitutionFormMixin, FinanceObjectScopeMixi
     model = FeeStructure
     form_class = FeeStructureForm
     template_name = "finance/fee_structures/fee_structure_form.html"
-    success_url = reverse_lazy("finance:fee_structure_list")
+    success_url = reverse_lazy("finance:feestructure_list")
 
     def form_valid(self, form):
         messages.success(self.request, _("Fee structure updated successfully."))
@@ -304,7 +304,7 @@ class FeeStructureDeleteView(FinanceObjectScopeMixin, AccountantRequiredMixin, D
 
     model = FeeStructure
     template_name = "finance/fee_structures/fee_structure_confirm_delete.html"
-    success_url = reverse_lazy("finance:fee_structure_list")
+    success_url = reverse_lazy("finance:feestructure_list")
 
     def post(self, request, *args, **kwargs):
         messages.success(self.request, _("Fee structure deleted successfully."))
@@ -366,7 +366,7 @@ class FeeDiscountCreateView(FinanceInstitutionFormMixin, AccountantRequiredMixin
     model = FeeDiscount
     form_class = FeeDiscountForm
     template_name = "finance/fee_discounts/fee_discount_form.html"
-    success_url = reverse_lazy("finance:fee_discount_list")
+    success_url = reverse_lazy("finance:feediscount_list")
 
     def form_valid(self, form):
         messages.success(self.request, _("Fee discount created successfully."))
@@ -379,7 +379,7 @@ class FeeDiscountUpdateView(FinanceInstitutionFormMixin, FinanceObjectScopeMixin
     model = FeeDiscount
     form_class = FeeDiscountForm
     template_name = "finance/fee_discounts/fee_discount_form.html"
-    success_url = reverse_lazy("finance:fee_discount_list")
+    success_url = reverse_lazy("finance:feediscount_list")
 
     def form_valid(self, form):
         messages.success(self.request, _("Fee discount updated successfully."))
@@ -391,7 +391,7 @@ class FeeDiscountDeleteView(FinanceObjectScopeMixin, AccountantRequiredMixin, De
 
     model = FeeDiscount
     template_name = "finance/fee_discounts/fee_discount_confirm_delete.html"
-    success_url = reverse_lazy("finance:fee_discount_list")
+    success_url = reverse_lazy("finance:feediscount_list")
 
     def post(self, request, *args, **kwargs):
         messages.success(self.request, _("Fee discount deleted successfully."))
@@ -809,7 +809,7 @@ class FinancialReportCreateView(FinanceInstitutionFormMixin, AccountantRequiredM
     model = FinancialReport
     form_class = FinancialReportForm
     template_name = "finance/reports/financial_report_form.html"
-    success_url = reverse_lazy("finance:financial_report_list")
+    success_url = reverse_lazy("finance:financialreport_list")
 
     def form_valid(self, form):
         form.instance.generated_by = self.request.user
@@ -823,7 +823,7 @@ class FinancialReportUpdateView(FinanceInstitutionFormMixin, FinanceObjectScopeM
     model = FinancialReport
     form_class = FinancialReportForm
     template_name = "finance/reports/financial_report_form.html"
-    success_url = reverse_lazy("finance:financial_report_list")
+    success_url = reverse_lazy("finance:financialreport_list")
 
     def form_valid(self, form):
         messages.success(self.request, _("Financial report updated successfully."))
@@ -835,7 +835,7 @@ class FinancialReportDeleteView(FinanceObjectScopeMixin, AccountantRequiredMixin
 
     model = FinancialReport
     template_name = "finance/reports/financial_report_confirm_delete.html"
-    success_url = reverse_lazy("finance:financial_report_list")
+    success_url = reverse_lazy("finance:financialreport_list")
 
     def post(self, request, *args, **kwargs):
         messages.success(self.request, _("Financial report deleted successfully."))

@@ -56,11 +56,16 @@ class FinanceAccessMixin(LoginRequiredMixin):
             return self.handle_no_permission()
 
         # Check if user has finance-related role or is staff/admin
-        user_roles = request.user.user_roles.all()
-        finance_roles = ["accountant", "admin", "principal", "super_admin"]
+        if request.user.is_superuser or request.user.is_staff:
+            return super().dispatch(request, *args, **kwargs)
 
-        if not any(role.role.role_type in finance_roles for role in user_roles):
-            if not request.user.is_staff:
+        finance_roles = ["accountant", "admin", "principal", "super_admin"]
+        has_finance_role = request.user.user_roles.filter(
+            status="active",
+            role__role_type__in=finance_roles,
+        ).exists()
+
+        if not has_finance_role:
                 messages.error(
                     request, _("You don't have permission to access finance resources.")
                 )
@@ -74,11 +79,14 @@ class AccountantRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
 
     def test_func(self):
         user = self.request.user
-        if user.is_staff:
+        if user.is_superuser or user.is_staff:
             return True
 
-        # Check if user has accountant role
-        return user.user_roles.filter(role__role_type="accountant").exists()
+        # Finance managers, principals and administrators may manage finance.
+        return user.user_roles.filter(
+            status="active",
+            role__role_type__in=["accountant", "admin", "principal", "super_admin"],
+        ).exists()
 
 
 class FinanceObjectScopeMixin:
@@ -102,7 +110,7 @@ class FinanceObjectScopeMixin:
             return queryset.filter(student__institution__in=institutions)
         if model is Payment:
             return queryset.filter(invoice__student__institution__in=institutions)
-        if model is Expense:
+        if model in (Expense, FeeStructure, FeeDiscount, FinancialReport):
             return queryset.filter(institution__in=institutions)
         return queryset.none()
 
@@ -225,7 +233,7 @@ class FeeStructureListView(FinanceAccessMixin, ListView):
         return context
 
 
-class FeeStructureDetailView(FinanceAccessMixin, DetailView):
+class FeeStructureDetailView(FinanceObjectScopeMixin, FinanceAccessMixin, DetailView):
     """Detail view for a fee structure."""
 
     model = FeeStructure
@@ -246,7 +254,7 @@ class FeeStructureCreateView(AccountantRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class FeeStructureUpdateView(AccountantRequiredMixin, UpdateView):
+class FeeStructureUpdateView(FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
     """Update an existing fee structure."""
 
     model = FeeStructure
@@ -259,7 +267,7 @@ class FeeStructureUpdateView(AccountantRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class FeeStructureDeleteView(AccountantRequiredMixin, DeleteView):
+class FeeStructureDeleteView(FinanceObjectScopeMixin, AccountantRequiredMixin, DeleteView):
     """Delete a fee structure."""
 
     model = FeeStructure
@@ -312,7 +320,7 @@ class FeeDiscountListView(FinanceAccessMixin, ListView):
         return context
 
 
-class FeeDiscountDetailView(FinanceAccessMixin, DetailView):
+class FeeDiscountDetailView(FinanceObjectScopeMixin, FinanceAccessMixin, DetailView):
     """Detail view for a fee discount."""
 
     model = FeeDiscount
@@ -333,7 +341,7 @@ class FeeDiscountCreateView(AccountantRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class FeeDiscountUpdateView(AccountantRequiredMixin, UpdateView):
+class FeeDiscountUpdateView(FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
     """Update an existing fee discount."""
 
     model = FeeDiscount
@@ -346,7 +354,7 @@ class FeeDiscountUpdateView(AccountantRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class FeeDiscountDeleteView(AccountantRequiredMixin, DeleteView):
+class FeeDiscountDeleteView(FinanceObjectScopeMixin, AccountantRequiredMixin, DeleteView):
     """Delete a fee discount."""
 
     model = FeeDiscount
@@ -741,7 +749,7 @@ class FinancialReportListView(FinanceAccessMixin, ListView):
         return context
 
 
-class FinancialReportDetailView(FinanceAccessMixin, DetailView):
+class FinancialReportDetailView(FinanceObjectScopeMixin, FinanceAccessMixin, DetailView):
     """Detail view for a financial report."""
 
     model = FinancialReport
@@ -763,7 +771,7 @@ class FinancialReportCreateView(AccountantRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class FinancialReportUpdateView(AccountantRequiredMixin, UpdateView):
+class FinancialReportUpdateView(FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
     """Update an existing financial report."""
 
     model = FinancialReport
@@ -776,7 +784,7 @@ class FinancialReportUpdateView(AccountantRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class FinancialReportDeleteView(AccountantRequiredMixin, DeleteView):
+class FinancialReportDeleteView(FinanceObjectScopeMixin, AccountantRequiredMixin, DeleteView):
     """Delete a financial report."""
 
     model = FinancialReport

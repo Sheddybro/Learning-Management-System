@@ -97,6 +97,24 @@ class EnrollmentApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["timetable"], [])
 
+    def test_class_list_and_detail_do_not_expose_other_school(self):
+        self.client.force_login(self.user)
+        listing = self.client.get(reverse("academics:class_list"))
+        self.assertEqual(listing.status_code, 200)
+        self.assertNotIn(self.other_class, list(listing.context["classes"]))
+        detail = self.client.get(reverse("academics:class_detail", kwargs={
+            "pk": self.other_class.pk,
+        }))
+        self.assertEqual(detail.status_code, 404)
+
+    def test_calendar_excludes_other_school_session(self):
+        self.client.force_login(self.user)
+        self.session.is_current = True
+        self.session.save()
+        response = self.client.get(reverse("academics:academic_calendar"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["current_session"])
+
     def test_roll_number_rejects_cross_school_session(self):
         self.client.force_login(self.user)
         response = self.client.post(

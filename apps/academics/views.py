@@ -1977,6 +1977,13 @@ class EnrollmentCreateView(StaffRequiredMixin, CreateView):
     template_name = "academics/enrollments/enrollment_form.html"
     success_url = reverse_lazy("academics:enrollment_list")
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def form_valid(self, form):
         from apps.core.middleware import get_current_institution
 
@@ -2003,6 +2010,11 @@ class EnrollmentUpdateView(StaffRequiredMixin, UpdateView):
     form_class = EnrollmentForm
     template_name = "academics/enrollments/enrollment_form.html"
     success_url = reverse_lazy("academics:enrollment_list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = self.object.institution
+        return kwargs
 
     def get_queryset(self):
         from apps.core.middleware import get_current_institution

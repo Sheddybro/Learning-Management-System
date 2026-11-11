@@ -92,6 +92,11 @@ class EnrollmentApiTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get(reverse("academics:bulk_enrollment"))
         self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "academics/enrollments/bulk_enrollment_form.html")
+        self.assertContains(response, 'enctype="multipart/form-data"')
+        self.assertContains(response, 'name="csv_file"')
+        self.assertContains(response, 'name="import_type" value="csv"')
+        self.assertNotContains(response, "simulateFileProcessing")
         self.assertNotIn(
             self.other_class,
             list(response.context["form"].fields["class_enrolled"].queryset),

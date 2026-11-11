@@ -346,7 +346,7 @@ class Invoice(CoreBaseModel):
         self.balance_due = self.total_amount - self.amount_paid
 
         # Update status based on payment
-        if self.amount_paid >= self.total_amount:
+        if self.total_amount > Decimal("0.00") and self.amount_paid >= self.total_amount:
             self.status = self.InvoiceStatus.PAID
         elif self.amount_paid > Decimal("0.00"):
             self.status = self.InvoiceStatus.PARTIAL

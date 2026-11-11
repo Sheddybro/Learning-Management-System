@@ -470,5 +470,5 @@ class StudentReceiptOwnershipTests(SimpleTestCase):
         self.assertIs(lookup.call_args.kwargs["student__user"], user)
         self.assertTrue(payment.receipt_issued)
         payment_filter.assert_called_once_with(pk="payment-a")
-        self.assertTrue(render_mock.call_args.kwargs["context"]["student_receipt"])
+        self.assertTrue(render_mock.call_args.args[2]["student_receipt"])
 

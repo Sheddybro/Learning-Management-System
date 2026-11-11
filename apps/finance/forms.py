@@ -6,11 +6,34 @@ from django.utils import timezone
 from decimal import Decimal
 
 from .models import FeeStructure, FeeDiscount, Invoice, InvoiceItem, Payment, Expense, FinancialReport
-from apps.academics.models import AcademicSession, Class
+from apps.academics.models import AcademicSession, Class, Student
 from apps.users.models import User
 
 
-class FeeStructureForm(forms.ModelForm):
+class InstitutionScopedModelForm(forms.ModelForm):
+    """Model form whose related-object choices are limited to one school."""
+
+    def __init__(self, *args, institution=None, **kwargs):
+        self.institution = institution
+        super().__init__(*args, **kwargs)
+
+    def scope(self, queryset):
+        if self.institution is None:
+            return queryset.none()
+        return queryset.filter(institution=self.institution)
+
+    def staff_users(self):
+        if self.institution is None:
+            return User.objects.none()
+        return User.objects.filter(
+            is_staff=True,
+            is_active=True,
+            user_roles__institution=self.institution,
+            user_roles__status="active",
+        ).distinct()
+
+
+class FeeStructureForm(InstitutionScopedModelForm):
     """
     Form for creating and updating fee structures.
     """
@@ -48,8 +71,12 @@ class FeeStructureForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['academic_session'].queryset = AcademicSession.objects.filter(status='active')
-        self.fields['applicable_class'].queryset = Class.objects.filter(status='active')
+        self.fields['academic_session'].queryset = self.scope(
+            AcademicSession.objects.filter(status="active")
+        )
+        self.fields['applicable_class'].queryset = self.scope(
+            Class.objects.filter(status="active")
+        )
 
         self.fields['academic_session'].empty_label = _("Select Academic Session")
         self.fields['applicable_class'].empty_label = _("Select Applicable Class (Optional)")
@@ -78,7 +105,7 @@ class FeeStructureForm(forms.ModelForm):
         return cleaned_data
 
 
-class FeeDiscountForm(forms.ModelForm):
+class FeeDiscountForm(InstitutionScopedModelForm):
     """
     Form for creating and updating fee discounts.
     """
@@ -113,7 +140,9 @@ class FeeDiscountForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['applicable_fee_types'].queryset = FeeStructure.objects.filter(status='active')
+        self.fields['applicable_fee_types'].queryset = self.scope(
+            FeeStructure.objects.filter(status="active")
+        )
 
     def clean(self):
         cleaned_data = super().clean()
@@ -139,7 +168,7 @@ class FeeDiscountForm(forms.ModelForm):
         return cleaned_data
 
 
-class InvoiceForm(forms.ModelForm):
+class InvoiceForm(InstitutionScopedModelForm):
     """
     Form for creating and updating invoices.
     """
@@ -166,8 +195,12 @@ class InvoiceForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['student'].queryset = User.objects.filter(user_roles__role__role_type='student', is_active=True).distinct()
-        self.fields['academic_session'].queryset = AcademicSession.objects.filter(status='active')
+        self.fields['student'].queryset = self.scope(
+            Student.objects.filter(status="active", user__is_active=True)
+        )
+        self.fields['academic_session'].queryset = self.scope(
+            AcademicSession.objects.filter(status="active")
+        )
 
         self.fields['student'].empty_label = _("Select Student")
         self.fields['academic_session'].empty_label = _("Select Academic Session")
@@ -176,14 +209,18 @@ class InvoiceForm(forms.ModelForm):
         cleaned_data = super().clean()
         issue_date = cleaned_data.get('issue_date')
         due_date = cleaned_data.get('due_date')
+        student = cleaned_data.get("student")
+        academic_session = cleaned_data.get("academic_session")
 
         if issue_date and due_date and issue_date > due_date:
             self.add_error('due_date', _('Due date cannot be before issue date.'))
+        if student and academic_session and student.institution_id != academic_session.institution_id:
+            self.add_error("student", _("Select a student from the selected school's institution."))
         
         return cleaned_data
 
 
-class InvoiceItemForm(forms.ModelForm):
+class InvoiceItemForm(InstitutionScopedModelForm):
     """
     Form for adding/editing individual invoice items.
     """
@@ -203,8 +240,13 @@ class InvoiceItemForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['invoice'].queryset = Invoice.objects.filter(status__in=['draft', 'issued', 'partial'])
-        self.fields['fee_structure'].queryset = FeeStructure.objects.filter(status='active')
+        self.fields['invoice'].queryset = Invoice.objects.filter(
+            status__in=["draft", "issued", "partial"],
+            student__institution=self.institution,
+        ) if self.institution else Invoice.objects.none()
+        self.fields['fee_structure'].queryset = self.scope(
+            FeeStructure.objects.filter(status="active")
+        )
 
         self.fields['invoice'].empty_label = _("Select Invoice")
         self.fields['fee_structure'].empty_label = _("Select Fee Type")
@@ -215,6 +257,11 @@ class InvoiceItemForm(forms.ModelForm):
         unit_price = cleaned_data.get('unit_price')
         tax_rate = cleaned_data.get('tax_rate')
         discount_amount = cleaned_data.get('discount_amount')
+        invoice = cleaned_data.get("invoice")
+        fee_structure = cleaned_data.get("fee_structure")
+
+        if invoice and fee_structure and invoice.institution_id != fee_structure.institution_id:
+            self.add_error("fee_structure", _("Choose a fee structure from the invoice's school."))
 
         if quantity is not None and quantity < 1:
             self.add_error('quantity', _('Quantity must be at least 1.'))
@@ -228,7 +275,7 @@ class InvoiceItemForm(forms.ModelForm):
         return cleaned_data
 
 
-class PaymentForm(forms.ModelForm):
+class PaymentForm(InstitutionScopedModelForm):
     """
     Form for recording payments.
     """
@@ -263,9 +310,14 @@ class PaymentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['invoice'].queryset = Invoice.objects.filter(status__in=['issued', 'partial'])
-        self.fields['student'].queryset = User.objects.filter(user_roles__role__role_type='student', is_active=True).distinct()
-        self.fields['received_by'].queryset = User.objects.filter(is_staff=True, is_active=True)
+        self.fields['invoice'].queryset = Invoice.objects.filter(
+            status__in=["issued", "partial"],
+            student__institution=self.institution,
+        ) if self.institution else Invoice.objects.none()
+        self.fields['student'].queryset = self.scope(
+            Student.objects.filter(status="active", user__is_active=True)
+        )
+        self.fields['received_by'].queryset = self.staff_users()
 
         self.fields['invoice'].empty_label = _("Select Invoice")
         self.fields['student'].empty_label = _("Select Student")
@@ -274,8 +326,11 @@ class PaymentForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         invoice = cleaned_data.get('invoice')
+        student = cleaned_data.get("student")
         amount = cleaned_data.get('amount')
 
+        if invoice and student and invoice.student_id != student.pk:
+            self.add_error("student", _("The selected student does not match the invoice."))
         if invoice and amount:
             if amount > invoice.balance_due:
                 self.add_error('amount', _(f'Payment amount cannot exceed the remaining balance of {invoice.balance_due}.'))
@@ -283,7 +338,7 @@ class PaymentForm(forms.ModelForm):
         return cleaned_data
 
 
-class ExpenseForm(forms.ModelForm):
+class ExpenseForm(InstitutionScopedModelForm):
     """
     Form for creating and updating school expenses.
     """
@@ -316,11 +371,12 @@ class ExpenseForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['approved_by'].queryset = User.objects.filter(is_staff=True, is_active=True)
-        self.fields['paid_by'].queryset = User.objects.filter(is_staff=True, is_active=True)
-        # Assuming FileAttachment is in academics app, adjust import if needed
+        self.fields['approved_by'].queryset = self.staff_users()
+        self.fields['paid_by'].queryset = self.staff_users()
         from apps.academics.models import FileAttachment
-        self.fields['receipt_attachment'].queryset = FileAttachment.objects.filter(status='active')
+        self.fields['receipt_attachment'].queryset = self.scope(
+            FileAttachment.objects.filter(status="active")
+        )
 
         self.fields['approved_by'].empty_label = _("Select Approver")
         self.fields['paid_by'].empty_label = _("Select Payer (Optional)")
@@ -336,7 +392,7 @@ class ExpenseForm(forms.ModelForm):
         return cleaned_data
 
 
-class FinancialReportForm(forms.ModelForm):
+class FinancialReportForm(InstitutionScopedModelForm):
     """
     Form for generating and managing financial reports.
     """
@@ -366,8 +422,10 @@ class FinancialReportForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['academic_session'].queryset = AcademicSession.objects.filter(status='active')
-        self.fields['generated_by'].queryset = User.objects.filter(is_staff=True, is_active=True)
+        self.fields['academic_session'].queryset = self.scope(
+            AcademicSession.objects.filter(status="active")
+        )
+        self.fields['generated_by'].queryset = self.staff_users()
 
         self.fields['academic_session'].empty_label = _("Select Academic Session")
         self.fields['generated_by'].empty_label = _("Select Generator")

@@ -172,6 +172,11 @@ urlpatterns = [
         views.StudentInvoiceListView.as_view(),
         name="student_invoices",
     ),
+    path(
+        "student/invoices/<uuid:pk>/",
+        views.StudentInvoiceDetailView.as_view(),
+        name="student_invoice_detail",
+    ),
     # API Endpoints
     path(
         "api/invoices/generate/",

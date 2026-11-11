@@ -393,3 +393,19 @@ class PrintableReceiptTests(SimpleTestCase):
         from django.template.loader import get_template
 
         self.assertIsNotNone(get_template("finance/payments/payment_receipt.html"))
+
+
+class PaymentDeletionTests(SimpleTestCase):
+    @patch("apps.core.models.CoreBaseModel.delete")
+    def test_deleting_completed_payment_marks_it_cancelled_first(self, base_delete):
+        payment = Payment(status=Payment.PaymentStatus.COMPLETED)
+        payment.delete()
+        self.assertEqual(payment.status, Payment.PaymentStatus.CANCELLED)
+        base_delete.assert_called_once_with(using=None, keep_parents=False)
+
+    @patch("apps.core.models.CoreBaseModel.delete")
+    def test_deleting_noncompleted_payment_keeps_its_status(self, base_delete):
+        payment = Payment(status=Payment.PaymentStatus.PENDING)
+        payment.delete()
+        self.assertEqual(payment.status, Payment.PaymentStatus.PENDING)
+        base_delete.assert_called_once_with(using=None, keep_parents=False)

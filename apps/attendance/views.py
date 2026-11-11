@@ -58,6 +58,39 @@ class AttendancePermissionMixin:
 
 
 
+def _accessible_student_queryset(user):
+    """Return student profiles visible to this user in the active tenant."""
+    queryset = filter_queryset_by_institution(
+        Student.objects.select_related("user"), user
+    )
+    institution = get_current_institution()
+    if institution and user_can_access_institution(user, institution):
+        queryset = queryset.filter(institution=institution)
+
+    if hasattr(user, "student_profile"):
+        queryset = queryset.filter(pk=user.student_profile.pk)
+    elif hasattr(user, "teacher_profile") and not (
+        user.is_staff or user.is_superuser
+    ):
+        teacher = user.teacher_profile
+        teacher_classes = Class.objects.filter(
+            institution=teacher.institution
+        ).filter(
+            Q(class_teacher=teacher) | Q(subject_assignments__teacher=teacher)
+        )
+        queryset = queryset.filter(
+            enrollments__class_enrolled__in=teacher_classes
+        )
+    elif not (
+        user.is_staff
+        or user.is_superuser
+        or user.has_perm("attendance.view_dailyattendance")
+    ):
+        queryset = queryset.none()
+
+    return queryset.distinct()
+
+
 # ==================== CONFIGURATION VIEWS ====================
 
 @method_decorator(login_required, name='dispatch')

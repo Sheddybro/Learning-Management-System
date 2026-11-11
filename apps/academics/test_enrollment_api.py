@@ -10,7 +10,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.core.models import Institution
-from .models import AcademicSession, Class, Student, Teacher, Timetable, Enrollment
+from .models import AcademicSession, Class, Student, Teacher, Timetable, Enrollment, SchoolPolicy
 from apps.core.models import InstitutionUser
 
 
@@ -78,6 +78,29 @@ class EnrollmentApiTests(TestCase):
             with self.subTest(name=name):
                 response = self.client.get(reverse(name, kwargs={"pk": entry.pk}))
                 self.assertEqual(response.status_code, 404)
+
+    def test_school_policy_pages_do_not_expose_other_school(self):
+        policy = SchoolPolicy.objects.create(
+            institution=self.other_school, policy_name="Other School Attendance",
+            description="Confidential other school policy",
+        )
+        self.client.force_login(self.user)
+        listing = self.client.get(reverse("academics:policy_list"))
+        self.assertEqual(listing.status_code, 200)
+        self.assertNotIn(policy, list(listing.context["policies"]))
+        for name in ("academics:policy_detail", "academics:policy_update"):
+            with self.subTest(name=name):
+                response = self.client.get(reverse(name, kwargs={"pk": policy.pk}))
+                self.assertEqual(response.status_code, 404)
+
+    def test_school_policy_form_excludes_other_school_session(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("academics:policy_create"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(
+            self.session,
+            list(response.context["form"].fields["academic_session"].queryset),
+        )
 
     def test_timetable_create_form_excludes_other_school_session(self):
         self.client.force_login(self.user)

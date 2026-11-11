@@ -668,8 +668,17 @@ class AttendanceSummaryView(AttendancePermissionMixin, View):
     def get(self, request):
         context = {}
         
-        # Get current academic session
-        current_session = AcademicSession.objects.filter(is_current=True).first()
+        # Resolve the user's school before selecting the current session.
+        if hasattr(request.user, "student_profile"):
+            institution = request.user.student_profile.institution
+        elif hasattr(request.user, "teacher_profile"):
+            institution = request.user.teacher_profile.institution
+        else:
+            institution = get_current_institution()
+
+        current_session = AcademicSession.objects.filter(
+            is_current=True, institution=institution
+        ).first()
         if not current_session:
             messages.error(request, "No active academic session found.")
             return render(request, 'attendance/summary/summary.html', context)
@@ -709,6 +718,8 @@ class AttendanceSummaryView(AttendancePermissionMixin, View):
     def get_teacher_class_summaries(self, teacher, session):
         """Get attendance summaries for teacher's classes"""
         classes = Class.objects.filter(
+            institution=session.institution
+        ).filter(
             Q(class_teacher=teacher) |
             Q(subject_assignments__teacher=teacher)
         ).distinct()

@@ -2638,62 +2638,59 @@ class ClassMaterialCreateView(TeacherRequiredMixin, CreateView):
     def form_valid(self, form):
         from apps.core.middleware import get_current_institution
 
-        form.instance.institution = get_current_institution()
+        institution = get_current_institution()
+        if institution is None:
+            form.add_error(None, _("Select a school before uploading materials."))
+            return self.form_invalid(form)
+        form.instance.institution = institution
         user = self.request.user
 
         if hasattr(user, "teacher_profile"):
+            if user.teacher_profile.institution_id != institution.pk:
+                form.add_error(None, _("Your teacher profile belongs to another school."))
+                return self.form_invalid(form)
             form.instance.teacher = user.teacher_profile
         else:
-            # User is admin/staff without teacher profile, assign system admin teacher
-            admin_teacher = self.get_or_create_system_admin_teacher()
+            # Staff without a teacher profile use a disabled school-local service account.
+            admin_teacher = self.get_or_create_system_admin_teacher(institution)
             form.instance.teacher = admin_teacher
 
         messages.success(self.request, _("Class material created successfully."))
         return super().form_valid(form)
 
-    def get_or_create_system_admin_teacher(self):
-        """Get or create the system admin teacher account."""
-        from apps.users.models import User, Role
+    def get_or_create_system_admin_teacher(self, institution):
+        """Provide a disabled upload attribution account isolated to this school."""
+        from apps.users.models import User
 
-        # Try to find existing system admin teacher
-        admin_teacher = Teacher.objects.filter(is_system_admin=True).first()
-        if admin_teacher:
-            return admin_teacher
-
-        # Create a system user for admin if it doesn't exist
-        admin_role = Role.objects.filter(role_type=Role.RoleType.ADMIN).first()
-        if not admin_role:
-            # Fallback to first admin-like role
-            admin_role = Role.objects.filter(
-                role_type__in=["admin", "principal", "super_admin"]
-            ).first()
+        if institution is None:
+            raise ValidationError(_("Select a school before uploading materials."))
 
         system_user, created = User.objects.get_or_create(
-            username="system_admin_teacher",
+            email=f"materials-system-{institution.pk.hex}@internal.invalid",
             defaults={
-                "first_name": "System",
-                "last_name": "Admin Teacher",
-                "email": "admin@school.local",
-                "is_staff": True,
-                "is_superuser": False,
+                "first_name": "Materials", "last_name": "System",
+                "is_active": False, "is_staff": False, "is_superuser": False,
             },
         )
+        if created:
+            system_user.set_unusable_password()
+            system_user.save(update_fields=["password"])
 
-        # Assign admin role if not already assigned
-        if admin_role and not system_user.user_roles.filter(role=admin_role).exists():
-            system_user.user_roles.create(role=admin_role)
-
-        # Create the teacher profile
-        admin_teacher = Teacher.objects.create(
+        identifier = f"MAT{institution.pk.hex[:12].upper()}"
+        teacher, _ = Teacher.objects.get_or_create(
             user=system_user,
-            teacher_id="SYSTEM_ADMIN",
-            employee_id="SYS_ADMIN_001",
-            joining_date=timezone.now().date(),
-            is_system_admin=True,
-            bio="System Administrator Teacher account for materials uploaded by admin users.",
+            defaults={
+                "institution": institution,
+                "teacher_id": identifier,
+                "employee_id": identifier,
+                "joining_date": timezone.now().date(),
+                "is_system_admin": True,
+                "bio": "Non-login attribution profile for school staff uploads.",
+            },
         )
-
-        return admin_teacher
+        if teacher.institution_id != institution.pk:
+            raise ValidationError(_("Materials attribution belongs to another school."))
+        return teacher
 
     def get_success_url(self):
         return reverse_lazy("academics:material_detail", kwargs={"pk": self.object.pk})

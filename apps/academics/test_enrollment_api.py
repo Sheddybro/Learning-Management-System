@@ -9,7 +9,8 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.core.models import Institution
-from .models import AcademicSession, Class
+from .models import AcademicSession, Class, Student, Teacher
+from apps.core.models import InstitutionUser
 
 
 class EnrollmentApiTests(TestCase):
@@ -131,6 +132,45 @@ class EnrollmentApiTests(TestCase):
                     key: "not-a-uuid",
                 })
                 self.assertEqual(response.status_code, 200)
+
+    def test_student_and_teacher_edit_reject_other_school(self):
+        outsider = get_user_model().objects.create_user(
+            email="outsider@example.com", password="test-only-password"
+        )
+        student = Student.objects.create(
+            user=outsider, institution=self.other_school,
+            student_id="OUT-STU", admission_number="OUT-001",
+            admission_date=date(2026, 1, 1),
+            date_of_birth=date(2010, 1, 1), gender="female",
+        )
+        teacher_user = get_user_model().objects.create_user(
+            email="other-teacher@example.com", password="test-only-password"
+        )
+        teacher = Teacher.objects.create(
+            user=teacher_user, institution=self.other_school,
+            teacher_id="OUT-TCH", employee_id="OUT-EMP",
+            joining_date=date(2026, 1, 1),
+        )
+        self.client.force_login(self.user)
+        for name, pk in (("academics:student_update", student.pk),
+                         ("academics:teacher_update", teacher.pk)):
+            with self.subTest(name=name):
+                response = self.client.get(reverse(name, kwargs={"pk": pk}))
+                self.assertEqual(response.status_code, 404)
+
+    def test_student_and_teacher_create_exclude_other_school_account(self):
+        outsider = get_user_model().objects.create_user(
+            email="other-member@example.com", password="test-only-password"
+        )
+        InstitutionUser.objects.create(user=outsider, institution=self.other_school)
+        self.client.force_login(self.user)
+        for name in ("academics:student_create", "academics:teacher_create"):
+            with self.subTest(name=name):
+                response = self.client.get(reverse(name))
+                self.assertEqual(response.status_code, 200)
+                self.assertNotIn(
+                    outsider, list(response.context["form"].fields["user"].queryset)
+                )
 
     def test_calendar_excludes_other_school_session(self):
         self.client.force_login(self.user)

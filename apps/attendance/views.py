@@ -506,7 +506,7 @@ class LeaveApplicationListView(AttendancePermissionMixin, ListView):
             queryset = queryset.filter(
                 Q(applicant__first_name__icontains=search) |
                 Q(applicant__last_name__icontains=search) |
-                Q(applicant__username__icontains=search)
+                Q(applicant__email__icontains=search)
             )
 
         # Restrict access based on user role

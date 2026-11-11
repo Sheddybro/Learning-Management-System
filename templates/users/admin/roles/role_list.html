@@ -1,0 +1,534 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Role Management" %} - {{ block.super }}{% endblock %}
+
+{% block page_title %}{% trans "Role Management" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active" aria-current="page">{% trans "Roles" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <!-- Quick Stats Cards -->
+            <div class="row">
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-start border-primary border-4">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h6 class="text-muted fw-normal mb-2">{% trans "Total Roles" %}</h6>
+                                    <h4 class="mb-0">{{ roles|length }}</h4>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <i class="bi bi-person-badge-fill text-primary display-6"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-start border-success border-4">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h6 class="text-muted fw-normal mb-2">{% trans "Active Roles" %}</h6>
+                                    <h4 class="mb-0">{{ roles|length }}</h4>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <i class="bi bi-person-badge text-success display-6"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-start border-warning border-4">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h6 class="text-muted fw-normal mb-2">{% trans "System Roles" %}</h6>
+                                    <h4 class="mb-0">{{ system_roles_count }}</h4>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <i class="bi bi-shield-check text-warning display-6"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-start border-info border-4">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h6 class="text-muted fw-normal mb-2">{% trans "User Roles" %}</h6>
+                                    <h4 class="mb-0">{{ user_roles_count }}</h4>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <i class="bi bi-person-gear text-info display-6"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Role Changes Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-start border-info border-4">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        {% trans "Recent Role Changes" %}
+                    </h5>
+                    <small class="text-white-50">{% trans "Last 15 activities" %}</small>
+                </div>
+                <div class="card-body">
+                    {% if recent_activities %}
+                        <div class="activity-feed">
+                            {% for activity in recent_activities %}
+                                <div class="activity-item d-flex align-items-start mb-3 pb-3 border-bottom border-light">
+                                    <div class="activity-icon me-3 mt-1">
+                                        {% if activity.action_type == 'assigned' %}
+                                            <i class="bi bi-person-plus-fill text-success fs-5"></i>
+                                        {% elif activity.action_type == 'removed' %}
+                                            <i class="bi bi-person-dash-fill text-danger fs-5"></i>
+                                        {% elif activity.action_type == 'set_primary' %}
+                                            <i class="bi bi-star-fill text-warning fs-5"></i>
+                                        {% elif activity.action_type == 'set_secondary' %}
+                                            <i class="bi bi-star text-secondary fs-5"></i>
+                                        {% else %}
+                                            <i class="bi bi-gear-fill text-primary fs-5"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="activity-content flex-grow-1">
+                                        <div class="activity-text">
+                                            <strong>{{ activity.user.display_name }}</strong>
+                                            {{ activity.action_description }}
+                                            <strong>{{ activity.role.name }}</strong>
+                                            {% if activity.academic_session %}
+                                                <small class="text-muted">({{ activity.academic_session.name }})</small>
+                                            {% endif %}
+                                        </div>
+                                        <div class="activity-meta small text-muted">
+                                            {% if activity.performed_by %}
+                                                <i class="bi bi-person me-1"></i>{% trans "by" %} {{ activity.performed_by.display_name }}
+                                                &bull;
+                                            {% endif %}
+                                            <i class="bi bi-clock me-1"></i>{{ activity.created_at|timesince }} ago
+                                        </div>
+                                        {% if activity.details %}
+                                            <div class="activity-details small text-muted mt-1">
+                                                {{ activity.details }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-clock-history display-4 text-muted mb-3"></i>
+                            <h6 class="text-muted">{% trans "No recent role changes" %}</h6>
+                            <p class="text-muted small">{% trans "Role assignment changes will appear here" %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-person-badge me-2"></i>
+                        {% trans "Roles" %}
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <!-- Export Button -->
+                        <button class="btn btn-sm btn-light" id="exportRoles">
+                            <i class="bi bi-download me-1"></i>{% trans "Export" %}
+                        </button>
+
+                        <!-- Create Role Button -->
+                        <a href="{% url 'users:role_create' %}" class="btn btn-sm btn-success">
+                            <i class="bi bi-person-plus me-1"></i>{% trans "Add Role" %}
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Search and Filters -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="searchInput"
+                                       placeholder="{% trans 'Search roles...' %}" value="{{ request.GET.q|default:'' }}">
+                                <button class="btn btn-outline-secondary" type="button" id="clearSearch">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <select class="form-select" id="roleTypeFilter">
+                                        <option value="">{% trans "All Types" %}</option>
+                                        <option value="super_admin" {% if request.GET.role_type == 'super_admin' %}selected{% endif %}>{% trans "Super Administrator" %}</option>
+                                        <option value="admin" {% if request.GET.role_type == 'admin' %}selected{% endif %}>{% trans "Administrator" %}</option>
+                                        <option value="principal" {% if request.GET.role_type == 'principal' %}selected{% endif %}>{% trans "Principal" %}</option>
+                                        <option value="teacher" {% if request.GET.role_type == 'teacher' %}selected{% endif %}>{% trans "Teacher" %}</option>
+                                        <option value="student" {% if request.GET.role_type == 'student' %}selected{% endif %}>{% trans "Student" %}</option>
+                                        <option value="parent" {% if request.GET.role_type == 'parent' %}selected{% endif %}>{% trans "Parent" %}</option>
+                                        <option value="accountant" {% if request.GET.role_type == 'accountant' %}selected{% endif %}>{% trans "Accountant" %}</option>
+                                        <option value="librarian" {% if request.GET.role_type == 'librarian' %}selected{% endif %}>{% trans "Librarian" %}</option>
+                                        <option value="driver" {% if request.GET.role_type == 'driver' %}selected{% endif %}>{% trans "Driver" %}</option>
+                                        <option value="support" {% if request.GET.role_type == 'support' %}selected{% endif %}>{% trans "Support Staff" %}</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <select class="form-select" id="systemRoleFilter">
+                                        <option value="">{% trans "All Roles" %}</option>
+                                        <option value="system" {% if request.GET.system_role == 'system' %}selected{% endif %}>{% trans "System Roles" %}</option>
+                                        <option value="user" {% if request.GET.system_role == 'user' %}selected{% endif %}>{% trans "User Roles" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Roles Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped" id="rolesTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% trans "Role Name" %}</th>
+                                    <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Description" %}</th>
+                                    <th>{% trans "Hierarchy" %}</th>
+                                    <th>{% trans "Permissions" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                    <th>{% trans "System Role" %}</th>
+                                    <th width="120">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for role in roles %}
+                                <tr data-role-id="{{ role.id }}" data-role-name="{{ role.name }}">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1">{{ role.name }}</h6>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ role.get_role_type_display }}</span>
+                                    </td>
+                                    <td>
+                                        {% if role.description %}
+                                            <span title="{{ role.description }}">{{ role.description|truncatechars:50 }}</span>
+                                        {% else %}
+                                            <em class="text-muted">{% trans "No description" %}</em>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ role.hierarchy_level }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ role.permissions.count }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if role.status == 'active' %}success{% else %}secondary{% endif %}">
+                                            {{ role.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if role.is_system_role %}
+                                            <i class="bi bi-shield-check text-warning" title="{% trans 'System Role' %}"></i>
+                                        {% else %}
+                                            <i class="bi bi-person text-muted" title="{% trans 'User Role' %}"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'users:role_create' %}?edit={{ role.id }}" class="btn btn-outline-primary">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            {% if not role.is_system_role %}
+                                            <button type="button" class="btn btn-outline-danger" onclick="confirmDeleteRole('{{ role.id }}', '{{ role.name }}')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-4">
+                                        <div class="text-muted">
+                                            <i class="bi bi-person-badge display-4 d-block mb-2"></i>
+                                            <h5>{% trans "No roles found" %}</h5>
+                                            <p>{% trans "Try adjusting your search or filters to find what you're looking for." %}</p>
+                                            <a href="{% url 'users:role_create' %}" class="btn btn-primary">
+                                                <i class="bi bi-person-plus me-1"></i>{% trans "Create First Role" %}
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if roles.paginator.num_pages > 1 %}
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <div class="text-muted">
+                            {% blocktrans with start=roles.start_index end=roles.end_index total=roles.paginator.count %}
+                                Showing {{ start }} to {{ end }} of {{ total }} entries
+                            {% endblocktrans %}
+                        </div>
+                        <nav>
+                            <ul class="pagination mb-0">
+                                {% if roles.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-double-left"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ roles.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+
+                                {% for num in roles.paginator.page_range %}
+                                    {% if roles.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% elif num > roles.number|add:'-3' and num < roles.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                                {{ num }}
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if roles.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ roles.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ roles.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-double-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteRoleModal" tabindex="-1" aria-labelledby="deleteRoleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteRoleModalLabel">{% trans "Confirm Role Deletion" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Are you sure you want to delete the role" %} <strong id="deleteRoleName"></strong>?</p>
+                <p class="text-danger">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    {% trans "This action cannot be undone. Users assigned to this role will lose their permissions." %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteRole">{% trans "Delete Role" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportModalLabel">{% trans "Export Roles" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Export Format" %}</label>
+                    <select class="form-select" name="format">
+                        <option value="csv">CSV</option>
+                        <option value="excel">Excel</option>
+                        <option value="json">JSON</option>
+                    </select>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="include_permissions" id="includePermissions" checked>
+                    <label class="form-check-label" for="includePermissions">
+                        {% trans "Include permissions" %}
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="submit" class="btn btn-primary">{% trans "Export" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table th {
+        border-top: none;
+        font-weight: 600;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(101, 160, 249, 0.05);
+    }
+
+    .badge {
+        font-size: 0.75rem;
+    }
+
+    .pagination .page-link {
+        color: #65a0f9;
+    }
+
+    .pagination .page-item.active .page-link {
+        background-color: #65a0f9;
+        border-color: #65a0f9;
+    }
+
+    /* Stats cards responsive */
+    @media (max-width: 768px) {
+        .stats-card {
+            margin-bottom: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const clearSearch = document.getElementById('clearSearch');
+        const roleTypeFilter = document.getElementById('roleTypeFilter');
+        const systemRoleFilter = document.getElementById('systemRoleFilter');
+        const exportModal = new bootstrap.Modal(document.getElementById('exportModal'));
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteRoleModal'));
+        const exportRolesButton = document.getElementById('exportRoles');
+
+        let roleToDelete = null;
+        let roleToDeleteName = null;
+
+        // Export button handler
+        exportRolesButton.addEventListener('click', function() {
+            exportModal.show();
+        });
+
+        // Search and filter handlers
+        searchInput.addEventListener('input', debounce(applyFilters, 300));
+        clearSearch.addEventListener('click', function() {
+            searchInput.value = '';
+            applyFilters();
+        });
+        roleTypeFilter.addEventListener('change', applyFilters);
+        systemRoleFilter.addEventListener('change', applyFilters);
+
+        function applyFilters() {
+            const params = new URLSearchParams();
+
+            if (searchInput.value) {
+                params.append('q', searchInput.value);
+            }
+
+            if (roleTypeFilter.value) {
+                params.append('role_type', roleTypeFilter.value);
+            }
+
+            if (systemRoleFilter.value) {
+                params.append('system_role', systemRoleFilter.value);
+            }
+
+            window.location.href = '?' + params.toString();
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+    });
+
+    function confirmDeleteRole(roleId, roleName) {
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteRoleModal'));
+        document.getElementById('deleteRoleName').textContent = roleName;
+        const confirmDeleteBtn = document.getElementById('confirmDeleteRole');
+
+        confirmDeleteBtn.onclick = function() {
+            // Create form to submit delete request
+            const form = document.createElement('form');
+            form.method = 'post';
+            form.action = `/users/admin/roles/${roleId}/delete/`;
+
+            // Add CSRF token
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = '{{ csrf_token }}';
+            form.appendChild(csrfInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        };
+
+        deleteModal.show();
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,494 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Fuel Records" %}{% endblock %}
+
+{% block page_title %}{% trans "Fuel Record Management" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Fuel Records" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-2px);
+    }
+
+    .stats-card-1 { border-left-color: #65a0f9; }
+    .stats-card-2 { border-left-color: #28a745; }
+    .stats-card-3 { border-left-color: #ffc107; }
+    .stats-card-4 { border-left-color: #dc3545; }
+
+    .fuel-card {
+        border-left: 4px solid #65a0f9;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .fuel-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        border-left-color: #28a745;
+    }
+
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .cost-highlight {
+        font-weight: bold;
+        color: #dc3545;
+    }
+
+    .search-box {
+        max-width: 300px;
+    }
+
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+
+    .fuel-metrics {
+        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .fuel-icon {
+        font-size: 2rem;
+        opacity: 0.8;
+    }
+
+    .grid-view {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .list-view {
+        display: block;
+    }
+
+    .fuel-item {
+        transition: all 0.2s ease;
+    }
+
+    .fuel-item:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .empty-state {
+        padding: 3rem 1rem;
+    }
+
+    .efficiency-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .cost-efficiency {
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+
+    @media (max-width: 768px) {
+        .grid-view {
+            grid-template-columns: 1fr;
+        }
+
+        .search-box {
+            max-width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-1 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-primary">{{ fuel_records.count }}</div>
+                            <div class="stat-label">{% trans "Fuel Records" %}</div>
+                        </div>
+                        <div class="stat-icon text-primary">
+                            <i class="fas fa-gas-pump"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-2 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-success">{{ total_fuel_quantity|default:0 }}</div>
+                            <div class="stat-label">{% trans "Total Fuel (L)" %}</div>
+                        </div>
+                        <div class="stat-icon text-success">
+                            <i class="fas fa-tint"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-danger">${{ total_fuel_cost|floatformat:2 }}</div>
+                            <div class="stat-label">{% trans "Total Cost" %}</div>
+                        </div>
+                        <div class="stat-icon text-danger">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-3 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-warning">{{ vehicles|length }}</div>
+                            <div class="stat-label">{% trans "Vehicles" %}</div>
+                        </div>
+                        <div class="stat-icon text-warning">
+                            <i class="fas fa-bus"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Bar -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-gas-pump me-2"></i>
+                        {% trans "Fuel Records" %}
+                    </h5>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-end gap-2 flex-wrap">
+                        <!-- Search Box -->
+                        <div class="search-box">
+                            <form method="get" class="d-flex">
+                                <input type="text" name="search" class="form-control"
+                                       placeholder="{% trans 'Search fuel records...' %}"
+                                       value="{{ request.GET.search }}">
+                                <button type="submit" class="btn btn-outline-primary ms-2">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Add Fuel Record Button -->
+                        {% if perms.transport.add_fuelrecord %}
+                        <a href="{% url 'transport:fuelrecord_create' %}" class="btn btn-primary">
+                            <i class="fas fa-plus-circle me-2"></i>{% trans "Add Fuel Record" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="mt-3">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filters">
+                    <i class="fas fa-filter me-1"></i> {% trans "Filters" %}
+                </button>
+
+                <div class="collapse mt-2" id="filters">
+                    <div class="filter-section">
+                        <form method="get" class="row g-3">
+                            {% csrf_token %}
+                            <div class="col-md-3">
+                                <label class="form-label small">{% trans "Vehicle" %}</label>
+                                <select name="vehicle" class="form-select">
+                                    <option value="">{% trans "All Vehicles" %}</option>
+                                    {% for vehicle in vehicles %}
+                                    <option value="{{ vehicle.pk }}" {% if request.GET.vehicle == vehicle.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ vehicle.vehicle_number }} - {{ vehicle.make }} {{ vehicle.model }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">{% trans "From Date" %}</label>
+                                <input type="date" name="date_from" class="form-control"
+                                       value="{{ request.GET.date_from }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">{% trans "To Date" %}</label>
+                                <input type="date" name="date_to" class="form-control"
+                                       value="{{ request.GET.date_to }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">&nbsp;</label>
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-filter me-1"></i>{% trans "Apply" %}
+                                    </button>
+                                    <a href="{% url 'transport:fuelrecord_list' %}" class="btn btn-outline-secondary btn-sm">
+                                        <i class="fas fa-times me-1"></i>{% trans "Clear" %}
+                                    </a>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fuel Records Content -->
+    <div class="card">
+        <div class="card-body">
+            {% if fuel_records %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "Date" %}</th>
+                            <th>{% trans "Vehicle" %}</th>
+                            <th>{% trans "Odometer" %}</th>
+                            <th>{% trans "Fuel Quantity" %}</th>
+                            <th>{% trans "Fuel Cost" %}</th>
+                            <th>{% trans "Station" %}</th>
+                            <th>{% trans "Efficiency" %}</th>
+                            <th class="text-center">{% trans "Actions" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in fuel_records %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span>{{ record.date|date:"M d, Y" }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <strong>{{ record.vehicle.vehicle_number }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ record.vehicle.make }} {{ record.vehicle.model }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                {{ record.odometer_reading }} km
+                            </td>
+                            <td>
+                                <strong>{{ record.fuel_quantity }} L</strong>
+                            </td>
+                            <td>
+                                <span class="cost-highlight">${{ record.fuel_cost|floatformat:2 }}</span>
+                            </td>
+                            <td>
+                                {{ record.fuel_station|default:"-"|truncatechars:20 }}
+                            </td>
+                            <td>
+                                {% if record.fuel_efficiency %}
+                                {{ record.fuel_efficiency|floatformat:1 }} km/L
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    {% if perms.transport.change_fuelrecord %}
+                                    <a href="{% url 'transport:fuelrecord_update' record.pk %}"
+                                       class="btn btn-outline-secondary"
+                                       title="{% trans 'Edit' %}"
+                                       data-bs-toggle="tooltip">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if perms.transport.delete_fuelrecord %}
+                                    <button class="btn btn-outline-danger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteModal"
+                                            data-record-id="{{ record.pk }}"
+                                            data-record-date="{{ record.date }}"
+                                            data-vehicle="{{ record.vehicle.vehicle_number }}"
+                                            title="{% trans 'Delete' %}"
+                                            data-bs-toggle="tooltip">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="{% trans 'Fuel records pagination' %}" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                <div class="text-center text-muted small mt-2">
+                    {% trans "Showing" %} {{ page_obj.start_index }} - {{ page_obj.end_index }} {% trans "of" %} {{ paginator.count }} {% trans "fuel records" %}
+                </div>
+            </nav>
+            {% endif %}
+            {% else %}
+            <div class="empty-state text-center">
+                <i class="fas fa-gas-pump display-1 text-muted d-block mb-3"></i>
+                <h4>{% trans "No Fuel Records Found" %}</h4>
+                <p class="text-muted mb-4">
+                    {% if request.GET %}
+                        {% trans "No fuel records match your current filters." %}
+                    {% else %}
+                        {% trans "Get started by adding your first fuel record." %}
+                    {% endif %}
+                </p>
+                {% if perms.transport.add_fuelrecord %}
+                <a href="{% url 'transport:fuelrecord_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus-circle me-2"></i>{% trans "Add First Fuel Record" %}
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">{% trans "Confirm Deletion" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Are you sure you want to delete this fuel record?" %}</p>
+                <div class="alert alert-warning">
+                    <strong>{% trans "Fuel Record Details:" %}</strong><br>
+                    <span id="recordDetails"></span>
+                </div>
+                <p class="text-danger small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    {% trans "This action cannot be undone. This will permanently delete the fuel record." %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">{% trans "Delete Fuel Record" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Delete Modal Handler
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteForm = document.getElementById('deleteForm');
+        const recordDetails = document.getElementById('recordDetails');
+
+        deleteModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const recordId = button.getAttribute('data-record-id');
+            const recordDate = button.getAttribute('data-record-date');
+            const vehicle = button.getAttribute('data-vehicle');
+
+            recordDetails.innerHTML = `
+                <strong>Vehicle:</strong> ${vehicle}<br>
+                <strong>Date:</strong> ${recordDate}<br>
+            `;
+
+            deleteForm.action = `/transport/fuel/${recordId}/delete/`;
+        });
+
+        // Search form auto-submit (debounced)
+        let searchTimeout;
+        const searchInput = document.querySelector('input[name="search"]');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    this.form.submit();
+                }, 500);
+            });
+        }
+    });
+</script>
+{% endblock %}

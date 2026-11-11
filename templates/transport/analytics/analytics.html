@@ -1,0 +1,816 @@
+<!-- templates/transport/analytics/analytics.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Transport Analytics" %}{% endblock %}
+
+{% block page_title %}{% trans "Transport Analytics" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Analytics" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Analytics Specific Styles */
+    .analytics-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+        height: 100%;
+    }
+    
+    .analytics-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0;
+    }
+    
+    .metric-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+    
+    .metric-change {
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .chart-container {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        height: 100%;
+    }
+    
+    .filter-controls {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .analytics-tabs .nav-link {
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: #6c757d;
+        font-weight: 500;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .analytics-tabs .nav-link.active {
+        color: #0d6efd;
+        border-bottom-color: #0d6efd;
+        background: transparent;
+    }
+    
+    .analytics-tabs .nav-link:hover {
+        color: #0d6efd;
+        border-bottom-color: #0d6efd;
+    }
+    
+    .data-table {
+        font-size: 0.875rem;
+    }
+    
+    .efficiency-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .efficiency-high {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    
+    .efficiency-medium {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    
+    .efficiency-low {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .trend-indicator {
+        font-size: 0.875rem;
+    }
+    
+    .trend-up {
+        color: #10b981;
+    }
+    
+    .trend-down {
+        color: #ef4444;
+    }
+    
+    .trend-neutral {
+        color: #6b7280;
+    }
+    
+    .comparison-bar {
+        height: 8px;
+        border-radius: 4px;
+        background: #e5e7eb;
+        overflow: hidden;
+    }
+    
+    .comparison-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.5s ease;
+    }
+    
+    .insight-card {
+        border-left: 4px solid;
+        background: #f8f9fa;
+    }
+    
+    .insight-warning {
+        border-left-color: #f59e0b;
+    }
+    
+    .insight-success {
+        border-left-color: #10b981;
+    }
+    
+    .insight-info {
+        border-left-color: #3b82f6;
+    }
+    
+    .kpi-card {
+        text-align: center;
+        padding: 1.5rem;
+    }
+    
+    .kpi-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin: 0 auto 1rem;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .metric-value {
+            font-size: 1.5rem;
+        }
+        
+        .chart-container {
+            padding: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="transport-analytics">
+    <!-- Filter Controls -->
+    <div class="filter-controls">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-3">
+                <label for="dateRange" class="form-label">{% trans "Date Range" %}</label>
+                <select class="form-select" id="dateRange">
+                    <option value="7">{% trans "Last 7 Days" %}</option>
+                    <option value="30" selected>{% trans "Last 30 Days" %}</option>
+                    <option value="90">{% trans "Last 90 Days" %}</option>
+                    <option value="365">{% trans "Last Year" %}</option>
+                    <option value="custom">{% trans "Custom Range" %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="vehicleFilter" class="form-label">{% trans "Vehicle" %}</label>
+                <select class="form-select" id="vehicleFilter">
+                    <option value="">{% trans "All Vehicles" %}</option>
+                    <!-- Vehicles would be populated dynamically -->
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="routeFilter" class="form-label">{% trans "Route" %}</label>
+                <select class="form-select" id="routeFilter">
+                    <option value="">{% trans "All Routes" %}</option>
+                    <!-- Routes would be populated dynamically -->
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label d-block">&nbsp;</label>
+                <button class="btn btn-primary w-100" id="applyFilters">
+                    <i class="fas fa-filter me-1"></i> {% trans "Apply Filters" %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Tabs -->
+    <ul class="nav nav-tabs analytics-tabs mb-4" id="analyticsTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+                <i class="fas fa-chart-pie me-1"></i> {% trans "Overview" %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="fuel-tab" data-bs-toggle="tab" data-bs-target="#fuel" type="button" role="tab">
+                <i class="fas fa-gas-pump me-1"></i> {% trans "Fuel Analytics" %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="maintenance-tab" data-bs-toggle="tab" data-bs-target="#maintenance" type="button" role="tab">
+                <i class="fas fa-tools me-1"></i> {% trans "Maintenance" %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="routes-tab" data-bs-toggle="tab" data-bs-target="#routes" type="button" role="tab">
+                <i class="fas fa-route me-1"></i> {% trans "Route Performance" %}
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="analyticsTabContent">
+        <!-- Overview Tab -->
+        <div class="tab-pane fade show active" id="overview" role="tabpanel">
+            <!-- Key Metrics -->
+            <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card analytics-card">
+                        <div class="card-body kpi-card">
+                            <div class="kpi-icon bg-primary bg-opacity-10 text-primary">
+                                <i class="fas fa-road"></i>
+                            </div>
+                            <h3 class="metric-value text-primary">{% trans "85%" %}</h3>
+                            <p class="metric-label">{% trans "Route Utilization" %}</p>
+                            <span class="trend-indicator trend-up">
+                                <i class="fas fa-arrow-up me-1"></i> 5.2%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card analytics-card">
+                        <div class="card-body kpi-card">
+                            <div class="kpi-icon bg-success bg-opacity-10 text-success">
+                                <i class="fas fa-gas-pump"></i>
+                            </div>
+                            <h3 class="metric-value text-success">{% trans "8.2" %}</h3>
+                            <p class="metric-label">{% trans "Avg. Fuel Efficiency (km/L)" %}</p>
+                            <span class="trend-indicator trend-up">
+                                <i class="fas fa-arrow-up me-1"></i> 2.1%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card analytics-card">
+                        <div class="card-body kpi-card">
+                            <div class="kpi-icon bg-warning bg-opacity-10 text-warning">
+                                <i class="fas fa-tools"></i>
+                            </div>
+                            <h3 class="metric-value text-warning">{% trans "₹12,450" %}</h3>
+                            <p class="metric-label">{% trans "Avg. Maintenance Cost/Month" %}</p>
+                            <span class="trend-indicator trend-down">
+                                <i class="fas fa-arrow-down me-1"></i> 3.8%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card analytics-card">
+                        <div class="card-body kpi-card">
+                            <div class="kpi-icon bg-info bg-opacity-10 text-info">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <h3 class="metric-value text-info">{% trans "94.7%" %}</h3>
+                            <p class="metric-label">{% trans "On-Time Performance" %}</p>
+                            <span class="trend-indicator trend-neutral">
+                                <i class="fas fa-minus me-1"></i> 0.3%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="row mb-4">
+                <div class="col-lg-8 mb-4">
+                    <div class="chart-container">
+                        <h5 class="mb-3">{% trans "Monthly Transport Performance" %}</h5>
+                        <canvas id="performanceChart" height="300"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-4 mb-4">
+                    <div class="chart-container">
+                        <h5 class="mb-3">{% trans "Incident Distribution" %}</h5>
+                        <canvas id="incidentChart" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Insights and Recommendations -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="chart-container">
+                        <h5 class="mb-3">{% trans "Key Insights & Recommendations" %}</h5>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="card insight-card insight-warning">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                            {% trans "Fuel Efficiency Alert" %}
+                                        </h6>
+                                        <p class="card-text small">
+                                            {% trans "Vehicle #BUS-003 shows 15% lower fuel efficiency than fleet average. Consider maintenance check." %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card insight-card insight-success">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <i class="fas fa-check-circle text-success me-2"></i>
+                                            {% trans "Route Optimization" %}
+                                        </h6>
+                                        <p class="card-text small">
+                                            {% trans "Route R-102 shows excellent utilization. Consider similar optimization for other routes." %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card insight-card insight-info">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <i class="fas fa-lightbulb text-info me-2"></i>
+                                            {% trans "Cost Saving Opportunity" %}
+                                        </h6>
+                                        <p class="card-text small">
+                                            {% trans "Consolidating morning routes could save approximately ₹8,500 monthly in fuel costs." %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fuel Analytics Tab -->
+        <div class="tab-pane fade" id="fuel" role="tabpanel">
+            <div class="row mb-4">
+                <div class="col-lg-6 mb-4">
+                    <div class="chart-container">
+                        <h5 class="mb-3">{% trans "Fuel Efficiency by Vehicle" %}</h5>
+                        <canvas id="fuelEfficiencyChart" height="350"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-6 mb-4">
+                    <div class="chart-container">
+                        <h5 class="mb-3">{% trans "Monthly Fuel Consumption & Cost" %}</h5>
+                        <canvas id="fuelConsumptionChart" height="350"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fuel Efficiency Table -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="chart-container">
+                        <h5 class="mb-3">{% trans "Vehicle Fuel Efficiency Ranking" %}</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover data-table">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Vehicle" %}</th>
+                                        <th>{% trans "Fuel Efficiency" %}</th>
+                                        <th>{% trans "Trend" %}</th>
+                                        <th>{% trans "Status" %}</th>
+                                        <th>{% trans "Comparison" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in fuel_efficiency_data %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ item.vehicle }}</strong>
+                                        </td>
+                                        <td>
+                                            <strong>{{ item.efficiency }} km/L</strong>
+                                        </td>
+                                        <td>
+                                            {% if item.efficiency > 8.5 %}
+                                            <span class="trend-indicator trend-up">
+                                                <i class="fas fa-arrow-up me-1"></i> {% trans "Excellent" %}
+                                            </span>
+                                            {% elif item.efficiency > 7.0 %}
+                                            <span class="trend-indicator trend-neutral">
+                                                <i class="fas fa-minus me-1"></i> {% trans "Good" %}
+                                            </span>
+                                            {% else %}
+                                            <span class="trend-indicator trend-down">
+                                                <i class="fas fa-arrow-down me-1"></i> {% trans "Needs Attention" %}
+                                            </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if item.efficiency > 8.5 %}
+                                            <span class="efficiency-badge efficiency-high">{% trans "High" %}</span>
+                                            {% elif item.efficiency > 7.0 %}
+                                            <span class="efficiency-badge efficiency-medium">{% trans "Medium" %}</span>
+                                            {% else %}
+                                            <span class="efficiency-badge efficiency-low">{% trans "Low" %}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="comparison-bar">
+                                                <div class="comparison-fill bg-success" 
+                                                     style="width: {% widthratio item.efficiency 12 100 %}%"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Maintenance Tab -->
+        <div class="tab-pane fade" id="maintenance" role="tabpanel">
+            <div class="row mb-4">
+                <div class="col-lg-6 mb-4">
+                    <div class="chart-container">
+                        <h5 class="mb-3">{% trans "Maintenance Cost by Vehicle" %}</h5>
+                        <canvas id="maintenanceCostChart" height="350"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-6 mb-4">
+                    <div class="chart-container">
+                        <h5 class="mb-3">{% trans "Maintenance Type Distribution" %}</h5>
+                        <canvas id="maintenanceTypeChart" height="350"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Maintenance Cost Table -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="chart-container">
+                        <h5 class="mb-3">{% trans "Vehicle Maintenance Cost Analysis" %}</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover data-table">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Vehicle" %}</th>
+                                        <th>{% trans "Total Cost" %}</th>
+                                        <th>{% trans "Maintenance Count" %}</th>
+                                        <th>{% trans "Avg. Cost/Repair" %}</th>
+                                        <th>{% trans "Cost per KM" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in maintenance_costs %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ item.vehicle__vehicle_number }}</strong>
+                                        </td>
+                                        <td>₹{{ item.total_cost|floatformat:2 }}</td>
+                                        <td>{{ item.maintenance_count }}</td>
+                                        <td>₹{{ item.total_cost|floatformat:2 }}</td>
+                                        <td>
+                                            {% with cost_per_km=item.total_cost|divisibleby:10000 %}
+                                            ₹{{ cost_per_km|floatformat:2 }}
+                                            {% endwith %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Route Performance Tab -->
+        <div class="tab-pane fade" id="routes" role="tabpanel">
+            <div class="row mb-4">
+                <div class="col-lg-8 mb-4">
+                    <div class="chart-container">
+                        <h5 class="mb-3">{% trans "Route Utilization & Efficiency" %}</h5>
+                        <canvas id="routeUtilizationChart" height="350"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-4 mb-4">
+                    <div class="chart-container">
+                        <h5 class="mb-3">{% trans "Route Performance Score" %}</h5>
+                        <canvas id="routePerformanceChart" height="350"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Route Utilization Table -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="chart-container">
+                        <h5 class="mb-3">{% trans "Route Performance Metrics" %}</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover data-table">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Route" %}</th>
+                                        <th>{% trans "Students" %}</th>
+                                        <th>{% trans "Vehicles" %}</th>
+                                        <th>{% trans "Utilization" %}</th>
+                                        <th>{% trans "On-Time %" %}</th>
+                                        <th>{% trans "Performance" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for route in route_utilization %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ route.name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ route.start_point }} - {{ route.end_point }}</small>
+                                        </td>
+                                        <td>{{ route.student_count }}</td>
+                                        <td>{{ route.vehicle_count }}</td>
+                                        <td>
+                                            {% widthratio route.student_count 50 100 %}%
+                                        </td>
+                                        <td>
+                                            {% widthratio route.student_count 50 100 %}%
+                                        </td>
+                                        <td>
+                                            <div class="progress progress-thin">
+                                                <div class="progress-bar 
+                                                    {% if route.student_count > 40 %}bg-success
+                                                    {% elif route.student_count > 20 %}bg-warning
+                                                    {% else %}bg-danger{% endif %}" 
+                                                    style="width: {% widthratio route.student_count 50 100 %}%">
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize all charts
+        initializeCharts();
+        
+        // Filter functionality
+        document.getElementById('applyFilters').addEventListener('click', function() {
+            applyAnalyticsFilters();
+        });
+        
+        // Tab change handler
+        const analyticsTabs = document.getElementById('analyticsTabs');
+        analyticsTabs.addEventListener('shown.bs.tab', function(event) {
+            // Refresh charts when switching tabs
+            setTimeout(initializeCharts, 100);
+        });
+
+        function initializeCharts() {
+            // Performance Chart (Overview Tab)
+            const performanceCtx = document.getElementById('performanceChart')?.getContext('2d');
+            if (performanceCtx) {
+                new Chart(performanceCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+                        datasets: [
+                            {
+                                label: '{% trans "Fuel Efficiency (km/L)" %}',
+                                data: [7.8, 8.1, 8.0, 8.3, 8.2, 8.5, 8.4],
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            },
+                            {
+                                label: '{% trans "On-Time Performance (%)" %}',
+                                data: [92, 94, 93, 95, 94, 96, 95],
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                min: 70
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Incident Distribution Chart (Overview Tab)
+            const incidentCtx = document.getElementById('incidentChart')?.getContext('2d');
+            if (incidentCtx) {
+                new Chart(incidentCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: [
+                            '{% trans "Accident" %}',
+                            '{% trans "Breakdown" %}',
+                            '{% trans "Delay" %}',
+                            '{% trans "Discipline" %}',
+                            '{% trans "Other" %}'
+                        ],
+                        datasets: [{
+                            data: [5, 12, 8, 15, 3],
+                            backgroundColor: [
+                                '#ef4444',
+                                '#f59e0b',
+                                '#3b82f6',
+                                '#8b5cf6',
+                                '#6b7280'
+                            ],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Fuel Efficiency Chart (Fuel Tab)
+            const fuelEfficiencyCtx = document.getElementById('fuelEfficiencyChart')?.getContext('2d');
+            if (fuelEfficiencyCtx) {
+                const fuelData = [
+                    {% for item in fuel_efficiency_data %}
+                    {{ item.efficiency }},
+                    {% endfor %}
+                ];
+                
+                const vehicleLabels = [
+                    {% for item in fuel_efficiency_data %}
+                    '{{ item.vehicle }}',
+                    {% endfor %}
+                ];
+
+                new Chart(fuelEfficiencyCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: vehicleLabels,
+                        datasets: [{
+                            label: '{% trans "Fuel Efficiency (km/L)" %}',
+                            data: fuelData,
+                            backgroundColor: fuelData.map(eff => 
+                                eff > 8.5 ? '#10b981' : 
+                                eff > 7.0 ? '#f59e0b' : '#ef4444'
+                            ),
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: '{% trans "Kilometers per Liter" %}'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Initialize other charts similarly...
+            // Maintenance Cost Chart, Maintenance Type Chart, Route Utilization Chart, etc.
+        }
+
+        function applyAnalyticsFilters() {
+            const dateRange = document.getElementById('dateRange').value;
+            const vehicleFilter = document.getElementById('vehicleFilter').value;
+            const routeFilter = document.getElementById('routeFilter').value;
+            
+            // Show loading state
+            const applyBtn = document.getElementById('applyFilters');
+            const originalText = applyBtn.innerHTML;
+            applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> {% trans "Applying..." %}';
+            applyBtn.disabled = true;
+            
+            // Simulate API call
+            setTimeout(() => {
+                // In real implementation, this would fetch filtered data from the server
+                console.log('Filters applied:', { dateRange, vehicleFilter, routeFilter });
+                
+                // Reinitialize charts with filtered data
+                initializeCharts();
+                
+                // Restore button state
+                applyBtn.innerHTML = originalText;
+                applyBtn.disabled = false;
+                
+                // Show success message
+                showNotification('{% trans "Filters applied successfully" %}', 'success');
+            }, 1000);
+        }
+
+        function showNotification(message, type) {
+            // Create and show a temporary notification
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+
+        // Export functionality
+        function exportAnalyticsData(format) {
+            // In real implementation, this would generate and download reports
+            showNotification(`{% trans "Exporting analytics data as" %} ${format.toUpperCase()}...`, 'info');
+            
+            setTimeout(() => {
+                showNotification(`{% trans "Analytics data exported successfully as" %} ${format.toUpperCase()}`, 'success');
+            }, 1500);
+        }
+
+        // Add export buttons to the page
+        const exportButtons = `
+            <div class="dropdown ms-2">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-download me-1"></i> {% trans "Export" %}
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="exportAnalyticsData('pdf')">PDF</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportAnalyticsData('excel')">Excel</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportAnalyticsData('csv')">CSV</a></li>
+                </ul>
+            </div>
+        `;
+        
+        document.querySelector('.page-actions').innerHTML += exportButtons;
+    });
+</script>
+{% endblock %}

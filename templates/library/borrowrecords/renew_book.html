@@ -1,0 +1,486 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Renew Book" %}{% endblock %}
+
+{% block page_title %}{% trans "Renew Book Borrowal" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:borrowrecord_list' %}">{% trans "Borrow Records" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Renew Book" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .renewal-card {
+        border-left: 4px solid #ffc107;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .renewal-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .book-info-card {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        border: 1px solid #ffeaa7;
+    }
+    
+    .member-info-card {
+        background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+        border: 1px solid #bee5eb;
+    }
+    
+    .due-date-alert {
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        border: 1px solid #f5c6cb;
+    }
+    
+    .renewal-details {
+        background-color: #f8f9fa;
+        border-radius: 0.375rem;
+        padding: 1rem;
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .book-cover {
+        width: 80px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 0.75rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background-color: #e9ecef;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -1.25rem;
+        top: 0.25rem;
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 50%;
+        background-color: #6c757d;
+        border: 2px solid #fff;
+    }
+    
+    .timeline-item.current::before {
+        background-color: #28a745;
+        box-shadow: 0 0 0 2px #28a745;
+    }
+    
+    .timeline-item.future::before {
+        background-color: #17a2b8;
+        box-shadow: 0 0 0 2px #17a2b8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Renewal Confirmation Card -->
+            <div class="card renewal-card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-arrow-repeat me-2"></i>
+                        {% trans "Book Renewal Confirmation" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Book Information -->
+                    <div class="card book-info-card mb-4">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-auto">
+                                    {% if borrow_record.book_copy.book.cover_image %}
+                                    <img src="{{ borrow_record.book_copy.book.cover_image.url }}" 
+                                         alt="{{ borrow_record.book_copy.book.title }}" 
+                                         class="book-cover">
+                                    {% else %}
+                                    <div class="book-cover bg-light d-flex align-items-center justify-content-center">
+                                        <i class="bi bi-book text-muted fs-1"></i>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col">
+                                    <h5 class="card-title">{{ borrow_record.book_copy.book.title }}</h5>
+                                    <p class="card-text mb-1">
+                                        <strong>{% trans "Authors:" %}</strong> 
+                                        {{ borrow_record.book_copy.book.author_names }}
+                                    </p>
+                                    <p class="card-text mb-1">
+                                        <strong>{% trans "ISBN:" %}</strong> 
+                                        {{ borrow_record.book_copy.book.isbn|default:"N/A" }}
+                                    </p>
+                                    <p class="card-text mb-0">
+                                        <strong>{% trans "Copy:" %}</strong> 
+                                        #{{ borrow_record.book_copy.copy_number }} 
+                                        ({{ borrow_record.book_copy.barcode }})
+                                    </p>
+                                </div>
+                                <div class="col-auto">
+                                    <span class="badge bg-primary status-badge">
+                                        {{ borrow_record.book_copy.book.get_book_type_display }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Member Information -->
+                    <div class="card member-info-card mb-4">
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                <i class="bi bi-person me-2"></i>
+                                {% trans "Member Information" %}
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="mb-1">
+                                        <strong>{% trans "Member ID:" %}</strong> 
+                                        {{ borrow_record.member.member_id }}
+                                    </p>
+                                    <p class="mb-1">
+                                        <strong>{% trans "Name:" %}</strong> 
+                                        {{ borrow_record.member.user.get_full_name|default:borrow_record.member.user.username }}
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-1">
+                                        <strong>{% trans "Member Type:" %}</strong> 
+                                        {{ borrow_record.member.get_member_type_display }}
+                                    </p>
+                                    <p class="mb-0">
+                                        <strong>{% trans "Membership:" %}</strong> 
+                                        {% if borrow_record.member.is_membership_active %}
+                                        <span class="badge bg-success status-badge">{% trans "Active" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger status-badge">{% trans "Expired" %}</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Current Borrow Details -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-clock-history me-2"></i>
+                                {% trans "Current Borrow Details" %}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <strong>{% trans "Borrow Date:" %}</strong><br>
+                                    {{ borrow_record.borrow_date|date:"M d, Y" }}
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>{% trans "Original Due Date:" %}</strong><br>
+                                    {{ borrow_record.due_date|date:"M d, Y" }}
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>{% trans "Renewals Used:" %}</strong><br>
+                                    {{ borrow_record.renewal_count }} / {{ borrow_record.max_renewals }}
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>{% trans "Status:" %}</strong><br>
+                                    {% if borrow_record.is_overdue %}
+                                    <span class="badge bg-danger status-badge">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>{% trans "Overdue" %}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-warning status-badge">{% trans "Borrowed" %}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            {% if borrow_record.is_overdue %}
+                            <div class="alert due-date-alert mt-3">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-exclamation-triangle-fill text-danger me-2 fs-5"></i>
+                                    <div>
+                                        <strong>{% trans "Overdue Notice:" %}</strong>
+                                        {% trans "This book is" %} {{ borrow_record.days_overdue }} 
+                                        {% trans "day(s) overdue. Fine amount:" %} 
+                                        <strong class="text-danger">${{ borrow_record.calculated_fine }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Renewal Details -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-arrow-repeat me-2"></i>
+                                {% trans "Renewal Information" %}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if borrow_record.can_renew %}
+                            <div class="renewal-details">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <h6 class="text-success">
+                                            <i class="bi bi-check-circle me-2"></i>
+                                            {% trans "Renewal Approved" %}
+                                        </h6>
+                                        <p class="mb-2">
+                                            {% trans "This book can be renewed. The new due date will be calculated based on library policy." %}
+                                        </p>
+                                        <div class="timeline">
+                                            <div class="timeline-item">
+                                                <small class="text-muted">{% trans "Original Due Date" %}</small><br>
+                                                <strong>{{ borrow_record.due_date|date:"M d, Y" }}</strong>
+                                            </div>
+                                            <div class="timeline-item current">
+                                                <small class="text-muted">{% trans "New Due Date After Renewal" %}</small><br>
+                                                <strong class="text-success">{{ new_due_date|date:"M d, Y" }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 text-center">
+                                        <div class="bg-light rounded p-3">
+                                            <div class="text-primary fs-4 fw-bold">
+                                                +{{ renewal_days }} {% trans "days" %}
+                                            </div>
+                                            <small class="text-muted">{% trans "Extension Period" %}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-danger">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-x-circle-fill me-2 fs-5"></i>
+                                    <div>
+                                        <strong>{% trans "Renewal Not Allowed" %}</strong><br>
+                                        {% if borrow_record.renewal_count >= borrow_record.max_renewals %}
+                                        {% trans "Maximum renewal limit reached." %}
+                                        {% elif borrow_record.is_overdue %}
+                                        {% trans "Overdue books cannot be renewed. Please return the book and pay any outstanding fines." %}
+                                        {% else %}
+                                        {% trans "This book cannot be renewed at this time." %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Renewal Form -->
+                    {% if borrow_record.can_renew %}
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Renewal Confirmation -->
+                        <div class="card border-primary mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="card-title mb-0">
+                                    <i class="bi bi-shield-check me-2"></i>
+                                    {% trans "Renewal Confirmation" %}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-info">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-info-circle me-2 fs-5"></i>
+                                        <div>
+                                            <strong>{% trans "Please confirm the renewal:" %}</strong><br>
+                                            {% trans "By proceeding, you agree to extend the due date for this book. The member will be responsible for returning the book by the new due date." %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">{% trans "Renewed By" %}</label>
+                                            <input type="text" class="form-control" 
+                                                   value="{{ request.user.get_full_name|default:request.user.username }}" 
+                                                   readonly>
+                                            <small class="form-text text-muted">
+                                                {% trans "Staff member processing the renewal" %}
+                                            </small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">{% trans "Renewal Date" %}</label>
+                                            <input type="text" class="form-control" 
+                                                   value="{% now 'M d, Y' %}" 
+                                                   readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="renewal_notes" class="form-label">{% trans "Renewal Notes (Optional)" %}</label>
+                                    <textarea class="form-control" id="renewal_notes" name="renewal_notes" 
+                                              rows="3" placeholder="{% trans 'Add any notes about this renewal...' %}"></textarea>
+                                </div>
+                                
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="confirm_renewal" required>
+                                    <label class="form-check-label" for="confirm_renewal">
+                                        <strong>{% trans "I confirm that I want to renew this book borrowal" %}</strong>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{% url 'library:borrowrecord_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>{% trans "Cancel" %}
+                            </a>
+                            <div>
+                                <button type="submit" class="btn btn-success" id="renewBtn">
+                                    <i class="bi bi-arrow-repeat me-2"></i>
+                                    {% trans "Confirm Renewal" %}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'library:borrowrecord_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>{% trans "Back to Borrow Records" %}
+                        </a>
+                        <a href="{% url 'library:return_book' borrow_record.pk %}" class="btn btn-primary">
+                            <i class="bi bi-journal-check me-2"></i>{% trans "Return Book Instead" %}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Library Policy Information -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        {% trans "Library Renewal Policy" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>{% trans "Renewal Rules:" %}</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-check text-success me-2"></i>{% trans "Maximum renewals:" %} {{ borrow_record.max_renewals }}</li>
+                                <li><i class="bi bi-check text-success me-2"></i>{% trans "Renewal period:" %} {{ renewal_days }} {% trans "days" %}</li>
+                                <li><i class="bi bi-x text-danger me-2"></i>{% trans "Overdue books cannot be renewed" %}</li>
+                                <li><i class="bi bi-x text-danger me-2"></i>{% trans "Books with reservations cannot be renewed" %}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>{% trans "Fine Information:" %}</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-cash-coin text-warning me-2"></i>{% trans "Daily fine rate:" %} ${{ borrow_record.book_copy.book.library.fine_per_day }}</li>
+                                <li><i class="bi bi-clock text-info me-2"></i>{% trans "Fines accrue daily after due date" %}</li>
+                                <li><i class="bi bi-exclamation-triangle text-danger me-2"></i>{% trans "Renewal does not clear existing fines" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const confirmCheckbox = document.getElementById('confirm_renewal');
+        const renewBtn = document.getElementById('renewBtn');
+        
+        if (confirmCheckbox && renewBtn) {
+            // Initially disable the renew button
+            renewBtn.disabled = true;
+            
+            // Enable/disable based on checkbox state
+            confirmCheckbox.addEventListener('change', function() {
+                renewBtn.disabled = !this.checked;
+            });
+        }
+        
+        // Add confirmation before submitting form
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                if (!confirm('{% trans "Are you sure you want to renew this book? The new due date will be" %} {{ new_due_date|date:"M d, Y" }}.')) {
+                    e.preventDefault();
+                }
+            });
+        }
+        
+        // Auto-focus on notes textarea
+        const notesTextarea = document.getElementById('renewal_notes');
+        if (notesTextarea) {
+            notesTextarea.focus();
+        }
+        
+        // Show loading state on form submission
+        if (renewBtn) {
+            renewBtn.addEventListener('click', function() {
+                if (!this.disabled) {
+                    this.innerHTML = '<i class="bi bi-arrow-repeat spinner-border spinner-border-sm me-2"></i>{% trans "Processing..." %}';
+                    this.disabled = true;
+                }
+            });
+        }
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl + Enter to submit form
+        if (e.ctrlKey && e.key === 'Enter') {
+            const renewBtn = document.getElementById('renewBtn');
+            if (renewBtn && !renewBtn.disabled) {
+                renewBtn.click();
+            }
+        }
+        
+        // Escape key to cancel
+        if (e.key === 'Escape') {
+            window.location.href = '{% url "library:borrowrecord_list" %}';
+        }
+    });
+</script>
+{% endblock %}

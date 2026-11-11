@@ -1,0 +1,1100 @@
+{% extends 'base/base.html' %}
+{% load static i18n permission_filters %}
+
+{% block title %}{% trans "Announcements - Communications" %}{% endblock %}
+
+{% block meta_description %}{% trans "Manage and view all announcements, news, and important communications within the school management system." %}{% endblock %}
+
+{% block body_class %}announcements-page{% endblock %}
+
+{% block page_title %}{% trans "Announcements" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'communication:dashboard' %}">{% trans "Communications" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Announcements" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    {% if user.is_authenticated and user|has_perm:'communication.add_announcement' %}
+    <a href="{% url 'communication:announcement_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>
+        {% trans "Create Announcement" %}
+    </a>
+    {% endif %}
+    {% if user.is_authenticated %}
+    <div class="btn-group ms-2" role="group">
+        <button type="button" class="btn btn-outline-secondary" id="fullscreen-toggle" title="{% trans 'Toggle fullscreen' %}">
+            <i class="bi bi-arrows-fullscreen"></i>
+        </button>
+        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#settingsModal" title="{% trans 'Settings' %}">
+            <i class="bi bi-gear-fill"></i>
+        </button>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.announcements-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Filter Section */
+.filter-section {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border: 1px solid #e9ecef;
+}
+
+.filter-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.filter-toggle {
+    background: none;
+    border: none;
+    color: #6c757d;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+}
+
+.filter-toggle:hover {
+    color: #495057;
+}
+
+.filter-form {
+    display: none;
+    animation: slideDown 0.3s ease-out;
+}
+
+.filter-form.show {
+    display: block;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    border-top: 1px solid #e9ecef;
+    padding-top: 1rem;
+}
+
+/* Announcement Cards */
+.announcement-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.announcement-card:hover {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.announcement-card.pinned {
+    border-left: 4px solid #ffc107;
+    background: linear-gradient(135deg, #fff9e6 0%, #ffffff 100%);
+}
+
+.announcement-card.urgent {
+    border-left: 4px solid #dc3545;
+    background: linear-gradient(135deg, #ffe6e6 0%, #ffffff 100%);
+}
+
+.announcement-card.high-priority {
+    border-left: 4px solid #fd7e14;
+}
+
+.announcement-header {
+    display: flex;
+    justify-content: between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    gap: 1rem;
+}
+
+.announcement-title {
+    flex: 1;
+    margin-bottom: 0.5rem;
+}
+
+.announcement-title h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.announcement-title a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.announcement-title a:hover {
+    color: #3498db;
+}
+
+.announcement-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.announcement-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.badge-type {
+    background: #e8f4fd;
+    color: #3498db;
+    border: 1px solid #b3d9ff;
+}
+
+.badge-priority {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.badge-priority.high {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f1b0b7;
+}
+
+.badge-priority.urgent {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f1b0b7;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.badge-audience {
+    background: #e7f3ff;
+    color: #0066cc;
+    border: 1px solid #b3d9ff;
+}
+
+.badge-status {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.badge-status.expired {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f1b0b7;
+}
+
+.announcement-content {
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.announcement-content-preview {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.announcement-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid #e9ecef;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.announcement-author {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.author-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #3498db;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.announcement-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Bulk Actions */
+.bulk-actions {
+    background: white;
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border: 1px solid #e9ecef;
+    display: none;
+}
+
+.bulk-actions.show {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.bulk-selection-info {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #6c757d;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+/* Pagination */
+.pagination-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.pagination {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.page-link {
+    padding: 0.5rem 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    color: #3498db;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.page-link:hover {
+    background: #f8f9fa;
+    border-color: #3498db;
+}
+
+.page-link.active {
+    background: #3498db;
+    color: white;
+    border-color: #3498db;
+}
+
+/* View Toggle */
+.view-toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.view-option {
+    padding: 0.5rem 1rem;
+    border: 1px solid #dee2e6;
+    background: white;
+    color: #6c757d;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.view-option.active {
+    background: #3498db;
+    color: white;
+    border-color: #3498db;
+}
+
+.view-option:hover:not(.active) {
+    background: #f8f9fa;
+}
+
+/* Grid View */
+.announcements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 1.5rem;
+}
+
+.announcements-grid .announcement-card {
+    margin-bottom: 0;
+    height: fit-content;
+}
+
+/* Quick Actions */
+.quick-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .announcement-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .announcement-actions {
+        align-self: flex-end;
+    }
+    
+    .announcement-footer {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .announcements-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .bulk-actions {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* Loading States */
+.loading-skeleton {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-card {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    height: 200px;
+}
+
+/* Print Styles */
+@media print {
+    .filter-section,
+    .bulk-actions,
+    .announcement-actions,
+    .view-toggle,
+    .quick-actions {
+        display: none !important;
+    }
+    
+    .announcement-card {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid announcements-container">
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <div class="view-toggle">
+            <button class="view-option active" data-view="list">
+                <i class="bi bi-list"></i>
+                List View
+            </button>
+            <button class="view-option" data-view="grid">
+                <i class="bi bi-grid-3x3-gap"></i>
+                Grid View
+            </button>
+        </div>
+        
+        <div class="ms-auto d-flex gap-2">
+            {% if user.is_authenticated and user|has_perm:'communication.change_announcement' %}
+            <button class="btn btn-outline-primary btn-sm" id="bulkActionsToggle">
+                <i class="bi bi-check2-square me-2"></i>
+                Bulk Actions
+            </button>
+            {% endif %}
+            
+            <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                <i class="bi bi-printer me-2"></i>
+                Print
+            </button>
+        </div>
+    </div>
+
+    <!-- Bulk Actions -->
+    {% if user.is_authenticated and user|has_perm:'communication.change_announcement' %}
+    <div class="bulk-actions" id="bulkActions">
+        <div class="bulk-selection-info">
+            <i class="bi bi-info-circle me-2"></i>
+            <span id="selectedCount">0 announcements selected</span>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <form method="post" action="{% url 'communication:bulk_publish_announcements' %}" id="bulkPublishForm" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="announcement_ids" id="bulkPublishIds">
+                <button type="submit" class="btn btn-success btn-sm" id="bulkPublishBtn" disabled>
+                    <i class="bi bi-send-check me-2"></i>
+                    Publish Selected
+                </button>
+            </form>
+            
+            <button class="btn btn-outline-danger btn-sm" id="bulkDeleteBtn" disabled data-bs-toggle="modal" data-bs-target="#bulkDeleteModal">
+                <i class="bi bi-trash me-2"></i>
+                Delete Selected
+            </button>
+            
+            <button class="btn btn-outline-secondary btn-sm" id="clearSelectionBtn">
+                <i class="bi bi-x-circle me-2"></i>
+                Clear Selection
+            </button>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filter Section -->
+    <div class="filter-section">
+        <div class="filter-header">
+            <h5 class="mb-0">
+                <i class="bi bi-funnel me-2"></i>
+                Filters
+            </h5>
+            <button class="filter-toggle" id="filterToggle">
+                <i class="bi bi-chevron-down"></i>
+                <span>Show Filters</span>
+            </button>
+        </div>
+        
+        <form method="get" class="filter-form" id="filterForm">
+            <div class="filter-grid">
+                <!-- Type Filter -->
+                <div class="mb-3">
+                    <label for="announcement_type" class="form-label small fw-bold">Type</label>
+                    <select name="type" id="announcement_type" class="form-select form-select-sm">
+                        <option value="">All Types</option>
+                        {% for value, label in announcement_types %}
+                        <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Priority Filter -->
+                <div class="mb-3">
+                    <label for="priority" class="form-label small fw-bold">Priority</label>
+                    <select name="priority" id="priority" class="form-select form-select-sm">
+                        <option value="">All Priorities</option>
+                        <option value="low" {% if request.GET.priority == 'low' %}selected{% endif %}>Low</option>
+                        <option value="normal" {% if request.GET.priority == 'normal' %}selected{% endif %}>Normal</option>
+                        <option value="high" {% if request.GET.priority == 'high' %}selected{% endif %}>High</option>
+                        <option value="urgent" {% if request.GET.priority == 'urgent' %}selected{% endif %}>Urgent</option>
+                    </select>
+                </div>
+
+                <!-- Status Filter -->
+                <div class="mb-3">
+                    <label for="status" class="form-label small fw-bold">Status</label>
+                    <select name="status" id="status" class="form-select form-select-sm">
+                        <option value="">All Status</option>
+                        <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
+                        <option value="draft" {% if request.GET.status == 'draft' %}selected{% endif %}>Draft</option>
+                        <option value="expired" {% if request.GET.status == 'expired' %}selected{% endif %}>Expired</option>
+                        <option value="scheduled" {% if request.GET.status == 'scheduled' %}selected{% endif %}>Scheduled</option>
+                    </select>
+                </div>
+
+                <!-- Date Range -->
+                <div class="mb-3">
+                    <label for="date_range" class="form-label small fw-bold">Date Range</label>
+                    <select name="date_range" id="date_range" class="form-select form-select-sm">
+                        <option value="">All Time</option>
+                        <option value="today" {% if request.GET.date_range == 'today' %}selected{% endif %}>Today</option>
+                        <option value="week" {% if request.GET.date_range == 'week' %}selected{% endif %}>This Week</option>
+                        <option value="month" {% if request.GET.date_range == 'month' %}selected{% endif %}>This Month</option>
+                        <option value="custom" {% if request.GET.date_range == 'custom' %}selected{% endif %}>Custom Range</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Custom Date Range (Conditional) -->
+            <div class="row g-2 mb-3" id="customDateRange" style="display: none;">
+                <div class="col-md-6">
+                    <label for="start_date" class="form-label small fw-bold">Start Date</label>
+                    <input type="date" name="start_date" id="start_date" class="form-control form-control-sm" 
+                           value="{{ request.GET.start_date }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="end_date" class="form-label small fw-bold">End Date</label>
+                    <input type="date" name="end_date" id="end_date" class="form-control form-control-sm"
+                           value="{{ request.GET.end_date }}">
+                </div>
+            </div>
+
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-filter me-2"></i>
+                    Apply Filters
+                </button>
+                <a href="{% url 'communication:announcement_list' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-clockwise me-2"></i>
+                    Reset
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Announcements List -->
+    <div class="announcements-list" id="announcementsList">
+        {% if announcements %}
+            <div class="announcements-view" id="listView">
+                {% for announcement in announcements %}
+                <div class="announcement-card {% if announcement.is_pinned %}pinned{% endif %} {% if announcement.priority == 'urgent' %}urgent{% endif %} {% if announcement.priority == 'high' %}high-priority{% endif %}" 
+                     data-announcement-id="{{ announcement.id }}">
+                    
+                    <!-- Bulk Selection Checkbox -->
+                    {% if user.is_authenticated and perms.communication.change_announcement %}
+                    <div class="form-check bulk-select-checkbox" style="position: absolute; top: 1rem; right: 1rem;">
+                        <input type="checkbox" class="form-check-input announcement-checkbox"
+                               value="{{ announcement.id }}" id="announcement_{{ announcement.id }}">
+                    </div>
+                    {% endif %}
+
+                    <div class="announcement-header">
+                        <div class="announcement-title">
+                            <h3>
+                                <a href="{% url 'communication:announcement_detail' announcement.pk %}">
+                                    {{ announcement.title }}
+                                </a>
+                                {% if announcement.is_pinned %}
+                                <i class="bi bi-pin-angle-fill text-warning ms-2" title="Pinned Announcement"></i>
+                                {% endif %}
+                            </h3>
+                        </div>
+                    </div>
+
+                    <div class="announcement-meta">
+                        <span class="announcement-badge badge-type">
+                            <i class="bi bi-tag"></i>
+                            {{ announcement.get_announcement_type_display }}
+                        </span>
+                        
+                        <span class="announcement-badge badge-priority {{ announcement.priority }}">
+                            <i class="bi bi-flag"></i>
+                            {{ announcement.get_priority_display }}
+                        </span>
+                        
+                        <span class="announcement-badge badge-audience">
+                            <i class="bi bi-people"></i>
+                            {{ announcement.get_target_audience_display }}
+                        </span>
+                        
+                        {% if not announcement.is_active %}
+                        <span class="announcement-badge badge-status expired">
+                            <i class="bi bi-clock-history"></i>
+                            Expired
+                        </span>
+                        {% elif announcement.is_scheduled %}
+                        <span class="announcement-badge badge-status">
+                            <i class="bi bi-calendar-event"></i>
+                            Scheduled
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="announcement-content">
+                        <div class="announcement-content-preview">
+                            {{ announcement.content|striptags|truncatewords:50 }}
+                        </div>
+                    </div>
+
+                    <div class="announcement-footer">
+                        <div class="announcement-author">
+                            <div class="author-avatar">
+                                {{ announcement.author.get_full_name|default:announcement.author.username|make_list|first|upper }}
+                            </div>
+                            <div>
+                                <div class="fw-medium">{{ announcement.author.get_full_name|default:announcement.author.username }}</div>
+                                <div class="small">
+                                    {% if announcement.published_at %}
+                                        Published {{ announcement.published_at|date:"M d, Y" }}
+                                    {% else %}
+                                        Created {{ announcement.created_at|date:"M d, Y" }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="announcement-actions">
+                            <a href="{% url 'communication:announcement_detail' announcement.pk %}" 
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye me-1"></i>
+                                View
+                            </a>
+                            
+                            {% if user.is_authenticated and user == announcement.author or user|has_perm:'communication.change_announcement' %}
+                            <a href="{% url 'communication:announcement_update' announcement.pk %}"
+                               class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-pencil me-1"></i>
+                                Edit
+                            </a>
+                            {% endif %}
+                            
+                    {% if user.is_authenticated and user|has_perm:'communication.delete_announcement' %}
+                    <button class="btn btn-outline-danger btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteModal"
+                            data-announcement-id="{{ announcement.id }}"
+                            data-announcement-title="{{ announcement.title }}">
+                        <i class="bi bi-trash me-1"></i>
+                        Delete
+                    </button>
+                    {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Grid View (Hidden by Default) -->
+            <div class="announcements-grid" id="gridView" style="display: none;">
+                {% for announcement in announcements %}
+                <div class="announcement-card {% if announcement.is_pinned %}pinned{% endif %} {% if announcement.priority == 'urgent' %}urgent{% endif %}" 
+                     data-announcement-id="{{ announcement.id }}">
+                    
+                    {% if user.is_authenticated and user|has_perm:'communication.change_announcement' %}
+                    <div class="form-check bulk-select-checkbox" style="position: absolute; top: 1rem; right: 1rem;">
+                        <input type="checkbox" class="form-check-input announcement-checkbox"
+                               value="{{ announcement.id }}" id="announcement_grid_{{ announcement.id }}">
+                    </div>
+                    {% endif %}
+
+                    <div class="announcement-header">
+                        <div class="announcement-title">
+                            <h4>
+                                <a href="{% url 'communication:announcement_detail' announcement.pk %}">
+                                    {{ announcement.title|truncatewords:8 }}
+                                </a>
+                                {% if announcement.is_pinned %}
+                                <i class="bi bi-pin-angle-fill text-warning ms-1" title="Pinned Announcement"></i>
+                                {% endif %}
+                            </h4>
+                        </div>
+                    </div>
+
+                    <div class="announcement-meta">
+                        <span class="announcement-badge badge-type">
+                            {{ announcement.get_announcement_type_display }}
+                        </span>
+                        <span class="announcement-badge badge-priority {{ announcement.priority }}">
+                            {{ announcement.get_priority_display }}
+                        </span>
+                    </div>
+
+                    <div class="announcement-content">
+                        <div class="announcement-content-preview">
+                            {{ announcement.content|striptags|truncatewords:30 }}
+                        </div>
+                    </div>
+
+                    <div class="announcement-footer">
+                        <div class="small text-muted">
+                            By {{ announcement.author.get_full_name|default:announcement.author.username }}
+                            <br>
+                            {{ announcement.published_at|date:"M d, Y"|default:announcement.created_at|date:"M d, Y" }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <div class="pagination-container">
+                <nav aria-label="Announcements pagination">
+                    <ul class="pagination">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                <i class="bi bi-chevron-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                <i class="bi bi-chevron-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+
+        {% else %}
+            <!-- Empty State -->
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="bi bi-megaphone"></i>
+                </div>
+                <h3>No Announcements Found</h3>
+                <p class="mb-4">There are no announcements matching your current filters.</p>
+                {% if user.is_authenticated and user|has_perm:'communication.add_announcement' %}
+                <a href="{% url 'communication:announcement_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-2"></i>
+                    Create Your First Announcement
+                </a>
+                {% endif %}
+                <div class="mt-3">
+                    <a href="{% url 'communication:announcement_list' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-clockwise me-2"></i>
+                        Clear Filters
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+{% if user.is_authenticated and user|has_perm:'communication.delete_announcement' %}
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Delete Announcement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the announcement "<strong id="deleteAnnouncementTitle"></strong>"?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" action="" id="deleteAnnouncementForm">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete Announcement</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Delete Modal -->
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-labelledby="bulkDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkDeleteModalLabel">Delete Multiple Announcements</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="bulkDeleteCount">0</strong> selected announcements?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" action="{% url 'communication:bulk_delete_announcements' %}" id="bulkDeleteForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="announcement_ids" id="bulkDeleteIds">
+                    <button type="submit" class="btn btn-danger">Delete Selected</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter Toggle
+    const filterToggle = document.getElementById('filterToggle');
+    const filterForm = document.getElementById('filterForm');
+    
+    if (filterToggle && filterForm) {
+        filterToggle.addEventListener('click', function() {
+            filterForm.classList.toggle('show');
+            const icon = this.querySelector('i');
+            const text = this.querySelector('span');
+            
+            if (filterForm.classList.contains('show')) {
+                icon.className = 'bi bi-chevron-up';
+                text.textContent = 'Hide Filters';
+            } else {
+                icon.className = 'bi bi-chevron-down';
+                text.textContent = 'Show Filters';
+            }
+        });
+    }
+
+    // Custom Date Range Toggle
+    const dateRangeSelect = document.getElementById('date_range');
+    const customDateRange = document.getElementById('customDateRange');
+    
+    if (dateRangeSelect && customDateRange) {
+        dateRangeSelect.addEventListener('change', function() {
+            if (this.value === 'custom') {
+                customDateRange.style.display = 'block';
+            } else {
+                customDateRange.style.display = 'none';
+            }
+        });
+        
+        // Set initial state
+        if (dateRangeSelect.value === 'custom') {
+            customDateRange.style.display = 'block';
+        }
+    }
+
+    // View Toggle
+    const viewOptions = document.querySelectorAll('.view-option');
+    const listView = document.getElementById('listView');
+    const gridView = document.getElementById('gridView');
+    
+    viewOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            // Update active state
+            viewOptions.forEach(opt => opt.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Show/hide views
+            const viewType = this.dataset.view;
+            if (viewType === 'list') {
+                listView.style.display = 'block';
+                gridView.style.display = 'none';
+            } else {
+                listView.style.display = 'none';
+                gridView.style.display = 'grid';
+            }
+            
+            // Save preference to localStorage
+            localStorage.setItem('announcementViewPreference', viewType);
+        });
+    });
+    
+    // Load saved view preference
+    const savedView = localStorage.getItem('announcementViewPreference') || 'list';
+    const savedViewOption = document.querySelector(`[data-view="${savedView}"]`);
+    if (savedViewOption) {
+        savedViewOption.click();
+    }
+
+    // Bulk Actions
+    const bulkActionsToggle = document.getElementById('bulkActionsToggle');
+    const bulkActions = document.getElementById('bulkActions');
+    const announcementCheckboxes = document.querySelectorAll('.announcement-checkbox');
+    const selectedCount = document.getElementById('selectedCount');
+    const bulkPublishBtn = document.getElementById('bulkPublishBtn');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+    const bulkPublishIds = document.getElementById('bulkPublishIds');
+    const bulkDeleteIds = document.getElementById('bulkDeleteIds');
+    const bulkDeleteCount = document.getElementById('bulkDeleteCount');
+    
+    if (bulkActionsToggle) {
+        bulkActionsToggle.addEventListener('click', function() {
+            bulkActions.classList.toggle('show');
+        });
+    }
+    
+    // Checkbox selection handling
+    announcementCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateBulkActions);
+    });
+    
+    function updateBulkActions() {
+        const selectedCheckboxes = document.querySelectorAll('.announcement-checkbox:checked');
+        const count = selectedCheckboxes.length;
+        
+        selectedCount.textContent = `${count} announcement${count !== 1 ? 's' : ''} selected`;
+        
+        // Enable/disable bulk action buttons
+        bulkPublishBtn.disabled = count === 0;
+        bulkDeleteBtn.disabled = count === 0;
+        
+        // Update form hidden fields
+        const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value).join(',');
+        bulkPublishIds.value = selectedIds;
+        bulkDeleteIds.value = selectedIds;
+        bulkDeleteCount.textContent = count;
+    }
+    
+    if (clearSelectionBtn) {
+        clearSelectionBtn.addEventListener('click', function() {
+            announcementCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            updateBulkActions();
+        });
+    }
+    
+    // Delete Modal Handling
+    const deleteModal = document.getElementById('deleteModal');
+    if (deleteModal) {
+        deleteModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const announcementId = button.getAttribute('data-announcement-id');
+            const announcementTitle = button.getAttribute('data-announcement-title');
+            
+            document.getElementById('deleteAnnouncementTitle').textContent = announcementTitle;
+            document.getElementById('deleteAnnouncementForm').action = 
+                `{% url 'communication:announcement_delete' '00000000-0000-0000-0000-000000000000' %}`.replace('00000000-0000-0000-0000-000000000000', announcementId);
+        });
+    }
+    
+    // Auto-expire announcements check
+    function checkExpiredAnnouncements() {
+        const now = new Date().toISOString();
+        const announcementCards = document.querySelectorAll('.announcement-card');
+        
+        announcementCards.forEach(card => {
+            const expiresAt = card.getAttribute('data-expires-at');
+            if (expiresAt && new Date(expiresAt) < new Date(now)) {
+                card.classList.add('expired');
+            }
+        });
+    }
+    
+    checkExpiredAnnouncements();
+    
+    // Real-time updates (if using WebSockets or similar)
+    function checkForNewAnnouncements() {
+        // This would be implemented with WebSockets or periodic AJAX checks
+        // For now, it's a placeholder for future real-time functionality
+    }
+    
+    // Search functionality (if implemented in backend)
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                // Trigger search - this would typically submit a form or make AJAX call
+                console.log('Search for:', this.value);
+            }, 500);
+        });
+    }
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + F to focus search
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.focus();
+            }
+        }
+        
+        // Escape to clear selection
+        if (e.key === 'Escape') {
+            if (clearSelectionBtn) {
+                clearSelectionBtn.click();
+            }
+        }
+    });
+    
+    // Initialize
+    updateBulkActions();
+});
+</script>
+{% endblock %}

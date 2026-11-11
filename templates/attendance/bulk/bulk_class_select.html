@@ -1,0 +1,262 @@
+<!-- templates/attendance/bulk/bulk_class_select.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Bulk Attendance - Select Class - School Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+.class-card {
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    cursor: pointer;
+}
+.class-card:hover {
+    transform: translateY(-5px);
+    border-color: #007bff;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+.class-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+.student-count {
+    font-size: 0.9rem;
+}
+.quick-stats {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-2">Bulk Attendance Marking</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'attendance:dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item active">Bulk Marking</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'attendance:daily_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-list me-1"></i> View Records
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Statistics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card quick-stats text-white">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 text-center">
+                            <i class="fas fa-chalkboard-teacher fa-2x mb-2"></i>
+                            <h4>{{ classes.count }}</h4>
+                            <p class="mb-0">Total Classes</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <i class="fas fa-users fa-2x mb-2"></i>
+                            <h4>{{ total_students }}</h4>
+                            <p class="mb-0">Total Students</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <i class="fas fa-calendar-check fa-2x mb-2"></i>
+                            <h4>{{ today_attendance_count }}</h4>
+                            <p class="mb-0">Marked Today</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <i class="fas fa-clock fa-2x mb-2"></i>
+                            <h4>{{ pending_count }}</h4>
+                            <p class="mb-0">Pending Today</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Class Selection -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Select a Class to Mark Attendance</h6>
+                </div>
+                <div class="card-body">
+                    {% if classes %}
+                    <div class="row g-4">
+                        {% for class in classes %}
+                        <div class="col-xl-3 col-lg-4 col-md-6">
+                            <div class="card class-card h-100" onclick="location.href='{% url 'attendance:bulk_mark' class.id %}'">
+                                <div class="card-body text-center">
+                                    <div class="class-icon text-primary">
+                                        <i class="fas fa-chalkboard"></i>
+                                    </div>
+                                    <h5 class="card-title">{{ class.name }}</h5>
+                                    <p class="card-text text-muted">
+                                        {{ class.grade_level }} • {{ class.section }}
+                                    </p>
+                                    <div class="student-count">
+                                        <i class="fas fa-users me-1"></i>
+                                        {{ class.students.count }} students
+                                    </div>
+                                    {% if class.class_teacher %}
+                                    <div class="teacher-info mt-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-user-tie me-1"></i>
+                                            {{ class.class_teacher.user.get_full_name }}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- Today's Attendance Status -->
+                                    <div class="mt-3">
+                                        {% with today_status=class.get_today_attendance_status %}
+                                        <span class="badge {% if today_status.completion == 100 %}bg-success
+                                                          {% elif today_status.completion > 0 %}bg-warning
+                                                          {% else %}bg-secondary{% endif %}">
+                                            {{ today_status.marked }}/{{ today_status.total }} marked
+                                        </span>
+                                        {% endwith %}
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <div class="d-grid">
+                                        <button class="btn btn-primary">
+                                            <i class="fas fa-edit me-1"></i> Mark Attendance
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-chalkboard-teacher fa-4x text-muted mb-3"></i>
+                        <h4 class="text-muted">No Classes Available</h4>
+                        <p class="text-muted">You don't have any classes assigned to you.</p>
+                        <a href="{% url 'academics:class_list' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i> Manage Classes
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Bulk Sessions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Bulk Sessions</h6>
+                    <a href="#" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    {% if recent_sessions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Class</th>
+                                    <th>Date</th>
+                                    <th>Session</th>
+                                    <th>Progress</th>
+                                    <th>Marked By</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for session in recent_sessions %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ session.class_obj.name }}</strong>
+                                    </td>
+                                    <td>{{ session.date }}</td>
+                                    <td>{{ session.attendance_session.name }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                                                <div class="progress-bar {% if session.is_completed %}bg-success{% else %}bg-warning{% endif %}" 
+                                                     style="width: {{ session.progress_percentage }}%">
+                                                </div>
+                                            </div>
+                                            <small>{{ session.progress_percentage }}%</small>
+                                        </div>
+                                    </td>
+                                    <td>{{ session.marked_by.get_full_name }}</td>
+                                    <td>
+                                        <span class="badge {% if session.is_completed %}bg-success{% else %}bg-warning{% endif %}">
+                                            {% if session.is_completed %}Completed{% else %}In Progress{% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No recent bulk sessions found.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add click effects to class cards
+    const classCards = document.querySelectorAll('.class-card');
+    classCards.forEach(card => {
+        card.addEventListener('click', function() {
+            // Remove active class from all cards
+            classCards.forEach(c => c.classList.remove('active'));
+            // Add active class to clicked card
+            this.classList.add('active');
+        });
+    });
+
+    // Quick search functionality
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'form-control mb-3';
+    searchInput.placeholder = 'Search classes...';
+    
+    const cardHeader = document.querySelector('.card-header');
+    if (cardHeader) {
+        cardHeader.appendChild(searchInput);
+        
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            classCards.forEach(card => {
+                const className = card.querySelector('.card-title').textContent.toLowerCase();
+                if (className.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

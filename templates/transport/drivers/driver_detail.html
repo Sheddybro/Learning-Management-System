@@ -1,0 +1,1458 @@
+<!-- templates/transport/drivers/driver_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Driver Details" %} - {{ driver.user.get_full_name }}{% endblock %}
+
+{% block page_title %}{% trans "Driver Details" %} - {{ driver.user.get_full_name }}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:driver_list' %}">{% trans "Drivers" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ driver.user.get_full_name }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'transport:driver_update' driver.pk %}" class="btn btn-primary">
+            <i class="fas fa-edit me-1"></i> {% trans "Edit Driver" %}
+        </a>
+        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#scheduleModal">
+                    <i class="fas fa-calendar-plus me-2"></i> {% trans "Assign Schedule" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#licenseModal">
+                    <i class="fas fa-id-card me-2"></i> {% trans "Update License" %}
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                    <i class="fas fa-trash me-2"></i> {% trans "Delete Driver" %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .driver-detail {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .driver-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .driver-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 200px;
+        height: 200px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        transform: translate(50px, -50px);
+    }
+    
+    .driver-avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        border: 4px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .status-badge-large {
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .info-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+        height: 100%;
+    }
+    
+    .info-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .card-header-custom {
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        padding: 1rem 1.5rem;
+        border-radius: 12px 12px 0 0 !important;
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f8f9fa;
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+        min-width: 140px;
+    }
+    
+    .info-value {
+        color: #6c757d;
+        text-align: right;
+        flex: 1;
+    }
+    
+    .document-status {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .status-valid {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-expired {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .status-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .metric-card {
+        text-align: center;
+        padding: 1.5rem;
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .metric-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+    
+    .metric-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin: 0 auto 1rem;
+    }
+    
+    .activity-timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+    
+    .activity-timeline::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -2rem;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #0d6efd;
+        border: 2px solid white;
+    }
+    
+    .timeline-date {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    
+    .timeline-content {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .tab-pane {
+        padding: 1.5rem 0;
+    }
+    
+    .nav-tabs .nav-link {
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: #6c757d;
+        font-weight: 500;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: #0d6efd;
+        border-bottom-color: #0d6efd;
+        background: transparent;
+    }
+    
+    .nav-tabs .nav-link:hover {
+        color: #0d6efd;
+        border-bottom-color: #0d6efd;
+    }
+    
+    .quick-action-btn {
+        border: none;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        background: #f8f9fa;
+        transition: all 0.3s ease;
+        color: #495057;
+        text-decoration: none;
+        display: block;
+    }
+    
+    .quick-action-btn:hover {
+        background: #0d6efd;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .quick-action-icon {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    
+    .schedule-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid #f8f9fa;
+        transition: background-color 0.3s ease;
+    }
+    
+    .schedule-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .schedule-time {
+        width: 120px;
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .schedule-details {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .schedule-route {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    
+    .schedule-vehicle {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .availability-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .available {
+        background: #10b981;
+    }
+    
+    .unavailable {
+        background: #ef4444;
+    }
+    
+    .on-break {
+        background: #f59e0b;
+    }
+    
+    .license-preview {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        background: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .license-preview:hover {
+        border-color: #0d6efd;
+        background: #f0f8ff;
+    }
+    
+    .license-image {
+        max-width: 100%;
+        max-height: 200px;
+        border-radius: 6px;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .driver-header {
+            padding: 1.5rem;
+            text-align: center;
+        }
+        
+        .driver-avatar {
+            width: 80px;
+            height: 80px;
+            font-size: 2rem;
+        }
+        
+        .info-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .info-value {
+            text-align: left;
+            margin-top: 0.25rem;
+        }
+        
+        .activity-timeline {
+            padding-left: 1.5rem;
+        }
+        
+        .timeline-item::before {
+            left: -1.5rem;
+        }
+        
+        .schedule-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .schedule-time {
+            width: auto;
+            margin-bottom: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="driver-detail">
+    <!-- Driver Header -->
+    <div class="driver-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="driver-avatar">
+                    {{ driver.user.get_full_name|make_list|first|upper }}
+                </div>
+                <h1 class="h2 mb-2">{{ driver.user.get_full_name }}</h1>
+                <p class="mb-3 opacity-75">{{ driver.employee_id }}</p>
+                <span class="status-badge-large">
+                    <i class="fas fa-circle me-1 small"></i>
+                    {{ driver.get_status_display }}
+                </span>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="mt-3 mt-md-0">
+                    <div class="mb-2">
+                        <strong>{% trans "License Number:" %}</strong>
+                        <br>
+                        {{ driver.license_number }}
+                    </div>
+                    <div>
+                        <strong>{% trans "Experience:" %}</strong>
+                        <br>
+                        {{ driver.experience_years }} {% trans "years" %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Metrics -->
+    <div class="row mb-4">
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card info-card">
+                <div class="card-body metric-card">
+                    <div class="metric-icon bg-primary bg-opacity-10 text-primary">
+                        <i class="fas fa-road"></i>
+                    </div>
+                    <div class="metric-value text-primary">
+                        {{ current_schedules.count }}
+                    </div>
+                    <div class="metric-label">{% trans "Active Routes" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card info-card">
+                <div class="card-body metric-card">
+                    <div class="metric-icon bg-success bg-opacity-10 text-success">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="metric-value text-success">
+                        {% trans "95%" %}
+                    </div>
+                    <div class="metric-label">{% trans "On-Time Performance" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card info-card">
+                <div class="card-body metric-card">
+                    <div class="metric-icon bg-warning bg-opacity-10 text-warning">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="metric-value text-warning">
+                        {{ driver.experience_years }}
+                    </div>
+                    <div class="metric-label">{% trans "Years Experience" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card info-card">
+                <div class="card-body metric-card">
+                    <div class="metric-icon bg-info bg-opacity-10 text-info">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div class="metric-value text-info">
+                        4.8
+                    </div>
+                    <div class="metric-label">{% trans "Performance Rating" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card info-card">
+                <div class="card-body metric-card">
+                    <div class="metric-icon bg-danger bg-opacity-10 text-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="metric-value text-danger">
+                        {{ incident_reports.count }}
+                    </div>
+                    <div class="metric-label">{% trans "Incidents This Year" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card info-card">
+                <div class="card-body metric-card">
+                    <div class="metric-icon bg-secondary bg-opacity-10 text-secondary">
+                        <i class="fas fa-award"></i>
+                    </div>
+                    <div class="metric-value text-secondary">
+                        3
+                    </div>
+                    <div class="metric-label">{% trans "Safety Awards" %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Tabs -->
+    <ul class="nav nav-tabs mb-4" id="driverTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+                <i class="fas fa-info-circle me-1"></i> {% trans "Overview" %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="schedule-tab" data-bs-toggle="tab" data-bs-target="#schedule" type="button" role="tab">
+                <i class="fas fa-calendar-alt me-1"></i> {% trans "Schedule" %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="license-tab" data-bs-toggle="tab" data-bs-target="#license" type="button" role="tab">
+                <i class="fas fa-id-card me-1"></i> {% trans "License & Documents" %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="performance-tab" data-bs-toggle="tab" data-bs-target="#performance" type="button" role="tab">
+                <i class="fas fa-chart-line me-1"></i> {% trans "Performance" %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="activity-tab" data-bs-toggle="tab" data-bs-target="#activity" type="button" role="tab">
+                <i class="fas fa-history me-1"></i> {% trans "Activity" %}
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="driverTabContent">
+        <!-- Overview Tab -->
+        <div class="tab-pane fade show active" id="overview" role="tabpanel">
+            <div class="row">
+                <!-- Driver Information -->
+                <div class="col-lg-8">
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card info-card">
+                                <div class="card-header card-header-custom">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-user me-2 text-primary"></i>
+                                        {% trans "Personal Information" %}
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="info-item">
+                                        <span class="info-label">{% trans "Full Name" %}</span>
+                                        <span class="info-value">{{ driver.user.get_full_name }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">{% trans "Employee ID" %}</span>
+                                        <span class="info-value">{{ driver.employee_id }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">{% trans "Date of Birth" %}</span>
+                                        <span class="info-value">{{ driver.date_of_birth|date:"M d, Y" }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">{% trans "Age" %}</span>
+                                        <span class="info-value">{{ driver.age }} {% trans "years" %}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">{% trans "Date of Joining" %}</span>
+                                        <span class="info-value">{{ driver.date_of_joining|date:"M d, Y" }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">{% trans "Experience" %}</span>
+                                        <span class="info-value">{{ driver.experience_years }} {% trans "years" %}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-4">
+                            <div class="card info-card">
+                                <div class="card-header card-header-custom">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-id-card me-2 text-success"></i>
+                                        {% trans "License Information" %}
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="info-item">
+                                        <span class="info-label">{% trans "License Number" %}</span>
+                                        <span class="info-value">{{ driver.license_number }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">{% trans "License Type" %}</span>
+                                        <span class="info-value">{{ driver.get_license_type_display }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">{% trans "License Expiry" %}</span>
+                                        <span class="info-value">
+                                            {% if driver.license_expiry %}
+                                                {{ driver.license_expiry|date:"M d, Y" }}
+                                                {% if driver.is_license_expired %}
+                                                <span class="document-status status-expired ms-2">
+                                                    <i class="fas fa-exclamation-triangle me-1"></i> {% trans "Expired" %}
+                                                </span>
+                                                {% else %}
+                                                <span class="document-status status-valid ms-2">
+                                                    <i class="fas fa-check-circle me-1"></i> {% trans "Valid" %}
+                                                </span>
+                                                {% endif %}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">{% trans "Status" %}</span>
+                                        <span class="info-value">
+                                            <span class="document-status 
+                                                {% if driver.status == 'active' %}status-valid
+                                                {% elif driver.status == 'suspended' %}status-expired
+                                                {% else %}status-warning{% endif %}">
+                                                {{ driver.get_status_display }}
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">{% trans "Availability" %}</span>
+                                        <span class="info-value">
+                                            <span class="availability-indicator available"></span>
+                                            {% trans "Available" %}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contact Information -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card info-card">
+                                <div class="card-header card-header-custom">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-address-book me-2 text-warning"></i>
+                                        {% trans "Contact Information" %}
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="info-item">
+                                                <span class="info-label">{% trans "Phone" %}</span>
+                                                <span class="info-value">{{ driver.phone|default:"-" }}</span>
+                                            </div>
+                                            <div class="info-item">
+                                                <span class="info-label">{% trans "Email" %}</span>
+                                                <span class="info-value">{{ driver.email|default:"-" }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="info-item">
+                                                <span class="info-label">{% trans "Emergency Contact" %}</span>
+                                                <span class="info-value">
+                                                    {% if driver.emergency_contact_name %}
+                                                        {{ driver.emergency_contact_name }}
+                                                        {% if driver.emergency_contact_relation %}
+                                                            ({{ driver.emergency_contact_relation }})
+                                                        {% endif %}
+                                                    {% else %}
+                                                        -
+                                                    {% endif %}
+                                                </span>
+                                            </div>
+                                            <div class="info-item">
+                                                <span class="info-label">{% trans "Address" %}</span>
+                                                <span class="info-value">{{ driver.address|default:"-"|linebreaks }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions & Notes -->
+                <div class="col-lg-4">
+                    <div class="card info-card mb-4">
+                        <div class="card-header card-header-custom">
+                            <h5 class="mb-0">
+                                <i class="fas fa-bolt me-2 text-info"></i>
+                                {% trans "Quick Actions" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <a href="{% url 'transport:driver_update' driver.pk %}" class="quick-action-btn">
+                                        <i class="fas fa-edit quick-action-icon"></i>
+                                        {% trans "Edit Driver" %}
+                                    </a>
+                                </div>
+                                <div class="col-6">
+                                    <a href="#" class="quick-action-btn" data-bs-toggle="modal" data-bs-target="#scheduleModal">
+                                        <i class="fas fa-calendar-plus quick-action-icon"></i>
+                                        {% trans "Assign Route" %}
+                                    </a>
+                                </div>
+                                <div class="col-6">
+                                    <a href="#" class="quick-action-btn" data-bs-toggle="modal" data-bs-target="#licenseModal">
+                                        <i class="fas fa-id-card quick-action-icon"></i>
+                                        {% trans "Update License" %}
+                                    </a>
+                                </div>
+                                <div class="col-6">
+                                    <a href="#" class="quick-action-btn" onclick="window.print()">
+                                        <i class="fas fa-print quick-action-icon"></i>
+                                        {% trans "Print Details" %}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Current Schedule -->
+                    <div class="card info-card mb-4">
+                        <div class="card-header card-header-custom">
+                            <h5 class="mb-0">
+                                <i class="fas fa-clock me-2 text-success"></i>
+                                {% trans "Today's Schedule" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if current_schedules %}
+                                {% for schedule in current_schedules %}
+                                <div class="schedule-item">
+                                    <div class="schedule-time">
+                                        {{ schedule.morning_start_time|time:"H:i" }} - {{ schedule.morning_end_time|time:"H:i" }}
+                                    </div>
+                                    <div class="schedule-details">
+                                        <div class="schedule-route">{{ schedule.route.name }}</div>
+                                        <div class="schedule-vehicle">
+                                            <i class="fas fa-bus me-1"></i>{{ schedule.vehicle.vehicle_number }}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted text-center mb-0">{% trans "No schedules for today" %}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Emergency Information -->
+                    <div class="card info-card">
+                        <div class="card-header card-header-custom">
+                            <h5 class="mb-0">
+                                <i class="fas fa-exclamation-triangle me-2 text-danger"></i>
+                                {% trans "Emergency Information" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if driver.emergency_contact_name %}
+                            <div class="info-item">
+                                <span class="info-label">{% trans "Contact" %}</span>
+                                <span class="info-value">{{ driver.emergency_contact_name }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">{% trans "Relation" %}</span>
+                                <span class="info-value">{{ driver.emergency_contact_relation|default:"-" }}</span>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center mb-0">{% trans "No emergency contact information" %}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedule Tab -->
+        <div class="tab-pane fade" id="schedule" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>{% trans "Current Schedule" %}</h5>
+                <a href="#" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleModal">
+                    <i class="fas fa-plus me-1"></i> {% trans "Assign Schedule" %}
+                </a>
+            </div>
+            
+            {% if current_schedules %}
+            <div class="card info-card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Route" %}</th>
+                                    <th>{% trans "Vehicle" %}</th>
+                                    <th>{% trans "Morning Timing" %}</th>
+                                    <th>{% trans "Evening Timing" %}</th>
+                                    <th>{% trans "Days" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for schedule in current_schedules %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ schedule.route.name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ schedule.route.code }}</small>
+                                    </td>
+                                    <td>{{ schedule.vehicle.vehicle_number }}</td>
+                                    <td>
+                                        {{ schedule.morning_start_time|time:"H:i" }} - {{ schedule.morning_end_time|time:"H:i" }}
+                                    </td>
+                                    <td>
+                                        {% if schedule.evening_start_time %}
+                                            {{ schedule.evening_start_time|time:"H:i" }} - {{ schedule.evening_end_time|time:"H:i" }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ schedule.get_days_display }}</td>
+                                    <td>
+                                        <span class="document-status status-valid">
+                                            {{ schedule.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'transport:routeschedule_detail' schedule.pk %}" class="btn btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'transport:routeschedule_update' schedule.pk %}" class="btn btn-outline-secondary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card info-card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-calendar-times text-muted fa-3x mb-3"></i>
+                    <h5 class="text-muted">{% trans "No Active Schedules" %}</h5>
+                    <p class="text-muted">{% trans "This driver is not currently assigned to any routes." %}</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#scheduleModal">
+                        <i class="fas fa-plus me-1"></i> {% trans "Assign First Schedule" %}
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- License & Documents Tab -->
+        <div class="tab-pane fade" id="license" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <div class="card info-card">
+                        <div class="card-header card-header-custom">
+                            <h5 class="mb-0">
+                                <i class="fas fa-id-card me-2 text-primary"></i>
+                                {% trans "License Details" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="info-item">
+                                <span class="info-label">{% trans "License Number" %}</span>
+                                <span class="info-value">{{ driver.license_number }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">{% trans "License Type" %}</span>
+                                <span class="info-value">{{ driver.get_license_type_display }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">{% trans "Expiry Date" %}</span>
+                                <span class="info-value">
+                                    {% if driver.license_expiry %}
+                                        {{ driver.license_expiry|date:"M d, Y" }}
+                                        {% if driver.is_license_expired %}
+                                        <span class="document-status status-expired ms-2">
+                                            <i class="fas fa-exclamation-triangle me-1"></i> {% trans "Expired" %}
+                                        </span>
+                                        {% else %}
+                                        <span class="document-status status-valid ms-2">
+                                            <i class="fas fa-check-circle me-1"></i> {% trans "Valid" %}
+                                        </span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">{% trans "Days Remaining" %}</span>
+                                <span class="info-value">
+                                    {% if driver.license_expiry and not driver.is_license_expired %}
+                                        {{ driver.license_expiry|timeuntil }}
+                                    {% elif driver.is_license_expired %}
+                                        <span class="text-danger">{% trans "License expired" %}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- License Images -->
+                    <div class="card info-card">
+                        <div class="card-header card-header-custom">
+                            <h5 class="mb-0">
+                                <i class="fas fa-images me-2 text-info"></i>
+                                {% trans "License Images" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <div class="license-preview" data-bs-toggle="modal" data-bs-target="#licenseImageModal">
+                                        <i class="fas fa-id-card fa-3x text-muted mb-2"></i>
+                                        <div>{% trans "Front Side" %}</div>
+                                        <small class="text-muted">{% trans "Click to view" %}</small>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="license-preview" data-bs-toggle="modal" data-bs-target="#licenseImageModal">
+                                        <i class="fas fa-id-card fa-3x text-muted mb-2"></i>
+                                        <div>{% trans "Back Side" %}</div>
+                                        <small class="text-muted">{% trans "Click to view" %}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6 mb-4">
+                    <!-- Document History -->
+                    <div class="card info-card">
+                        <div class="card-header card-header-custom">
+                            <h5 class="mb-0">
+                                <i class="fas fa-history me-2 text-warning"></i>
+                                {% trans "License History" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="activity-timeline">
+                                <div class="timeline-item">
+                                    <div class="timeline-date">{% trans "License Issued" %} - Jan 15, 2020</div>
+                                    <div class="timeline-content">
+                                        <strong>{% trans "Initial License" %}</strong>
+                                        <p class="mb-0 small">{% trans "License issued for 5 years" %}</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="timeline-item">
+                                    <div class="timeline-date">{% trans "Renewal" %} - Mar 20, 2023</div>
+                                    <div class="timeline-content">
+                                        <strong>{% trans "License Renewed" %}</strong>
+                                        <p class="mb-0 small">{% trans "Renewed for additional 5 years" %}</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="timeline-item">
+                                    <div class="timeline-date">{% trans "Next Renewal Due" %} - Mar 20, 2028</div>
+                                    <div class="timeline-content">
+                                        <strong>{% trans "Renewal Required" %}</strong>
+                                        <p class="mb-0 small">{% trans "License renewal due in future" %}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Documents -->
+                    <div class="card info-card">
+                        <div class="card-header card-header-custom">
+                            <h5 class="mb-0">
+                                <i class="fas fa-file-contract me-2 text-success"></i>
+                                {% trans "Additional Documents" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-primary text-start">
+                                    <i class="fas fa-file-pdf me-2 text-danger"></i>
+                                    {% trans "Employment Contract" %}
+                                    <span class="badge bg-success ms-2">{% trans "Verified" %}</span>
+                                </button>
+                                <button class="btn btn-outline-primary text-start">
+                                    <i class="fas fa-file-pdf me-2 text-danger"></i>
+                                    {% trans "Background Check" %}
+                                    <span class="badge bg-success ms-2">{% trans "Verified" %}</span>
+                                </button>
+                                <button class="btn btn-outline-primary text-start">
+                                    <i class="fas fa-file-pdf me-2 text-danger"></i>
+                                    {% trans "Training Certificate" %}
+                                    <span class="badge bg-warning ms-2">{% trans "Pending" %}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Tab -->
+        <div class="tab-pane fade" id="performance" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card info-card mb-4">
+                        <div class="card-header card-header-custom">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-line me-2 text-primary"></i>
+                                {% trans "Performance Metrics" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-md-3 mb-3">
+                                    <div class="metric-value text-success">95%</div>
+                                    <div class="metric-label">{% trans "On-Time Performance" %}</div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="metric-value text-info">4.8/5</div>
+                                    <div class="metric-label">{% trans "Safety Rating" %}</div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="metric-value text-warning">2</div>
+                                    <div class="metric-label">{% trans "Incidents This Year" %}</div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="metric-value text-primary">98%</div>
+                                    <div class="metric-label">{% trans "Route Completion" %}</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Performance Chart Placeholder -->
+                            <div class="mt-4 p-4 bg-light rounded text-center">
+                                <i class="fas fa-chart-bar fa-2x text-muted mb-2"></i>
+                                <p class="text-muted mb-0">{% trans "Performance charts and analytics will be displayed here" %}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <!-- Performance Awards -->
+                    <div class="card info-card">
+                        <div class="card-header card-header-custom">
+                            <h5 class="mb-0">
+                                <i class="fas fa-award me-2 text-warning"></i>
+                                {% trans "Awards & Recognition" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-3">
+                                <div class="d-flex align-items-center p-2 bg-success bg-opacity-10 rounded">
+                                    <i class="fas fa-trophy text-success fa-2x me-3"></i>
+                                    <div>
+                                        <strong>{% trans "Safety Star" %}</strong>
+                                        <div class="small text-muted">{% trans "Awarded for 1000 accident-free days" %}</div>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center p-2 bg-primary bg-opacity-10 rounded">
+                                    <i class="fas fa-medal text-primary fa-2x me-3"></i>
+                                    <div>
+                                        <strong>{% trans "On-Time Excellence" %}</strong>
+                                        <div class="small text-muted">{% trans "Perfect on-time record for 6 months" %}</div>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center p-2 bg-info bg-opacity-10 rounded">
+                                    <i class="fas fa-star text-info fa-2x me-3"></i>
+                                    <div>
+                                        <strong>{% trans "Driver of the Month" %}</strong>
+                                        <div class="small text-muted">{% trans "March 2024" %}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Tab -->
+        <div class="tab-pane fade" id="activity" role="tabpanel">
+            <h5 class="mb-3">{% trans "Recent Activity" %}</h5>
+            
+            <div class="activity-timeline">
+                <div class="timeline-item">
+                    <div class="timeline-date">{% trans "Today, 08:30" %}</div>
+                    <div class="timeline-content">
+                        <strong>{% trans "Route Started" %}</strong>
+                        <p class="mb-0 small">{% trans "Morning route R-102 started on time" %}</p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-date">{% trans "Yesterday, 17:45" %}</div>
+                    <div class="timeline-content">
+                        <strong>{% trans "Route Completed" %}</strong>
+                        <p class="mb-0 small">{% trans "Evening route R-102 completed successfully" %}</p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-date">{% trans "Jan 15, 2024" %}</div>
+                    <div class="timeline-content">
+                        <strong>{% trans "License Verified" %}</strong>
+                        <p class="mb-0 small">{% trans "Driver's license verified and updated in system" %}</p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-date">{% trans "Jan 10, 2024" %}</div>
+                    <div class="timeline-content">
+                        <strong>{% trans "Training Completed" %}</strong>
+                        <p class="mb-0 small">{% trans "Completed advanced safety training course" %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">{% trans "Delete Driver" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Are you sure you want to delete the driver" %} <strong>{{ driver.user.get_full_name }}</strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>{% trans "Warning:" %}</strong>
+                    {% trans "This action cannot be undone. All associated schedules and records will also be deleted." %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <form method="post" action="{% url 'transport:driver_delete' driver.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">{% trans "Delete Driver" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Schedule Assignment Modal -->
+<div class="modal fade" id="scheduleModal" tabindex="-1" aria-labelledby="scheduleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="scheduleModalLabel">
+                    <i class="fas fa-calendar-plus me-2"></i>
+                    {% trans "Assign Schedule to Driver" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="scheduleForm">
+                    <!-- Schedule form content would go here -->
+                    <div class="mb-3">
+                        <label for="routeSelect" class="form-label">{% trans "Select Route" %}</label>
+                        <select class="form-select" id="routeSelect" required>
+                            <option value="">{% trans "Choose a route..." %}</option>
+                            <!-- Routes would be populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="vehicleSelect" class="form-label">{% trans "Assign Vehicle" %}</label>
+                                <select class="form-select" id="vehicleSelect" required>
+                                    <option value="">{% trans "Select vehicle..." %}</option>
+                                    <!-- Vehicles would be populated dynamically -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="startDate" class="form-label">{% trans "Start Date" %}</label>
+                                <input type="date" class="form-control" id="startDate" required>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="saveSchedule">{% trans "Assign Schedule" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- License Update Modal -->
+<div class="modal fade" id="licenseModal" tabindex="-1" aria-labelledby="licenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="licenseModalLabel">
+                    <i class="fas fa-id-card me-2"></i>
+                    {% trans "Update License Information" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="licenseForm">
+                    <!-- License update form content would go here -->
+                    <div class="mb-3">
+                        <label for="licenseExpiry" class="form-label">{% trans "New Expiry Date" %}</label>
+                        <input type="date" class="form-control" id="licenseExpiry" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="licenseImage" class="form-label">{% trans "Upload New License Image" %}</label>
+                        <input type="file" class="form-control" id="licenseImage" accept="image/*">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="updateLicense">{% trans "Update License" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- License Image Modal -->
+<div class="modal fade" id="licenseImageModal" tabindex="-1" aria-labelledby="licenseImageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="licenseImageModalLabel">{% trans "License Image" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img src="#" alt="License Image" class="img-fluid rounded license-image">
+                <p class="text-muted mt-3">{% trans "License image preview" %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-primary">
+                    <i class="fas fa-download me-1"></i> {% trans "Download" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Tab functionality
+        const driverTabs = document.getElementById('driverTabs');
+        if (driverTabs) {
+            driverTabs.addEventListener('shown.bs.tab', function(event) {
+                // You can add tab-specific initialization here
+                console.log('Tab changed:', event.target.id);
+            });
+        }
+
+        // Print functionality
+        function setupPrint() {
+            const printBtn = document.querySelector('[onclick="window.print()"]');
+            if (printBtn) {
+                printBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.print();
+                });
+            }
+        }
+
+        // License expiry warnings
+        function checkLicenseExpiry() {
+            const licenseExpiry = new Date('{{ driver.license_expiry|date:"Y-m-d" }}');
+            const today = new Date();
+            const thirtyDaysFromNow = new Date();
+            thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+            if ('{{ driver.license_expiry }}') {
+                if (licenseExpiry < today) {
+                    showWarning('{% trans "Driver license has expired. Please update immediately." %}', 'danger');
+                } else if (licenseExpiry <= thirtyDaysFromNow) {
+                    showWarning('{% trans "Driver license expires soon. Please schedule renewal." %}', 'warning');
+                }
+            }
+        }
+
+        function showWarning(message, type) {
+            const warningHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show mb-4">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+
+            // Insert warning at the top of the content
+            const content = document.querySelector('.driver-detail');
+            if (content) {
+                content.insertAdjacentHTML('afterbegin', warningHtml);
+            }
+        }
+
+        // Schedule assignment functionality
+        document.getElementById('saveSchedule')?.addEventListener('click', function() {
+            const scheduleForm = document.getElementById('scheduleForm');
+            if (scheduleForm.checkValidity()) {
+                // Show loading state
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> {% trans "Assigning..." %}';
+                this.disabled = true;
+
+                // Simulate API call
+                setTimeout(() => {
+                    // Reset button state
+                    this.innerHTML = '{% trans "Assign Schedule" %}';
+                    this.disabled = false;
+                    
+                    // Close modal and show success
+                    bootstrap.Modal.getInstance(document.getElementById('scheduleModal')).hide();
+                    showNotification('{% trans "Schedule assigned successfully" %}', 'success');
+                }, 1500);
+            } else {
+                scheduleForm.reportValidity();
+            }
+        });
+
+        // License update functionality
+        document.getElementById('updateLicense')?.addEventListener('click', function() {
+            const licenseForm = document.getElementById('licenseForm');
+            if (licenseForm.checkValidity()) {
+                // Show loading state
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> {% trans "Updating..." %}';
+                this.disabled = true;
+
+                // Simulate API call
+                setTimeout(() => {
+                    // Reset button state
+                    this.innerHTML = '{% trans "Update License" %}';
+                    this.disabled = false;
+                    
+                    // Close modal and show success
+                    bootstrap.Modal.getInstance(document.getElementById('licenseModal')).hide();
+                    showNotification('{% trans "License updated successfully" %}', 'success');
+                }, 1500);
+            } else {
+                licenseForm.reportValidity();
+            }
+        });
+
+        // Utility functions
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i>
+                    <span>${message}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+
+        // Initialize functions
+        setupPrint();
+        checkLicenseExpiry();
+
+        // Add loading states for actions
+        document.querySelectorAll('.quick-action-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                if (!this.href || this.href === '#') {
+                    return;
+                }
+                
+                // Add loading state
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> {% trans "Loading..." %}';
+                this.style.pointerEvents = 'none';
+                
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                    this.style.pointerEvents = 'auto';
+                }, 2000);
+            });
+        });
+    });
+</script>
+
+<style>
+    @media print {
+        .page-actions,
+        .nav-tabs,
+        .btn,
+        .quick-action-btn,
+        .driver-header::before {
+            display: none !important;
+        }
+        
+        .driver-header {
+            background: #f8f9fa !important;
+            color: #000 !important;
+            border: 2px solid #000;
+        }
+        
+        .info-card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+        
+        .tab-pane {
+            display: block !important;
+            opacity: 1 !important;
+        }
+        
+        .metric-card {
+            border: 1px solid #ddd !important;
+        }
+    }
+</style>
+{% endblock %}

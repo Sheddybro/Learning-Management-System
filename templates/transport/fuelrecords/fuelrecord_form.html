@@ -1,0 +1,573 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if object %}{% trans "Edit Fuel Record" %}{% else %}{% trans "Add Fuel Record" %}{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if object %}{% trans "Edit Fuel Record" %}{% else %}{% trans "Add Fuel Record" %}{% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:fuelrecord_list' %}">{% trans "Fuel Records" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if object %}{% trans "Edit" %}{% else %}{% trans "Add" %}{% endif %}
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-section-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-section-icon {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        margin-right: 1rem;
+        font-size: 1.2rem;
+    }
+
+    .form-section-title {
+        margin: 0;
+        color: #333;
+        font-weight: 600;
+    }
+
+    .form-row {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .form-group {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .fuel-calculator {
+        background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+        border-left: 4px solid #2196f3;
+    }
+
+    .calculator-result {
+        background: white;
+        border-radius: 6px;
+        padding: 0.75rem;
+        margin-top: 0.5rem;
+        border: 1px solid #dee2e6;
+    }
+
+    .price-per-liter {
+        font-weight: bold;
+        color: #dc3545;
+    }
+
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+
+    .form-help {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+
+    .validation-feedback {
+        display: none;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    .is-valid .validation-feedback.valid-feedback {
+        display: block;
+        color: #198754;
+    }
+
+    .is-invalid .validation-feedback.invalid-feedback {
+        display: block;
+        color: #dc3545;
+    }
+
+    .btn-submit {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-cancel {
+        background: #6c757d;
+        border: none;
+        color: white;
+    }
+
+    .previous-record {
+        background: #fff3cd;
+        border-radius: 8px;
+        padding: 1rem;
+        border-left: 4px solid #ffc107;
+        margin-bottom: 1rem;
+    }
+
+    .calculation-preview {
+        background: #e7f3ff;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+        border-left: 4px solid #17a2b8;
+    }
+
+    @media (max-width: 768px) {
+        .form-row {
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .form-section {
+            padding: 1rem;
+        }
+
+        .form-section-header {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .form-section-icon {
+            margin-right: 0;
+            margin-bottom: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <!-- Header Section -->
+    <div class="text-center mb-4">
+        <h2 class="mb-2">
+            {% if object %}
+                <i class="fas fa-edit text-primary me-2"></i>{% trans "Edit Fuel Record" %}
+            {% else %}
+                <i class="fas fa-gas-pump text-success me-2"></i>{% trans "Add New Fuel Record" %}
+            {% endif %}
+        </h2>
+        <p class="text-muted">
+            {% if object %}
+                {% trans "Update the fuel record details below" %}
+            {% else %}
+                {% trans "Enter the details for the new fuel record" %}
+            {% endif %}
+        </p>
+    </div>
+
+
+
+    <form method="post" id="fuelRecordForm" novalidate>
+        {% csrf_token %}
+
+        <!-- Basic Information Section -->
+        <div class="form-section">
+            <div class="form-section-header">
+                <div class="form-section-icon">
+                    <i class="fas fa-info-circle"></i>
+                </div>
+                <h4 class="form-section-title">{% trans "Basic Information" %}</h4>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.vehicle.id_for_label }}" class="form-label required-field">
+                        {% trans "Vehicle" %}
+                    </label>
+                    {{ form.vehicle }}
+                    {% if form.vehicle.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.vehicle.errors.0 }}
+                        </div>
+                    {% endif %}
+                    <div class="form-help">
+                        {% trans "Select the vehicle this fuel record belongs to" %}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.date.id_for_label }}" class="form-label required-field">
+                        {% trans "Fuel Date" %}
+                    </label>
+                    {{ form.date }}
+                    {% if form.date.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.date.errors.0 }}
+                        </div>
+                    {% endif %}
+                    <div class="form-help">
+                        {% trans "Date when fuel was purchased/refilled" %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fuel Details Section -->
+        <div class="form-section">
+            <div class="form-section-header">
+                <div class="form-section-icon">
+                    <i class="fas fa-gas-pump"></i>
+                </div>
+                <h4 class="form-section-title">{% trans "Fuel Details" %}</h4>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.odometer_reading.id_for_label }}" class="form-label required-field">
+                        {% trans "Odometer Reading" %}
+                    </label>
+                    <div class="input-group">
+                        {{ form.odometer_reading }}
+                        <span class="input-group-text">km</span>
+                    </div>
+                    {% if form.odometer_reading.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.odometer_reading.errors.0 }}
+                        </div>
+                    {% endif %}
+                    <div class="form-help">
+                        {% trans "Current mileage reading at the time of fueling" %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.fuel_quantity.id_for_label }}" class="form-label required-field">
+                        {% trans "Fuel Quantity" %}
+                    </label>
+                    <div class="input-group">
+                        {{ form.fuel_quantity }}
+                        <span class="input-group-text">L</span>
+                    </div>
+                    {% if form.fuel_quantity.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.fuel_quantity.errors.0 }}
+                        </div>
+                    {% endif %}
+                    <div class="form-help">
+                        {% trans "Amount of fuel purchased in liters" %}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.fuel_cost.id_for_label }}" class="form-label required-field">
+                        {% trans "Fuel Cost" %}
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        {{ form.fuel_cost }}
+                    </div>
+                    {% if form.fuel_cost.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.fuel_cost.errors.0 }}
+                        </div>
+                    {% endif %}
+                    <div class="form-help">
+                        {% trans "Total cost of the fuel purchase" %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fuel Calculator -->
+            <div class="fuel-calculator" id="fuelCalculator">
+                <div class="d-flex align-items-center mb-2">
+                    <i class="fas fa-calculator me-2 text-primary"></i>
+                    <strong>{% trans "Fuel Calculator" %}</strong>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="calculator-result">
+                            <small class="text-muted">{% trans "Price per Liter" %}</small>
+                            <div class="price-per-liter" id="pricePerLiter">$0.00</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="calculator-result">
+                            <small class="text-muted">{% trans "Estimated Range" %}</small>
+                            <div id="estimatedRange">0 km</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Information Section -->
+        <div class="form-section">
+            <div class="form-section-header">
+                <div class="form-section-icon">
+                    <i class="fas fa-plus-circle"></i>
+                </div>
+                <h4 class="form-section-title">{% trans "Additional Information" %}</h4>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.fuel_station.id_for_label }}" class="form-label">
+                        {% trans "Fuel Station" %}
+                    </label>
+                    {{ form.fuel_station }}
+                    {% if form.fuel_station.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.fuel_station.errors.0 }}
+                        </div>
+                    {% endif %}
+                    <div class="form-help">
+                        {% trans "Name of the fuel station where fuel was purchased" %}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.invoice_number.id_for_label }}" class="form-label">
+                        {% trans "Invoice Number" %}
+                    </label>
+                    {{ form.invoice_number }}
+                    {% if form.invoice_number.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.invoice_number.errors.0 }}
+                        </div>
+                    {% endif %}
+                    <div class="form-help">
+                        {% trans "Invoice or receipt number for reference" %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.notes.id_for_label }}" class="form-label">
+                        {% trans "Notes" %}
+                    </label>
+                    {{ form.notes }}
+                    {% if form.notes.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.notes.errors.0 }}
+                        </div>
+                    {% endif %}
+                    <div class="form-help">
+                        {% trans "Additional notes or observations" %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="d-flex justify-content-between align-items-center">
+            <a href="{% url 'transport:fuelrecord_list' %}" class="btn btn-cancel">
+                <i class="fas fa-times me-2"></i>{% trans "Cancel" %}
+            </a>
+
+            <button type="submit" class="btn btn-submit">
+                {% if object %}
+                    <i class="fas fa-save me-2"></i>{% trans "Update Fuel Record" %}
+                {% else %}
+                    <i class="fas fa-plus me-2"></i>{% trans "Create Fuel Record" %}
+                {% endif %}
+            </button>
+        </div>
+    </form>
+
+    <!-- Calculation Preview (shown after form submission simulation) -->
+    <div class="calculation-preview" id="calculationPreview" style="display: none;">
+        <div class="d-flex align-items-center mb-2">
+            <i class="fas fa-chart-line me-2 text-info"></i>
+            <strong>{% trans "Efficiency Preview" %}</strong>
+        </div>
+        <div id="previewContent"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fuelQuantityInput = document.getElementById('{{ form.fuel_quantity.id_for_label }}');
+        const fuelCostInput = document.getElementById('{{ form.fuel_cost.id_for_label }}');
+        const odometerInput = document.getElementById('{{ form.odometer_reading.id_for_label }}');
+        const pricePerLiterEl = document.getElementById('pricePerLiter');
+        const estimatedRangeEl = document.getElementById('estimatedRange');
+        const fuelCalculator = document.getElementById('fuelCalculator');
+
+        // Previous odometer reading for range calculation
+        const previousMileage = {% if object and object.vehicle %}{{ object.vehicle.current_mileage|default:0 }}{% else %}0{% endif %};
+
+        function calculateFuelMetrics() {
+            const quantity = parseFloat(fuelQuantityInput.value) || 0;
+            const cost = parseFloat(fuelCostInput.value) || 0;
+            const odometer = parseFloat(odometerInput.value) || 0;
+
+            // Calculate price per liter
+            if (quantity > 0 && cost > 0) {
+                const pricePerLiter = cost / quantity;
+                pricePerLiterEl.textContent = '$' + pricePerLiter.toFixed(2);
+            } else {
+                pricePerLiterEl.textContent = '$0.00';
+            }
+
+            // Calculate estimated range if odometer is provided
+            if (odometer > 0 && quantity > 0) {
+                // Simple estimation: previous efficiency or assume 10 km/L average
+                const estimatedEfficiency = 10; // km per liter (can be improved with historical data)
+                const estimatedRange = quantity * estimatedEfficiency;
+                estimatedRangeEl.textContent = Math.round(estimatedRange) + ' km';
+            } else {
+                estimatedRangeEl.textContent = '0 km';
+            }
+        }
+
+        // Add event listeners for real-time calculation
+        fuelQuantityInput.addEventListener('input', calculateFuelMetrics);
+        fuelCostInput.addEventListener('input', calculateFuelMetrics);
+        odometerInput.addEventListener('input', calculateFuelMetrics);
+
+        // Initial calculation on page load
+        calculateFuelMetrics();
+
+        // Form validation feedback
+        const form = document.getElementById('fuelRecordForm');
+        const inputs = form.querySelectorAll('input, select, textarea');
+
+        inputs.forEach(input => {
+            input.addEventListener('blur', function() {
+                validateField(this);
+            });
+        });
+
+        function validateField(field) {
+            const value = field.value.trim();
+            let isValid = true;
+            let errorMessage = '';
+
+            // Required field validation
+            if (field.hasAttribute('required') && !value) {
+                isValid = false;
+                errorMessage = 'This field is required.';
+            }
+
+            // Number validation
+            if (field.type === 'number' && value) {
+                const numValue = parseFloat(value);
+                if (isNaN(numValue) || numValue <= 0) {
+                    isValid = false;
+                    errorMessage = 'Please enter a valid positive number.';
+                }
+            }
+
+            // Date validation
+            if (field.type === 'date' && value) {
+                const dateValue = new Date(value);
+                const today = new Date();
+                if (dateValue > today) {
+                    isValid = false;
+                    errorMessage = 'Date cannot be in the future.';
+                }
+            }
+
+            // Update field styling
+            field.classList.remove('is-valid', 'is-invalid');
+
+            if (isValid && value) {
+                field.classList.add('is-valid');
+            } else if (!isValid) {
+                field.classList.add('is-invalid');
+                showFieldError(field, errorMessage);
+            }
+        }
+
+        function showFieldError(field, message) {
+            // Remove existing error
+            const existingError = field.parentNode.querySelector('.invalid-feedback');
+            if (existingError) {
+                existingError.remove();
+            }
+
+            // Add new error
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'invalid-feedback d-block';
+            errorDiv.textContent = message;
+            field.parentNode.appendChild(errorDiv);
+        }
+
+        // Vehicle change handler - could load vehicle's last fuel record
+        const vehicleSelect = document.getElementById('{{ form.vehicle.id_for_label }}');
+        vehicleSelect.addEventListener('change', function() {
+            const vehicleId = this.value;
+            if (vehicleId) {
+                // Could make an AJAX call to load last odometer reading
+                console.log('Vehicle changed to:', vehicleId);
+            }
+        });
+
+        // Form submission handler
+        form.addEventListener('submit', function(e) {
+            let hasErrors = false;
+
+            inputs.forEach(input => {
+                validateField(input);
+                if (input.classList.contains('is-invalid')) {
+                    hasErrors = true;
+                }
+            });
+
+            if (hasErrors) {
+                e.preventDefault();
+                // Scroll to first error
+                const firstError = form.querySelector('.is-invalid');
+                if (firstError) {
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        });
+
+        // Auto-calculate date if not set
+        const dateInput = document.getElementById('{{ form.date.id_for_label }}');
+        if (!dateInput.value && !{% if object %}true{% else %}false{% endif %}) {
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
+        }
+    });
+</script>
+{% endblock %}

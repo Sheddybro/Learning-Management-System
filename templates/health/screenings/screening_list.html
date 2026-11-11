@@ -1,0 +1,872 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Health Screenings{% endblock %}
+
+{% block page_title %}Health Screenings{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active" aria-current="page">Health Screenings</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'health:screening_create' %}" class="btn btn-success">
+            <i class="bi bi-plus-circle me-1"></i> Add Screening
+        </a>
+        <button type="button" class="btn btn-outline-primary" id="exportBtn">
+            <i class="bi bi-download me-1"></i> Export
+        </button>
+        <button type="button" class="btn btn-outline-info" id="reportsBtn">
+            <i class="bi bi-graph-up me-1"></i> Reports
+        </button>
+        <button type="button" class="btn btn-outline-secondary" id="bulkActionsBtn" disabled>
+            <i class="bi bi-gear me-1"></i> Bulk Actions
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="screenings-container">
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-primary">
+                <div class="card-body text-center">
+                    <i class="bi bi-search fs-2 text-primary mb-2"></i>
+                    <h4 class="card-title mb-1">{{ screenings_stats.total_screenings }}</h4>
+                    <p class="card-text text-muted mb-0">Total Screenings</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-success">
+                <div class="card-body text-center">
+                    <i class="bi bi-check-circle fs-2 text-success mb-2"></i>
+                    <h4 class="card-title mb-1">{{ screenings_stats.normal_results }}</h4>
+                    <p class="card-text text-muted mb-0">Normal Results</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-warning">
+                <div class="card-body text-center">
+                    <i class="bi bi-exclamation-triangle fs-2 text-warning mb-2"></i>
+                    <h4 class="card-title mb-1">{{ screenings_stats.needs_attention }}</h4>
+                    <p class="card-text text-muted mb-0">Needs Attention</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-info">
+                <div class="card-body text-center">
+                    <i class="bi bi-calendar-event fs-2 text-info mb-2"></i>
+                    <h4 class="card-title mb-1">{{ screenings_stats.pending_followups }}</h4>
+                    <p class="card-text text-muted mb-0">Pending Follow-ups</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filters -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6 class="card-title mb-0">
+                <i class="bi bi-funnel me-2"></i>Search & Filter
+            </h6>
+        </div>
+        <div class="card-body">
+            <form method="get" id="searchForm" class="row g-3">
+                <div class="col-md-3">
+                    <label for="student_name" class="form-label">Student Name</label>
+                    <input type="text" class="form-control" id="student_name" name="student_name"
+                           value="{{ search_form.student_name.value|default_if_none:'' }}"
+                           placeholder="Search by name...">
+                </div>
+
+                <div class="col-md-2">
+                    <label for="screening_type" class="form-label">Screening Type</label>
+                    <select class="form-select" id="screening_type" name="screening_type">
+                        <option value="">All Types</option>
+                        {% for choice_value, choice_label in search_form.fields.screening_type.choices %}
+                            <option value="{{ choice_value }}"
+                                    {% if search_form.screening_type.value == choice_value %}selected{% endif %}>
+                                {{ choice_label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label for="screening_result" class="form-label">Result</label>
+                    <select class="form-select" id="screening_result" name="screening_result">
+                        <option value="">All Results</option>
+                        {% for choice_value, choice_label in search_form.fields.screening_result.choices %}
+                            <option value="{{ choice_value }}"
+                                    {% if search_form.screening_result.value == choice_value %}selected{% endif %}>
+                                {{ choice_label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label for="date_from" class="form-label">Date From</label>
+                    <input type="date" class="form-control" id="date_from" name="date_from"
+                           value="{{ search_form.date_from.value|default_if_none:'' }}">
+                </div>
+
+                <div class="col-md-2">
+                    <label for="date_to" class="form-label">Date To</label>
+                    <input type="date" class="form-control" id="date_to" name="date_to"
+                           value="{{ search_form.date_to.value|default_if_none:'' }}">
+                </div>
+
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+
+                <div class="col-12">
+                    <a href="{% url 'health:screening_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Clear Filters
+                    </a>
+                    <span class="text-muted ms-2">
+                        Showing {{ screenings|length }} of {{ screenings.paginator.count|default:0 }} screenings
+                    </span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0">
+                <i class="bi bi-table me-2"></i>Health Screenings
+            </h6>
+            <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-secondary active" id="listViewBtn">
+                    <i class="bi bi-list"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="cardViewBtn">
+                    <i class="bi bi-grid"></i>
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <!-- List View -->
+            <div id="listView">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>
+                                    <input type="checkbox" class="form-check-input" id="selectAll">
+                                </th>
+                                <th>Student</th>
+                                <th>Screening</th>
+                                <th>Result</th>
+                                <th>Date</th>
+                                <th>Conducted By</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for screening in screenings %}
+                                <tr class="{% if screening.screening_result == 'needs_attention' %}table-warning{% elif screening.screening_result == 'abnormal' %}table-danger{% endif %}">
+                                    <td>
+                                        <input type="checkbox" class="form-check-input screening-checkbox"
+                                               value="{{ screening.pk }}">
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-circle bg-warning text-white me-2">
+                                                {{ screening.student.user.get_full_name.0|upper }}
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold">{{ screening.student.user.get_full_name }}</div>
+                                                <small class="text-muted">ID: {{ screening.student.student_id }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <div class="fw-bold">{{ screening.get_screening_type_display }}</div>
+                                            <small class="text-muted">{{ screening.result_details|truncatechars:25 }}</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge
+                                            {% if screening.screening_result == 'normal' %}bg-success
+                                            {% elif screening.screening_result == 'needs_attention' %}bg-warning
+                                            {% elif screening.screening_result == 'abnormal' %}bg-danger
+                                            {% elif screening.screening_result == 'referral_required' %}bg-danger
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ screening.get_screening_result_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <div class="fw-bold">{{ screening.screening_date|date:"M d, Y" }}</div>
+                                            {% if screening.follow_up_required %}
+                                                <small class="text-info">
+                                                    <i class="bi bi-arrow-repeat me-1"></i>Follow-up: {{ screening.follow_up_date|date:"M d" }}
+                                                </small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <div class="fw-bold">{{ screening.conducted_by.get_full_name|default:"N/A" }}</div>
+                                            {% if screening.parent_notified %}
+                                                <small class="text-success">
+                                                    <i class="bi bi-check-circle me-1"></i>Parent notified
+                                                </small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-column gap-1">
+                                            {% if screening.follow_up_required %}
+                                                {% if screening.is_follow_up_overdue %}
+                                                    <span class="badge bg-danger">Follow-up Overdue</span>
+                                                {% else %}
+                                                    <span class="badge bg-info">Follow-up Pending</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="badge bg-success">Complete</span>
+                                            {% endif %}
+                                            {% if screening.referral_made %}
+                                                <small class="text-warning">
+                                                    <i class="bi bi-exclamation-triangle me-1"></i>Referral made
+                                                </small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{% url 'health:screening_detail' pk=screening.pk %}"
+                                               class="btn btn-sm btn-outline-primary" title="View Details">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="{% url 'health:screening_update' pk=screening.pk %}"
+                                               class="btn btn-sm btn-outline-secondary" title="Edit Screening">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            {% if screening.follow_up_required and not screening.is_follow_up_overdue %}
+                                                <button type="button" class="btn btn-sm btn-outline-success"
+                                                        onclick="markFollowUpComplete({{ screening.pk }})"
+                                                        title="Mark Follow-up Complete">
+                                                    <i class="bi bi-check-circle"></i>
+                                                </button>
+                                            {% endif %}
+                                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                                    onclick="confirmDelete('{{ screening.student.user.get_full_name }} - {{ screening.get_screening_type_display }}', {% url 'health:screening_delete' pk=screening.pk %})"
+                                                    title="Delete Screening">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-4">
+                                        <div class="empty-state">
+                                            <i class="bi bi-search display-4 text-muted mb-3"></i>
+                                            <h6 class="text-muted">No Screenings Found</h6>
+                                            <p class="text-muted mb-3">There are no health screenings matching your search criteria.</p>
+                                            <a href="{% url 'health:screening_create' %}" class="btn btn-primary">
+                                                <i class="bi bi-plus-circle me-1"></i>Add First Screening
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Card View -->
+            <div id="cardView" style="display: none;">
+                <div class="row g-3 p-3">
+                    {% for screening in screenings %}
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card h-100 {% if screening.screening_result == 'needs_attention' %}border-warning{% elif screening.screening_result == 'abnormal' %}border-danger{% else %}border-success{% endif %}">
+                                <div class="card-header d-flex align-items-center">
+                                    <div class="avatar-circle bg-warning text-white me-2">
+                                        {{ screening.student.user.get_full_name.0|upper }}
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-0">{{ screening.student.user.get_full_name }}</h6>
+                                        <small class="text-muted">ID: {{ screening.student.student_id }}</small>
+                                    </div>
+                                    <span class="badge
+                                        {% if screening.screening_result == 'normal' %}bg-success
+                                        {% elif screening.screening_result == 'needs_attention' %}bg-warning
+                                        {% elif screening.screening_result == 'abnormal' %}bg-danger
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ screening.get_screening_result_display }}
+                                    </span>
+                                    <input type="checkbox" class="form-check-input screening-checkbox ms-2"
+                                           value="{{ screening.pk }}">
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-2">
+                                        <h6 class="card-title">{{ screening.get_screening_type_display }}</h6>
+                                        <p class="card-text small text-muted">{{ screening.result_details|truncatechars:80 }}</p>
+                                    </div>
+
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">Date</small>
+                                            <span class="fw-bold">{{ screening.screening_date|date:"M d, Y" }}</span>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">Conducted By</small>
+                                            <span class="fw-bold">{{ screening.conducted_by.get_full_name|default:"N/A"|truncatechars:15 }}</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        {% if screening.follow_up_required %}
+                                            {% if screening.is_follow_up_overdue %}
+                                                <div class="alert alert-danger py-1 px-2 mb-2">
+                                                    <small><i class="bi bi-exclamation-triangle me-1"></i>Follow-up overdue</small>
+                                                </div>
+                                            {% else %}
+                                                <div class="alert alert-info py-1 px-2 mb-2">
+                                                    <small><i class="bi bi-calendar-event me-1"></i>Follow-up: {{ screening.follow_up_date|date:"M d" }}</small>
+                                                </div>
+                                            {% endif %}
+                                        {% endif %}
+                                        {% if screening.referral_made %}
+                                            <div class="alert alert-warning py-1 px-2 mb-2">
+                                                <small><i class="bi bi-exclamation-triangle me-1"></i>Referral made</small>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="d-flex gap-1">
+                                        <a href="{% url 'health:screening_detail' pk=screening.pk %}"
+                                           class="btn btn-sm btn-outline-primary flex-fill">
+                                            <i class="bi bi-eye me-1"></i>View
+                                        </a>
+                                        <a href="{% url 'health:screening_update' pk=screening.pk %}"
+                                           class="btn btn-sm btn-outline-secondary flex-fill">
+                                            <i class="bi bi-pencil me-1"></i>Edit
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="col-12">
+                            <div class="text-center py-5">
+                                <div class="empty-state">
+                                    <i class="bi bi-search display-4 text-muted mb-3"></i>
+                                    <h6 class="text-muted">No Screenings Found</h6>
+                                    <p class="text-muted mb-3">There are no health screenings matching your search criteria.</p>
+                                    <a href="{% url 'health:screening_create' %}" class="btn btn-primary">
+                                        <i class="bi bi-plus-circle me-1"></i>Add First Screening
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if screenings.paginator.num_pages > 1 %}
+            <div class="card-footer">
+                <nav aria-label="Screenings pagination">
+                    <ul class="pagination justify-content-center mb-0">
+                        {% if screenings.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if search_form %}student_name={{ search_form.student_name.value|default_if_none:'' }}&screening_type={{ search_form.screening_type.value|default_if_none:'' }}&screening_result={{ search_form.screening_result.value|default_if_none:'' }}&date_from={{ search_form.date_from.value|default_if_none:'' }}&date_to={{ search_form.date_to.value|default_if_none:'' }}&{% endif %}page={{ screenings.previous_page_number }}">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        {% for num in screenings.paginator.page_range %}
+                            {% if screenings.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > screenings.number|add:'-3' and num < screenings.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if search_form %}student_name={{ search_form.student_name.value|default_if_none:'' }}&screening_type={{ search_form.screening_type.value|default_if_none:'' }}&screening_result={{ search_form.screening_result.value|default_if_none:'' }}&date_from={{ search_form.date_from.value|default_if_none:'' }}&date_to={{ search_form.date_to.value|default_if_none:'' }}&{% endif %}page={{ num }}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if screenings.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if search_form %}student_name={{ search_form.student_name.value|default_if_none:'' }}&screening_type={{ search_form.screening_type.value|default_if_none:'' }}&screening_result={{ search_form.screening_result.value|default_if_none:'' }}&date_from={{ search_form.date_from.value|default_if_none:'' }}&date_to={{ search_form.date_to.value|default_if_none:'' }}&{% endif %}page={{ screenings.next_page_number }}">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Bulk Actions Modal -->
+<div class="modal fade" id="bulkActionsModal" tabindex="-1" aria-labelledby="bulkActionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkActionsModalLabel">Bulk Actions</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Selected <span id="selectedCount">0</span> screenings for bulk actions:</p>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-success" id="bulkMarkNormalBtn">
+                        <i class="bi bi-check-circle me-1"></i>Mark as Normal
+                    </button>
+                    <button type="button" class="btn btn-outline-warning" id="bulkScheduleFollowUpBtn">
+                        <i class="bi bi-calendar-plus me-1"></i>Schedule Follow-ups
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" id="bulkExportBtn">
+                        <i class="bi bi-download me-1"></i>Export Selected
+                    </button>
+                    <button type="button" class="btn btn-outline-info" id="bulkNotifyParentsBtn">
+                        <i class="bi bi-envelope me-1"></i>Notify Parents
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the screening record for <strong id="deleteScreeningName"></strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    This action cannot be undone. The screening record will be permanently removed.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a id="deleteConfirmBtn" class="btn btn-danger">Delete Screening</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.screenings-container {
+    max-width: 100%;
+}
+
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.table th {
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    color: #6c757d;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.table-warning {
+    background-color: #fff3cd !important;
+}
+
+.table-danger {
+    background-color: #f8d7da !important;
+}
+
+.btn-group .btn {
+    border-radius: 0.375rem !important;
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.empty-state {
+    padding: 2rem 0;
+}
+
+.empty-state i {
+    opacity: 0.5;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.pagination .page-link {
+    color: #0d6efd;
+    border-color: #dee2e6;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* Card view styles */
+#cardView .card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+#cardView .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+#cardView .card.border-warning {
+    border-color: #ffc107 !important;
+}
+
+#cardView .card.border-danger {
+    border-color: #dc3545 !important;
+}
+
+/* Bulk actions styles */
+.bulk-selected {
+    background-color: #e7f3ff !important;
+}
+
+/* Alert styles in cards */
+#cardView .alert {
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .btn-group .btn {
+        margin-bottom: 0.25rem;
+    }
+}
+
+/* View toggle styles */
+#listViewBtn:disabled, #cardViewBtn:disabled {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+/* Selection styles */
+.screening-checkbox:checked {
+    accent-color: #0d6efd;
+}
+
+#selectAll:checked {
+    accent-color: #0d6efd;
+}
+
+/* Stats cards */
+.card h4 {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchForm = document.getElementById('searchForm');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const screeningCheckboxes = document.querySelectorAll('.screening-checkbox');
+    const bulkActionsBtn = document.getElementById('bulkActionsBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const reportsBtn = document.getElementById('reportsBtn');
+    const listViewBtn = document.getElementById('listViewBtn');
+    const cardViewBtn = document.getElementById('cardViewBtn');
+    const listView = document.getElementById('listView');
+    const cardView = document.getElementById('cardView');
+    const bulkActionsModal = new bootstrap.Modal(document.getElementById('bulkActionsModal'));
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+
+    // View toggle functionality
+    listViewBtn.addEventListener('click', function() {
+        listView.style.display = 'block';
+        cardView.style.display = 'none';
+        listViewBtn.classList.add('active');
+        cardViewBtn.classList.remove('active');
+    });
+
+    cardViewBtn.addEventListener('click', function() {
+        cardView.style.display = 'block';
+        listView.style.display = 'none';
+        cardViewBtn.classList.add('active');
+        listViewBtn.classList.remove('active');
+    });
+
+    // Select all functionality
+    selectAllCheckbox.addEventListener('change', function() {
+        const isChecked = this.checked;
+        screeningCheckboxes.forEach(checkbox => {
+            checkbox.checked = isChecked;
+            toggleRowSelection(checkbox);
+        });
+        updateBulkActions();
+    });
+
+    // Individual checkbox functionality
+    screeningCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            toggleRowSelection(this);
+            updateBulkActions();
+            updateSelectAllState();
+        });
+    });
+
+    function toggleRowSelection(checkbox) {
+        const row = checkbox.closest('tr');
+        if (row) {
+            if (checkbox.checked) {
+                row.classList.add('bulk-selected');
+            } else {
+                row.classList.remove('bulk-selected');
+            }
+        }
+    }
+
+    function updateSelectAllState() {
+        const checkedBoxes = document.querySelectorAll('.screening-checkbox:checked');
+        const allBoxes = document.querySelectorAll('.screening-checkbox');
+
+        if (checkedBoxes.length === 0) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        } else if (checkedBoxes.length === allBoxes.length) {
+            selectAllCheckbox.checked = true;
+            selectAllCheckbox.indeterminate = false;
+        } else {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = true;
+        }
+    }
+
+    function updateBulkActions() {
+        const selectedCount = document.querySelectorAll('.screening-checkbox:checked').length;
+        bulkActionsBtn.disabled = selectedCount === 0;
+
+        if (selectedCount > 0) {
+            bulkActionsBtn.innerHTML = `<i class="bi bi-gear me-1"></i>Bulk Actions (${selectedCount})`;
+        } else {
+            bulkActionsBtn.innerHTML = `<i class="bi bi-gear me-1"></i>Bulk Actions`;
+        }
+    }
+
+    // Bulk actions
+    bulkActionsBtn.addEventListener('click', function() {
+        const selectedCount = document.querySelectorAll('.screening-checkbox:checked').length;
+        document.getElementById('selectedCount').textContent = selectedCount;
+        bulkActionsModal.show();
+    });
+
+    // Bulk mark normal
+    document.getElementById('bulkMarkNormalBtn').addEventListener('click', function() {
+        const selectedScreenings = Array.from(document.querySelectorAll('.screening-checkbox:checked')).map(cb => cb.value);
+        if (selectedScreenings.length > 0) {
+            showToast(`Marking ${selectedScreenings.length} screenings as normal...`, 'info');
+            bulkActionsModal.hide();
+        }
+    });
+
+    // Bulk schedule follow-ups
+    document.getElementById('bulkScheduleFollowUpBtn').addEventListener('click', function() {
+        showToast('Bulk follow-up scheduling would be implemented here', 'info');
+        bulkActionsModal.hide();
+    });
+
+    // Bulk export
+    document.getElementById('bulkExportBtn').addEventListener('click', function() {
+        const selectedScreenings = Array.from(document.querySelectorAll('.screening-checkbox:checked')).map(cb => cb.value);
+        showToast(`Exporting ${selectedScreenings.length} screenings...`, 'info');
+        bulkActionsModal.hide();
+    });
+
+    // Bulk notify parents
+    document.getElementById('bulkNotifyParentsBtn').addEventListener('click', function() {
+        showToast('Bulk parent notification would be implemented here', 'info');
+        bulkActionsModal.hide();
+    });
+
+    // Export functionality
+    exportBtn.addEventListener('click', function() {
+        showToast('Export functionality would be implemented here', 'info');
+    });
+
+    // Reports view
+    reportsBtn.addEventListener('click', function() {
+        showToast('Screening reports would open in a new window', 'info');
+    });
+
+    // Search form enhancement
+    searchForm.addEventListener('submit', function(e) {
+        // Add loading state
+        const submitBtn = searchForm.querySelector('button[type="submit"]');
+        const originalHtml = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass"></i>';
+
+        // Re-enable after short delay
+        setTimeout(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalHtml;
+        }, 1000);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + F to focus search
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            document.getElementById('student_name').focus();
+        }
+
+        // Escape to clear selections
+        if (e.key === 'Escape') {
+            screeningCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+                toggleRowSelection(checkbox);
+            });
+            selectAllCheckbox.checked = false;
+            updateBulkActions();
+        }
+    });
+
+    // Highlight attention-needed screenings
+    const attentionRows = document.querySelectorAll('.table-warning, .table-danger');
+    if (attentionRows.length > 0) {
+        // Add subtle highlighting for rows needing attention
+        attentionRows.forEach(row => {
+            const statusCell = row.querySelector('td:last-child');
+            if (statusCell) {
+                const attentionIndicator = document.createElement('div');
+                attentionIndicator.className = 'attention-indicator';
+                statusCell.style.position = 'relative';
+                statusCell.appendChild(attentionIndicator);
+            }
+        });
+    }
+});
+
+// Global functions for modals
+function confirmDelete(screeningInfo, deleteUrl) {
+    document.getElementById('deleteScreeningName').textContent = screeningInfo;
+    document.getElementById('deleteConfirmBtn').href = deleteUrl;
+
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+}
+
+function markFollowUpComplete(screeningId) {
+    // In a real implementation, this would make an AJAX call
+    showToast('Marking follow-up as complete...', 'info');
+
+    // Simulate status update
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'primary'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    `;
+
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+
+    toastContainer.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+
+    toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+    });
+}
+
+// Add CSS for attention indicator
+const style = document.createElement('style');
+style.textContent = `
+    .attention-indicator {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        width: 12px;
+        height: 12px;
+        background-color: #ffc107;
+        border-radius: 50%;
+        border: 2px solid white;
+        animation: pulse-attention 2s infinite;
+    }
+
+    @keyframes pulse-attention {
+        0%, 100% { transform: scale(1); opacity: 0.8; }
+        50% { transform: scale(1.2); opacity: 1; }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

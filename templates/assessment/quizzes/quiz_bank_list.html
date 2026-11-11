@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if is_teacher %}{% trans "Manage Quizzes" %}{% else %}{% trans "Available Quizzes" %}{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title mb-0">
+                        <i class="bi bi-question-circle me-2"></i>
+                        {% if is_teacher %}{% trans "Manage Quizzes" %}{% else %}{% trans "Available Quizzes" %}{% endif %}
+                    </h4>
+                    {% if is_teacher %}
+                    <a href="{% url 'assessment:question_bank_create' %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle me-1"></i>{% trans "Create Quiz" %}
+                    </a>
+                    {% endif %}
+                </div>
+
+                <div class="card-body">
+                    <!-- Filters -->
+                    <div class="row mb-4">
+                        {% if is_teacher %}
+                        <div class="col-md-3">
+                            <form method="get" class="d-flex">
+                                <select name="class_id" class="form-select me-2" onchange="this.form.submit()">
+                                    <option value="">{% trans "All Classes" %}</option>
+                                    {% for taught_class in taught_classes %}
+                                    <option value="{{ taught_class.id }}" {% if request.GET.class_id == taught_class.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ taught_class.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </form>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-3">
+                            <form method="get" class="d-flex">
+                                <select name="subject_id" class="form-select me-2" onchange="this.form.submit()">
+                                    <option value="">{% trans "All Subjects" %}</option>
+                                    {% for subject in subjects %}
+                                    <option value="{{ subject.id }}" {% if request.GET.subject_id == subject.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ subject.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </form>
+                        </div>
+                        {% if is_teacher %}
+                        <div class="col-md-3">
+                            <form method="get" class="d-flex">
+                                <select name="status" class="form-select me-2" onchange="this.form.submit()">
+                                    <option value="">{% trans "All Status" %}</option>
+                                    <option value="draft" {% if request.GET.status == 'draft' %}selected{% endif %}>{% trans "Draft" %}</option>
+                                    <option value="published" {% if request.GET.status == 'published' %}selected{% endif %}>{% trans "Published" %}</option>
+                                </select>
+                            </form>
+                        </div>
+                        {% else %}
+                        <div class="col-md-3">
+                            <form method="get" class="d-flex">
+                                <select name="category" class="form-select me-2" onchange="this.form.submit()">
+                                    <option value="">{% trans "All Categories" %}</option>
+                                    {% for cat_key, cat_value in categories %}
+                                    <option value="{{ cat_key }}" {% if request.GET.category == cat_key %}selected{% endif %}>
+                                        {{ cat_value }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Quiz List -->
+                    <div class="row">
+                        {% for quiz_data in quiz_data %}
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card h-100 {% if not is_teacher and not quiz_data.can_attempt %}border-secondary{% endif %}">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-1">{{ quiz_data.question_bank.name }}</h5>
+                                    <small class="text-muted">
+                                        {{ quiz_data.question_bank.subject.name }}
+                                        {% if is_teacher %}
+                                        - {{ quiz_data.question_bank.academic_class.name }}
+                                        {% else %}
+                                        - {{ quiz_data.question_bank.category|title }}
+                                        {% endif %}
+                                    </small>
+                                    {% if is_teacher and quiz_data.question_bank.draft %}
+                                    <span class="badge bg-warning ms-2">{% trans "Draft" %}</span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="card-body">
+                                    <p class="card-text">{{ quiz_data.question_bank.description|truncatewords:20 }}</p>
+
+                                    <div class="row text-center mb-3">
+                                        {% if is_teacher %}
+                                        <div class="col-4">
+                                            <div class="fw-bold">{{ quiz_data.question_count }}</div>
+                                            <small class="text-muted">{% trans "Questions" %}</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="fw-bold">{{ quiz_data.total_attempts }}</div>
+                                            <small class="text-muted">{% trans "Attempts" %}</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="fw-bold">{{ quiz_data.avg_score|floatformat:1 }}%</div>
+                                            <small class="text-muted">{% trans "Avg Score" %}</small>
+                                        </div>
+                                        {% else %}
+                                        <div class="col-4">
+                                            <div class="fw-bold">{{ quiz_data.question_count }}</div>
+                                            <small class="text-muted">{% trans "Questions" %}</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="fw-bold">{{ quiz_data.completed_attempts }}</div>
+                                            <small class="text-muted">{% trans "Attempts" %}</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="fw-bold">{{ quiz_data.best_score }}%</div>
+                                            <small class="text-muted">{% trans "Best Score" %}</small>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+
+                                    {% if not is_teacher and quiz_data.question_bank.single_attempt and quiz_data.completed_attempts > 0 %}
+                                    <div class="alert alert-info py-2 mb-3">
+                                        <small><i class="bi bi-info-circle me-1"></i>{% trans "You have already completed this quiz." %}</small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="card-footer">
+                                    {% if is_teacher %}
+                                    <div class="btn-group w-100" role="group">
+                                        <a href="{% url 'assessment:question_list' %}?question_bank_id={{ quiz_data.question_bank.id }}" class="btn btn-outline-primary btn-sm">
+                                            <i class="bi bi-pencil me-1"></i>{% trans "Edit" %}
+                                        </a>
+                                        <a href="{% url 'assessment:quiz_attempt_list' %}?question_bank_id={{ quiz_data.question_bank.id }}" class="btn btn-outline-info btn-sm">
+                                            <i class="bi bi-bar-chart me-1"></i>{% trans "Results" %}
+                                        </a>
+                                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="confirmDelete({{ quiz_data.question_bank.id }}, '{{ quiz_data.question_bank.name }}')">
+                                            <i class="bi bi-trash me-1"></i>{% trans "Delete" %}
+                                        </button>
+                                    </div>
+                                    {% else %}
+                                    {% if quiz_data.can_attempt %}
+                                    <a href="{% url 'assessment:quiz_bank_detail' quiz_data.question_bank.id %}" class="btn btn-primary btn-sm w-100">
+                                        <i class="bi bi-play-circle me-1"></i>{% trans "Start Quiz" %}
+                                    </a>
+                                    {% else %}
+                                    <a href="{% url 'assessment:student_progress' %}" class="btn btn-secondary btn-sm w-100">
+                                        <i class="bi bi-bar-chart me-1"></i>{% trans "View Progress" %}
+                                    </a>
+                                    {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="text-center py-5">
+                                <i class="bi bi-question-circle display-1 text-muted mb-3"></i>
+                                <h5 class="text-muted">{% if is_teacher %}{% trans "No quizzes found" %}{% else %}{% trans "No quizzes available" %}{% endif %}</h5>
+                                <p class="text-muted">
+                                    {% if is_teacher %}
+                                    {% trans "You haven't created any quizzes yet. Click 'Create Quiz' to get started." %}
+                                    {% else %}
+                                    {% trans "There are currently no quizzes available for your class." %}
+                                    {% endif %}
+                                </p>
+                                {% if is_teacher %}
+                                <a href="{% url 'assessment:question_bank_create' %}" class="btn btn-primary">
+                                    <i class="bi bi-plus-circle me-1"></i>{% trans "Create Your First Quiz" %}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+{% if is_teacher %}
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">{% trans "Confirm Delete" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Are you sure you want to delete the quiz" %} <strong id="quizName"></strong>?</p>
+                <p class="text-danger">{% trans "This action cannot be undone. All associated questions and attempts will be permanently deleted." %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="quiz_id" id="quizIdInput">
+                    <button type="submit" class="btn btn-danger">{% trans "Delete Quiz" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-submit forms when select changes
+    $('select[name="subject_id"], select[name="category"], select[name="class_id"], select[name="status"]').on('change', function() {
+        $(this).closest('form').submit();
+    });
+});
+
+{% if is_teacher %}
+function confirmDelete(quizId, quizName) {
+    $('#quizName').text(quizName);
+    $('#quizIdInput').val(quizId);
+    $('#deleteForm').attr('action', '/assessment/question-banks/' + quizId + '/delete/');
+    $('#deleteModal').modal('show');
+}
+{% endif %}
+</script>
+{% endblock %}

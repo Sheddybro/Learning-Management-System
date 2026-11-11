@@ -1,0 +1,325 @@
+{% load i18n %}
+<!-- Summary Report Section -->
+<h5 class="mb-4">{% trans "Transport Summary Overview" %}</h5>
+
+<!-- Detailed Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card h-100 border-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="stat-icon text-primary">
+                        <i class="fas fa-bus fa-2x"></i>
+                    </div>
+                    <span class="badge bg-primary">{% trans "Fleet" %}</span>
+                </div>
+                <h4 class="card-title mb-1 text-primary">{{ summary_data.vehicle_count }}</h4>
+                <p class="card-text text-muted small mb-0">{% trans "Total Vehicles" %}</p>
+                <div class="mt-2">
+                    <small class="text-success">
+                        <i class="fas fa-check-circle me-1"></i>
+                        {{ summary_data.active_vehicles }} {% trans "active" %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card h-100 border-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="stat-icon text-warning">
+                        <i class="fas fa-gas-pump fa-2x"></i>
+                    </div>
+                    <span class="badge bg-warning">{% trans "Fuel" %}</span>
+                </div>
+                <h4 class="card-title mb-1 text-warning">₹{{ summary_data.total_fuel_cost|floatformat:0 }}</h4>
+                <p class="card-text text-muted small mb-0">{% trans "Fuel Cost" %}</p>
+                {% if summary_data.total_fuel_quantity %}
+                <div class="mt-2">
+                    <small class="text-info">
+                        <i class="fas fa-tachometer-alt me-1"></i>
+                        {{ summary_data.total_fuel_quantity|floatformat:0 }}L {% trans "consumed" %}
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card h-100 border-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="stat-icon text-success">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                    <span class="badge bg-success">{% trans "Students" %}</span>
+                </div>
+                <h4 class="card-title mb-1 text-success">{{ summary_data.total_allocations }}</h4>
+                <p class="card-text text-muted small mb-0">{% trans "Student Allocations" %}</p>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <i class="fas fa-route me-1"></i>
+                        {% if routes_utilization %}{{ routes_utilization|length }}{% else %}0{% endif %} {% trans "routes active" %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card h-100 border-danger">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="stat-icon text-danger">
+                        <i class="fas fa-tools fa-2x"></i>
+                    </div>
+                    <span class="badge bg-danger">{% trans "Maintenance" %}</span>
+                </div>
+                <h4 class="card-title mb-1 text-danger">₹{{ summary_data.total_maintenance_cost|floatformat:0 }}</h4>
+                <p class="card-text text-muted small mb-0">{% trans "Maintenance Cost" %}</p>
+                <div class="mt-2">
+                    {% if total_maintenance > 0 %}
+                    <small class="{% if completed_maintenance == total_maintenance %}text-success{% else %}text-warning{% endif %}">
+                        <i class="fas fa-wrench me-1"></i>
+                        {{ completed_maintenance }}/{{ total_maintenance }} {% trans "completed" %}
+                    </small>
+                    {% else %}
+                    <small class="text-muted">
+                        <i class="fas fa-check-circle me-1"></i>
+                        {% trans "All up to date" %}
+                    </small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Chart -->
+<div class="chart-container mb-4">
+    <h6 class="chart-title">
+        <i class="fas fa-chart-bar me-2"></i>
+        {% trans "Transport Operations Summary" %}
+    </h6>
+    <canvas id="summaryChart" height="200"></canvas>
+</div>
+
+<!-- Performance Metrics Table -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>{% trans "Performance Indicator" %}</th>
+                        <th>{% trans "Current Value" %}</th>
+                        <th>{% trans "Target" %}</th>
+                        <th>{% trans "Status" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <i class="fas fa-tachometer-alt text-info me-2"></i>
+                            {% trans "Vehicle Availability" %}
+                        </td>
+                        <td>
+                            <strong>{{ summary_data.active_vehicles }}/{{ summary_data.vehicle_count }}</strong>
+                            <small class="text-muted">({% widthratio summary_data.active_vehicles summary_data.vehicle_count 100 %}%)</small>
+                        </td>
+                        <td>>90%</td>
+                        <td>
+                            {% if summary_data.vehicle_count > 0 %}
+                                {% widthratio summary_data.active_vehicles summary_data.vehicle_count 100 as availability_pct %}
+                                {% if availability_pct >= 90 %}
+                                    <span class="badge bg-success">{% trans "Good" %}</span>
+                                {% elif availability_pct >= 75 %}
+                                    <span class="badge bg-warning">{% trans "Fair" %}</span>
+                                {% else %}
+                                    <span class="badge bg-danger">{% trans "Poor" %}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary">{% trans "N/A" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <i class="fas fa-gas-pump text-warning me-2"></i>
+                            {% trans "Fuel Cost per km" %}
+                        </td>
+                        <td>
+                            <strong>{% if avg_fuel_cost_per_km %}₹{{ avg_fuel_cost_per_km|floatformat:2 }}{% else %}{% trans "N/A" %}{% endif %}</strong>
+                        </td>
+                        <td><₹15</td>
+                        <td>
+                            {% if avg_fuel_cost_per_km %}
+                                {% if avg_fuel_cost_per_km <= 15 %}
+                                    <span class="badge bg-success">{% trans "Excellent" %}</span>
+                                {% elif avg_fuel_cost_per_km <= 20 %}
+                                    <span class="badge bg-warning">{% trans "Moderate" %}</span>
+                                {% else %}
+                                    <span class="badge bg-danger">{% trans "High" %}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary">{% trans "N/A" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <i class="fas fa-clock text-success me-2"></i>
+                            {% trans "On-time Performance" %}
+                        </td>
+                        <td>
+                            <strong>{% if on_time_performance %}{{ on_time_performance }}%{% else %}{% trans "N/A" %}{% endif %}</strong>
+                        </td>
+                        <td>>95%</td>
+                        <td>
+                            {% if on_time_performance %}
+                                {% if on_time_performance >= 95 %}
+                                    <span class="badge bg-success">{% trans "Excellent" %}</span>
+                                {% elif on_time_performance >= 90 %}
+                                    <span class="badge bg-warning">{% trans "Good" %}</span>
+                                {% else %}
+                                    <span class="badge bg-danger">{% trans "Needs Attention" %}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary">{% trans "N/A" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <i class="fas fa-exclamation-triangle text-danger me-2"></i>
+                            {% trans "Incident Rate" %}
+                        </td>
+                        <td>
+                            <strong>{{ summary_data.incident_count }} {% trans "incidents" %}</strong>
+                        </td>
+                        <td><5/month</td>
+                        <td>
+                            {% if summary_data.incident_count <= 5 %}
+                                <span class="badge bg-success">{% trans "Low" %}</span>
+                            {% elif summary_data.incident_count <= 10 %}
+                                <span class="badge bg-warning">{% trans "Moderate" %}</span>
+                            {% else %}
+                                <span class="badge bg-danger">{% trans "High" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Key Insights Sidebar -->
+    <div class="col-lg-4">
+        <div class="insight-card">
+            <div class="insight-title">
+                <i class="fas fa-lightbulb text-warning me-2"></i>
+                {% trans "Key Insights" %}
+            </div>
+            <div class="insight-content">
+                <ul class="list-unstyled mb-0">
+                    {% if summary_data.vehicle_count > 0 %}
+                    <li class="mb-2">
+                        <small>
+                            {% trans "Fleet utilization" %}: <strong>{% widthratio summary_data.total_allocations summary_data.vehicle_count 100 %}%</strong> capacity used
+                        </small>
+                    </li>
+                    {% endif %}
+                    {% if summary_data.total_fuel_cost and summary_data.total_maintenance_cost %}
+                    <li class="mb-2">
+                        <small>
+                            {% trans "Operating cost ratio" %}: <strong>₹{{ summary_data.total_fuel_cost|add:summary_data.total_maintenance_cost|floatformat:0 }}</strong> total
+                        </small>
+                    </li>
+                    {% endif %}
+                    {% if routes_utilization %}
+                    <li class="mb-2">
+                        <small>
+                            {% trans "Most utilized route" %}: <strong>{{ routes_utilization.0.name }}</strong>
+                        </small>
+                    </li>
+                    {% endif %}
+                    {% if summary_data.incident_count == 0 %}
+                    <li class="mb-2">
+                        <small class="text-success">
+                            <i class="fas fa-check-circle me-1"></i>
+                            {% trans "No incidents reported this period" %}
+                        </small>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="insight-card">
+            <div class="insight-title">
+                <i class="fas fa-chart-line text-info me-2"></i>
+                {% trans "Trends" %}
+            </div>
+            <div class="insight-content">
+                <p class="mb-1 small">
+                    {% trans "This month compared to last month:" %}
+                </p>
+                <div class="small">
+                    <span class="trend-indicator trend-up">
+                        <i class="fas fa-arrow-up"></i> +5% {% trans "fuel efficiency" %}
+                    </span><br>
+                    <span class="trend-indicator trend-down">
+                        <i class="fas fa-arrow-down"></i> -2% {% trans "maintenance costs" %}
+                    </span><br>
+                    <span class="trend-indicator trend-neutral">
+                        <i class="fas fa-minus"></i> 0% {% trans "student allocations" %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transport Activities -->
+<div class="mt-4">
+    <h6 class="mb-3">
+        <i class="fas fa-history me-2"></i>
+        {% trans "Recent Transport Activities" %}
+    </h6>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>{% trans "Date" %}</th>
+                    <th>{% trans "Activity" %}</th>
+                    <th>{% trans "Details" %}</th>
+                    <th>{% trans "Status" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Sample data rows - in real implementation, these would come from context -->
+                <tr>
+                    <td>{% now "M d, Y" %}</td>
+                    <td>{% trans "Fuel Refill" %}</td>
+                    <td>Vehicle #TR-001 - 50L</td>
+                    <td><span class="badge bg-success">{% trans "Completed" %}</span></td>
+                </tr>
+                <tr>
+                    <td>{% now "M d, Y"|date:"M d, Y" %}</td>
+                    <td>{% trans "Maintenance" %}</td>
+                    <td>Vehicle #TR-003 - Oil Change</td>
+                    <td><span class="badge bg-warning">{% trans "In Progress" %}</span></td>
+                </tr>
+                <tr>
+                    <td>{% now "M d, Y"|date:"M d, Y" %}</td>
+                    <td>{% trans "Student Allocation" %}</td>
+                    <td>25 students allocated to Route A</td>
+                    <td><span class="badge bg-success">{% trans "Completed" %}</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% translate "Invoice Details" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">{% translate "Invoice Details" %}</h1>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">{% translate "Invoice" %} #{{ invoice.invoice_number }}</h6>
+            <div class="dropdown no-arrow">
+                <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                </a>
+                <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
+                    <div class="dropdown-header">{% translate "Actions" %}:</div>
+                    <a class="dropdown-item" href="{% url 'finance:invoice_update' pk=invoice.pk %}">{% translate "Edit Invoice" %}</a>
+                    <a class="dropdown-item" href="{% url 'finance:invoice_delete' pk=invoice.pk %}">{% translate "Delete Invoice" %}</a>
+                    <div class="dropdown-divider"></div>
+                    {% if invoice.balance_due > 0 %}
+                        <a class="dropdown-item" href="{% url 'finance:payment_create' invoice_pk=invoice.pk %}">{% translate "Record Payment" %}</a>
+                        <a class="dropdown-item" href="{% url 'finance:payment_gateway' invoice_pk=invoice.pk %}">{% translate "Pay Online" %}</a>
+                    {% endif %}
+                    <a class="dropdown-item" href="{% url 'finance:receipt_download' pk=invoice.pk %}">{% translate "Download Receipt" %}</a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-lg-6">
+                    <p><strong>{% translate "Invoice Number" %}:</strong> {{ invoice.invoice_number }}</p>
+                    <p><strong>{% translate "Student" %}:</strong> {{ invoice.student.user.get_full_name }}</p>
+                    <p><strong>{% translate "Academic Session" %}:</strong> {{ invoice.academic_session.name }}</p>
+                    <p><strong>{% translate "Billing Period" %}:</strong> {{ invoice.billing_period }}</p>
+                    <p><strong>{% translate "Issue Date" %}:</strong> {{ invoice.issue_date|date:"M d, Y" }}</p>
+                    <p><strong>{% translate "Due Date" %}:</strong> {{ invoice.due_date|date:"M d, Y" }}</p>
+                    <p><strong>{% translate "Status" %}:</strong> <span class="badge badge-{{ invoice.get_status_display|lower }}">{{ invoice.get_status_display }}</span></p>
+                </div>
+                <div class="col-lg-6">
+                    <p><strong>{% translate "Subtotal" %}:</strong> ${{ invoice.subtotal|floatformat:2 }}</p>
+                    <p><strong>{% translate "Total Discount" %}:</strong> ${{ invoice.total_discount|floatformat:2 }}</p>
+                    <p><strong>{% translate "Total Tax" %}:</strong> ${{ invoice.total_tax|floatformat:2 }}</p>
+                    <p><strong>{% translate "Total Amount" %}:</strong> ${{ invoice.total_amount|floatformat:2 }}</p>
+                    <p><strong>{% translate "Amount Paid" %}:</strong> ${{ invoice.amount_paid|floatformat:2 }}</p>
+                    <p><strong>{% translate "Balance Due" %}:</strong> ${{ invoice.balance_due|floatformat:2 }}</p>
+                    {% if invoice.is_overdue %}
+                        <p class="text-danger"><strong>{% translate "Overdue By" %}:</strong> {{ invoice.days_overdue }} {% translate "days" %}</p>
+                        <p class="text-danger"><strong>{% translate "Late Fee" %}:</strong> ${{ invoice.calculate_late_fee|floatformat:2 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <hr>
+
+            <h5>{% translate "Invoice Items" %}</h5>
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Fee Type" %}</th>
+                            <th>{% translate "Description" %}</th>
+                            <th>{% translate "Unit Price" %}</th>
+                            <th>{% translate "Quantity" %}</th>
+                            <th>{% translate "Tax Rate" %}</th>
+                            <th>{% translate "Discount" %}</th>
+                            <th>{% translate "Line Total" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in invoice_items %}
+                        <tr>
+                            <td>{{ item.fee_structure.name }}</td>
+                            <td>{{ item.description|default:_("N/A") }}</td>
+                            <td>${{ item.unit_price|floatformat:2 }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>{{ item.tax_rate|floatformat:2 }}%</td>
+                            <td>${{ item.discount_amount|floatformat:2 }}</td>
+                            <td>${{ item.line_total|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7">{% translate "No items for this invoice." %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <hr>
+
+            <h5>{% translate "Payments Received" %}</h5>
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Payment #" %}</th>
+                            <th>{% translate "Amount" %}</th>
+                            <th>{% translate "Method" %}</th>
+                            <th>{% translate "Date" %}</th>
+                            <th>{% translate "Received By" %}</th>
+                            <th>{% translate "Status" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                        <tr>
+                            <td><a href="{% url 'finance:payment_detail' pk=payment.pk %}">{{ payment.payment_number }}</a></td>
+                            <td>${{ payment.amount|floatformat:2 }}</td>
+                            <td>{{ payment.get_payment_method_display }}</td>
+                            <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+                            <td>{{ payment.received_by.get_full_name|default:_("N/A") }}</td>
+                            <td><span class="badge badge-{{ payment.get_status_display|lower }}">{{ payment.get_status_display }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6">{% translate "No payments recorded for this invoice." %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <hr>
+            <a href="{% url 'finance:invoice_list' %}" class="btn btn-secondary">{% translate "Back to Invoices" %}</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

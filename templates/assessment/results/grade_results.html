@@ -1,0 +1,686 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+{% load assessment_tags %}
+
+{% block title %}{% trans "Grade Results" %}{% endblock %}
+
+{% block body_class %}assessment-grade-results{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'assessment:dashboard' %}">{% trans "Assessment" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Grade Results" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'assessment:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>{% trans "Back to Dashboard" %}
+        </a>
+        <a href="{% url 'assessment:add_score' %}" class="btn btn-outline-primary">
+            <i class="bi bi-plus-circle me-2"></i>{% trans "Add Scores" %}
+        </a>
+        {% if taken_courses %}
+        <button type="button" class="btn btn-outline-info" id="exportBtn">
+            <i class="bi bi-download me-2"></i>{% trans "Export" %}
+        </button>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.grade-results-container {
+    max-width: 100%;
+}
+
+.results-header {
+    background: linear-gradient(135deg, var(--bs-success), #28a745);
+    color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.grade-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.grade-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.25rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.grade-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.grade-letter {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.grade-count {
+    font-size: 1.75rem;
+    font-weight: bold;
+    color: var(--bs-primary);
+}
+
+.grade-label {
+    font-size: 0.85rem;
+    color: var(--bs-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.results-table {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.student-name {
+    font-weight: 600;
+    color: var(--bs-primary);
+}
+
+.score-cell {
+    text-align: center;
+    font-weight: 500;
+}
+
+.total-score {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: var(--bs-success);
+}
+
+.grade-badge {
+    padding: 0.375rem 0.75rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.grade-excellent { background: linear-gradient(135deg, #28a745, #20c997); color: white; }
+.grade-good { background: linear-gradient(135deg, #17a2b8, #6f42c1); color: white; }
+.grade-average { background: linear-gradient(135deg, #ffc107, #fd7e14); color: #212529; }
+.grade-poor { background: linear-gradient(135deg, #dc3545, #e83e8c); color: white; }
+
+.comment-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.comment-pass { background: var(--bs-success); color: white; }
+.comment-fail { background: var(--bs-danger); color: white; }
+
+.table-hover tbody tr:hover {
+    background-color: rgba(40, 167, 69, 0.05);
+}
+
+.btn-view {
+    transition: all 0.3s ease;
+}
+
+.btn-view:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.chart-container {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-top: 2rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-radius: 12px;
+    margin: 2rem 0;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    color: var(--bs-secondary);
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .results-header {
+        padding: 1.5rem;
+    }
+
+    .grade-summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .grade-card {
+        padding: 1rem;
+    }
+
+    .grade-letter {
+        font-size: 1.5rem;
+    }
+
+    .grade-count {
+        font-size: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="grade-results-container">
+    <!-- Header Section -->
+    <div class="results-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2 class="mb-1">
+                    <i class="bi bi-trophy me-2"></i>{% trans "Grade Distribution & Results" %}
+                </h2>
+                <p class="mb-0 opacity-75">
+                    {% trans "Detailed analysis of student performance and grade distribution" %}
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                {% if taken_courses %}
+                <div class="d-flex justify-content-end gap-2">
+                    <div class="text-center">
+                        <div class="fs-3 fw-bold">{{ taken_courses|length }}</div>
+                        <small class="opacity-75">{% trans "Results" %}</small>
+                    </div>
+                    <div class="text-center">
+                        <div class="fs-3 fw-bold">{{ taken_courses|length|add:0 }}</div>
+                        <small class="opacity-75">{% trans "Students" %}</small>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if taken_courses %}
+        <!-- Grade Summary Cards -->
+        {% if grade_summary %}
+        <div class="grade-summary-grid">
+            {% for grade, data in grade_summary.items %}
+            <div class="grade-card">
+                <div class="grade-letter {% if grade == 'F' %}text-danger{% elif grade in 'ABC' %}text-success{% else %}text-warning{% endif %}">
+                    {{ grade }}
+                </div>
+                <div class="grade-count">{{ data.count }}</div>
+                <div class="grade-label">{% trans "Students" %}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Results Table -->
+        <div class="card results-table">
+            <div class="card-header bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-table me-2"></i>{% trans "Detailed Grade Results" %}
+                    </h5>
+                    <div class="input-group" style="width: 300px;">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" id="searchInput" placeholder="{% trans 'Search students...' %}">
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="resultsTable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="sortable" data-sort="student">
+                                    <i class="bi bi-person me-1"></i>{% trans "Student" %}
+                                    <i class="bi bi-chevron-expand sort-icon"></i>
+                                </th>
+                                <th class="sortable" data-sort="course">
+                                    <i class="bi bi-book me-1"></i>{% trans "Course" %}
+                                    <i class="bi bi-chevron-expand sort-icon"></i>
+                                </th>
+                                <th class="text-center">
+                                    <i class="bi bi-pencil me-1"></i>{% trans "Assignment" %}
+                                </th>
+                                <th class="text-center">
+                                    <i class="bi bi-file-earmark-text me-1"></i>{% trans "Mid Exam" %}
+                                </th>
+                                <th class="text-center">
+                                    <i class="bi bi-question-circle me-1"></i>{% trans "Quiz" %}
+                                </th>
+                                <th class="text-center">
+                                    <i class="bi bi-calendar-check me-1"></i>{% trans "Attendance" %}
+                                </th>
+                                <th class="text-center">
+                                    <i class="bi bi-award me-1"></i>{% trans "Final Exam" %}
+                                </th>
+                                <th class="sortable text-center" data-sort="total">
+                                    <i class="bi bi-calculator me-1"></i>{% trans "Total" %}
+                                    <i class="bi bi-chevron-expand sort-icon"></i>
+                                </th>
+                                <th class="sortable text-center" data-sort="grade">
+                                    <i class="bi bi-trophy me-1"></i>{% trans "Grade" %}
+                                    <i class="bi bi-chevron-expand sort-icon"></i>
+                                </th>
+                                <th class="text-center">
+                                    <i class="bi bi-chat-dots me-1"></i>{% trans "Status" %}
+                                </th>
+                                <th class="text-center">
+                                    <i class="bi bi-gear me-1"></i>{% trans "Actions" %}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for taken_course in taken_courses %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-circle me-2">
+                                            <i class="bi bi-person-circle fs-4 text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <div class="student-name">{{ taken_course.student.user.get_full_name }}</div>
+                                            <small class="text-muted">{{ taken_course.student.user.username }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div>
+                                        <div class="fw-bold">{{ taken_course.course.name }}</div>
+                                        <small class="text-muted">{{ taken_course.course.code }}</small>
+                                    </div>
+                                </td>
+                                <td class="score-cell">{{ taken_course.assignment|floatformat:1 }}%</td>
+                                <td class="score-cell">{{ taken_course.mid_exam|floatformat:1 }}%</td>
+                                <td class="score-cell">{{ taken_course.quiz|floatformat:1 }}%</td>
+                                <td class="score-cell">{{ taken_course.attendance|floatformat:1 }}%</td>
+                                <td class="score-cell">{{ taken_course.final_exam|floatformat:1 }}%</td>
+                                <td class="score-cell">
+                                    <span class="total-score">{{ taken_course.total|floatformat:1 }}%</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="grade-badge {% if taken_course.grade == 'F' %}grade-poor{% elif taken_course.grade in 'AB' %}grade-excellent{% elif taken_course.grade == 'C' %}grade-good{% else %}grade-average{% endif %}">
+                                        {{ taken_course.grade }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="comment-badge {% if taken_course.comment == 'PASS' %}comment-pass{% else %}comment-fail{% endif %}">
+                                        {{ taken_course.comment }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <a href="{% url 'assessment:result_detail' taken_course.student.pk taken_course.course.pk %}"
+                                       class="btn btn-sm btn-outline-primary btn-view">
+                                        <i class="bi bi-eye me-1"></i>{% trans "View" %}
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grade Distribution Chart -->
+        <div class="chart-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-bar-chart me-2"></i>{% trans "Grade Distribution Visualization" %}
+                </h5>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-primary active" id="pieChartBtn">
+                        <i class="bi bi-pie-chart me-1"></i>{% trans "Pie" %}
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" id="barChartBtn">
+                        <i class="bi bi-bar-chart-line me-1"></i>{% trans "Bar" %}
+                    </button>
+                </div>
+            </div>
+            <div style="height: 400px;">
+                <canvas id="gradeChart"></canvas>
+            </div>
+        </div>
+
+    {% else %}
+        <!-- Empty State -->
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="bi bi-trophy"></i>
+            </div>
+            <h4 class="mb-3">{% trans "No Grade Results Found" %}</h4>
+            <p class="text-muted mb-4">
+                {% trans "There are no course grades to display at the moment. Start by adding scores for your courses." %}
+            </p>
+            <a href="{% url 'assessment:add_score' %}" class="btn btn-primary btn-lg">
+                <i class="bi bi-plus-circle me-2"></i>{% trans "Add Course Scores" %}
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const exportBtn = document.getElementById('exportBtn');
+    const resultsTable = document.getElementById('resultsTable');
+    const tbody = resultsTable ? resultsTable.querySelector('tbody') : null;
+    const sortableHeaders = document.querySelectorAll('.sortable');
+    const pieChartBtn = document.getElementById('pieChartBtn');
+    const barChartBtn = document.getElementById('barChartBtn');
+
+    let gradeChart;
+    let currentChartType = 'pie';
+
+    // Initialize search functionality
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = tbody ? tbody.querySelectorAll('tr') : [];
+
+            rows.forEach(row => {
+                const studentName = row.querySelector('.student-name');
+                const courseName = row.querySelector('td:nth-child(2) .fw-bold');
+                const visible = !searchTerm ||
+                    (studentName && studentName.textContent.toLowerCase().includes(searchTerm)) ||
+                    (courseName && courseName.textContent.toLowerCase().includes(searchTerm));
+                row.style.display = visible ? '' : 'none';
+            });
+        });
+    }
+
+    // Initialize sorting functionality
+    let sortDirection = {};
+    sortableHeaders.forEach(header => {
+        header.addEventListener('click', function() {
+            const sortKey = this.dataset.sort;
+            const currentDirection = sortDirection[sortKey] || 'asc';
+            const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+
+            sortDirection[sortKey] = newDirection;
+
+            // Update sort icons
+            sortableHeaders.forEach(h => {
+                const icon = h.querySelector('.sort-icon');
+                if (icon) {
+                    icon.className = 'bi bi-chevron-expand sort-icon';
+                }
+            });
+
+            const icon = this.querySelector('.sort-icon');
+            if (icon) {
+                icon.className = `bi bi-chevron-${newDirection === 'asc' ? 'up' : 'down'} sort-icon`;
+            }
+
+            // Sort table rows
+            sortTable(sortKey, newDirection);
+        });
+    });
+
+    function sortTable(sortKey, direction) {
+        if (!tbody) return;
+
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+
+        rows.sort((a, b) => {
+            let aValue, bValue;
+
+            switch(sortKey) {
+                case 'student':
+                    aValue = a.querySelector('.student-name').textContent.toLowerCase();
+                    bValue = b.querySelector('.student-name').textContent.toLowerCase();
+                    break;
+                case 'course':
+                    aValue = a.querySelector('td:nth-child(2) .fw-bold').textContent.toLowerCase();
+                    bValue = b.querySelector('td:nth-child(2) .fw-bold').textContent.toLowerCase();
+                    break;
+                case 'total':
+                    aValue = parseFloat(a.querySelector('.total-score').textContent);
+                    bValue = parseFloat(b.querySelector('.total-score').textContent);
+                    break;
+                case 'grade':
+                    aValue = a.querySelector('.grade-badge').textContent.trim();
+                    bValue = b.querySelector('.grade-badge').textContent.trim();
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (direction === 'asc') {
+                return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+            } else {
+                return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+            }
+        });
+
+        // Re-append sorted rows
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    // Initialize chart
+    {% if grade_summary %}
+    const gradeData = {{ grade_summary|safe }};
+    const gradeLabels = Object.keys(gradeData);
+    const gradeCounts = Object.values(gradeData).map(item => item.count);
+
+    function createChart(type = 'pie') {
+        const ctx = document.getElementById('gradeChart');
+        if (!ctx) return;
+
+        if (gradeChart) {
+            gradeChart.destroy();
+        }
+
+        const config = {
+            type: type,
+            data: {
+                labels: gradeLabels,
+                datasets: [{
+                    label: '{% trans "Number of Students" %}',
+                    data: gradeCounts,
+                    backgroundColor: [
+                        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true
+                        }
+                    }
+                }
+            }
+        };
+
+        if (type === 'bar') {
+            config.options.scales = {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            };
+        }
+
+        gradeChart = new Chart(ctx, config);
+    }
+
+    // Initialize with pie chart
+    createChart('pie');
+
+    // Chart type toggle
+    if (pieChartBtn) {
+        pieChartBtn.addEventListener('click', function() {
+            if (currentChartType !== 'pie') {
+                currentChartType = 'pie';
+                createChart('pie');
+                pieChartBtn.classList.add('active');
+                barChartBtn.classList.remove('active');
+            }
+        });
+    }
+
+    if (barChartBtn) {
+        barChartBtn.addEventListener('click', function() {
+            if (currentChartType !== 'bar') {
+                currentChartType = 'bar';
+                createChart('bar');
+                barChartBtn.classList.add('active');
+                pieChartBtn.classList.remove('active');
+            }
+        });
+    }
+    {% endif %}
+
+    // Initialize export functionality
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function() {
+            const dropdown = document.createElement('div');
+            dropdown.className = 'dropdown-menu show';
+            dropdown.style.position = 'absolute';
+            dropdown.style.left = '0';
+            dropdown.style.top = '100%';
+            dropdown.style.zIndex = '1000';
+
+            {% if taken_courses %}
+            dropdown.innerHTML = `
+                {% for course in taken_courses|slice:":1" %}
+                <a class="dropdown-item" href="{% url 'assessment:result_sheet_pdf' course.course.id %}">
+                    <i class="bi bi-file-earmark-pdf me-2"></i>{% trans "PDF Result Sheet" %}
+                </a>
+                <a class="dropdown-item" href="{% url 'assessment:course_registration_pdf' course.course.id %}">
+                    <i class="bi bi-file-earmark-pdf me-2"></i>{% trans "Registration Form" %}
+                </a>
+                {% endfor %}
+                <div class="dropdown-divider"></div>
+                <button class="dropdown-item" onclick="exportToCSV()">
+                    <i class="bi bi-file-earmark-spreadsheet me-2"></i>{% trans "CSV Export" %}
+                </button>
+            `;
+            {% endif %}
+
+            // Position and show dropdown
+            exportBtn.parentNode.style.position = 'relative';
+            exportBtn.parentNode.appendChild(dropdown);
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function closeDropdown(e) {
+                if (!exportBtn.contains(e.target)) {
+                    dropdown.remove();
+                    document.removeEventListener('click', closeDropdown);
+                }
+            }, { once: true });
+        });
+    }
+
+    // CSV Export Function
+    function exportToCSV() {
+        if (!tbody) return;
+
+        const headers = ['{% trans "Student Name" %}', '{% trans "Course" %}', '{% trans "Assignment" %}', '{% trans "Mid Exam" %}', '{% trans "Quiz" %}', '{% trans "Attendance" %}', '{% trans "Final Exam" %}', '{% trans "Total" %}', '{% trans "Grade" %}', '{% trans "Comment" %}'];
+        const rows = [headers];
+
+        tbody.querySelectorAll('tr').forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 11) {
+                const rowData = [
+                    cells[0].querySelector('.student-name')?.textContent?.trim() || '',
+                    cells[1].querySelector('.fw-bold')?.textContent?.trim() || '',
+                    cells[2].textContent.replace('%', '').trim(),
+                    cells[3].textContent.replace('%', '').trim(),
+                    cells[4].textContent.replace('%', '').trim(),
+                    cells[5].textContent.replace('%', '').trim(),
+                    cells[6].textContent.replace('%', '').trim(),
+                    cells[7].querySelector('.total-score')?.textContent?.replace('%', '').trim() || '',
+                    cells[8].querySelector('.grade-badge')?.textContent?.trim() || '',
+                    cells[9].querySelector('.comment-badge')?.textContent?.trim() || ''
+                ];
+                rows.push(rowData);
+            }
+        });
+
+        const csvContent = rows.map(row =>
+            row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')
+        ).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'grade_results_{{ current_session.session|default:"current" }}.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        showToast('{% trans "Results exported successfully!" %}', 'success');
+    }
+
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type === 'success' ? 'primary' : 'primary'} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+
+        let toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+
+        toastContainer.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+
+        toast.addEventListener('hidden.bs.toast', function() {
+            toast.remove();
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,298 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Case" %} {{ case.case_number }}: {{ case.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="card-title mb-0">
+                                {% trans "Case" %} {{ case.case_number }}: {{ case.title }}
+                            </h3>
+                            <small class="text-muted">
+                                {% trans "Created" %} {{ case.created_at|date:"M d, Y H:i" }} {% trans "by" %} {{ case.reported_by.get_full_name }}
+                            </small>
+                        </div>
+                        <div>
+                            {% if can_edit %}
+                                <a href="{% url 'support:case_update' case.pk %}" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-edit"></i> {% trans "Edit Case" %}
+                                </a>
+                                {% if can_escalate %}
+                                    <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#escalateModal">
+                                        <i class="fas fa-exclamation-triangle"></i> {% trans "Escalate" %}
+                                    </button>
+                                {% endif %}
+                                <a href="{% url 'support:case_delete' case.pk %}" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-trash"></i> {% trans "Delete" %}
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Case Information -->
+                        <div class="col-md-8">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">{% trans "Case Details" %}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><strong>{% trans "Student:" %}</strong> {{ case.student.user.get_full_name }}</p>
+                                            <p><strong>{% trans "Category:" %}</strong> {{ case.category.name|default:"N/A" }}</p>
+                                            <p><strong>{% trans "Type:" %}</strong> {{ case.get_case_type_display }}</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong>{% trans "Priority:" %}</strong>
+                                                <span class="badge bg-{{ case.priority|lower }}">{{ case.get_priority_display }}</span>
+                                            </p>
+                                            <p><strong>{% trans "Status:" %}</strong>
+                                                <span class="badge bg-{{ case.status|lower|replace('_', '-') }}">{{ case.get_status_display }}</span>
+                                            </p>
+                                            {% if case.is_escalated %}
+                                                <p><strong>{% trans "Escalated:" %}</strong>
+                                                    <span class="badge bg-warning">{% trans "Yes" %}</span>
+                                                    {% if case.escalated_to %}
+                                                        {% trans "to" %} {{ case.escalated_to.get_full_name }}
+                                                    {% endif %}
+                                                </p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <h6>{% trans "Description" %}</h6>
+                                    <p>{{ case.description }}</p>
+                                    {% if case.resolution %}
+                                        <hr>
+                                        <h6>{% trans "Resolution" %}</h6>
+                                        <p>{{ case.resolution }}</p>
+                                        {% if case.resolved_by %}
+                                            <small class="text-muted">
+                                                {% trans "Resolved by" %} {{ case.resolved_by.get_full_name }} {% trans "on" %} {{ case.resolved_at|date:"M d, Y H:i" }}
+                                            </small>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Case Updates/Comments -->
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0">{% trans "Case Updates" %}</h5>
+                                    {% if is_participant %}
+                                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addUpdateModal">
+                                            <i class="fas fa-plus"></i> {% trans "Add Update" %}
+                                        </button>
+                                    {% endif %}
+                                </div>
+                                <div class="card-body">
+                                    {% if case.updates.all %}
+                                        <div class="timeline">
+                                            {% for update in case.updates.all %}
+                                                <div class="timeline-item">
+                                                    <div class="timeline-marker bg-primary"></div>
+                                                    <div class="timeline-content">
+                                                        <h6 class="timeline-title">
+                                                            {{ update.user.get_full_name }}
+                                                            <small class="text-muted">{{ update.created_at|date:"M d, Y H:i" }}</small>
+                                                        </h6>
+                                                        {% if update.update_type %}
+                                                            <span class="badge bg-info">{{ update.get_update_type_display }}</span>
+                                                        {% endif %}
+                                                        <p class="mb-2">{{ update.content }}</p>
+                                                        {% if update.attachments.all %}
+                                                            <div class="attachments">
+                                                                <strong>{% trans "Attachments:" %}</strong>
+                                                                {% for attachment in update.attachments.all %}
+                                                                    <a href="{{ attachment.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary me-1">
+                                                                        <i class="fas fa-paperclip"></i> {{ attachment.filename }}
+                                                                    </a>
+                                                                {% endfor %}
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <p class="text-muted">{% trans "No updates yet." %}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sidebar -->
+                        <div class="col-md-4">
+                            <!-- Participants -->
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">{% trans "Participants" %}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <strong>{% trans "Reported by:" %}</strong><br>
+                                        {{ case.reported_by.get_full_name }}
+                                    </div>
+                                    {% if case.assigned_to.all %}
+                                        <div class="mb-3">
+                                            <strong>{% trans "Assigned to:" %}</strong><br>
+                                            {% for user in case.assigned_to.all %}
+                                                {{ user.get_full_name }}{% if not forloop.last %}, {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    {% if can_edit %}
+                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addParticipantModal">
+                                            <i class="fas fa-user-plus"></i> {% trans "Add Participant" %}
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Attachments -->
+                            {% if case.attachments.all %}
+                                <div class="card mb-4">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">{% trans "Attachments" %}</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        {% for attachment in case.attachments.all %}
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="fas fa-paperclip me-2"></i>
+                                                <a href="{{ attachment.file.url }}" target="_blank">{{ attachment.filename }}</a>
+                                                <small class="text-muted ms-auto">{{ attachment.uploaded_at|date:"M d, Y" }}</small>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <!-- Quick Actions -->
+                            {% if can_edit %}
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">{% trans "Quick Actions" %}</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <form method="post" action="{% url 'support:update_case_status' case.pk %}">
+                                            {% csrf_token %}
+                                            <div class="mb-3">
+                                                <label for="status-select" class="form-label">{% trans "Change Status" %}</label>
+                                                <select class="form-select" id="status-select" name="status">
+                                                    {% for status_choice in case.Status.choices %}
+                                                        <option value="{{ status_choice.0 }}" {% if case.status == status_choice.0 %}selected{% endif %}>
+                                                            {{ status_choice.1 }}
+                                                        </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary btn-sm">
+                                                <i class="fas fa-save"></i> {% trans "Update Status" %}
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+{% if is_participant %}
+    <!-- Add Update Modal -->
+    <div class="modal fade" id="addUpdateModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Add Case Update" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="post" action="{% url 'support:add_case_update' case.pk %}">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        {{ update_form.as_p }}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                        <button type="submit" class="btn btn-primary">{% trans "Add Update" %}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+{% if can_edit %}
+    <!-- Add Participant Modal -->
+    <div class="modal fade" id="addParticipantModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Add Participant" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="post" action="{% url 'support:add_case_participant' case.pk %}">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        {{ participant_form.as_p }}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                        <button type="submit" class="btn btn-primary">{% trans "Add Participant" %}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% if can_escalate %}
+        <!-- Escalate Modal -->
+        <div class="modal fade" id="escalateModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{% trans "Escalate Case" %}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="post" action="{% url 'support:escalate_case' case.pk %}">
+                        {% csrf_token %}
+                        <div class="modal-body">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                {% trans "This will escalate the case to a higher authority. Please provide a reason." %}
+                            </div>
+                            <div class="mb-3">
+                                <label for="escalate_to" class="form-label">{% trans "Escalate to" %}</label>
+                                <select class="form-select" id="escalate_to" name="escalate_to" required>
+                                    <option value="">{% trans "Select recipient" %}</option>
+                                    <!-- Add escalation options here -->
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="escalation_reason" class="form-label">{% trans "Escalation Reason" %}</label>
+                                <textarea class="form-control" id="escalation_reason" name="escalation_reason" rows="3" required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                            <button type="submit" class="btn btn-danger">{% trans "Escalate Case" %}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endif %}
+{% endblock %}

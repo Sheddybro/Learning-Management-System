@@ -1,0 +1,714 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Students" %}{% endblock %}
+
+{% block body_class %}academics-students{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'academics:student_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>{% trans "New Student" %}
+        </a>
+        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterModal">
+            <i class="bi bi-funnel me-2"></i>{% trans "Filter" %}
+        </button>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download me-2"></i>{% trans "Export" %}
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-pdf me-2"></i>PDF</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-excel me-2"></i>Excel</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-text me-2"></i>CSV</a></li>
+            </ul>
+        </div>
+        <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#bulkActionsModal">
+            <i class="bi bi-collection me-2"></i>{% trans "Bulk Actions" %}
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/academics/lists.css' %}">
+<style>
+    .student-card { transition: all 0.3s ease; }
+    .student-card:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15); }
+    .student-avatar { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; }
+    .avatar-placeholder { 
+        width: 60px; height: 60px; border-radius: 50%; 
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 600; font-size: 1.2rem;
+    }
+    .status-active { border-left: 4px solid var(--bs-success); }
+    .status-inactive { border-left: 4px solid var(--bs-secondary); }
+    .status-suspended { border-left: 4px solid var(--bs-warning); }
+    .status-graduated { border-left: 4px solid var(--bs-info); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="students-list-container">
+    <!-- Search and Filter Bar -->
+    <div class="search-filter-bar mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-3">
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" class="form-control" placeholder="{% trans 'Search students...' %}" id="searchInput">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" id="classFilter">
+                    <option value="">{% trans "All Classes" %}</option>
+                    {% for class in classes %}
+                    <option value="{{ class.id }}">{{ class.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" id="statusFilter">
+                    <option value="">{% trans "All Statuses" %}</option>
+                    <option value="active">{% trans "Active" %}</option>
+                    <option value="inactive">{% trans "Inactive" %}</option>
+                    <option value="suspended">{% trans "Suspended" %}</option>
+                    <option value="graduated">{% trans "Graduated" %}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" id="typeFilter">
+                    <option value="">{% trans "All Types" %}</option>
+                    <option value="regular">{% trans "Regular" %}</option>
+                    <option value="transfer">{% trans "Transfer" %}</option>
+                    <option value="repeater">{% trans "Repeater" %}</option>
+                    <option value="international">{% trans "International" %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <div class="btn-group w-100" role="group">
+                    <button type="button" class="btn btn-outline-secondary active" data-view="grid">
+                        <i class="bi bi-grid-3x3-gap"></i> {% trans "Grid" %}
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-view="table">
+                        <i class="bi bi-list-ul"></i> {% trans "Table" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ total_students }}</h4>
+                            <p class="card-text mb-0">{% trans "Total Students" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-people fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ active_students }}</h4>
+                            <p class="card-text mb-0">{% trans "Active Students" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-check-circle fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ new_students }}</h4>
+                            <p class="card-text mb-0">{% trans "New This Year" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-person-plus fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ international_students }}</h4>
+                            <p class="card-text mb-0">{% trans "International" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-globe fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Students Grid View -->
+    <div id="gridView" class="students-grid">
+        <div class="row">
+            {% for student in students %}
+            <div class="col-xl-4 col-lg-6 mb-4 student-card-col" 
+                 data-class="{% if student.current_class %}{{ student.current_class.id }}{% endif %}"
+                 data-status="{{ student.status }}"
+                 data-type="{{ student.student_type }}">
+                <div class="card student-card h-100 status-{{ student.status }}">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-1">{{ student.user.get_full_name }}</h5>
+                                <p class="text-muted mb-0 small">#{{ student.student_id }}</p>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <span class="badge {% if student.status == 'active' %}bg-success{% elif student.status == 'inactive' %}bg-secondary{% elif student.status == 'suspended' %}bg-warning{% else %}bg-info{% endif %}">
+                                    {{ student.get_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Student Photo and Basic Info -->
+                        <div class="d-flex align-items-start mb-3">
+                            {% if student.photo %}
+                            <img src="{{ student.photo.url }}" alt="{{ student.user.get_full_name }}" class="student-avatar me-3">
+                            {% else %}
+                            <div class="avatar-placeholder bg-primary text-white me-3">
+                                {{ student.user.get_initials }}
+                            </div>
+                            {% endif %}
+                            <div class="flex-grow-1">
+                                <div class="student-basic-info">
+                                    <p class="mb-1">
+                                        <i class="bi bi-envelope text-secondary me-2"></i>
+                                        <small>{{ student.user.email }}</small>
+                                    </p>
+                                    <p class="mb-1">
+                                        <i class="bi bi-telephone text-secondary me-2"></i>
+                                        <small>{{ student.user.mobile|default:"N/A" }}</small>
+                                    </p>
+                                    <p class="mb-0">
+                                        <i class="bi bi-gender-ambiguous text-secondary me-2"></i>
+                                        <small>{{ student.get_gender_display }} • {{ student.age }} {% trans "years" %}</small>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Current Class -->
+                        {% if student.current_class %}
+                        <div class="current-class mb-3">
+                            <small class="text-muted d-block">{% trans "Current Class" %}</small>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-house-door text-primary me-2"></i>
+                                <span class="fw-semibold">{{ student.current_class.name }}</span>
+                            </div>
+                            <small class="text-muted">
+                                {{ student.current_class.grade_level.name }} • 
+                                <span class="badge bg-light text-dark">{{ student.current_class.get_class_type_display }}</span>
+                            </small>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-warning py-2 mb-3">
+                            <small><i class="bi bi-exclamation-triangle me-1"></i>{% trans "Not enrolled in any class" %}</small>
+                        </div>
+                        {% endif %}
+
+                        <!-- Student Type and Additional Info -->
+                        <div class="student-meta">
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="meta-item">
+                                        <h6 class="text-primary mb-1">{{ student.get_student_type_display }}</h6>
+                                        <small class="text-muted">{% trans "Type" %}</small>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="meta-item">
+                                        <h6 class="text-success mb-1">
+                                            {% if student.is_boarder %}{% trans "Boarder" %}{% else %}{% trans "Day" %}{% endif %}
+                                        </h6>
+                                        <small class="text-muted">{% trans "Residence" %}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Special Needs -->
+                        {% if student.has_special_needs %}
+                        <div class="special-needs mt-2">
+                            <span class="badge bg-info">
+                                <i class="bi bi-heart-pulse me-1"></i>{% trans "Special Needs" %}
+                            </span>
+                            {% if student.special_needs_description %}
+                            <small class="text-muted d-block mt-1">{{ student.special_needs_description|truncatewords:5 }}</small>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <div class="btn-group w-100" role="group">
+                            <a href="{% url 'academics:student_detail' student.pk %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye me-1"></i>{% trans "View" %}
+                            </a>
+                            <a href="{% url 'academics:student_update' student.pk %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-pencil me-1"></i>{% trans "Edit" %}
+                            </a>
+                            <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-journal-text me-2"></i>{% trans "Academic Record" %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-clipboard-check me-2"></i>{% trans "Attendance" %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-cash-coin me-2"></i>{% trans "Fee Status" %}
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item text-warning" href="#">
+                                        <i class="bi bi-arrow-repeat me-2"></i>{% trans "Toggle Status" %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item text-danger" href="#">
+                                        <i class="bi bi-trash me-2"></i>{% trans "Delete" %}
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="bi bi-people text-muted fs-1"></i>
+                    <h4 class="text-muted mt-3">{% trans "No Students Found" %}</h4>
+                    <p class="text-muted mb-4">{% trans "Get started by adding your first student." %}</p>
+                    <a href="{% url 'academics:student_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>{% trans "Add First Student" %}
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Students Table View (Hidden by Default) -->
+    <div id="tableView" class="students-table" style="display: none;">
+        <div class="card table-card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">{% trans "Students" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Student" %}</th>
+                                <th>{% trans "Student ID" %}</th>
+                                <th>{% trans "Class" %}</th>
+                                <th>{% trans "Contact" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in students %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if student.photo %}
+                                        <img src="{{ student.photo.url }}" alt="{{ student.user.get_full_name }}" class="student-avatar me-3" style="width: 40px; height: 40px;">
+                                        {% else %}
+                                        <div class="avatar-placeholder bg-primary text-white me-3" style="width: 40px; height: 40px; font-size: 1rem;">
+                                            {{ student.user.get_initials }}
+                                        </div>
+                                        {% endif %}
+                                        <div>
+                                            <h6 class="mb-0">{{ student.user.get_full_name }}</h6>
+                                            <small class="text-muted">{{ student.user.email }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <code>{{ student.student_id }}</code>
+                                </td>
+                                <td>
+                                    {% if student.current_class %}
+                                    <div>
+                                        <strong>{{ student.current_class.name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ student.current_class.grade_level.name }}</small>
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted">{% trans "Not enrolled" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small>
+                                        <div>{{ student.user.mobile|default:"N/A" }}</div>
+                                        <div class="text-muted">{{ student.user.email }}</div>
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">{{ student.get_student_type_display }}</span>
+                                    {% if student.is_boarder %}
+                                    <span class="badge bg-info">{% trans "Boarder" %}</span>
+                                    {% endif %}
+                                    {% if student.has_special_needs %}
+                                    <span class="badge bg-warning">{% trans "Special Needs" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge {% if student.status == 'active' %}bg-success{% elif student.status == 'inactive' %}bg-secondary{% elif student.status == 'suspended' %}bg-warning{% else %}bg-info{% endif %}">
+                                        {{ student.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'academics:student_detail' student.pk %}" class="btn btn-outline-primary" title="{% trans 'View' %}">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{% url 'academics:student_update' student.pk %}" class="btn btn-outline-secondary" title="{% trans 'Edit' %}">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-outline-info dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item" href="#">
+                                                    <i class="bi bi-journal-text me-2"></i>{% trans "Academic Record" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#">
+                                                    <i class="bi bi-clipboard-check me-2"></i>{% trans "Attendance" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="{% trans 'Student pagination' %}" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">{% trans "First" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">{% trans "Last" %}</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterModalLabel">{% trans "Filter Students" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="get" id="filterForm">
+                    <div class="mb-3">
+                        <label for="modalStatusFilter" class="form-label">{% trans "Status" %}</label>
+                        <select class="form-select" id="modalStatusFilter" name="status">
+                            <option value="">{% trans "All Statuses" %}</option>
+                            <option value="active">{% trans "Active" %}</option>
+                            <option value="inactive">{% trans "Inactive" %}</option>
+                            <option value="suspended">{% trans "Suspended" %}</option>
+                            <option value="graduated">{% trans "Graduated" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalClassFilter" class="form-label">{% trans "Class" %}</label>
+                        <select class="form-select" id="modalClassFilter" name="class">
+                            <option value="">{% trans "All Classes" %}</option>
+                            {% for class in classes %}
+                            <option value="{{ class.id }}">{{ class.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalTypeFilter" class="form-label">{% trans "Student Type" %}</label>
+                        <select class="form-select" id="modalTypeFilter" name="student_type">
+                            <option value="">{% trans "All Types" %}</option>
+                            <option value="regular">{% trans "Regular" %}</option>
+                            <option value="transfer">{% trans "Transfer" %}</option>
+                            <option value="repeater">{% trans "Repeater" %}</option>
+                            <option value="international">{% trans "International" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalGenderFilter" class="form-label">{% trans "Gender" %}</label>
+                        <select class="form-select" id="modalGenderFilter" name="gender">
+                            <option value="">{% trans "All Genders" %}</option>
+                            <option value="male">{% trans "Male" %}</option>
+                            <option value="female">{% trans "Female" %}</option>
+                            <option value="other">{% trans "Other" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalResidenceFilter" class="form-label">{% trans "Residence" %}</label>
+                        <select class="form-select" id="modalResidenceFilter" name="residence">
+                            <option value="">{% trans "All" %}</option>
+                            <option value="boarder">{% trans "Boarder" %}</option>
+                            <option value="day">{% trans "Day Student" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="specialNeedsFilter" name="special_needs">
+                            <label class="form-check-label" for="specialNeedsFilter">
+                                {% trans "Only students with special needs" %}
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('filterForm').reset()">
+                    {% trans "Reset" %}
+                </button>
+                <button type="submit" form="filterForm" class="btn btn-primary">{% trans "Apply Filters" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Actions Modal -->
+<div class="modal fade" id="bulkActionsModal" tabindex="-1" aria-labelledby="bulkActionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkActionsModalLabel">{% trans "Bulk Student Actions" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="bulkActionsForm">
+                    <div class="mb-3">
+                        <label for="bulkAction" class="form-label">{% trans "Select Action" %}</label>
+                        <select class="form-select" id="bulkAction" name="action">
+                            <option value="">{% trans "Choose an action..." %}</option>
+                            <option value="export_contact">{% trans "Export Contact Information" %}</option>
+                            <option value="send_email">{% trans "Send Email Notification" %}</option>
+                            <option value="change_status">{% trans "Change Status" %}</option>
+                            <option value="assign_class">{% trans "Assign to Class" %}</option>
+                            <option value="generate_id_cards">{% trans "Generate ID Cards" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="actionParams" style="display: none;">
+                        <!-- Dynamic parameters will be inserted here based on selected action -->
+                    </div>
+                    <div class="alert alert-info">
+                        <small>
+                            <i class="bi bi-info-circle me-2"></i>
+                            {% trans "Bulk actions will be applied to all students matching your current filters." %}
+                        </small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-primary" id="executeBulkAction">{% trans "Execute Action" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const gridView = document.getElementById('gridView');
+        const tableView = document.getElementById('tableView');
+        const viewButtons = document.querySelectorAll('[data-view]');
+        
+        viewButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const view = this.getAttribute('data-view');
+                
+                // Update active button
+                viewButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide views
+                if (view === 'grid') {
+                    gridView.style.display = 'block';
+                    tableView.style.display = 'none';
+                } else {
+                    gridView.style.display = 'none';
+                    tableView.style.display = 'block';
+                }
+            });
+        });
+
+        // Filter functionality
+        const searchInput = document.getElementById('searchInput');
+        const classFilter = document.getElementById('classFilter');
+        const statusFilter = document.getElementById('statusFilter');
+        const typeFilter = document.getElementById('typeFilter');
+        const studentCards = document.querySelectorAll('.student-card-col');
+        
+        function filterStudents() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const classValue = classFilter.value;
+            const statusValue = statusFilter.value;
+            const typeValue = typeFilter.value;
+            
+            studentCards.forEach(card => {
+                const studentName = card.querySelector('.card-title').textContent.toLowerCase();
+                const studentId = card.querySelector('.card-header p').textContent.toLowerCase();
+                const studentEmail = card.querySelector('.student-basic-info p:nth-child(1) small').textContent.toLowerCase();
+                const studentClass = card.getAttribute('data-class');
+                const studentStatus = card.getAttribute('data-status');
+                const studentType = card.getAttribute('data-type');
+                
+                const matchesSearch = studentName.includes(searchTerm) || 
+                                   studentId.includes(searchTerm) || 
+                                   studentEmail.includes(searchTerm);
+                const matchesClass = !classValue || studentClass === classValue;
+                const matchesStatus = !statusValue || studentStatus === statusValue;
+                const matchesType = !typeValue || studentType === typeValue;
+                
+                if (matchesSearch && matchesClass && matchesStatus && matchesType) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+        
+        searchInput.addEventListener('input', filterStudents);
+        classFilter.addEventListener('change', filterStudents);
+        statusFilter.addEventListener('change', filterStudents);
+        typeFilter.addEventListener('change', filterStudents);
+
+        // Bulk Actions
+        const bulkActionSelect = document.getElementById('bulkAction');
+        const actionParams = document.getElementById('actionParams');
+        const executeBulkAction = document.getElementById('executeBulkAction');
+        
+        bulkActionSelect.addEventListener('change', function() {
+            const action = this.value;
+            actionParams.style.display = action ? 'block' : 'none';
+            actionParams.innerHTML = '';
+            
+            switch(action) {
+                case 'change_status':
+                    actionParams.innerHTML = `
+                        <label class="form-label">{% trans "New Status" %}</label>
+                        <select class="form-select" name="new_status">
+                            <option value="active">{% trans "Active" %}</option>
+                            <option value="inactive">{% trans "Inactive" %}</option>
+                            <option value="suspended">{% trans "Suspended" %}</option>
+                            <option value="graduated">{% trans "Graduated" %}</option>
+                        </select>
+                    `;
+                    break;
+                case 'assign_class':
+                    actionParams.innerHTML = `
+                        <label class="form-label">{% trans "Target Class" %}</label>
+                        <select class="form-select" name="target_class">
+                            <option value="">{% trans "Select Class" %}</option>
+                            {% for class in classes %}
+                            <option value="{{ class.id }}">{{ class.name }}</option>
+                            {% endfor %}
+                        </select>
+                    `;
+                    break;
+                case 'send_email':
+                    actionParams.innerHTML = `
+                        <label class="form-label">{% trans "Email Subject" %}</label>
+                        <input type="text" class="form-control" name="email_subject" placeholder="{% trans 'Enter email subject' %}">
+                        <label class="form-label mt-2">{% trans "Email Message" %}</label>
+                        <textarea class="form-control" name="email_message" rows="3" placeholder="{% trans 'Enter email message' %}"></textarea>
+                    `;
+                    break;
+            }
+        });
+
+        executeBulkAction.addEventListener('click', function() {
+            const action = bulkActionSelect.value;
+            if (!action) {
+                alert('{% trans "Please select an action" %}');
+                return;
+            }
+            
+            // Implement bulk action execution
+            console.log('Executing bulk action:', action);
+            // This would typically make an AJAX call to the server
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,1031 @@
+<!-- templates/hostels/maintenance/maintenance_list.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+
+{% block title %}Maintenance Management - Hostel Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .list-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .list-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stats-card {
+        color: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        font-weight: 500;
+    }
+    
+    .stat-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+    }
+    
+    .maintenance-card {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .maintenance-card:hover {
+        border-color: #007bff;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    .priority-badge {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+    
+    .priority-low { background: linear-gradient(135deg, #28a745, #20c997); color: white; }
+    .priority-medium { background: linear-gradient(135deg, #ffc107, #fd7e14); color: white; }
+    .priority-high { background: linear-gradient(135deg, #dc3545, #e83e8c); color: white; }
+    .priority-urgent { background: linear-gradient(135deg, #6f42c1, #e83e8c); color: white; }
+    
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .status-pending { background-color: #6c757d; }
+    .status-in_progress { background-color: #007bff; }
+    .status-completed { background-color: #28a745; }
+    .status-cancelled { background-color: #dc3545; }
+    
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .search-box {
+        position: relative;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    .search-input {
+        padding-left: 40px;
+    }
+    
+    .pagination-container {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .table-responsive {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .table th {
+        border-top: none;
+        font-weight: 600;
+        color: #495057;
+        background: #f8f9fa;
+    }
+    
+    .quick-actions {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .bulk-actions {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .overdue-badge {
+        background: linear-gradient(135deg, #dc3545, #e83e8c);
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .cost-badge {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .timeline-indicator {
+        width: 100%;
+        height: 4px;
+        background: #e9ecef;
+        border-radius: 2px;
+        margin: 0.5rem 0;
+        position: relative;
+    }
+    
+    .timeline-progress {
+        height: 100%;
+        border-radius: 2px;
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+    
+    .progress-pending { width: 25%; background: #6c757d; }
+    .progress-in_progress { width: 60%; background: #007bff; }
+    .progress-completed { width: 100%; background: #28a745; }
+    
+    .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .location-badge {
+        background: #e9ecef;
+        color: #495057;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}
+<i class="bi bi-tools me-2"></i>Maintenance Management
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:dashboard' %}">Hostel Dashboard</a></li>
+<li class="breadcrumb-item active" aria-current="page">Maintenance</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">{{ total_requests }}</div>
+                        <div class="stat-label">Total Requests</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-tools stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">{{ pending_requests }}</div>
+                        <div class="stat-label">Pending</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-clock stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">{{ in_progress_requests }}</div>
+                        <div class="stat-label">In Progress</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-gear stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">{{ overdue_requests }}</div>
+                        <div class="stat-label">Overdue</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-exclamation-triangle stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Actions -->
+    <div class="bulk-actions">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h6 class="text-white mb-2">Bulk Maintenance Actions</h6>
+                <p class="text-white-50 mb-0">Manage multiple maintenance requests efficiently</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-light btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="bi bi-lightning me-2"></i>Quick Actions
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="assignSelected()"><i class="bi bi-person-check me-2"></i>Assign Selected</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="updateStatusBulk()"><i class="bi bi-arrow-repeat me-2"></i>Update Status</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="exportMaintenance()"><i class="bi bi-download me-2"></i>Export Data</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="generateReport()"><i class="bi bi-file-earmark-text me-2"></i>Generate Report</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Filters and Quick Actions -->
+        <div class="col-lg-3 mb-4">
+            <!-- Quick Actions -->
+            <div class="quick-actions mb-4">
+                <h6 class="text-white mb-3">Quick Actions</h6>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'hostels:maintenance_create' %}" class="btn btn-light btn-sm">
+                        <i class="bi bi-plus-circle me-2"></i>New Request
+                    </a>
+                    <a href="{% url 'hostels:inventory_list' %}" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-box-seam me-2"></i>View Inventory
+                    </a>
+                    <button class="btn btn-outline-light btn-sm" onclick="quickAssign()">
+                        <i class="bi bi-person-plus me-2"></i>Quick Assign
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card list-card">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">Filters</h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" id="filterForm">
+                        <!-- Status Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Status</option>
+                                {% for status in status_choices %}
+                                <option value="{{ status.0 }}" {% if request.GET.status == status.0 %}selected{% endif %}>
+                                    {{ status.1 }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Priority Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Priority</label>
+                            <select name="priority" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Priorities</option>
+                                {% for priority in priority_choices %}
+                                <option value="{{ priority.0 }}" {% if request.GET.priority == priority.0 %}selected{% endif %}>
+                                    {{ priority.1 }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Hostel Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Hostel</label>
+                            <select name="hostel" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Hostels</option>
+                                {% for hostel in hostels %}
+                                <option value="{{ hostel.id }}" {% if request.GET.hostel == hostel.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ hostel.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Assigned To Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Assigned To</label>
+                            <select name="assigned_to" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Staff</option>
+                                <option value="unassigned" {% if request.GET.assigned_to == 'unassigned' %}selected{% endif %}>Unassigned</option>
+                                {% for staff in staff_members %}
+                                <option value="{{ staff.id }}" {% if request.GET.assigned_to == staff.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ staff.get_full_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Overdue Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Overdue Status</label>
+                            <select name="overdue" class="form-select" onchange="this.form.submit()">
+                                <option value="">All</option>
+                                <option value="overdue" {% if request.GET.overdue == 'overdue' %}selected{% endif %}>Overdue Only</option>
+                                <option value="not_overdue" {% if request.GET.overdue == 'not_overdue' %}selected{% endif %}>Not Overdue</option>
+                            </select>
+                        </div>
+
+                        <!-- Date Range -->
+                        <div class="mb-3">
+                            <label class="form-label">Requested Date From</label>
+                            <input type="date" name="date_from" class="form-control" value="{{ request.GET.date_from }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Requested Date To</label>
+                            <input type="date" name="date_to" class="form-control" value="{{ request.GET.date_to }}">
+                        </div>
+
+                        <!-- Reset Filters -->
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-sm mb-2">
+                                <i class="bi bi-funnel me-2"></i>Apply Filters
+                            </button>
+                            <a href="{% url 'hostels:maintenance_list' %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Reset Filters
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="card list-card mt-4">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">Maintenance Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="small text-muted mb-2">Requests by Priority</div>
+                    {% for priority in priority_summary %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small">{{ priority.priority__label }}:</span>
+                        <span class="fw-semibold">{{ priority.count }}</span>
+                    </div>
+                    <div class="progress mb-3" style="height: 4px;">
+                        <div class="progress-bar bg-{{ priority.priority__color }}" 
+                             style="width: {{ priority.percentage }}%">
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    <hr>
+                    
+                    <div class="small text-muted mb-2">Average Resolution Time</div>
+                    <div class="fw-semibold text-center">{{ avg_resolution_time }} days</div>
+                    
+                    <div class="small text-muted mb-2 mt-3">Completion Rate</div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-success" 
+                             style="width: {{ completion_rate }}%">
+                        </div>
+                    </div>
+                    <div class="text-center small mt-1">{{ completion_rate }}%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <!-- Search and Actions Bar -->
+            <div class="card list-card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <div class="search-box">
+                                <i class="bi bi-search search-icon"></i>
+                                <input type="text" class="form-control search-input" placeholder="Search by title, description, location..." id="searchInput">
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <div class="btn-group">
+                                <button class="btn btn-outline-primary btn-sm" onclick="exportMaintenance()">
+                                    <i class="bi bi-download me-2"></i>Export
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="bi bi-printer me-2"></i>Print
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" onclick="printWorkOrders()">Print Work Orders</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="printReport()">Print Report</a></li>
+                                </ul>
+                                <div class="btn-group ms-2" role="group">
+                                    <input type="radio" class="btn-check" name="viewMode" id="tableView" autocomplete="off" checked>
+                                    <label class="btn btn-outline-primary btn-sm" for="tableView" onclick="setViewMode('table')">
+                                        <i class="bi bi-table"></i>
+                                    </label>
+                                    <input type="radio" class="btn-check" name="viewMode" id="gridView" autocomplete="off">
+                                    <label class="btn btn-outline-primary btn-sm" for="gridView" onclick="setViewMode('grid')">
+                                        <i class="bi bi-grid-3x3-gap"></i>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Maintenance Requests Table/Grid -->
+            <div class="card list-card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        Maintenance Requests 
+                        <span class="badge bg-primary ms-2">{{ maintenance_requests.paginator.count }}</span>
+                    </h5>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAll">
+                        <label class="form-check-label small text-muted" for="selectAll">
+                            Select All
+                        </label>
+                    </div>
+                </div>
+
+                <div class="card-body p-0">
+                    <!-- Table View -->
+                    <div id="tableViewContent">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0" id="maintenanceTable">
+                                <thead>
+                                    <tr>
+                                        <th width="30">
+                                            <input type="checkbox" class="form-check-input" id="headerCheckbox">
+                                        </th>
+                                        <th>Request Details</th>
+                                        <th>Location</th>
+                                        <th>Priority & Status</th>
+                                        <th>Assignment</th>
+                                        <th>Cost & Timeline</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for request in maintenance_requests %}
+                                    <tr class="maintenance-row {% if request.is_overdue %}table-warning{% endif %}" data-request-id="{{ request.id }}">
+                                        <td>
+                                            <input type="checkbox" class="form-check-input request-checkbox" value="{{ request.id }}">
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-start">
+                                                <div class="avatar me-3">
+                                                    {{ request.title|slice:":2"|upper }}
+                                                </div>
+                                                <div>
+                                                    <div class="fw-semibold">
+                                                        {{ request.title }}
+                                                        {% if request.is_overdue %}
+                                                        <span class="overdue-badge ms-1">OVERDUE</span>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="text-muted small">
+                                                        {{ request.description|truncatewords:10 }}
+                                                    </div>
+                                                    <div class="timeline-indicator">
+                                                        <div class="timeline-progress progress-{{ request.status }}"></div>
+                                                    </div>
+                                                    <div class="text-muted small">
+                                                        Requested: {{ request.requested_date|date:"M d, Y" }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold">{{ request.hostel.name }}</div>
+                                            <div class="text-muted small">
+                                                {% if request.room %}
+                                                    <span class="location-badge">Room {{ request.room.room_number }}</span>
+                                                {% endif %}
+                                                {% if request.bed %}
+                                                    <span class="location-badge ms-1">Bed {{ request.bed.bed_number }}</span>
+                                                {% endif %}
+                                            </div>
+                                            {% if request.scheduled_date %}
+                                            <div class="text-info small mt-1">
+                                                <i class="bi bi-calendar me-1"></i>{{ request.scheduled_date|date:"M d" }}
+                                            </div>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="priority-badge priority-{{ request.priority }}">
+                                                {{ request.get_priority_display }}
+                                            </span>
+                                            <div class="mt-1">
+                                                <span class="status-indicator status-{{ request.status }}"></span>
+                                                <span class="small">{{ request.get_status_display }}</span>
+                                            </div>
+                                            {% if request.resolution_time %}
+                                            <div class="text-success small mt-1">
+                                                <i class="bi bi-clock me-1"></i>{{ request.resolution_time.days }} days
+                                            </div>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if request.assigned_to %}
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar me-2 bg-primary">
+                                                    {{ request.assigned_to.first_name|first }}{{ request.assigned_to.last_name|first }}
+                                                </div>
+                                                <div>
+                                                    <div class="fw-semibold small">{{ request.assigned_to.get_full_name }}</div>
+                                                    <div class="text-muted smaller">Maintenance Staff</div>
+                                                </div>
+                                            </div>
+                                            {% else %}
+                                            <span class="text-muted small">Unassigned</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if request.estimated_cost %}
+                                            <div class="cost-badge">
+                                                ₹{{ request.estimated_cost }}
+                                            </div>
+                                            {% endif %}
+                                            {% if request.actual_cost %}
+                                            <div class="text-success small mt-1">
+                                                Actual: ₹{{ request.actual_cost }}
+                                            </div>
+                                            {% endif %}
+                                            {% if request.completed_date %}
+                                            <div class="text-success small mt-1">
+                                                Completed: {{ request.completed_date|date:"M d" }}
+                                            </div>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{% url 'hostels:maintenance_update' pk=request.pk %}" class="btn btn-outline-primary" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                                <button class="btn btn-outline-info" title="View Details" onclick="viewRequestDetails('{{ request.id }}')">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                                {% if request.status != 'completed' and request.status != 'cancelled' %}
+                                                <a href="{% url 'hostels:maintenance_complete' pk=request.pk %}" class="btn btn-outline-success" title="Mark Complete">
+                                                    <i class="bi bi-check-circle"></i>
+                                                </a>
+                                                {% endif %}
+                                                <button class="btn btn-outline-secondary" title="Quick Actions" data-bs-toggle="dropdown">
+                                                    <i class="bi bi-three-dots"></i>
+                                                </button>
+                                                <ul class="dropdown-menu">
+                                                    <li><a class="dropdown-item" href="#" onclick="assignRequest('{{ request.id }}')"><i class="bi bi-person-plus me-2"></i>Assign Staff</a></li>
+                                                    <li><a class="dropdown-item" href="#" onclick="updatePriority('{{ request.id }}')"><i class="bi bi-flag me-2"></i>Change Priority</a></li>
+                                                    <li><a class="dropdown-item" href="#" onclick="scheduleRequest('{{ request.id }}')"><i class="bi bi-calendar-plus me-2"></i>Reschedule</a></li>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li><a class="dropdown-item text-danger" href="#" onclick="deleteRequest('{{ request.id }}')"><i class="bi bi-trash me-2"></i>Delete Request</a></li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="7">
+                                            <div class="empty-state">
+                                                <i class="bi bi-tools empty-state-icon"></i>
+                                                <h5>No Maintenance Requests Found</h5>
+                                                <p class="text-muted">No requests match your current filters.</p>
+                                                <a href="{% url 'hostels:maintenance_create' %}" class="btn btn-primary">
+                                                    <i class="bi bi-plus-circle me-2"></i>Create First Request
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Grid View (Hidden by default) -->
+                    <div id="gridViewContent" style="display: none;">
+                        <div class="row g-3 p-3" id="maintenanceGrid">
+                            {% for request in maintenance_requests %}
+                            <div class="col-xl-4 col-lg-6 col-md-6">
+                                <div class="maintenance-card">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <div class="avatar">
+                                                {{ request.title|slice:":2"|upper }}
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="priority-badge priority-{{ request.priority }}">
+                                                    {{ request.get_priority_display }}
+                                                </span>
+                                                {% if request.is_overdue %}
+                                                <span class="overdue-badge mt-1 d-block">OVERDUE</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        
+                                        <h6 class="card-title mb-2">{{ request.title }}</h6>
+                                        <p class="card-text small text-muted mb-3">{{ request.description|truncatewords:15 }}</p>
+                                        
+                                        <div class="mb-3">
+                                            <div class="small text-muted">Location</div>
+                                            <div class="fw-semibold">{{ request.hostel.name }}</div>
+                                            <div class="text-muted small">
+                                                {% if request.room %}Room {{ request.room.room_number }}{% endif %}
+                                                {% if request.bed %} - Bed {{ request.bed.bed_number }}{% endif %}
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <div class="small text-muted">Status</div>
+                                            <div>
+                                                <span class="status-indicator status-{{ request.status }}"></span>
+                                                {{ request.get_status_display }}
+                                            </div>
+                                            <div class="timeline-indicator mt-1">
+                                                <div class="timeline-progress progress-{{ request.status }}"></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <div class="small text-muted">Assigned To</div>
+                                            {% if request.assigned_to %}
+                                            <div class="fw-semibold small">{{ request.assigned_to.get_full_name }}</div>
+                                            {% else %}
+                                            <span class="text-muted small">Unassigned</span>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        {% if request.estimated_cost %}
+                                        <div class="cost-badge">
+                                            Estimated: ₹{{ request.estimated_cost }}
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <div class="action-buttons mt-3">
+                                            <a href="{% url 'hostels:maintenance_update' pk=request.pk %}" class="btn btn-outline-primary btn-sm">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <button class="btn btn-outline-info btn-sm" onclick="viewRequestDetails('{{ request.id }}')">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            {% if request.status != 'completed' and request.status != 'cancelled' %}
+                                            <a href="{% url 'hostels:maintenance_complete' pk=request.pk %}" class="btn btn-outline-success btn-sm">
+                                                <i class="bi bi-check-circle"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if maintenance_requests.has_other_pages %}
+                    <div class="pagination-container">
+                        <nav aria-label="Maintenance pagination">
+                            <ul class="pagination justify-content-center mb-0">
+                                {% if maintenance_requests.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ maintenance_requests.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </a>
+                                </li>
+                                {% endif %}
+
+                                {% for num in maintenance_requests.paginator.page_range %}
+                                    {% if maintenance_requests.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                    {% elif num > maintenance_requests.number|add:'-3' and num < maintenance_requests.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if maintenance_requests.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ maintenance_requests.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const maintenanceTable = document.getElementById('maintenanceTable');
+        const maintenanceGrid = document.getElementById('maintenanceGrid');
+        const headerCheckbox = document.getElementById('headerCheckbox');
+        const requestCheckboxes = document.querySelectorAll('.request-checkbox');
+        let currentViewMode = 'table';
+
+        // Search functionality
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            
+            if (currentViewMode === 'table') {
+                // Table view search
+                const rows = maintenanceTable.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+                
+                for (let row of rows) {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(searchTerm) ? '' : 'none';
+                }
+            } else {
+                // Grid view search
+                const cards = maintenanceGrid.getElementsByClassName('col-xl-4');
+                
+                for (let card of cards) {
+                    const text = card.textContent.toLowerCase();
+                    card.style.display = text.includes(searchTerm) ? '' : 'none';
+                }
+            }
+        });
+
+        // View mode switching
+        window.setViewMode = function(mode) {
+            currentViewMode = mode;
+            const tableView = document.getElementById('tableViewContent');
+            const gridView = document.getElementById('gridViewContent');
+            
+            if (mode === 'table') {
+                tableView.style.display = 'block';
+                gridView.style.display = 'none';
+                document.getElementById('tableView').checked = true;
+            } else {
+                tableView.style.display = 'none';
+                gridView.style.display = 'block';
+                document.getElementById('gridView').checked = true;
+            }
+            
+            // Save preference to localStorage
+            localStorage.setItem('maintenanceViewMode', mode);
+        };
+
+        // Select all functionality
+        headerCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            requestCheckboxes.forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+        });
+
+        // Individual checkbox logic
+        requestCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateHeaderCheckbox();
+            });
+        });
+
+        function updateHeaderCheckbox() {
+            const allChecked = Array.from(requestCheckboxes).every(checkbox => checkbox.checked);
+            const someChecked = Array.from(requestCheckboxes).some(checkbox => checkbox.checked);
+            
+            headerCheckbox.checked = allChecked;
+            headerCheckbox.indeterminate = someChecked && !allChecked;
+        }
+
+        // Bulk actions
+        window.assignSelected = function() {
+            const selectedRequests = getSelectedRequests();
+            if (selectedRequests.length === 0) {
+                alert('Please select at least one request to assign.');
+                return;
+            }
+            
+            // In real implementation, this would open an assignment modal
+            alert(`Assign ${selectedRequests.length} requests to staff. This would open a staff assignment modal.`);
+        };
+
+        window.updateStatusBulk = function() {
+            const selectedRequests = getSelectedRequests();
+            if (selectedRequests.length === 0) {
+                alert('Please select at least one request to update.');
+                return;
+            }
+            
+            // In real implementation, this would open a status update modal
+            alert(`Update status for ${selectedRequests.length} requests. This would open a status selection modal.`);
+        };
+
+        window.exportMaintenance = function() {
+            const selectedRequests = getSelectedRequests();
+            const exportAll = selectedRequests.length === 0;
+            
+            if (exportAll) {
+                if (!confirm('Export all maintenance requests?')) return;
+            } else {
+                if (!confirm(`Export ${selectedRequests.length} selected requests?`)) return;
+            }
+
+            // In real implementation, this would be an API call
+            console.log('Exporting requests:', exportAll ? 'ALL' : selectedRequests);
+            showNotification(`${exportAll ? 'All' : selectedRequests.length} requests exported successfully.`, 'success');
+        };
+
+        // Individual request actions
+        window.viewRequestDetails = function(requestId) {
+            // In real implementation, this would open a modal with request details
+            alert(`Viewing details for request ${requestId}. This would open a modal with complete request information.`);
+        };
+
+        window.assignRequest = function(requestId) {
+            // In real implementation, this would open an assignment modal
+            alert(`Assign request ${requestId} to staff member. This would open a staff selection modal.`);
+        };
+
+        window.updatePriority = function(requestId) {
+            // In real implementation, this would open a priority update modal
+            alert(`Update priority for request ${requestId}. This would open a priority selection modal.`);
+        };
+
+        window.scheduleRequest = function(requestId) {
+            // In real implementation, this would open a scheduling modal
+            alert(`Reschedule request ${requestId}. This would open a date selection modal.`);
+        };
+
+        window.deleteRequest = function(requestId) {
+            if (confirm('Are you sure you want to delete this maintenance request? This action cannot be undone.')) {
+                // In real implementation, this would be an AJAX call
+                console.log('Deleting request:', requestId);
+                showNotification('Maintenance request deleted successfully.', 'success');
+                // Reload or remove the request from view
+                setTimeout(() => location.reload(), 1000);
+            }
+        };
+
+        // Quick actions
+        window.quickAssign = function() {
+            alert('Quick assign feature would automatically assign unassigned requests to available staff based on workload.');
+        };
+
+        window.printWorkOrders = function() {
+            const selectedRequests = getSelectedRequests();
+            const printAll = selectedRequests.length === 0;
+            
+            if (printAll) {
+                if (!confirm('Print work orders for all maintenance requests?')) return;
+            } else {
+                if (!confirm(`Print work orders for ${selectedRequests.length} selected requests?`)) return;
+            }
+            
+            alert(`Printing ${printAll ? 'all' : selectedRequests.length} work orders. This would generate printable work orders.`);
+        };
+
+        window.printReport = function() {
+            alert('Print maintenance report. This would generate a comprehensive maintenance report.');
+        };
+
+        window.generateReport = function() {
+            alert('Generate maintenance report. This would create a detailed maintenance analysis report.');
+        };
+
+        // Utility functions
+        function getSelectedRequests() {
+            const selectedRequests = [];
+            requestCheckboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    selectedRequests.push(checkbox.value);
+                }
+            });
+            return selectedRequests;
+        }
+
+        function showNotification(message, type) {
+            // Simple notification - in real app, use a proper notification library
+            const alertClass = type === 'success' ? 'alert-success' : 'alert-info';
+            const notification = document.createElement('div');
+            notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        // Load saved view mode preference
+        const savedViewMode = localStorage.getItem('maintenanceViewMode');
+        if (savedViewMode) {
+            setViewMode(savedViewMode);
+        }
+
+        // Initialize header checkbox state
+        updateHeaderCheckbox();
+
+        // Auto-refresh data every 60 seconds
+        function refreshMaintenanceData() {
+            // In real implementation, this would fetch updated data via AJAX
+            console.log('Refreshing maintenance data...');
+        }
+
+        // Uncomment to enable auto-refresh
+        // setInterval(refreshMaintenanceData, 60000);
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 'n':
+                        e.preventDefault();
+                        window.location.href = "{% url 'hostels:maintenance_create' %}";
+                        break;
+                    case 'f':
+                        e.preventDefault();
+                        searchInput.focus();
+                        break;
+                    case 'e':
+                        e.preventDefault();
+                        exportMaintenance();
+                        break;
+                    case 'a':
+                        e.preventDefault();
+                        headerCheckbox.click();
+                        break;
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

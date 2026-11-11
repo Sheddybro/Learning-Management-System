@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Taking Exam - {{ exam.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.exam-timer {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #dc3545;
+    text-align: center;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.question-card {
+    margin-bottom: 20px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+}
+
+.question-header {
+    background: #f8f9fa;
+    padding: 10px 15px;
+    border-bottom: 1px solid #dee2e6;
+    font-weight: bold;
+}
+
+.question-body {
+    padding: 15px;
+}
+
+.option-input {
+    margin-right: 10px;
+}
+
+.submit-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Exam Header -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h3>{{ exam.name }}</h3>
+                            <p class="mb-1"><strong>Subject:</strong> {{ exam.subject.name }}</p>
+                            <p class="mb-1"><strong>Class:</strong> {{ exam.academic_class.name }}</p>
+                            <p class="mb-1"><strong>Total Marks:</strong> {{ exam.total_marks }}</p>
+                            {% if exam.instructions %}
+                            <div class="mt-3">
+                                <strong>Instructions:</strong>
+                                <div class="alert alert-info">{{ exam.instructions }}</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <div class="exam-timer" id="examTimer">
+                                <i class="fas fa-clock"></i>
+                                <span id="timeRemaining">--:--:--</span>
+                            </div>
+                            <div class="text-center">
+                                <button type="button" class="btn btn-warning" onclick="showExamSummary()">
+                                    <i class="fas fa-list"></i> Exam Summary
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Questions -->
+            <form method="post" id="examForm">
+                {% csrf_token %}
+                {% for exam_question in exam_questions %}
+                <div class="question-card card">
+                    <div class="question-header">
+                        Question {{ forloop.counter }} of {{ exam_questions|length }}
+                        <span class="badge badge-primary float-right">{{ exam_question.marks }} marks</span>
+                    </div>
+                    <div class="question-body">
+                        <p class="mb-3">{{ exam_question.question.question_text }}</p>
+
+                        {% if exam_question.question.question_type == 'multiple_choice' %}
+                            {% for option in exam_question.question.options.all %}
+                            <div class="form-check mb-2">
+                                <input class="form-check-input option-input" type="radio"
+                                       name="options_{{ exam_question.id }}"
+                                       id="option_{{ option.id }}"
+                                       value="{{ option.id }}"
+                                       {% if existing_answers|get_item:exam_question.id|stringformat:"s" %}
+                                           {% if option.id in existing_answers|get_item:exam_question.id|stringformat:"s" %}
+                                               checked
+                                           {% endif %}
+                                       {% endif %}>
+                                <label class="form-check-label" for="option_{{ option.id }}">
+                                    {{ option.option_text }}
+                                </label>
+                            </div>
+                            {% endfor %}
+
+                        {% elif exam_question.question.question_type == 'true_false' %}
+                            {% for option in exam_question.question.options.all %}
+                            <div class="form-check mb-2">
+                                <input class="form-check-input option-input" type="radio"
+                                       name="options_{{ exam_question.id }}"
+                                       id="option_{{ option.id }}"
+                                       value="{{ option.id }}"
+                                       {% if existing_answers|get_item:exam_question.id|stringformat:"s" %}
+                                           {% if option.id in existing_answers|get_item:exam_question.id|stringformat:"s" %}
+                                               checked
+                                           {% endif %}
+                                       {% endif %}>
+                                <label class="form-check-label" for="option_{{ option.id }}">
+                                    {{ option.option_text }}
+                                </label>
+                            </div>
+                            {% endfor %}
+
+                        {% else %}
+                            <!-- Short Answer or Essay -->
+                            <textarea class="form-control"
+                                      name="answer_{{ exam_question.id }}"
+                                      rows="{% if exam_question.question.question_type == 'essay' %}8{% else %}3{% endif %}"
+                                      placeholder="Enter your answer here..."
+                                      {% if existing_answers|get_item:exam_question.id|stringformat:"s" %}
+                                          {% if existing_answers|get_item:exam_question.id|stringformat:"s" %}
+                                              {{ existing_answers|get_item:exam_question.id|stringformat:"s" }}
+                                          {% endif %}
+                                      {% endif %}></textarea>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+
+                <!-- Submit Button -->
+                <div class="submit-btn">
+                    <button type="submit" class="btn btn-success btn-lg" onclick="return confirmSubmission()">
+                        <i class="fas fa-paper-plane"></i> Submit Exam
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Exam Summary Modal -->
+<div class="modal fade" id="examSummaryModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Exam Summary</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h4>{{ exam_questions|length }}</h4>
+                        <p>Total Questions</p>
+                    </div>
+                    <div class="col-6">
+                        <h4>{{ exam.total_marks }}</h4>
+                        <p>Total Marks</p>
+                    </div>
+                </div>
+                <hr>
+                <h6>Question Types:</h6>
+                <ul class="list-group">
+                    {% for exam_question in exam_questions %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Question {{ forloop.counter }}
+                        <span class="badge badge-primary badge-pill">{{ exam_question.question.get_question_type_display }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Continue Exam</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let timeRemaining = {{ time_remaining }}; // in seconds
+let timerInterval;
+
+document.addEventListener('DOMContentLoaded', function() {
+    startTimer();
+
+    // Auto-save functionality (optional)
+    const inputs = document.querySelectorAll('input, textarea');
+    inputs.forEach(input => {
+        input.addEventListener('change', function() {
+            // Could implement auto-save here
+            console.log('Answer changed for question');
+        });
+    });
+});
+
+function startTimer() {
+    const timerElement = document.getElementById('timeRemaining');
+
+    timerInterval = setInterval(function() {
+        timeRemaining--;
+
+        if (timeRemaining <= 0) {
+            clearInterval(timerInterval);
+            alert('Time is up! Your exam will be submitted automatically.');
+            document.getElementById('examForm').submit();
+            return;
+        }
+
+        const hours = Math.floor(timeRemaining / 3600);
+        const minutes = Math.floor((timeRemaining % 3600) / 60);
+        const seconds = timeRemaining % 60;
+
+        timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+        // Change color when time is running low
+        if (timeRemaining <= 300) { // 5 minutes
+            timerElement.style.color = '#dc3545';
+        } else if (timeRemaining <= 600) { // 10 minutes
+            timerElement.style.color = '#ffc107';
+        }
+    }, 1000);
+}
+
+function showExamSummary() {
+    $('#examSummaryModal').modal('show');
+}
+
+function confirmSubmission() {
+    const unanswered = document.querySelectorAll('input[type="radio"]:not(:checked), textarea:empty');
+    if (unanswered.length > 0) {
+        return confirm('Some questions may be unanswered. Are you sure you want to submit the exam?');
+    }
+    return confirm('Are you sure you want to submit the exam? This action cannot be undone.');
+}
+
+// Prevent accidental navigation
+window.addEventListener('beforeunload', function(e) {
+    e.preventDefault();
+    e.returnValue = 'Are you sure you want to leave? Your exam progress will be lost.';
+});
+</script>
+{% endblock %}

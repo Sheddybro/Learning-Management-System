@@ -1,0 +1,386 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}User Sessions Monitoring - Support Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-2 bg-light sidebar">
+            <div class="sidebar-sticky">
+                <h5 class="sidebar-heading">Support Dashboard</h5>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:dashboard' %}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:ticket_list' %}">
+                            <i class="fas fa-ticket-alt"></i> Tickets
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <h6 class="sidebar-heading">Monitoring</h6>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:kpi_monitoring' %}">
+                            <i class="fas fa-chart-line"></i> KPI Monitoring
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:audit_monitoring' %}">
+                            <i class="fas fa-history"></i> Audit Logs
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <h6 class="sidebar-heading">Security</h6>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:login_history' %}">
+                            <i class="fas fa-sign-in-alt"></i> Login History
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'support:user_sessions' %}">
+                            <i class="fas fa-user-clock"></i> User Sessions
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main content -->
+        <div class="col-md-10 ml-sm-auto px-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">User Sessions Monitoring</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group mr-2">
+                        <select id="statusFilter" class="form-control form-control-sm">
+                            <option value="">All Sessions</option>
+                            <option value="active">Active</option>
+                            <option value="stale">Stale (>24h)</option>
+                        </select>
+                    </div>
+                    <div class="btn-group mr-2">
+                        <input type="text" id="userFilter" class="form-control form-control-sm" placeholder="Filter by user...">
+                    </div>
+                    <div class="btn-group mr-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshSessions()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Session Alert -->
+            {% if stale_sessions %}
+            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                <h5 class="alert-heading">
+                    <i class="fas fa-info-circle"></i> Session Management
+                </h5>
+                <p>{{ stale_sessions|length }} sessions have been inactive for more than 24 hours and may need attention.</p>
+                <button type="button" class="btn btn-info btn-sm" onclick="showStaleSessions()">
+                    View Details
+                </button>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            {% endif %}
+
+            <!-- Active Sessions Table -->
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Active User Sessions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="sessionsTable">
+                                    <thead>
+                                        <tr>
+                                            <th>User</th>
+                                            <th>Session Start</th>
+                                            <th>Last Activity</th>
+                                            <th>Duration</th>
+                                            <th>IP Address</th>
+                                            <th>User Agent</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for session in active_sessions %}
+                                        <tr data-status="active" data-user="{{ session.user.username|lower }}">
+                                            <td>
+                                                <div>
+                                                    <strong>{{ session.user.get_full_name|default:session.user.username }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">{{ session.user.username }}</small>
+                                                </div>
+                                            </td>
+                                            <td>{{ session.session_start|date:"M d, Y H:i" }}</td>
+                                            <td>{{ session.last_activity|date:"M d, Y H:i" }}</td>
+                                            <td>
+                                                {% load custom_filters %}
+                                                {{ session.last_activity|timeuntil }}
+                                            </td>
+                                            <td><code>{{ session.ip_address }}</code></td>
+                                            <td>
+                                                <small title="{{ session.user_agent }}">
+                                                    {{ session.user_agent|truncatechars:30 }}
+                                                </small>
+                                            </td>
+                                            <td>
+                                                {% if session.last_activity|timesince|contains:"day" %}
+                                                    <span class="badge badge-warning">Stale</span>
+                                                {% else %}
+                                                    <span class="badge badge-success">Active</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="terminateSession({{ session.id }})">
+                                                    <i class="fas fa-times"></i> Terminate
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted">No active sessions found</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Session Statistics -->
+            <div class="row mt-4">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-primary">{{ active_sessions|length }}</h5>
+                            <p class="card-text">Active Sessions</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-warning">{{ stale_sessions|length }}</h5>
+                            <p class="card-text">Stale Sessions</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-info">
+                                {% if active_sessions %}
+                                    {% for session in active_sessions %}
+                                        {% if forloop.first %}{{ session.last_activity|date:"H:i" }}{% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </h5>
+                            <p class="card-text">Latest Activity</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-success">
+                                {% for session in active_sessions %}
+                                    {% if session.last_activity|timesince|contains:"hour" or session.last_activity|timesince|contains:"minute" %}
+                                        {% cycle 1 0 %}
+                                    {% endif %}
+                                {% empty %}
+                                    0
+                                {% endfor %}
+                            </h5>
+                            <p class="card-text">Recent Activity</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stale Sessions Modal -->
+            <div class="modal fade" id="staleSessionsModal" tabindex="-1" role="dialog">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Stale Sessions (>24 hours)</h5>
+                            <button type="button" class="close" data-dismiss="modal">
+                                <span>&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>User</th>
+                                            <th>Last Activity</th>
+                                            <th>Inactive For</th>
+                                            <th>IP Address</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for session in stale_sessions %}
+                                        <tr>
+                                            <td>{{ session.user.get_full_name|default:session.user.username }}</td>
+                                            <td>{{ session.last_activity|date:"M d, H:i" }}</td>
+                                            <td>{{ session.last_activity|timeuntil }}</td>
+                                            <td><code>{{ session.ip_address }}</code></td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="terminateSession({{ session.id }})">
+                                                    Terminate
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">No stale sessions</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-danger" onclick="terminateAllStale()">
+                                Terminate All Stale
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.sidebar {
+    position: fixed;
+    top: 56px;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    padding: 20px 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.sidebar .nav-link {
+    font-weight: 500;
+    color: #333;
+}
+
+.sidebar .nav-link.active {
+    color: #007bff;
+}
+
+.sidebar-heading {
+    font-size: .875rem;
+    text-transform: uppercase;
+    color: #6c757d;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+</style>
+
+<script>
+document.getElementById('statusFilter').addEventListener('change', function() {
+    filterSessions();
+});
+
+document.getElementById('userFilter').addEventListener('input', function() {
+    filterSessions();
+});
+
+function filterSessions() {
+    const selectedStatus = document.getElementById('statusFilter').value;
+    const userFilter = document.getElementById('userFilter').value.toLowerCase();
+    const rows = document.querySelectorAll('#sessionsTable tbody tr');
+
+    rows.forEach(row => {
+        const status = row.dataset.status;
+        const user = row.dataset.user;
+        const statusMatch = !selectedStatus || status === selectedStatus;
+        const userMatch = !userFilter || user.includes(userFilter);
+
+        if (statusMatch && userMatch) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function refreshSessions() {
+    location.reload();
+}
+
+function showStaleSessions() {
+    $('#staleSessionsModal').modal('show');
+}
+
+function terminateSession(sessionId) {
+    if (confirm('Are you sure you want to terminate this session?')) {
+        // AJAX call to terminate session
+        fetch(`/support/admin/sessions/${sessionId}/terminate/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error terminating session: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error);
+        });
+    }
+}
+
+function terminateAllStale() {
+    if (confirm('Are you sure you want to terminate all stale sessions?')) {
+        // AJAX call to terminate all stale sessions
+        fetch('/support/admin/sessions/terminate-stale/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error terminating sessions: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error);
+        });
+    }
+}
+</script>
+{% endblock %}

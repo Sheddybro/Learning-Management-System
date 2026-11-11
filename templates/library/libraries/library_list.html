@@ -1,0 +1,687 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Libraries" %}{% endblock %}
+
+{% block page_title %}{% trans "Library Management" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Libraries" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stats-card-1 { border-left-color: #65a0f9; }
+    .stats-card-2 { border-left-color: #28a745; }
+    .stats-card-3 { border-left-color: #ffc107; }
+    .stats-card-4 { border-left-color: #dc3545; }
+    
+    .library-card {
+        border-left: 4px solid #65a0f9;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .library-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        border-left-color: #28a745;
+    }
+    
+    .library-card.closed {
+        border-left-color: #dc3545;
+        opacity: 0.8;
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .table-actions {
+        white-space: nowrap;
+    }
+    
+    .search-box {
+        max-width: 300px;
+    }
+    
+    .view-toggle {
+        border-radius: 0.375rem;
+    }
+    
+    .view-toggle .btn {
+        border-radius: 0;
+    }
+    
+    .view-toggle .btn:first-child {
+        border-top-left-radius: 0.375rem;
+        border-bottom-left-radius: 0.375rem;
+    }
+    
+    .view-toggle .btn:last-child {
+        border-top-right-radius: 0.375rem;
+        border-bottom-right-radius: 0.375rem;
+    }
+    
+    .library-avatar {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #65a0f9 0%, #4a7df6 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: white;
+    }
+    
+    .operating-hours {
+        font-size: 0.875rem;
+    }
+    
+    .quick-stats {
+        font-size: 0.75rem;
+    }
+    
+    .grid-view {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .list-view .library-item {
+        border-left: 4px solid #65a0f9;
+        transition: all 0.2s ease;
+    }
+    
+    .list-view .library-item:hover {
+        background-color: #f8f9fa;
+        border-left-color: #28a745;
+    }
+    
+    .empty-state {
+        padding: 3rem 1rem;
+    }
+    
+    @media (max-width: 768px) {
+        .grid-view {
+            grid-template-columns: 1fr;
+        }
+        
+        .search-box {
+            max-width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-1 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-primary">{{ total_libraries }}</div>
+                            <div class="stat-label">{% trans "Total Libraries" %}</div>
+                        </div>
+                        <div class="stat-icon text-primary">
+                            <i class="bi bi-building"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-check-circle text-success me-1"></i>
+                            {{ active_libraries }} {% trans "active" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-2 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-success">{{ total_books }}</div>
+                            <div class="stat-label">{% trans "Total Books" %}</div>
+                        </div>
+                        <div class="stat-icon text-success">
+                            <i class="bi bi-book"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-arrow-up-right text-success me-1"></i>
+                            {% trans "Across all libraries" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-3 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-warning">{{ total_members }}</div>
+                            <div class="stat-label">{% trans "Library Members" %}</div>
+                        </div>
+                        <div class="stat-icon text-warning">
+                            <i class="bi bi-people"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-person-check text-success me-1"></i>
+                            {% trans "Registered members" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-danger">{{ open_now_count }}</div>
+                            <div class="stat-label">{% trans "Open Now" %}</div>
+                        </div>
+                        <div class="stat-icon text-danger">
+                            <i class="bi bi-door-open"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-clock text-info me-1"></i>
+                            {% trans "Currently operating" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Bar -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-building me-2"></i>
+                        {% trans "Library Directory" %}
+                    </h5>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-end gap-2 flex-wrap">
+                        <!-- Search Box -->
+                        <div class="search-box">
+                            <form method="get" class="d-flex">
+                                <input type="text" name="search" class="form-control" 
+                                       placeholder="{% trans 'Search libraries...' %}" 
+                                       value="{{ request.GET.search }}">
+                                <button type="submit" class="btn btn-outline-primary ms-2">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- View Toggle -->
+                        <div class="btn-group view-toggle" role="group">
+                            <input type="radio" class="btn-check" name="viewMode" id="gridView" autocomplete="off" checked>
+                            <label class="btn btn-outline-primary" for="gridView" onclick="switchView('grid')">
+                                <i class="bi bi-grid-3x3-gap"></i>
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="viewMode" id="listView" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="listView" onclick="switchView('list')">
+                                <i class="bi bi-list-ul"></i>
+                            </label>
+                        </div>
+                        
+                        <!-- Create Library Button -->
+                        {% if perms.library.add_library %}
+                        <a href="{% url 'library:library_create' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle me-2"></i>{% trans "Add Library" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Libraries Content -->
+    <div class="card">
+        <div class="card-body">
+            <!-- Grid View -->
+            <div id="gridView" class="view-content">
+                {% if libraries %}
+                <div class="grid-view">
+                    {% for library in libraries %}
+                    <div class="card library-card {% if library.status != 'active' %}closed{% endif %}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="library-avatar me-3">
+                                        {{ library.code|slice:":2" }}
+                                    </div>
+                                    <div>
+                                        <h5 class="card-title mb-1">{{ library.name }}</h5>
+                                        <p class="card-text text-muted mb-0">{{ library.code }}</p>
+                                    </div>
+                                </div>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                            type="button" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'library:library_detail' library.pk %}">
+                                                <i class="bi bi-eye me-2"></i>{% trans "View Details" %}
+                                            </a>
+                                        </li>
+                                        {% if perms.library.change_library %}
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'library:library_update' library.pk %}">
+                                                <i class="bi bi-pencil me-2"></i>{% trans "Edit" %}
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'library:book_list' %}?library={{ library.pk }}">
+                                                <i class="bi bi-book me-2"></i>{% trans "View Books" %}
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <p class="card-text text-muted small mb-3">
+                                {{ library.description|truncatewords:20|default:"No description available" }}
+                            </p>
+                            
+                            <div class="operating-hours mb-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted">{% trans "Hours:" %}</span>
+                                    <strong>{{ library.operating_hours }}</strong>
+                                </div>
+                                <div class="text-center mt-2">
+                                    {% if library.is_open_now %}
+                                    <span class="badge bg-success status-badge">
+                                        <i class="bi bi-check-circle me-1"></i>{% trans "Open Now" %}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-danger status-badge">
+                                        <i class="bi bi-x-circle me-1"></i>{% trans "Closed" %}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="quick-stats border-top pt-3">
+                                <div class="row text-center">
+                                    <div class="col-4">
+                                        <div class="text-primary fw-bold">{{ library.books.count }}</div>
+                                        <small class="text-muted">{% trans "Books" %}</small>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="text-success fw-bold">{{ library.max_books_per_user }}</div>
+                                        <small class="text-muted">{% trans "Max/User" %}</small>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="text-warning fw-bold">{{ library.max_borrow_days }}</div>
+                                        <small class="text-muted">{% trans "Days" %}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3">
+                                {% if library.status == 'active' %}
+                                <span class="badge bg-success status-badge">{% trans "Active" %}</span>
+                                {% else %}
+                                <span class="badge bg-secondary status-badge">{% trans "Inactive" %}</span>
+                                {% endif %}
+                                <span class="badge bg-light text-dark status-badge ms-1">
+                                    ${{ library.fine_per_day }}/day
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'library:library_detail' library.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye me-1"></i>{% trans "Details" %}
+                                </a>
+                                {% if perms.library.change_library %}
+                                <a href="{% url 'library:library_update' library.pk %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-pencil me-1"></i>{% trans "Edit" %}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state text-center">
+                    <i class="bi bi-building display-1 text-muted d-block mb-3"></i>
+                    <h4>{% trans "No Libraries Found" %}</h4>
+                    <p class="text-muted mb-4">
+                        {% if request.GET.search %}
+                            {% trans "No libraries match your search criteria." %}
+                        {% else %}
+                            {% trans "Get started by creating your first library." %}
+                        {% endif %}
+                    </p>
+                    {% if perms.library.add_library %}
+                    <a href="{% url 'library:library_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>{% trans "Create First Library" %}
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- List View (Hidden by default) -->
+            <div id="listView" class="view-content" style="display: none;">
+                {% if libraries %}
+                <div class="list-view">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% trans "Library" %}</th>
+                                    <th>{% trans "Code" %}</th>
+                                    <th>{% trans "Operating Hours" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                    <th>{% trans "Books" %}</th>
+                                    <th>{% trans "Policies" %}</th>
+                                    <th class="text-center">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for library in libraries %}
+                                <tr class="library-item">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="library-avatar me-3" style="width: 40px; height: 40px; font-size: 1rem;">
+                                                {{ library.code|slice:":2" }}
+                                            </div>
+                                            <div>
+                                                <strong>{{ library.name }}</strong>
+                                                <div class="text-muted small">
+                                                    {{ library.description|truncatewords:10|default:"No description" }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <code>{{ library.code }}</code>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            {{ library.operating_hours }}
+                                            <div class="small">
+                                                {% if library.is_open_now %}
+                                                <span class="text-success">
+                                                    <i class="bi bi-check-circle me-1"></i>{% trans "Open" %}
+                                                </span>
+                                                {% else %}
+                                                <span class="text-danger">
+                                                    <i class="bi bi-x-circle me-1"></i>{% trans "Closed" %}
+                                                </span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if library.status == 'active' %}
+                                        <span class="badge bg-success status-badge">{% trans "Active" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary status-badge">{% trans "Inactive" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>{{ library.books.count }}</strong>
+                                        <div class="text-muted small">{% trans "books" %}</div>
+                                    </td>
+                                    <td>
+                                        <div class="small">
+                                            <div>{% trans "Max:" %} {{ library.max_books_per_user }} {% trans "books" %}</div>
+                                            <div>{% trans "Fine:" %} ${{ library.fine_per_day }}/day</div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center table-actions">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'library:library_detail' library.pk %}" 
+                                               class="btn btn-outline-primary" 
+                                               title="{% trans 'View Details' %}"
+                                               data-bs-toggle="tooltip">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            {% if perms.library.change_library %}
+                                            <a href="{% url 'library:library_update' library.pk %}" 
+                                               class="btn btn-outline-secondary" 
+                                               title="{% trans 'Edit' %}"
+                                               data-bs-toggle="tooltip">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            {% endif %}
+                                            <a href="{% url 'library:book_list' %}?library={{ library.pk }}" 
+                                               class="btn btn-outline-info" 
+                                               title="{% trans 'View Books' %}"
+                                               data-bs-toggle="tooltip">
+                                                <i class="bi bi-book"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty-state text-center">
+                    <i class="bi bi-building display-1 text-muted d-block mb-3"></i>
+                    <h4>{% trans "No Libraries Found" %}</h4>
+                    <p class="text-muted mb-4">
+                        {% if request.GET.search %}
+                            {% trans "No libraries match your search criteria." %}
+                        {% else %}
+                            {% trans "Get started by creating your first library." %}
+                        {% endif %}
+                    </p>
+                    {% if perms.library.add_library %}
+                    <a href="{% url 'library:library_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>{% trans "Create First Library" %}
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated and libraries %}
+            <nav aria-label="{% trans 'Libraries pagination' %}" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                <div class="text-center text-muted small mt-2">
+                    {% trans "Showing" %} {{ page_obj.start_index }} - {{ page_obj.end_index }} {% trans "of" %} {{ paginator.count }} {% trans "libraries" %}
+                </div>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Check if there's a saved view preference
+        const savedView = localStorage.getItem('libraryViewMode') || 'grid';
+        switchView(savedView);
+        
+        // Update radio buttons based on saved view
+        if (savedView === 'grid') {
+            document.getElementById('gridView').checked = true;
+        } else {
+            document.getElementById('listView').checked = true;
+        }
+        
+        // Auto-submit search on Enter key
+        const searchInput = document.querySelector('input[name="search"]');
+        if (searchInput) {
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    this.form.submit();
+                }
+            });
+        }
+        
+        // Add loading state to buttons
+        const actionButtons = document.querySelectorAll('a.btn');
+        actionButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="bi bi-arrow-repeat spinner-border spinner-border-sm me-2"></i>Loading...';
+                this.disabled = true;
+                
+                // Revert after 2 seconds if still on same page (in case of error)
+                setTimeout(() => {
+                    if (this.disabled) {
+                        this.innerHTML = originalText;
+                        this.disabled = false;
+                    }
+                }, 2000);
+            });
+        });
+    });
+    
+    function switchView(mode) {
+        const gridView = document.getElementById('gridView');
+        const listView = document.getElementById('listView');
+        const gridRadio = document.getElementById('gridView');
+        const listRadio = document.getElementById('listView');
+        
+        if (mode === 'grid') {
+            gridView.style.display = 'block';
+            listView.style.display = 'none';
+            gridRadio.checked = true;
+            localStorage.setItem('libraryViewMode', 'grid');
+        } else {
+            gridView.style.display = 'none';
+            listView.style.display = 'block';
+            listRadio.checked = true;
+            localStorage.setItem('libraryViewMode', 'list');
+        }
+    }
+    
+    // Quick filter functions
+    function filterByStatus(status) {
+        const url = new URL(window.location.href);
+        if (status) {
+            url.searchParams.set('status', status);
+        } else {
+            url.searchParams.delete('status');
+        }
+        window.location.href = url.toString();
+    }
+    
+    function clearFilters() {
+        window.location.href = '{% url "library:library_list" %}';
+    }
+    
+    // Export functionality - not implemented
+    // function exportLibraries() {
+    //     // Simple confirmation before export
+    //     if (confirm('{% trans "Export library list to CSV?" %}')) {
+    //         // Export functionality would be implemented here
+    //         alert('{% trans "Export functionality not yet implemented." %}');
+    //     }
+    // }
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // '/' key to focus search
+        if (e.key === '/' && !e.ctrlKey && !e.altKey) {
+            e.preventDefault();
+            const searchInput = document.querySelector('input[name="search"]');
+            if (searchInput) {
+                searchInput.focus();
+            }
+        }
+        
+        // 'n' key for new library (if permission)
+        if (e.key === 'n' && e.ctrlKey && {% if perms.library.add_library %}true{% else %}false{% endif %}) {
+            e.preventDefault();
+            window.location.href = '{% url "library:library_create" %}';
+        }
+    });
+</script>
+{% endblock %}

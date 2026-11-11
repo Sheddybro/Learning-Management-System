@@ -1,0 +1,794 @@
+<!-- templates/hostels/rooms/room_list.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Rooms Management - Hostel System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .room-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1rem;
+    }
+    
+    .room-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        overflow: hidden;
+        background: white;
+    }
+    
+    .room-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .room-header {
+        padding: 1.25rem;
+        border-bottom: 1px solid #f0f0f0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        position: relative;
+    }
+    
+    .room-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    
+    .room-hostel {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+    
+    .room-badge {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        font-size: 0.75rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+    }
+    
+    .room-body {
+        padding: 1.25rem;
+    }
+    
+    .room-features {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        font-size: 0.875rem;
+    }
+    
+    .feature-item {
+        text-align: center;
+        flex: 1;
+    }
+    
+    .feature-value {
+        font-weight: 600;
+        color: #333;
+        display: block;
+        font-size: 1.1rem;
+    }
+    
+    .feature-label {
+        color: #6c757d;
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+    }
+    
+    .occupancy-progress {
+        margin: 1rem 0;
+    }
+    
+    .progress-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .progress-bar-container {
+        height: 6px;
+        background: #e9ecef;
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+    
+    .progress-low { background: #28a745; }
+    .progress-medium { background: #ffc107; }
+    .progress-high { background: #fd7e14; }
+    .progress-full { background: #dc3545; }
+    
+    .room-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+    
+    .room-actions .btn {
+        flex: 1;
+        padding: 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .maintenance-indicator {
+        display: inline-flex;
+        align-items: center;
+        background: #fff3cd;
+        color: #856404;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        margin-top: 0.5rem;
+    }
+    
+    .filter-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+        border: none;
+    }
+    
+    .view-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .view-toggle {
+        display: flex;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .view-btn {
+        border: none;
+        background: white;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .view-btn.active {
+        background: #007bff;
+        color: white;
+    }
+    
+    .table-room {
+        transition: background-color 0.2s ease;
+    }
+    
+    .table-room:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .room-type-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .type-single { background: #e3f2fd; color: #1976d2; }
+    .type-double { background: #f3e5f5; color: #7b1fa2; }
+    .type-triple { background: #e8f5e8; color: #388e3c; }
+    .type-quad { background: #fff3e0; color: #f57c00; }
+    .type-dormitory { background: #fce4ec; color: #c2185b; }
+    
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .status-available { background: #28a745; }
+    .status-occupied { background: #dc3545; }
+    .status-maintenance { background: #ffc107; }
+    
+    .quick-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-item {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    @media (max-width: 768px) {
+        .room-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .quick-stats {
+            grid-template-columns: 1fr;
+        }
+        
+        .view-controls {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}Rooms Management{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:dashboard' %}">Hostels</a></li>
+<li class="breadcrumb-item active" aria-current="page">All Rooms</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'hostels:room_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>Add New Room
+        </a>
+        <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="visually-hidden">Toggle Dropdown</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'hostels:hostel_list' %}"><i class="bi bi-building me-2"></i>Manage Hostels</a></li>
+            <li><a class="dropdown-item" href="#"><i class="bi bi-download me-2"></i>Export Rooms</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#"><i class="bi bi-tools me-2"></i>Bulk Maintenance</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Quick Statistics -->
+    <div class="quick-stats">
+        <div class="stat-item">
+            <div class="stat-number">{{ rooms.count }}</div>
+            <div class="stat-label">Total Rooms</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ available_rooms_count }}</div>
+            <div class="stat-label">Available Rooms</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ occupied_rooms_count }}</div>
+            <div class="stat-label">Occupied Rooms</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ maintenance_rooms_count }}</div>
+            <div class="stat-label">Under Maintenance</div>
+        </div>
+    </div>
+
+    <!-- Filters Card -->
+    <div class="card filter-card">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Hostel</label>
+                    <select class="form-select" id="hostelFilter">
+                        <option value="">All Hostels</option>
+                        {% for hostel in hostels %}
+                        <option value="{{ hostel.id }}" {% if request.GET.hostel == hostel.id|stringformat:"s" %}selected{% endif %}>
+                            {{ hostel.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Room Type</label>
+                    <select class="form-select" id="roomTypeFilter">
+                        <option value="">All Types</option>
+                        {% for value, label in room_types %}
+                        <option value="{{ value }}" {% if request.GET.room_type == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Floor</label>
+                    <input type="number" class="form-control" id="floorFilter" placeholder="All floors" 
+                           value="{{ request.GET.floor }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="statusFilter">
+                        <option value="">All Status</option>
+                        <option value="available" {% if request.GET.is_available == 'true' %}selected{% endif %}>Available</option>
+                        <option value="occupied" {% if request.GET.is_available == 'false' %}selected{% endif %}>Occupied</option>
+                        <option value="maintenance" {% if request.GET.maintenance_required == 'true' %}selected{% endif %}>Maintenance</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Search</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="searchFilter" placeholder="Search rooms..." 
+                               value="{{ request.GET.search }}">
+                        <button class="btn btn-outline-secondary" type="button" id="clearFilters">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Controls -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <span class="text-muted">
+                Showing {{ rooms.count }} room{{ rooms.count|pluralize }}
+                {% if request.GET.hostel or request.GET.room_type or request.GET.floor %}
+                <span id="filterIndicator" class="badge bg-light text-dark ms-2">Filtered</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="view-controls">
+            <span class="text-muted">View:</span>
+            <div class="view-toggle">
+                <button class="view-btn active" data-view="grid">
+                    <i class="bi bi-grid-3x3-gap"></i>
+                </button>
+                <button class="view-btn" data-view="table">
+                    <i class="bi bi-list-ul"></i>
+                </button>
+            </div>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="showOccupancy" checked>
+                <label class="form-check-label" for="showOccupancy">Show Occupancy</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid View -->
+    <div id="gridView">
+        <div class="room-grid">
+            {% for room in rooms %}
+            <div class="room-card">
+                <div class="room-header">
+                    <div class="room-number">Room {{ room.room_number }}</div>
+                    <div class="room-hostel">{{ room.hostel.name }}</div>
+                    <span class="room-badge {% if room.is_available %}bg-success{% else %}bg-secondary{% endif %}">
+                        <span class="status-dot status-{% if room.is_available %}available{% else %}occupied{% endif %}"></span>
+                        {{ room.is_available|yesno:"Available,Occupied" }}
+                    </span>
+                </div>
+                
+                <div class="room-body">
+                    <div class="room-features">
+                        <div class="feature-item">
+                            <span class="feature-value">{{ room.floor }}</span>
+                            <span class="feature-label">Floor</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-value">{{ room.get_room_type_display }}</span>
+                            <span class="feature-label">Type</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-value">₹{{ room.effective_rent }}</span>
+                            <span class="feature-label">Rent/Month</span>
+                        </div>
+                    </div>
+                    
+                    <div class="occupancy-progress">
+                        <div class="progress-label">
+                            <span>Occupancy</span>
+                            <span>{{ room.current_occupancy }}/{{ room.capacity }}</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-fill
+                                {% if room.is_full %}progress-full
+                                {% elif room.current_occupancy >= room.capacity %}progress-high
+                                {% elif room.current_occupancy >= room.capacity|length %}progress-medium
+                                {% else %}progress-low{% endif %}"
+                                style="width: {% widthratio room.current_occupancy room.capacity 100 %}%">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if room.maintenance_required %}
+                    <div class="maintenance-indicator">
+                        <i class="bi bi-tools me-1"></i>Maintenance Required
+                    </div>
+                    {% endif %}
+                    
+                    {% if room.preferred_class %}
+                    <div class="small text-muted mt-2">
+                        <i class="bi bi-bookmark me-1"></i>Preferred: {{ room.preferred_class.name }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="room-actions">
+                        <a href="{% url 'hostels:room_detail' pk=room.pk %}" class="btn btn-outline-primary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{% url 'hostels:room_update' pk=room.pk %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="{% url 'hostels:allocation_create' %}?room={{ room.pk }}" class="btn btn-outline-success">
+                            <i class="bi bi-person-plus"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="bi bi-door-closed empty-state-icon"></i>
+                    <h4>No Rooms Found</h4>
+                    <p class="mb-4">{% if hostels %}No rooms match your current filters.{% else %}Get started by creating your first room.{% endif %}</p>
+                    {% if hostels %}
+                    <button class="btn btn-outline-primary" id="clearFiltersBtn">Clear Filters</button>
+                    {% else %}
+                    <a href="{% url 'hostels:room_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>Create First Room
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Table View -->
+    <div id="tableView" style="display: none;">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Room</th>
+                        <th>Hostel</th>
+                        <th>Floor</th>
+                        <th>Type</th>
+                        <th>Capacity</th>
+                        <th>Occupancy</th>
+                        <th>Rent</th>
+                        <th>Status</th>
+                        <th>Maintenance</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for room in rooms %}
+                    <tr class="table-room">
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="room-type-icon type-{{ room.room_type }}">
+                                    <i class="bi bi-house-door-fill"></i>
+                                </div>
+                                <div>
+                                    <strong>Room {{ room.room_number }}</strong>
+                                    {% if room.preferred_class %}
+                                    <div class="small text-muted">{{ room.preferred_class.name }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ room.hostel.name }}</td>
+                        <td>{{ room.floor }}</td>
+                        <td>
+                            <span class="badge bg-secondary">{{ room.get_room_type_display }}</span>
+                        </td>
+                        <td>{{ room.capacity }}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="progress-bar-container me-2" style="width: 60px;">
+                                    <div class="progress-fill
+                                        {% if room.is_full %}progress-full
+                                        {% elif room.current_occupancy >= room.capacity %}progress-high
+                                        {% elif room.current_occupancy >= room.capacity|length %}progress-medium
+                                        {% else %}progress-low{% endif %}"
+                                        style="width: {% widthratio room.current_occupancy room.capacity 100 %}%">
+                                    </div>
+                                </div>
+                                <small>{{ room.current_occupancy }}/{{ room.capacity }}</small>
+                            </div>
+                        </td>
+                        <td>₹{{ room.effective_rent }}</td>
+                        <td>
+                            <span class="badge {% if room.is_available %}bg-success{% else %}bg-secondary{% endif %}">
+                                <span class="status-dot status-{% if room.is_available %}available{% else %}occupied{% endif %}"></span>
+                                {{ room.is_available|yesno:"Available,Occupied" }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if room.maintenance_required %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-tools me-1"></i>Required
+                            </span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'hostels:room_detail' pk=room.pk %}" class="btn btn-outline-primary" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'hostels:room_update' pk=room.pk %}" class="btn btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'hostels:allocation_create' %}?room={{ room.pk }}" class="btn btn-outline-success" title="Allocate">
+                                    <i class="bi bi-person-plus"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="Rooms pagination" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">First</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Previous</a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Last</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const viewButtons = document.querySelectorAll('.view-btn');
+        const gridView = document.getElementById('gridView');
+        const tableView = document.getElementById('tableView');
+        
+        viewButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const view = this.getAttribute('data-view');
+                
+                // Update active state
+                viewButtons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide views
+                if (view === 'grid') {
+                    gridView.style.display = 'block';
+                    tableView.style.display = 'none';
+                } else {
+                    gridView.style.display = 'none';
+                    tableView.style.display = 'block';
+                }
+            });
+        });
+
+        // Filter Functionality
+        const hostelFilter = document.getElementById('hostelFilter');
+        const roomTypeFilter = document.getElementById('roomTypeFilter');
+        const floorFilter = document.getElementById('floorFilter');
+        const statusFilter = document.getElementById('statusFilter');
+        const searchFilter = document.getElementById('searchFilter');
+        const clearFilters = document.getElementById('clearFilters');
+        const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+        const filterIndicator = document.getElementById('filterIndicator');
+
+        function applyFilters() {
+            const params = new URLSearchParams();
+            
+            if (hostelFilter.value) {
+                params.set('hostel', hostelFilter.value);
+            }
+            
+            if (roomTypeFilter.value) {
+                params.set('room_type', roomTypeFilter.value);
+            }
+            
+            if (floorFilter.value) {
+                params.set('floor', floorFilter.value);
+            }
+            
+            if (statusFilter.value) {
+                if (statusFilter.value === 'available') {
+                    params.set('is_available', 'true');
+                } else if (statusFilter.value === 'occupied') {
+                    params.set('is_available', 'false');
+                } else if (statusFilter.value === 'maintenance') {
+                    params.set('maintenance_required', 'true');
+                }
+            }
+            
+            if (searchFilter.value) {
+                params.set('search', searchFilter.value);
+            }
+            
+            window.location.href = '?' + params.toString();
+        }
+
+        // Auto-apply filters on change
+        [hostelFilter, roomTypeFilter, statusFilter].forEach(filter => {
+            filter.addEventListener('change', applyFilters);
+        });
+
+        // Debounced search
+        let searchTimeout;
+        searchFilter.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(applyFilters, 500);
+        });
+
+        // Floor filter with debounce
+        let floorTimeout;
+        floorFilter.addEventListener('input', function() {
+            clearTimeout(floorTimeout);
+            floorTimeout = setTimeout(applyFilters, 800);
+        });
+
+        // Clear filters
+        function clearAllFilters() {
+            hostelFilter.value = '';
+            roomTypeFilter.value = '';
+            floorFilter.value = '';
+            statusFilter.value = '';
+            searchFilter.value = '';
+            applyFilters();
+        }
+
+        if (clearFilters) {
+            clearFilters.addEventListener('click', clearAllFilters);
+        }
+
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', clearAllFilters);
+        }
+
+        // Occupancy toggle
+        const showOccupancy = document.getElementById('showOccupancy');
+        showOccupancy.addEventListener('change', function() {
+            const occupancyElements = document.querySelectorAll('.occupancy-progress');
+            occupancyElements.forEach(el => {
+                el.style.display = this.checked ? 'block' : 'none';
+            });
+        });
+
+        // Quick status updates
+        document.querySelectorAll('.room-card').forEach(card => {
+            card.addEventListener('click', function(e) {
+                if (!e.target.closest('.room-actions') && !e.target.closest('a')) {
+                    const viewLink = this.querySelector('a[href*="room_detail"]');
+                    if (viewLink) {
+                        window.location.href = viewLink.href;
+                    }
+                }
+            });
+        });
+
+        // Update filter indicator
+        function updateFilterIndicator() {
+            const activeFilters = [
+                hostelFilter.value,
+                roomTypeFilter.value, 
+                floorFilter.value,
+                statusFilter.value,
+                searchFilter.value
+            ].filter(Boolean).length;
+            
+            if (filterIndicator) {
+                if (activeFilters > 0) {
+                    filterIndicator.textContent = `${activeFilters} filter${activeFilters > 1 ? 's' : ''} active`;
+                    filterIndicator.style.display = 'inline-block';
+                } else {
+                    filterIndicator.style.display = 'none';
+                }
+            }
+        }
+
+        // Initialize filter indicator
+        updateFilterIndicator();
+        
+        // Update indicator on filter changes
+        [hostelFilter, roomTypeFilter, floorFilter, statusFilter, searchFilter].forEach(filter => {
+            filter.addEventListener('change', updateFilterIndicator);
+            filter.addEventListener('input', updateFilterIndicator);
+        });
+
+        // Room type icons mapping
+        const roomTypeIcons = {
+            'single': 'person',
+            'double': 'people',
+            'triple': 'people-fill',
+            'quad': 'people-fill',
+            'dormitory': 'person-standing'
+        };
+
+        // Add loading states
+        document.querySelectorAll('.room-actions a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                const originalHtml = this.innerHTML;
+                this.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div>';
+                
+                setTimeout(() => {
+                    this.innerHTML = originalHtml;
+                }, 2000);
+            });
+        });
+    });
+</script>
+{% endblock %}

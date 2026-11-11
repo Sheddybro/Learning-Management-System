@@ -1,0 +1,909 @@
+<!-- templates/transport/vehicles/vehicle_list.html -->
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Vehicle Management - School Management System" %}{% endblock %}
+
+{% block meta_description %}{% trans "Manage and monitor school transportation fleet including vehicle details, maintenance schedules, and allocation status." %}{% endblock %}
+
+{% block body_class %}vehicle-management-page{% endblock %}
+
+{% block page_title %}{% trans "Vehicle Management" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Vehicles" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'transport:vehicle_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> {% trans "Add Vehicle" %}
+        </a>
+        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="{% url 'transport:vehicle_maintenance_schedule' %}">
+                    <i class="fas fa-calendar-alt me-2"></i> {% trans "Maintenance Schedule" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#importModal">
+                    <i class="fas fa-file-import me-2"></i> {% trans "Import Vehicles" %}
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="#" id="exportVehicles">
+                    <i class="fas fa-file-export me-2"></i> {% trans "Export to Excel" %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .vehicle-management-page {
+        background-color: #f8f9fa;
+    }
+
+    /* Vehicle List Specific Styles */
+    .vehicle-card {
+        border-radius: 0.75rem;
+        border: 0;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .vehicle-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .vehicle-image {
+        height: 180px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 3rem;
+    }
+    
+    .vehicle-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 2;
+    }
+    
+    .status-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-active {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-maintenance {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    
+    .status-inactive {
+        background-color: #f3f4f6;
+        color: #6b7280;
+    }
+    
+    .status-out_of_service {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .warning-badge {
+        background-color: #fef3c7;
+        color: #92400e;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .vehicle-specs {
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+    
+    .spec-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    
+    .spec-icon {
+        width: 20px;
+        margin-right: 0.5rem;
+        color: #9ca3af;
+    }
+    
+    .action-buttons .btn {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .filter-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        border: none;
+    }
+    
+    .search-box {
+        position: relative;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    .search-input {
+        padding-left: 40px;
+    }
+    
+    .view-toggle {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .view-toggle .btn {
+        border: none;
+        border-radius: 0;
+        padding: 0.5rem 1rem;
+    }
+    
+    .view-toggle .btn.active {
+        background: #0d6efd;
+        color: white;
+    }
+    
+    .table-actions {
+        white-space: nowrap;
+    }
+    
+    .capacity-meter {
+        height: 6px;
+        background: #e5e7eb;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 0.25rem;
+    }
+    
+    .capacity-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+    
+    .capacity-high {
+        background: #ef4444;
+    }
+    
+    .capacity-medium {
+        background: #f59e0b;
+    }
+    
+    .capacity-low {
+        background: #10b981;
+    }
+    
+    /* Grid/List view transitions */
+    .view-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .view-list {
+        display: block;
+    }
+    
+    .view-grid .vehicle-item {
+        display: block;
+    }
+    
+    .view-list .vehicle-item {
+        display: none;
+    }
+    
+    /* Dark theme support */
+    [data-bs-theme="dark"] .vehicle-management-page {
+        background-color: #212529;
+    }
+
+    [data-bs-theme="dark"] .vehicle-card {
+        background-color: #2d3338;
+        border-color: #495057;
+    }
+
+    [data-bs-theme="dark"] .filter-card {
+        background-color: #2d3338;
+        border-color: #495057;
+    }
+
+    [data-bs-theme="dark"] .text-muted {
+        color: #adb5bd !important;
+    }
+
+    [data-bs-theme="dark"] .card {
+        background-color: #2d3338;
+        border-color: #495057;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .vehicle-image {
+            height: 140px;
+            font-size: 2rem;
+        }
+
+        .view-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="vehicle-management">
+    <!-- Filters and Controls -->
+    <div class="card filter-card mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-4">
+                    <div class="search-box">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" class="form-control search-input" id="vehicleSearch" 
+                               placeholder="{% trans 'Search vehicles...' %}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="statusFilter">
+                        <option value="">{% trans "All Status" %}</option>
+                        <option value="active">{% trans "Active" %}</option>
+                        <option value="maintenance">{% trans "Maintenance" %}</option>
+                        <option value="inactive">{% trans "Inactive" %}</option>
+                        <option value="out_of_service">{% trans "Out of Service" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="typeFilter">
+                        <option value="">{% trans "All Types" %}</option>
+                        <option value="bus">{% trans "Bus" %}</option>
+                        <option value="minibus">{% trans "Minibus" %}</option>
+                        <option value="van">{% trans "Van" %}</option>
+                        <option value="car">{% trans "Car" %}</option>
+                        <option value="other">{% trans "Other" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <div class="view-toggle btn-group" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" data-view="grid">
+                            <i class="fas fa-th"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" data-view="list">
+                            <i class="fas fa-list"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Advanced Filters (Collapsible) -->
+            <div class="mt-3">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters">
+                    <i class="fas fa-sliders-h me-1"></i> {% trans "Advanced Filters" %}
+                </button>
+                
+                <div class="collapse mt-2" id="advancedFilters">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label small">{% trans "Fuel Type" %}</label>
+                            <select class="form-select form-select-sm" id="fuelTypeFilter">
+                                <option value="">{% trans "All Fuel Types" %}</option>
+                                <option value="petrol">{% trans "Petrol" %}</option>
+                                <option value="diesel">{% trans "Diesel" %}</option>
+                                <option value="electric">{% trans "Electric" %}</option>
+                                <option value="hybrid">{% trans "Hybrid" %}</option>
+                                <option value="cng">{% trans "CNG" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">{% trans "Seating Capacity" %}</label>
+                            <select class="form-select form-select-sm" id="capacityFilter">
+                                <option value="">{% trans "Any Capacity" %}</option>
+                                <option value="1-10">1-10 {% trans "seats" %}</option>
+                                <option value="11-25">11-25 {% trans "seats" %}</option>
+                                <option value="26-40">26-40 {% trans "seats" %}</option>
+                                <option value="41+">41+ {% trans "seats" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">{% trans "Insurance Status" %}</label>
+                            <select class="form-select form-select-sm" id="insuranceFilter">
+                                <option value="">{% trans "Any Status" %}</option>
+                                <option value="valid">{% trans "Valid" %}</option>
+                                <option value="expired">{% trans "Expired" %}</option>
+                                <option value="expiring_soon">{% trans "Expiring Soon" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">&nbsp;</label>
+                            <div>
+                                <button class="btn btn-sm btn-primary w-100" id="applyFilters">
+                                    <i class="fas fa-filter me-1"></i> {% trans "Apply" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="row mb-4">
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card vehicle-card">
+                <div class="card-body text-center">
+                    <h3 class="text-primary mb-1">{{ vehicles.count }}</h3>
+                    <p class="text-muted small mb-0">{% trans "Total Vehicles" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card vehicle-card">
+                <div class="card-body text-center">
+                    <h3 class="text-success mb-1">{{ vehicles|dictsort:"status"|length }}</h3>
+                    <p class="text-muted small mb-0">{% trans "Active" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card vehicle-card">
+                <div class="card-body text-center">
+                    <h3 class="text-warning mb-1">{{ vehicles|dictsort:"status"|length }}</h3>
+                    <p class="text-muted small mb-0">{% trans "In Maintenance" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card vehicle-card">
+                <div class="card-body text-center">
+                    <h3 class="text-danger mb-1">2</h3>
+                    <p class="text-muted small mb-0">{% trans "Due for Maintenance" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card vehicle-card">
+                <div class="card-body text-center">
+                    <h3 class="text-info mb-1">3</h3>
+                    <p class="text-muted small mb-0">{% trans "Insurance Expiring" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card vehicle-card">
+                <div class="card-body text-center">
+                    <h3 class="text-secondary mb-1">{% trans "85%" %}</h3>
+                    <p class="text-muted small mb-0">{% trans "Fleet Utilization" %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vehicles Grid View -->
+    <div class="view-grid" id="vehiclesView">
+        {% for vehicle in vehicles %}
+        <div class="vehicle-item" data-vehicle-id="{{ vehicle.id }}">
+            <div class="card vehicle-card">
+                <div class="vehicle-image position-relative">
+                    <i class="fas fa-bus"></i>
+                    <div class="vehicle-badge">
+                        <span class="status-badge status-{{ vehicle.status }}">
+                            {{ vehicle.get_status_display }}
+                        </span>
+                    </div>
+                    
+                    <!-- Warning badges for critical issues -->
+                    {% if vehicle.is_insurance_expired %}
+                    <div class="position-absolute top-0 start-0 m-2">
+                        <span class="warning-badge">
+                            <i class="fas fa-exclamation-triangle me-1"></i> {% trans "Insurance" %}
+                        </span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if vehicle.is_fitness_expired %}
+                    <div class="position-absolute top-0 start-0 m-2" style="margin-top: 2.5rem !important;">
+                        <span class="warning-badge">
+                            <i class="fas fa-exclamation-triangle me-1"></i> {% trans "Fitness" %}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="card-body">
+                    <h5 class="card-title mb-2">{{ vehicle.vehicle_number }}</h5>
+                    <p class="card-text text-muted small mb-3">
+                        {{ vehicle.make }} {{ vehicle.model }} ({{ vehicle.year }})
+                    </p>
+                    
+                    <div class="vehicle-specs mb-3">
+                        <div class="spec-item">
+                            <i class="fas fa-users spec-icon"></i>
+                            <span>{{ vehicle.seating_capacity }} {% trans "seats" %} 
+                                <small class="text-muted">({{ vehicle.available_seats }} {% trans "available" %})</small>
+                            </span>
+                        </div>
+                        <div class="spec-item">
+                            <i class="fas fa-gas-pump spec-icon"></i>
+                            <span>{{ vehicle.get_fuel_type_display }}</span>
+                        </div>
+                        <div class="spec-item">
+                            <i class="fas fa-tachometer-alt spec-icon"></i>
+                            <span>{{ vehicle.current_mileage }} {% trans "km" %}</span>
+                        </div>
+                        <div class="spec-item">
+                            <i class="fas fa-id-card spec-icon"></i>
+                            <span>{{ vehicle.registration_number }}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Capacity Meter -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small">
+                            <span>{% trans "Capacity Usage" %}</span>
+                            <span>
+                                {% widthratio vehicle.available_seats vehicle.seating_capacity 100 %}% {% trans "available" %}
+                            </span>
+                        </div>
+                        <div class="capacity-meter">
+                            <div class="capacity-fill 
+                                {% if vehicle.available_seats < vehicle.seating_capacity|divisibleby:4 %}capacity-high
+                                {% elif vehicle.available_seats < vehicle.seating_capacity|divisibleby:2 %}capacity-medium
+                                {% else %}capacity-low{% endif %}" 
+                                style="width: {% widthratio vehicle.available_seats vehicle.seating_capacity 100 %}%">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons d-flex gap-2">
+                        <a href="{% url 'transport:vehicle_detail' vehicle.pk %}" class="btn btn-outline-primary btn-sm flex-fill">
+                            <i class="fas fa-eye me-1"></i> {% trans "View" %}
+                        </a>
+                        <a href="{% url 'transport:vehicle_update' vehicle.pk %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button class="btn btn-outline-danger btn-sm" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#deleteModal"
+                                data-vehicle-id="{{ vehicle.pk }}"
+                                data-vehicle-name="{{ vehicle.vehicle_number }}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-bus text-muted fa-3x mb-3"></i>
+                    <h5 class="text-muted">{% trans "No vehicles found" %}</h5>
+                    <p class="text-muted">{% trans "Get started by adding your first vehicle to the fleet." %}</p>
+                    <a href="{% url 'transport:vehicle_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i> {% trans "Add Vehicle" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Vehicles Table View (Hidden by default) -->
+    <div class="view-list" id="tableView">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="vehiclesTable">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Vehicle" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Registration" %}</th>
+                                <th>{% trans "Capacity" %}</th>
+                                <th>{% trans "Fuel Type" %}</th>
+                                <th>{% trans "Mileage" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                <th>{% trans "Insurance" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for vehicle in vehicles %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary bg-opacity-10 rounded p-2 me-3">
+                                            <i class="fas fa-bus text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <strong>{{ vehicle.vehicle_number }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ vehicle.make }} {{ vehicle.model }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">{{ vehicle.get_vehicle_type_display }}</span>
+                                </td>
+                                <td>{{ vehicle.registration_number }}</td>
+                                <td>
+                                    <div>
+                                        {{ vehicle.available_seats }}/{{ vehicle.seating_capacity }}
+                                        <div class="capacity-meter" style="width: 80px;">
+                                            <div class="capacity-fill capacity-low" 
+                                                 style="width: {% widthratio vehicle.available_seats vehicle.seating_capacity 100 %}%">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ vehicle.get_fuel_type_display }}</td>
+                                <td>{{ vehicle.current_mileage }} km</td>
+                                <td>
+                                    <span class="status-badge status-{{ vehicle.status }}">
+                                        {{ vehicle.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if vehicle.is_insurance_expired %}
+                                    <span class="badge bg-danger">{% trans "Expired" %}</span>
+                                    {% elif vehicle.insurance_expiry %}
+                                    <span class="badge bg-success">{{ vehicle.insurance_expiry|date:"M d, Y" }}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{% trans "Not Set" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="table-actions">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'transport:vehicle_detail' vehicle.pk %}" class="btn btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'transport:vehicle_update' vehicle.pk %}" class="btn btn-outline-secondary">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button class="btn btn-outline-danger" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#deleteModal"
+                                                data-vehicle-id="{{ vehicle.pk }}"
+                                                data-vehicle-name="{{ vehicle.vehicle_number }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="{% trans 'Vehicle pagination' %}" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">{% trans "First" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>
+            </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">{% trans "Last" %}</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">{% trans "Confirm Deletion" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Are you sure you want to delete vehicle" %} <strong id="vehicleName"></strong>?</p>
+                <p class="text-danger small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    {% trans "This action cannot be undone. All associated records will also be removed." %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">{% trans "Delete Vehicle" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importModalLabel">{% trans "Import Vehicles" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Upload a CSV or Excel file containing vehicle data." %}</p>
+                <div class="mb-3">
+                    <label for="importFile" class="form-label">{% trans "Select File" %}</label>
+                    <input class="form-control" type="file" id="importFile" accept=".csv,.xlsx,.xls">
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="updateExisting">
+                    <label class="form-check-label" for="updateExisting">
+                        {% trans "Update existing vehicles" %}
+                    </label>
+                </div>
+                <div class="mt-3">
+                    <a href="#" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-download me-1"></i> {% trans "Download Template" %}
+                    </a>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="startImport">{% trans "Import Vehicles" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const viewToggleButtons = document.querySelectorAll('[data-view]');
+        const gridView = document.getElementById('vehiclesView');
+        const listView = document.getElementById('tableView');
+        
+        viewToggleButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const viewType = this.getAttribute('data-view');
+                
+                // Update active button
+                viewToggleButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide views
+                if (viewType === 'grid') {
+                    gridView.style.display = 'grid';
+                    listView.style.display = 'none';
+                } else {
+                    gridView.style.display = 'none';
+                    listView.style.display = 'block';
+                }
+            });
+        });
+
+        // Search Functionality
+        const searchInput = document.getElementById('vehicleSearch');
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const vehicleItems = document.querySelectorAll('.vehicle-item');
+            
+            vehicleItems.forEach(item => {
+                const vehicleText = item.textContent.toLowerCase();
+                if (vehicleText.includes(searchTerm)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+
+        // Filter Functionality
+        const statusFilter = document.getElementById('statusFilter');
+        const typeFilter = document.getElementById('typeFilter');
+        const fuelTypeFilter = document.getElementById('fuelTypeFilter');
+        const capacityFilter = document.getElementById('capacityFilter');
+        const insuranceFilter = document.getElementById('insuranceFilter');
+        const applyFiltersBtn = document.getElementById('applyFilters');
+        
+        function applyFilters() {
+            const status = statusFilter.value;
+            const type = typeFilter.value;
+            const fuelType = fuelTypeFilter.value;
+            const capacity = capacityFilter.value;
+            const insurance = insuranceFilter.value;
+            
+            // In a real implementation, this would make an AJAX request to filter vehicles
+            console.log('Applying filters:', { status, type, fuelType, capacity, insurance });
+            
+            // Show loading state
+            showLoadingState();
+            
+            // Simulate API call
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Filters applied successfully" %}', 'success');
+            }, 1000);
+        }
+        
+        applyFiltersBtn.addEventListener('click', applyFilters);
+        
+        // Reset filters when dropdown is changed (for instant filtering)
+        [statusFilter, typeFilter].forEach(filter => {
+            filter.addEventListener('change', applyFilters);
+        });
+
+        // Delete Modal Handler
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteForm = document.getElementById('deleteForm');
+
+        deleteModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const vehicleId = button.getAttribute('data-vehicle-id');
+            const vehicleName = button.getAttribute('data-vehicle-name');
+
+            document.getElementById('vehicleName').textContent = vehicleName;
+            deleteForm.action = `/transport/vehicles/${vehicleId}/delete/`;
+        });
+
+        // Import Functionality
+        document.getElementById('startImport').addEventListener('click', function() {
+            const fileInput = document.getElementById('importFile');
+            const updateExisting = document.getElementById('updateExisting').checked;
+            
+            if (!fileInput.files.length) {
+                showNotification('{% trans "Please select a file to import" %}', 'error');
+                return;
+            }
+            
+            // In real implementation, this would upload and process the file
+            showLoadingState();
+            
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Vehicles imported successfully" %}', 'success');
+                $('#importModal').modal('hide');
+            }, 2000);
+        });
+
+        // Export Functionality
+        document.getElementById('exportVehicles').addEventListener('click', function() {
+            showLoadingState();
+            
+            // In real implementation, this would generate and download an Excel file
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Vehicles exported to Excel successfully" %}', 'success');
+                
+                // Simulate file download
+                const link = document.createElement('a');
+                link.href = '#'; // In real app, this would be the file URL
+                link.download = 'vehicles_export.xlsx';
+                link.click();
+            }, 1500);
+        });
+
+        // Utility Functions
+        function showLoadingState() {
+            const spinner = document.createElement('div');
+            spinner.id = 'loadingSpinner';
+            spinner.className = 'position-fixed top-50 start-50 translate-middle';
+            spinner.innerHTML = `
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">{% trans "Loading..." %}</span>
+                </div>
+            `;
+            document.body.appendChild(spinner);
+        }
+
+        function hideLoadingState() {
+            const spinner = document.getElementById('loadingSpinner');
+            if (spinner) {
+                spinner.remove();
+            }
+        }
+
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                    <span>${message}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+
+        // Initialize DataTable for table view
+        if ($.fn.DataTable) {
+            $('#vehiclesTable').DataTable({
+                pageLength: 25,
+                responsive: true,
+                language: {
+                    search: "{% trans 'Search vehicles:' %}",
+                    lengthMenu: "{% trans 'Show _MENU_ entries' %}",
+                    info: "{% trans 'Showing _START_ to _END_ of _TOTAL_ vehicles' %}",
+                    paginate: {
+                        previous: "{% trans 'Previous' %}",
+                        next: "{% trans 'Next' %}"
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

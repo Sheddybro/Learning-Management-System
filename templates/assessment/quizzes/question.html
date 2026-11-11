@@ -1,0 +1,300 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Question{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <!-- Quiz Header -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h5 class="mb-0">
+                                <i class="fas fa-question-circle mr-2"></i>
+                                {{ quiz_bank.name }}
+                            </h5>
+                            <small>{{ quiz_bank.subject.name }} - {{ quiz_bank.academic_class.name }}</small>
+                        </div>
+                        <div class="col-md-6 text-right">
+                            <div class="quiz-progress">
+                                <small>Question {{ current_question_number }} of {{ total_questions }}</small>
+                                <div class="progress mt-1" style="height: 8px;">
+                                    <div class="progress-bar bg-success"
+                                         style="width: {% widthratio current_question_number total_questions 100 %}%">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Question Card -->
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" id="questionForm">
+                        {% csrf_token %}
+
+                        <!-- Question Text -->
+                        <div class="question-text mb-4">
+                            <h4 class="font-weight-bold">
+                                <span class="badge badge-primary mr-2">Q{{ current_question_number }}</span>
+                                {{ question.question_text|safe }}
+                            </h4>
+                        </div>
+
+                        <!-- Question Image (if any) -->
+                        {% if question.figure %}
+                        <div class="question-image mb-4 text-center">
+                            <img src="{{ question.figure.url }}" alt="Question Image"
+                                 class="img-fluid rounded shadow" style="max-height: 300px;">
+                        </div>
+                        {% endif %}
+
+                        <!-- Answer Options -->
+                        <div class="answer-options mb-4">
+                            {% if question.question_type == 'multiple_choice' %}
+                                {% for option in options %}
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="radio"
+                                           name="selected_options" value="{{ option.id }}"
+                                           id="option{{ option.id }}">
+                                    <label class="form-check-label" for="option{{ option.id }}">
+                                        <span class="option-letter">{{ forloop.counter|to_option_letter }}.</span>
+                                        {{ option.option_text|safe }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+
+                            {% elif question.question_type == 'true_false' %}
+                                {% for option in options %}
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="radio"
+                                           name="selected_options" value="{{ option.id }}"
+                                           id="option{{ option.id }}">
+                                    <label class="form-check-label" for="option{{ option.id }}">
+                                        {{ option.option_text }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+
+                            {% elif question.question_type == 'short_answer' %}
+                                <div class="form-group">
+                                    <label for="answer_text">Your Answer:</label>
+                                    <textarea class="form-control" id="answer_text" name="answer_text"
+                                              rows="4" placeholder="Type your answer here..."
+                                              maxlength="1000"></textarea>
+                                    <small class="form-text text-muted">Maximum 1000 characters</small>
+                                </div>
+
+                            {% elif question.question_type == 'essay' %}
+                                <div class="form-group">
+                                    <label for="answer_text">Your Essay Answer:</label>
+                                    <textarea class="form-control" id="answer_text" name="answer_text"
+                                              rows="8" placeholder="Write your detailed answer here..."
+                                              maxlength="5000"></textarea>
+                                    <small class="form-text text-muted">Maximum 5000 characters</small>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Hidden Fields -->
+                        <input type="hidden" name="question_id" value="{{ question.id }}">
+                        <input type="hidden" name="action" value="answer">
+
+                        <!-- Navigation Buttons -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                {% if show_previous %}
+                                <button type="button" class="btn btn-outline-secondary btn-lg"
+                                        onclick="goToPrevious()">
+                                    <i class="fas fa-arrow-left mr-2"></i>
+                                    Previous
+                                </button>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 text-right">
+                                <button type="submit" class="btn btn-success btn-lg mr-2"
+                                        id="submitBtn">
+                                    <i class="fas fa-check mr-2"></i>
+                                    {% if quiz_bank.answers_at_end %}
+                                        Save Answer
+                                    {% else %}
+                                        Submit Answer
+                                    {% endif %}
+                                </button>
+
+                                {% if not is_last_question %}
+                                <button type="button" class="btn btn-primary btn-lg"
+                                        onclick="skipQuestion()">
+                                    <i class="fas fa-forward mr-2"></i>
+                                    Skip
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Finish Quiz Button (for last question) -->
+                    {% if is_last_question %}
+                    <div class="text-center mt-4">
+                        <hr>
+                        <p class="text-muted">This is the last question. You can finish the quiz now.</p>
+                        <form method="post" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="finish">
+                            <button type="submit" class="btn btn-warning btn-lg">
+                                <i class="fas fa-flag-checkered mr-2"></i>
+                                Finish Quiz
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quiz Info Sidebar (collapsible on mobile) -->
+            <div class="card mt-4 d-none d-md-block">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Quiz Information
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="info-item">
+                                <i class="fas fa-clock text-primary fa-2x"></i>
+                                <p class="mb-0 mt-2">
+                                    {% if question.time_limit %}
+                                        {{ question.time_limit }}s
+                                    {% else %}
+                                        No limit
+                                    {% endif %}
+                                </p>
+                                <small class="text-muted">Time Limit</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="info-item">
+                                <i class="fas fa-star text-warning fa-2x"></i>
+                                <p class="mb-0 mt-2">{{ question.marks }}</p>
+                                <small class="text-muted">Marks</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="info-item">
+                                <i class="fas fa-trophy text-success fa-2x"></i>
+                                <p class="mb-0 mt-2">{{ quiz_bank.pass_mark }}%</p>
+                                <small class="text-muted">Pass Mark</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="quiz-stats">
+                        <h6>Current Progress:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Answered:</strong> {{ answered_count }} / {{ total_questions }}</li>
+                            <li><strong>Remaining:</strong> {{ total_questions|add:answered_count|add:"-1" }}</li>
+                            <li><strong>Current Score:</strong> {{ attempt.current_score }}</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.question-text {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+
+.option-letter {
+    font-weight: bold;
+    color: #007bff;
+    margin-right: 8px;
+}
+
+.form-check-label {
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.form-check-label:hover {
+    background-color: #f8f9fa;
+}
+
+.card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: none;
+}
+
+.info-item {
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.quiz-progress {
+    color: white;
+}
+</style>
+
+<script>
+$(document).ready(function() {
+    // Auto-save draft answers every 30 seconds
+    setInterval(function() {
+        if ($('input[name=selected_options]:checked').length > 0 ||
+            $('#answer_text').val().trim() !== '') {
+            // Could implement auto-save here
+            console.log('Auto-saving answer...');
+        }
+    }, 30000);
+
+    // Character counter for text areas
+    $('textarea').on('input', function() {
+        var maxLength = $(this).attr('maxlength');
+        var currentLength = $(this).val().length;
+        var remaining = maxLength - currentLength;
+
+        // Update character counter if exists
+        var counter = $(this).siblings('.char-counter');
+        if (counter.length) {
+            counter.text(remaining + ' characters remaining');
+        }
+    });
+});
+
+function goToPrevious() {
+    // Implement previous question navigation
+    window.history.back();
+}
+
+function skipQuestion() {
+    // Submit empty answer to skip
+    $('input[name=selected_options]').prop('checked', false);
+    $('#answer_text').val('');
+    $('#questionForm').submit();
+}
+</script>
+
+{% block extra_js %}
+<script>
+// Custom filter for option letters
+// This would need to be added to templatetags
+</script>
+{% endblock %}
+{% endblock %}

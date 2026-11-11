@@ -1,0 +1,320 @@
+<!-- templates/academics/calendar/academic_calendar.html -->
+
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Academic Calendar" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/academics/calendar.css' %}">
+{% endblock %}
+
+{% block page_title %}{% trans "Academic Calendar" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'academics:dashboard' %}">{% trans "Academics" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Academic Calendar" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="academic-calendar">
+    <!-- Calendar Header -->
+    <div class="calendar-header mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h2 class="h4 mb-1">{{ current_session.name }}</h2>
+                <p class="text-muted mb-0">
+                    {{ current_session.start_date|date:"F j, Y" }} - {{ current_session.end_date|date:"F j, Y" }}
+                </p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-primary active" id="month-view">
+                        <i class="bi bi-calendar-month"></i> {% trans "Month View" %}
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" id="list-view">
+                        <i class="bi bi-list-ul"></i> {% trans "List View" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session Info Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card session-info-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-calendar-check text-primary fs-2"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-1">{% trans "Current Session" %}</h6>
+                            <p class="card-text mb-0">{{ current_session.name }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card session-info-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-clock text-success fs-2"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-1">{% trans "Duration" %}</h6>
+                            <p class="card-text mb-0">{{ current_session.start_date|timesince:current_session.end_date }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card session-info-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-calendar-event text-warning fs-2"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-1">{% trans "Holidays" %}</h6>
+                            <p class="card-text mb-0">{{ holidays.count }} {% trans "scheduled" %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Month View -->
+    <div id="month-view-content" class="calendar-view">
+        <div class="card">
+            <div class="card-header">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h5 class="card-title mb-0" id="current-month-year">
+                            {% now "F Y" %}
+                        </h5>
+                    </div>
+                    <div class="col-auto">
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-outline-secondary" id="prev-month">
+                                <i class="bi bi-chevron-left"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary" id="current-month">
+                                {% trans "Today" %}
+                            </button>
+                            <button class="btn btn-outline-secondary" id="next-month">
+                                <i class="bi bi-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="calendar-grid">
+                    <!-- Calendar Headers -->
+                    <div class="calendar-weekdays">
+                        <div class="calendar-day-header">{% trans "Sun" %}</div>
+                        <div class="calendar-day-header">{% trans "Mon" %}</div>
+                        <div class="calendar-day-header">{% trans "Tue" %}</div>
+                        <div class="calendar-day-header">{% trans "Wed" %}</div>
+                        <div class="calendar-day-header">{% trans "Thu" %}</div>
+                        <div class="calendar-day-header">{% trans "Fri" %}</div>
+                        <div class="calendar-day-header">{% trans "Sat" %}</div>
+                    </div>
+                    
+                    <!-- Calendar Days -->
+                    <div class="calendar-days" id="calendar-days">
+                        <!-- JavaScript will populate this -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- List View -->
+    <div id="list-view-content" class="calendar-view d-none">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">{% trans "Upcoming Holidays & Events" %}</h5>
+            </div>
+            <div class="card-body">
+                {% if holidays %}
+                <div class="list-group list-group-flush">
+                    {% for holiday in holidays %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">{{ holiday.name }}</h6>
+                            <p class="mb-1 text-muted">{{ holiday.description|default:"No description" }}</p>
+                            <small class="text-muted">
+                                <i class="bi bi-calendar-event me-1"></i>
+                                {{ holiday.date|date:"l, F j, Y" }}
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge {% if holiday.is_recurring %}bg-info{% else %}bg-primary{% endif %} me-2">
+                                {% if holiday.is_recurring %}{% trans "Recurring" %}{% else %}{% trans "One-time" %}{% endif %}
+                            </span>
+                            {% if holiday.date < today %}
+                            <span class="badge bg-secondary">{% trans "Past" %}</span>
+                            {% elif holiday.date == today %}
+                            <span class="badge bg-warning">{% trans "Today" %}</span>
+                            {% else %}
+                            <span class="badge bg-success">{% trans "Upcoming" %}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-calendar-x text-muted fs-1"></i>
+                    <p class="text-muted mt-2">{% trans "No holidays scheduled for this academic session." %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Important Dates -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">{% trans "Important Academic Dates" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-unstyled important-dates-list">
+                            <li class="d-flex align-items-center mb-3">
+                                <i class="bi bi-arrow-right-circle text-primary me-3"></i>
+                                <div>
+                                    <strong>{% trans "Session Start" %}</strong>
+                                    <div class="text-muted">{{ current_session.start_date|date:"F j, Y" }}</div>
+                                </div>
+                            </li>
+                            <li class="d-flex align-items-center mb-3">
+                                <i class="bi bi-arrow-left-circle text-primary me-3"></i>
+                                <div>
+                                    <strong>{% trans "Session End" %}</strong>
+                                    <div class="text-muted">{{ current_session.end_date|date:"F j, Y" }}</div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-unstyled important-dates-list">
+                            {% if current_session.term_number %}
+                            <li class="d-flex align-items-center mb-3">
+                                <i class="bi bi-journal-text text-success me-3"></i>
+                                <div>
+                                    <strong>{% trans "Current Semester" %}</strong>
+                                    <div class="text-muted">{{ current_session.semester_name }}</div>
+                                </div>
+                            </li>
+                            {% endif %}
+                            <li class="d-flex align-items-center mb-3">
+                                <i class="bi bi-clock-history text-info me-3"></i>
+                                <div>
+                                    <strong>{% trans "Days Remaining" %}</strong>
+                                    <div class="text-muted">
+                                        {% if current_session.end_date > today %}
+                                            {{ today|timesince:current_session.end_date }}
+                                        {% else %}
+                                            {% trans "Session completed" %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Holiday Legend -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">{% trans "Legend" %}</h6>
+                    <div class="d-flex flex-wrap gap-3">
+                        <div class="d-flex align-items-center">
+                            <span class="legend-color holiday-color me-2"></span>
+                            <small>{% trans "Holiday" %}</small>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="legend-color weekend-color me-2"></span>
+                            <small>{% trans "Weekend" %}</small>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="legend-color today-color me-2"></span>
+                            <small>{% trans "Today" %}</small>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="legend-color session-color me-2"></span>
+                            <small>{% trans "Academic Session" %}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Holiday Detail Modal -->
+<div class="modal fade" id="holidayModal" tabindex="-1" aria-labelledby="holidayModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="holidayModalLabel">{% trans "Holiday Details" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="holidayModalBody">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/academics/calendar.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const calendar = new AcademicCalendar({
+            currentSession: {
+                startDate: '{{ current_session.start_date|date:"Y-m-d" }}',
+                endDate: '{{ current_session.end_date|date:"Y-m-d" }}',
+                name: '{{ current_session.name }}'
+            },
+            holidays: [
+                {% for holiday in holidays %}
+                {
+                    id: {{ holiday.id }},
+                    name: '{{ holiday.name }}',
+                    date: '{{ holiday.date|date:"Y-m-d" }}',
+                    description: '{{ holiday.description|default:""|escapejs }}',
+                    isRecurring: {% if holiday.is_recurring %}true{% else %}false{% endif %}
+                }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            today: '{% now "Y-m-d" %}',
+            texts: {
+                today: '{% trans "Today" %}',
+                holiday: '{% trans "Holiday" %}',
+                noEvents: '{% trans "No events" %}',
+                viewDetails: '{% trans "View Details" %}'
+            }
+        });
+        
+        calendar.init();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,779 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "User Details" %} - {{ user_obj.display_name }} - {{ block.super }}{% endblock %}
+
+{% block page_title %}{% trans "User Details" %}: {{ user_obj.display_name }}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:user_list' %}">{% trans "Users" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ user_obj.display_name }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Main Content Column -->
+        <div class="col-lg-8">
+            <!-- User Summary Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-person-circle me-2"></i>
+                        {% trans "User Information" %}
+                    </h5>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-gear me-1"></i>{% trans "Actions" %}
+                        </button>
+                        <ul class="dropdown-menu">
+                            {% if can_edit %}
+                            <li>
+                                <a class="dropdown-item" href="{% url 'users:user_update' user_obj.id %}">
+                                    <i class="bi bi-pencil me-2"></i>{% trans "Edit User" %}
+                                </a>
+                            </li>
+
+                            {% if can_edit %}
+                            <li>
+                                <a class="dropdown-item" href="{% url 'users:user_roles_manage' user_obj.id %}">
+                                    <i class="bi bi-person-gear me-2"></i>{% trans "Manage Roles" %}
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            <li>
+                                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#sendMessageModal">
+                                    <i class="bi bi-envelope me-2"></i>{% trans "Send Message" %}
+                                </a>
+                            </li>
+                            
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#deleteUserModal">
+                                    <i class="bi bi-trash me-2"></i>{% trans "Delete User" %}
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Profile Picture & Basic Info -->
+                        <div class="col-md-4 text-center mb-4">
+                            <div class="position-relative d-inline-block">
+                                {% if user_obj.profile.profile_picture %}
+                                    <img src="{{ user_obj.profile.profile_picture.url }}" 
+                                         alt="{{ user_obj.display_name }}" 
+                                         class="rounded-circle img-thumbnail" 
+                                         style="width: 150px; height: 150px; object-fit: cover;">
+                                {% else %}
+                                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center mx-auto" 
+                                         style="width: 150px; height: 150px;">
+                                        <span class="text-white display-4">{{ user_obj.get_initials }}</span>
+                                    </div>
+                                {% endif %}
+                                <span class="position-absolute bottom-0 end-0 badge {% if user_obj.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                    {% if user_obj.is_active %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}
+                                </span>
+                            </div>
+                            
+                            <h4 class="mt-3 mb-1">{{ user_obj.display_name }}</h4>
+                            <p class="text-muted mb-2">{{ user_obj.email }}</p>
+                            
+                            <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                <span class="badge {% if user_obj.is_verified %}bg-success{% else %}bg-warning{% endif %}">
+                                    {% if user_obj.is_verified %}
+                                        <i class="bi bi-check-circle me-1"></i>{% trans "Verified" %}
+                                    {% else %}
+                                        <i class="bi bi-clock me-1"></i>{% trans "Unverified" %}
+                                    {% endif %}
+                                </span>
+                                
+                                {% if user_obj.is_staff %}
+                                <span class="badge bg-info">
+                                    <i class="bi bi-person-gear me-1"></i>{% trans "Staff" %}
+                                </span>
+                                {% endif %}
+                                
+                                {% if user_obj.is_superuser %}
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-shield-shaded me-1"></i>{% trans "Superuser" %}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Detailed Information -->
+                        <div class="col-md-8">
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <h6 class="text-muted mb-2">{% trans "Personal Information" %}</h6>
+                                    <table class="table table-sm table-borderless">
+                                        <tr>
+                                            <td class="text-muted" style="width: 40%;">{% trans "First Name:" %}</td>
+                                            <td><strong>{{ user_obj.first_name|default:"-" }}</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted">{% trans "Last Name:" %}</td>
+                                            <td><strong>{{ user_obj.last_name|default:"-" }}</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted">{% trans "Mobile:" %}</td>
+                                            <td><strong>{{ user_obj.mobile|default:"-" }}</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted">{% trans "Language:" %}</td>
+                                            <td><strong>{{ user_obj.get_language_display|default:"-" }}</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted">{% trans "Timezone:" %}</td>
+                                            <td><strong>{{ user_obj.timezone|default:"-" }}</strong></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                
+                                <div class="col-sm-6">
+                                    <h6 class="text-muted mb-2">{% trans "Account Information" %}</h6>
+                                    <table class="table table-sm table-borderless">
+                                        <tr>
+                                            <td class="text-muted" style="width: 40%;">{% trans "Status:" %}</td>
+                                            <td>
+                                                <span class="badge bg-{% if user_obj.status == 'active' %}success{% elif user_obj.status == 'inactive' %}danger{% else %}warning{% endif %}">
+                                                    {{ user_obj.get_status_display }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted">{% trans "Last Login:" %}</td>
+                                            <td>
+                                                <strong>
+                                                    {% if user_obj.last_login %}
+                                                        {{ user_obj.last_login|date:"DATETIME_FORMAT" }}
+                                                    {% else %}
+                                                        {% trans "Never" %}
+                                                    {% endif %}
+                                                </strong>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted">{% trans "Login Count:" %}</td>
+                                            <td><strong>{{ user_obj.login_count }}</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted">{% trans "Created:" %}</td>
+                                            <td><strong>{{ user_obj.created_at|date:"DATETIME_FORMAT" }}</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted">{% trans "Last Updated:" %}</td>
+                                            <td><strong>{{ user_obj.updated_at|date:"DATETIME_FORMAT" }}</strong></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <!-- User Roles -->
+                            <div class="mt-3">
+                                <h6 class="text-muted mb-2">{% trans "Assigned Roles" %}</h6>
+                                <div class="d-flex flex-wrap gap-2">
+                                    {% for user_role in user_obj.user_roles.all %}
+                                        <span class="badge bg-primary position-relative">
+                                            {{ user_role.role.name }}
+                                            {% if user_role.is_primary %}
+                                                <span class="position-absolute top-0 start-100 translate-middle p-1 bg-success border border-light rounded-circle">
+                                                    <span class="visually-hidden">{% trans "Primary role" %}</span>
+                                                </span>
+                                            {% endif %}
+                                        </span>
+                                    {% empty %}
+                                        <span class="text-muted">{% trans "No roles assigned" %}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Information Card -->
+            {% if user_obj.profile %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-person-vcard me-2"></i>
+                        {% trans "Profile Details" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">{% trans "Personal Details" %}</h6>
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td class="text-muted" style="width: 40%;">{% trans "Date of Birth:" %}</td>
+                                    <td><strong>{{ user_obj.profile.date_of_birth|date:"DATE_FORMAT"|default:"-" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Age:" %}</td>
+                                    <td><strong>{% if user_obj.profile.age %}{{ user_obj.profile.age }} {% trans "years" %}{% else %}-{% endif %}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Gender:" %}</td>
+                                    <td><strong>{{ user_obj.profile.get_gender_display|default:"-" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Nationality:" %}</td>
+                                    <td><strong>{{ user_obj.profile.nationality|default:"-" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "ID Number:" %}</td>
+                                    <td><strong>{{ user_obj.profile.identification_number|default:"-" }}</strong></td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">{% trans "Contact Information" %}</h6>
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td class="text-muted" style="width: 40%;">{% trans "Phone:" %}</td>
+                                    <td><strong>{{ user_obj.profile.phone|default:"-" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Mobile:" %}</td>
+                                    <td><strong>{{ user_obj.profile.mobile|default:"-" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Emergency Contact:" %}</td>
+                                    <td><strong>{{ user_obj.profile.emergency_contact|default:"-" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Emergency Phone:" %}</td>
+                                    <td><strong>{{ user_obj.profile.emergency_phone|default:"-" }}</strong></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Address Information -->
+                    {% if user_obj.profile.full_address %}
+                    <div class="mt-3">
+                        <h6 class="text-muted mb-2">{% trans "Address" %}</h6>
+                        <p class="mb-0">{{ user_obj.profile.full_address }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Biography -->
+                    {% if user_obj.profile.bio %}
+                    <div class="mt-3">
+                        <h6 class="text-muted mb-2">{% trans "Biography" %}</h6>
+                        <p class="mb-0">{{ user_obj.profile.bio|linebreaks }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Application Information Card -->
+            {% if student_application or staff_application %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clipboard-check me-2"></i>
+                        {% trans "Application Information" %}
+                        <span class="badge bg-{{ application_status_badge }} ms-2">{{ application_status }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if student_application %}
+                    <h6 class="text-muted mb-3">{% trans "Student Application Details" %}</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td class="text-muted" style="width: 40%;">{% trans "Application Number:" %}</td>
+                                    <td><strong>{{ student_application.application_number }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Application Date:" %}</td>
+                                    <td><strong>{{ student_application.application_date|date:"DATE_FORMAT" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Grade Applying For:" %}</td>
+                                    <td><strong>{{ student_application.grade_applying_for }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Previous School:" %}</td>
+                                    <td><strong>{{ student_application.previous_school|default:"-" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Academic Session:" %}</td>
+                                    <td><strong>{% if student_application.academic_session %}{{ student_application.academic_session.name }}{% else %}-{% endif %}</strong></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td class="text-muted" style="width: 40%;">{% trans "Application Status:" %}</td>
+                                    <td><span class="badge bg-{{ application_status_badge }}">{{ student_application.get_application_status_display }}</span></td>
+                                </tr>
+                                {% if student_application.reviewed_at %}
+                                <tr>
+                                    <td class="text-muted">{% trans "Reviewed At:" %}</td>
+                                    <td><strong>{{ student_application.reviewed_at|date:"DATETIME_FORMAT" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Reviewed By:" %}</td>
+                                    <td><strong>{% if student_application.reviewed_by %}{{ student_application.reviewed_by.display_name }}{% else %}-{% endif %}</strong></td>
+                                </tr>
+                                {% endif %}
+                                {% if student_application.review_notes %}
+                                <tr>
+                                    <td colspan="2">
+                                        <div class="mt-2">
+                                            <strong class="text-muted">{% trans "Review Notes:" %}</strong><br>
+                                            <p class="mb-0 mt-1">{{ student_application.review_notes }}</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+                    </div>
+
+                    {% elif staff_application %}
+                    <h6 class="text-muted mb-3">{% trans "Staff Application Details" %}</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td class="text-muted" style="width: 40%;">{% trans "Application Number:" %}</td>
+                                    <td><strong>{{ staff_application.application_number }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Application Date:" %}</td>
+                                    <td><strong>{{ staff_application.application_date|date:"DATE_FORMAT" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Position Applied For:" %}</td>
+                                    <td><strong>{% if staff_application.position_applied_for %}{{ staff_application.position_applied_for.name }}{% else %}-{% endif %}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Position Type:" %}</td>
+                                    <td><strong>{{ staff_application.get_position_type_display }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Expected Salary:" %}</td>
+                                    <td><strong>{{ staff_application.expected_salary|default:"-" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Academic Session:" %}</td>
+                                    <td><strong>{% if staff_application.academic_session %}{{ staff_application.academic_session.name }}{% else %}-{% endif %}</strong></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td class="text-muted" style="width: 40%;">{% trans "Application Status:" %}</td>
+                                    <td><span class="badge bg-{{ application_status_badge }}">{{ staff_application.get_application_status_display }}</span></td>
+                                </tr>
+                                {% if staff_application.interview_date %}
+                                <tr>
+                                    <td class="text-muted">{% trans "Interview Date:" %}</td>
+                                    <td><strong>{{ staff_application.interview_date|date:"DATETIME_FORMAT" }}</strong></td>
+                                </tr>
+                                {% endif %}
+                                {% if staff_application.reviewed_at %}
+                                <tr>
+                                    <td class="text-muted">{% trans "Reviewed At:" %}</td>
+                                    <td><strong>{{ staff_application.reviewed_at|date:"DATETIME_FORMAT" }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">{% trans "Reviewed By:" %}</td>
+                                    <td><strong>{% if staff_application.reviewed_by %}{{ staff_application.reviewed_by.display_name }}{% else %}-{% endif %}</strong></td>
+                                </tr>
+                                {% endif %}
+                                {% if staff_application.review_notes %}
+                                <tr>
+                                    <td colspan="2">
+                                        <div class="mt-2">
+                                            <strong class="text-muted">{% trans "Review Notes:" %}</strong><br>
+                                            <p class="mb-0 mt-1">{{ staff_application.review_notes }}</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="mt-3">
+                        <a href="{% if student_application %}{% url 'users:student_application_detail' student_application.id %}{% elif staff_application %}{% url 'users:staff_application_detail' staff_application.id %}{% endif %}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye me-1"></i>{% trans "View Full Application Details" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Recent Activity Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        {% trans "Recent Activity" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for login in recent_logins %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-{% if login.was_successful %}check-circle text-success{% else %}x-circle text-danger{% endif %} me-2"></i>
+                                <span class="fw-medium">{% trans "Login" %}</span>
+                                <small class="text-muted ms-2">{{ login.created_at|timesince }} {% trans "ago" %}</small>
+                                <div class="text-muted small">
+                                    {{ login.ip_address }} • {{ login.login_method|title }}
+                                    {% if not login.was_successful %}
+                                        • {{ login.failure_reason }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <span class="badge bg-{% if login.was_successful %}success{% else %}danger{% endif %}">
+                                {% if login.was_successful %}{% trans "Success" %}{% else %}{% trans "Failed" %}{% endif %}
+                            </span>
+                        </div>
+                        {% empty %}
+                        <div class="list-group-item text-center text-muted">
+                            {% trans "No recent activity found" %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if recent_logins %}
+                    <div class="text-center mt-3">
+                        <a href="{% url 'users:login_history' %}?user={{ user_obj.id }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-list-ul me-1"></i>{% trans "View All Activity" %}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Column -->
+        <div class="col-lg-4">
+            <!-- Quick Actions Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning me-2"></i>
+                        {% trans "Quick Actions" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        {% if can_edit %}
+                        <a href="{% url 'users:user_update' user_obj.id %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-pencil me-2"></i>{% trans "Edit User" %}
+                        </a>
+                        
+                        <a href="{% url 'users:user_roles_manage' user_obj.id %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-person-gear me-2"></i>{% trans "Manage Roles" %}
+                        </a>
+                        
+                        <button class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#sendMessageModal">
+                            <i class="bi bi-envelope me-2"></i>{% trans "Send Message" %}
+                        </button>
+                        
+                        <button class="btn btn-outline-warning btn-sm" onclick="toggleUserStatus()">
+                            <i class="bi bi-{% if user_obj.is_active %}pause{% else %}play{% endif %}-circle me-2"></i>
+                            {% if user_obj.is_active %}{% trans "Deactivate User" %}{% else %}{% trans "Activate User" %}{% endif %}
+                        </button>
+                        
+                        <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteUserModal">
+                            <i class="bi bi-trash me-2"></i>{% trans "Delete User" %}
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-graph-up me-2"></i>
+                        {% trans "Account Status" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <div class="border rounded p-3">
+                                <i class="bi bi-{% if user_obj.is_verified %}check-circle text-success{% else %}clock text-warning{% endif %} display-6 d-block mb-2"></i>
+                                <h6 class="mb-1">{% trans "Verification" %}</h6>
+                                <small class="text-muted">
+                                    {% if user_obj.is_verified %}
+                                        {% trans "Verified" %}
+                                    {% else %}
+                                        {% trans "Pending" %}
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="border rounded p-3">
+                                <i class="bi bi-{% if user_obj.is_active %}check-circle text-success{% else %}x-circle text-danger{% endif %} display-6 d-block mb-2"></i>
+                                <h6 class="mb-1">{% trans "Active" %}</h6>
+                                <small class="text-muted">
+                                    {% if user_obj.is_active %}
+                                        {% trans "Enabled" %}
+                                    {% else %}
+                                        {% trans "Disabled" %}
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-3">
+                                <i class="bi bi-{% if user_obj.is_staff %}person-gear text-info{% else %}person text-muted{% endif %} display-6 d-block mb-2"></i>
+                                <h6 class="mb-1">{% trans "Staff" %}</h6>
+                                <small class="text-muted">
+                                    {% if user_obj.is_staff %}
+                                        {% trans "Staff Member" %}
+                                    {% else %}
+                                        {% trans "Regular User" %}
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-3">
+                                <i class="bi bi-{% if user_obj.is_superuser %}shield-shaded text-danger{% else %}shield text-muted{% endif %} display-6 d-block mb-2"></i>
+                                <h6 class="mb-1">{% trans "Superuser" %}</h6>
+                                <small class="text-muted">
+                                    {% if user_obj.is_superuser %}
+                                        {% trans "Administrator" %}
+                                    {% else %}
+                                        {% trans "Limited Access" %}
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Information Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        {% trans "System Information" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <td class="text-muted">{% trans "User ID:" %}</td>
+                            <td><code>{{ user_obj.id }}</code></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "Last IP:" %}</td>
+                            <td><code>{{ user_obj.last_login_ip|default:"-" }}</code></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "Current IP:" %}</td>
+                            <td><code>{{ user_obj.current_login_ip|default:"-" }}</code></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "Email Verified:" %}</td>
+                            <td>
+                                {% if user_obj.email_verified_at %}
+                                    {{ user_obj.email_verified_at|date:"DATETIME_FORMAT" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">{% trans "Profile Updated:" %}</td>
+                            <td>
+                                {% if user_obj.profile.last_profile_update %}
+                                    {{ user_obj.profile.last_profile_update|date:"DATETIME_FORMAT" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Send Message Modal -->
+<div class="modal fade" id="sendMessageModal" tabindex="-1" aria-labelledby="sendMessageModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sendMessageModalLabel">{% trans "Send Message to" %} {{ user_obj.display_name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            {% comment %} <form method="post" action="{% url 'communication:send_message' %}"> {% endcomment %}
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="recipient" value="{{ user_obj.id }}">
+                    <div class="mb-3">
+                        <label for="messageSubject" class="form-label">{% trans "Subject" %}</label>
+                        <input type="text" class="form-control" id="messageSubject" name="subject" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="messageContent" class="form-label">{% trans "Message" %}</label>
+                        <textarea class="form-control" id="messageContent" name="content" rows="5" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                    <button type="submit" class="btn btn-primary">{% trans "Send Message" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete User Modal -->
+{% if can_edit %}
+<div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteUserModalLabel">{% trans "Confirm User Deletion" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Are you sure you want to delete the user" %} <strong>"{{ user_obj.display_name }}"</strong>?</p>
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>{% trans "Warning:" %}</strong> {% trans "This action cannot be undone. All user data, including profile information and activity history, will be permanently deleted." %}
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirmDelete">
+                    <label class="form-check-label" for="confirmDelete">
+                        {% trans "I understand that this action is permanent and cannot be reversed." %}
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <form method="post" action="{% url 'users:user_delete' user_obj.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger" id="deleteButton" disabled>
+                        <i class="bi bi-trash me-1"></i>{% trans "Delete User" %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-picture {
+        width: 150px;
+        height: 150px;
+        object-fit: cover;
+    }
+
+    .initials-avatar {
+        width: 150px;
+        height: 150px;
+        font-size: 3rem;
+    }
+
+    .status-badge {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+    }
+
+    .table-borderless td {
+        border: none;
+        padding: 0.25rem 0;
+    }
+
+    .quick-action-btn {
+        transition: all 0.2s ease;
+    }
+
+    .quick-action-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    /* Ensure dropdown is visible above card boundaries */
+    .card {
+        overflow: visible;
+    }
+
+    .card-header .dropdown-menu {
+        z-index: 1070;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Delete confirmation checkbox
+        const confirmDeleteCheckbox = document.getElementById('confirmDelete');
+        const deleteButton = document.getElementById('deleteButton');
+        
+        if (confirmDeleteCheckbox && deleteButton) {
+            confirmDeleteCheckbox.addEventListener('change', function() {
+                deleteButton.disabled = !this.checked;
+            });
+        }
+        
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+    
+    function toggleUserStatus() {
+        if (confirm('{% if user_obj.is_active %}{% trans "Are you sure you want to deactivate this user? They will not be able to log in." %}{% else %}{% trans "Are you sure you want to activate this user? They will be able to log in again." %}{% endif %}')) {
+            {% comment %} window.location.href = "{% url 'users:user_toggle_status' user_obj.id %}"; {% endcomment %}
+        }
+    }
+    
+    function copyUserId() {
+        const userId = '{{ user_obj.id }}';
+        navigator.clipboard.writeText(userId).then(function() {
+            // Show success message
+            const toast = new bootstrap.Toast(document.getElementById('copyToast'));
+            toast.show();
+        });
+    }
+</script>
+
+<!-- Copy Success Toast -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="copyToast" class="toast align-items-center text-white bg-success border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="bi bi-check-circle me-2"></i>{% trans "User ID copied to clipboard!" %}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}

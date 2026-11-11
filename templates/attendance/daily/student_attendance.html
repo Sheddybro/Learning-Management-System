@@ -1,0 +1,1060 @@
+<!-- templates/attendance/daily/student_attendance.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}My Attendance - {{ student.user.get_full_name }} - School Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+.attendance-stats-card {
+    border-left: 4px solid #007bff;
+    transition: transform 0.2s;
+}
+.attendance-stats-card:hover {
+    transform: translateY(-2px);
+}
+.attendance-stats-card.present {
+    border-left-color: #28a745;
+}
+.attendance-stats-card.absent {
+    border-left-color: #dc3545;
+}
+.attendance-stats-card.late {
+    border-left-color: #ffc107;
+}
+.attendance-stats-card.leave {
+    border-left-color: #17a2b8;
+}
+.attendance-calendar {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.calendar-day {
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 2px;
+    border-radius: 50%;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.calendar-day.present {
+    background-color: #28a745;
+    color: white;
+}
+.calendar-day.absent {
+    background-color: #dc3545;
+    color: white;
+}
+.calendar-day.late {
+    background-color: #ffc107;
+    color: #212529;
+}
+.calendar-day.leave {
+    background-color: #17a2b8;
+    color: white;
+}
+.calendar-day.half_day {
+    background-color: #fd7e14;
+    color: white;
+}
+.calendar-day.holiday {
+    background-color: #6c757d;
+    color: white;
+}
+.calendar-day.today {
+    border: 2px solid #007bff;
+    transform: scale(1.1);
+}
+.calendar-day:hover {
+    transform: scale(1.15);
+}
+.calendar-day.empty {
+    background-color: transparent;
+    cursor: default;
+}
+.attendance-timeline {
+    position: relative;
+    padding-left: 30px;
+}
+.attendance-timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #e9ecef;
+}
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -23px;
+    top: 20px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #007bff;
+    border: 2px solid white;
+    z-index: 1;
+}
+.progress-thin {
+    height: 8px;
+}
+.attendance-chart {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    height: 300px;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+.legend-color {
+    width: 15px;
+    height: 15px;
+    border-radius: 3px;
+    margin-right: 8px;
+}
+.attendance-trend {
+    font-size: 0.9rem;
+}
+.trend-up {
+    color: #28a745;
+}
+.trend-down {
+    color: #dc3545;
+}
+.trend-neutral {
+    color: #6c757d;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-2">My Attendance</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'attendance:dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item active">My Attendance</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+                        <i class="fas fa-print me-1"></i> Print Report
+                    </button>
+                    <button type="button" class="btn btn-outline-success" onclick="downloadAttendanceCertificate()">
+                        <i class="fas fa-download me-1"></i> Download Certificate
+                    </button>
+                    <a href="{% url 'attendance:leave_create' %}" class="btn btn-primary">
+                        <i class="fas fa-calendar-plus me-1"></i> Apply for Leave
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Information -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <img src="{% if student.user.profile_picture %}{{ student.user.profile_picture.url }}{% else %}{% static 'img/default-avatar.png' %}{% endif %}" 
+                                 alt="{{ student.user.get_full_name }}" 
+                                 class="rounded-circle" width="100" height="100">
+                        </div>
+                        <div class="col">
+                            <h3 class="mb-2">{{ student.user.get_full_name }}</h3>
+                            <p class="text-muted mb-1">
+                                <i class="fas fa-id-card me-2"></i>{{ student.admission_number }}
+                                • <i class="fas fa-chalkboard me-2"></i>{{ student.current_class.name|default:"No class assigned" }}
+                            </p>
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-calendar-alt me-2"></i>
+                                Academic Session: {{ current_session.name|default:"No active session" }}
+                            </p>
+                        </div>
+                        <div class="col-auto text-end">
+                            <div class="display-4 text-primary mb-0">{{ overall_attendance.percentage }}%</div>
+                            <small class="text-muted">Overall Attendance Rate</small>
+                            <div class="progress mt-2" style="height: 10px; width: 200px;">
+                                <div class="progress-bar 
+                                    {% if overall_attendance.percentage >= 90 %}bg-success
+                                    {% elif overall_attendance.percentage >= 75 %}bg-warning
+                                    {% else %}bg-danger{% endif %}" 
+                                     style="width: {{ overall_attendance.percentage }}%">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Statistics -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card present h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Present Days
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ overall_attendance.present }}
+                            </div>
+                            <div class="mt-2 text-xs text-muted">
+                                {{ overall_attendance.present_percentage }}% of total
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card absent h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Absent Days
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ overall_attendance.absent }}
+                            </div>
+                            <div class="mt-2 text-xs text-muted">
+                                {{ overall_attendance.absent_percentage }}% of total
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-times-circle fa-2x text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card late h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Late Arrivals
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ overall_attendance.late }}
+                            </div>
+                            <div class="mt-2 text-xs text-muted">
+                                {{ overall_attendance.late_percentage }}% of total
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card leave h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                On Leave
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ overall_attendance.leave }}
+                            </div>
+                            <div class="mt-2 text-xs text-muted">
+                                {{ overall_attendance.leave_percentage }}% of total
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-minus fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Attendance Charts -->
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Attendance Analytics</h6>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-primary active" data-period="monthly">Monthly</button>
+                        <button type="button" class="btn btn-outline-primary" data-period="weekly">Weekly</button>
+                        <button type="button" class="btn btn-outline-primary" data-period="yearly">Yearly</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Monthly Attendance Chart -->
+                    <div class="mb-4">
+                        <h6 class="border-bottom pb-2">Monthly Attendance Trend</h6>
+                        <div id="attendanceTrendChart" class="attendance-chart">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading chart...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Loading attendance trend...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status Distribution -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2">Status Distribution</h6>
+                            <div id="statusDistributionChart">
+                                <div class="text-center py-3">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2">Performance Indicators</h6>
+                            <div class="list-group list-group-flush">
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    Current Streak
+                                    <span class="badge bg-success rounded-pill">{{ performance_indicators.current_streak }} days</span>
+                                </div>
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    Best Streak
+                                    <span class="badge bg-primary rounded-pill">{{ performance_indicators.best_streak }} days</span>
+                                </div>
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    Consecutive Absences
+                                    <span class="badge bg-danger rounded-pill">{{ performance_indicators.consecutive_absences }}</span>
+                                </div>
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    Monthly Trend
+                                    <span class="attendance-trend {% if performance_indicators.monthly_trend > 0 %}trend-up{% elif performance_indicators.monthly_trend < 0 %}trend-down{% else %}trend-neutral{% endif %}">
+                                        {% if performance_indicators.monthly_trend > 0 %}+{% endif %}{{ performance_indicators.monthly_trend }}%
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- This Month's Calendar & Quick Stats -->
+        <div class="col-lg-4 mb-4">
+            <!-- Attendance Calendar -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{{ current_month }} Attendance Calendar</h6>
+                </div>
+                <div class="card-body">
+                    <div class="attendance-calendar">
+                        <div class="text-center mb-3">
+                            <h5 class="text-primary">{{ current_month_name }} {{ current_year }}</h5>
+                        </div>
+                        <div class="row text-center mb-2">
+                            {% for day in week_days %}
+                            <div class="col p-1">
+                                <small class="text-muted fw-bold">{{ day }}</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div id="monthCalendar">
+                            <!-- Calendar will be populated by JavaScript -->
+                            <div class="text-center py-3">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Loading calendar...</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Calendar Legend -->
+                        <div class="mt-3 pt-3 border-top">
+                            <div class="row small text-center">
+                                <div class="col-3">
+                                    <div class="legend-item justify-content-center">
+                                        <div class="legend-color bg-success"></div>
+                                        <span>Present</span>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="legend-item justify-content-center">
+                                        <div class="legend-color bg-danger"></div>
+                                        <span>Absent</span>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="legend-item justify-content-center">
+                                        <div class="legend-color bg-warning"></div>
+                                        <span>Late</span>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="legend-item justify-content-center">
+                                        <div class="legend-color bg-info"></div>
+                                        <span>Leave</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- This Month's Summary -->
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">This Month Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="h2 text-primary mb-0">{{ current_month_stats.percentage }}%</div>
+                        <div class="text-muted">Monthly Attendance</div>
+                        <div class="progress mt-2 progress-thin">
+                            <div class="progress-bar 
+                                {% if current_month_stats.percentage >= 90 %}bg-success
+                                {% elif current_month_stats.percentage >= 75 %}bg-warning
+                                {% else %}bg-danger{% endif %}" 
+                                 style="width: {{ current_month_stats.percentage }}%">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row text-center">
+                        <div class="col-3">
+                            <div class="h6 mb-0 text-success">{{ current_month_stats.present }}</div>
+                            <small class="text-muted">Present</small>
+                        </div>
+                        <div class="col-3">
+                            <div class="h6 mb-0 text-danger">{{ current_month_stats.absent }}</div>
+                            <small class="text-muted">Absent</small>
+                        </div>
+                        <div class="col-3">
+                            <div class="h6 mb-0 text-warning">{{ current_month_stats.late }}</div>
+                            <small class="text-muted">Late</small>
+                        </div>
+                        <div class="col-3">
+                            <div class="h6 mb-0 text-info">{{ current_month_stats.leave }}</div>
+                            <small class="text-muted">Leave</small>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-outline-info btn-sm" onclick="viewDetailedReport()">
+                                <i class="fas fa-chart-bar me-1"></i> View Detailed Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Attendance Records -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Attendance Records</h6>
+                    <div class="btn-group">
+                        <a href="{% url 'attendance:daily_list' %}?student={{ student.id }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-list me-1"></i> View All Records
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-success" onclick="exportAttendanceData()">
+                            <i class="fas fa-file-export me-1"></i> Export Data
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if recent_attendances %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Session</th>
+                                    <th>Status</th>
+                                    <th>Check-in Time</th>
+                                    <th>Check-out Time</th>
+                                    <th>Total Hours</th>
+                                    <th>Remarks</th>
+                                    <th>Marked By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for attendance in recent_attendances %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ attendance.date }}</strong>
+                                        {% if attendance.date == today %}
+                                        <span class="badge bg-primary ms-1">Today</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ attendance.attendance_session.name }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if attendance.status == 'present' %}bg-success
+                                            {% elif attendance.status == 'absent' %}bg-danger
+                                            {% elif attendance.status == 'late' %}bg-warning
+                                            {% elif attendance.status == 'leave' %}bg-info
+                                            {% elif attendance.status == 'half_day' %}bg-orange text-white
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ attendance.get_status_display }}
+                                        </span>
+                                        {% if attendance.is_late %}
+                                        <i class="fas fa-clock text-warning ms-1" title="Late Arrival"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if attendance.check_in_time %}
+                                            <span class="text-success">{{ attendance.check_in_time|time }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if attendance.check_out_time %}
+                                            <span class="text-info">{{ attendance.check_out_time|time }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if attendance.total_hours %}
+                                            <span class="badge bg-light text-dark">{{ attendance.total_hours }}h</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if attendance.remarks %}
+                                            <span class="d-inline-block text-truncate" style="max-width: 150px;" 
+                                                  title="{{ attendance.remarks }}">
+                                                {{ attendance.remarks }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {% if attendance.marked_by %}
+                                                {{ attendance.marked_by.get_full_name }}
+                                            {% else %}
+                                                System
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">No Attendance Records Found</h5>
+                        <p class="text-muted">Your attendance records will appear here once marked by your teachers.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Attendance Summary -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Monthly Attendance Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-primary">
+                                <tr>
+                                    <th>Month</th>
+                                    <th>Total Days</th>
+                                    <th>Present</th>
+                                    <th>Absent</th>
+                                    <th>Late</th>
+                                    <th>Leave</th>
+                                    <th>Attendance %</th>
+                                    <th>Consecutive Absences</th>
+                                    <th>Trend</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for summary in monthly_summaries %}
+                                <tr>
+                                    <td><strong>{{ summary.month_name }} {{ summary.year }}</strong></td>
+                                    <td>{{ summary.total_school_days }}</td>
+                                    <td class="text-success">
+                                        <i class="fas fa-check me-1"></i>{{ summary.days_present }}
+                                    </td>
+                                    <td class="text-danger">
+                                        <i class="fas fa-times me-1"></i>{{ summary.days_absent }}
+                                    </td>
+                                    <td class="text-warning">
+                                        <i class="fas fa-clock me-1"></i>{{ summary.days_late }}
+                                    </td>
+                                    <td class="text-info">
+                                        <i class="fas fa-calendar-minus me-1"></i>{{ summary.days_on_leave }}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress flex-grow-1 me-2 progress-thin">
+                                                <div class="progress-bar 
+                                                    {% if summary.attendance_percentage >= 90 %}bg-success
+                                                    {% elif summary.attendance_percentage >= 75 %}bg-warning
+                                                    {% else %}bg-danger{% endif %}" 
+                                                     style="width: {{ summary.attendance_percentage }}%">
+                                                </div>
+                                            </div>
+                                            <span class="fw-bold">{{ summary.attendance_percentage }}%</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if summary.consecutive_absences > 0 %}
+                                        <span class="badge bg-danger">{{ summary.consecutive_absences }}</span>
+                                        {% else %}
+                                        <span class="badge bg-success">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if summary.trend > 0 %}
+                                        <span class="text-success"><i class="fas fa-arrow-up"></i> {{ summary.trend }}%</span>
+                                        {% elif summary.trend < 0 %}
+                                        <span class="text-danger"><i class="fas fa-arrow-down"></i> {{ summary.trend|abs }}%</span>
+                                        {% else %}
+                                        <span class="text-muted"><i class="fas fa-minus"></i> 0%</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">
+                                        <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                                        <p class="text-muted">No monthly summaries available yet.</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Report Modal -->
+<div class="modal fade" id="detailedReportModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detailed Attendance Report</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detailedReportContent">
+                <!-- Report content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="printDetailedReport()">
+                    <i class="fas fa-print me-1"></i> Print Report
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load attendance charts
+    loadAttendanceTrendChart();
+    loadStatusDistributionChart();
+    
+    // Load calendar
+    loadAttendanceCalendar();
+    
+    // Initialize period buttons
+    initializePeriodButtons();
+    
+    // Update real-time data
+    updateRealTimeData();
+});
+
+function loadAttendanceTrendChart() {
+    // This would typically fetch data from an API endpoint
+    const monthlyData = {{ monthly_data|safe }};
+    
+    const chartContainer = document.getElementById('attendanceTrendChart');
+    if (chartContainer && monthlyData.length > 0) {
+        let chartHTML = `
+            <div class="text-center">
+                <div class="row align-items-end" style="height: 200px;">
+        `;
+        
+        const maxValue = Math.max(...monthlyData.map(item => item.percentage));
+        
+        monthlyData.forEach(item => {
+            const height = (item.percentage / maxValue) * 150;
+            chartHTML += `
+                <div class="col text-center">
+                    <div class="d-flex flex-column align-items-center">
+                        <div class="bg-primary rounded-top" style="width: 20px; height: ${height}px; margin-bottom: 5px;"></div>
+                        <div class="small text-muted">${item.month}</div>
+                        <div class="fw-bold">${item.percentage}%</div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        chartHTML += `
+                </div>
+                <div class="mt-3">
+                    <div class="row">
+                        <div class="col-6 text-end">
+                            <small class="text-muted">Best: ${Math.max(...monthlyData.map(item => item.percentage))}%</small>
+                        </div>
+                        <div class="col-6 text-start">
+                            <small class="text-muted">Average: ${(monthlyData.reduce((sum, item) => sum + item.percentage, 0) / monthlyData.length).toFixed(1)}%</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        chartContainer.innerHTML = chartHTML;
+    }
+}
+
+function loadStatusDistributionChart() {
+    const statusData = {
+        present: {{ overall_attendance.present }},
+        absent: {{ overall_attendance.absent }},
+        late: {{ overall_attendance.late }},
+        leave: {{ overall_attendance.leave }},
+        half_day: {{ overall_attendance.half_day|default:0 }}
+    };
+    
+    const total = Object.values(statusData).reduce((sum, value) => sum + value, 0);
+    
+    const distributionContainer = document.getElementById('statusDistributionChart');
+    if (distributionContainer && total > 0) {
+        let distributionHTML = '';
+        
+        Object.entries(statusData).forEach(([status, count]) => {
+            if (count > 0) {
+                const percentage = ((count / total) * 100).toFixed(1);
+                let statusClass = '';
+                let statusIcon = '';
+                
+                switch(status) {
+                    case 'present':
+                        statusClass = 'success';
+                        statusIcon = 'fa-check';
+                        break;
+                    case 'absent':
+                        statusClass = 'danger';
+                        statusIcon = 'fa-times';
+                        break;
+                    case 'late':
+                        statusClass = 'warning';
+                        statusIcon = 'fa-clock';
+                        break;
+                    case 'leave':
+                        statusClass = 'info';
+                        statusIcon = 'fa-calendar-minus';
+                        break;
+                    case 'half_day':
+                        statusClass = 'orange';
+                        statusIcon = 'fa-adjust';
+                        break;
+                }
+                
+                distributionHTML += `
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span>
+                                <i class="fas ${statusIcon} text-${statusClass} me-2"></i>
+                                ${status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+                            </span>
+                            <span class="fw-bold">${percentage}%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-${statusClass}" style="width: ${percentage}%"></div>
+                        </div>
+                        <div class="small text-muted text-end mt-1">${count} days</div>
+                    </div>
+                `;
+            }
+        });
+        
+        distributionContainer.innerHTML = distributionHTML;
+    }
+}
+
+function loadAttendanceCalendar() {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    
+    // Get first day of month and number of days
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    
+    let calendarHTML = '<div class="row">';
+    
+    // Add empty cells for days before the first day of month
+    for (let i = 0; i < firstDay; i++) {
+        calendarHTML += '<div class="col p-1"><div class="calendar-day empty"></div></div>';
+    }
+    
+    // Add days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isToday = day === today.getDate() && currentMonth === today.getMonth();
+        
+        // Get attendance status for this day (this would come from backend in real implementation)
+        const attendanceStatus = getAttendanceStatusForDate(dateStr);
+        
+        calendarHTML += `
+            <div class="col p-1">
+                <div class="calendar-day ${attendanceStatus} ${isToday ? 'today' : ''}" 
+                     data-date="${dateStr}"
+                     data-bs-toggle="tooltip" 
+                     title="${dateStr}: ${attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1).replace('_', ' ')}">
+                    ${day}
+                </div>
+            </div>
+        `;
+        
+        // Start new row after Saturday
+        if ((firstDay + day) % 7 === 0 && day !== daysInMonth) {
+            calendarHTML += '</div><div class="row">';
+        }
+    }
+    
+    calendarHTML += '</div>';
+    
+    document.getElementById('monthCalendar').innerHTML = calendarHTML;
+    
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+}
+
+function getAttendanceStatusForDate(dateStr) {
+    // This is a mock function - in real implementation, this would fetch from backend
+    const statuses = ['present', 'absent', 'late', 'leave', 'half_day'];
+    const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+    
+    // Make present more likely for demo purposes
+    return Math.random() > 0.3 ? 'present' : randomStatus;
+}
+
+function initializePeriodButtons() {
+    const periodButtons = document.querySelectorAll('[data-period]');
+    periodButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Remove active class from all buttons
+            periodButtons.forEach(btn => btn.classList.remove('active'));
+            // Add active class to clicked button
+            this.classList.add('active');
+            
+            const period = this.getAttribute('data-period');
+            loadAttendanceDataForPeriod(period);
+        });
+    });
+}
+
+function loadAttendanceDataForPeriod(period) {
+    // Show loading state
+    const chartContainer = document.getElementById('attendanceTrendChart');
+    chartContainer.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading ${period} data...</span>
+            </div>
+            <p class="mt-2 text-muted">Loading ${period} attendance data...</p>
+        </div>
+    `;
+    
+    // Simulate API call
+    setTimeout(() => {
+        loadAttendanceTrendChart(); // Reload with new period data
+    }, 1000);
+}
+
+function updateRealTimeData() {
+    // Update any real-time data every 30 seconds
+    setInterval(() => {
+        // This would fetch updated data from the server
+        console.log('Updating real-time attendance data...');
+    }, 30000);
+}
+
+function downloadAttendanceCertificate() {
+    // Show loading state
+    const originalText = event.target.innerHTML;
+    event.target.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Generating...';
+    event.target.disabled = true;
+
+    // Simulate certificate generation
+    setTimeout(() => {
+        // Reset button
+        event.target.innerHTML = originalText;
+        event.target.disabled = false;
+
+        // Show success message
+        alert('Attendance certificate download would start here.');
+        // In real implementation: window.location.href = '/attendance/certificate/download/';
+    }, 2000);
+}
+
+function viewDetailedReport() {
+    // Show loading in modal
+    const modalContent = document.getElementById('detailedReportContent');
+    modalContent.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading report...</span>
+            </div>
+            <p class="mt-2 text-muted">Loading detailed report...</p>
+        </div>
+    `;
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('detailedReportModal'));
+    modal.show();
+
+    // Simulate loading detailed report data
+    setTimeout(() => {
+        modalContent.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <h5 class="mb-3">Detailed Attendance Report - {{ current_month_name }} {{ current_year }}</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Check-in</th>
+                                    <th>Check-out</th>
+                                    <th>Hours</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Report data would be populated here -->
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">
+                                        Detailed report data would be loaded here from the server.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    }, 1000);
+}
+
+function exportAttendanceData() {
+    // Show loading state
+    const originalText = event.target.innerHTML;
+    event.target.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Exporting...';
+    event.target.disabled = true;
+
+    // Simulate export
+    setTimeout(() => {
+        // Reset button
+        event.target.innerHTML = originalText;
+        event.target.disabled = false;
+
+        // Show success message
+        alert('Attendance data export would start here. CSV/Excel file would be downloaded.');
+        // In real implementation: window.location.href = '/attendance/export/';
+    }, 1500);
+}
+
+function printDetailedReport() {
+    // Get the modal content
+    const modalContent = document.getElementById('detailedReportContent');
+
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Attendance Report</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                .header { text-align: center; margin-bottom: 20px; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h2>Student Attendance Report</h2>
+                <p>{{ student.user.get_full_name }} - {{ current_month_name }} {{ current_year }}</p>
+            </div>
+            ${modalContent.innerHTML}
+        </body>
+        </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.print();
+}
+</script>
+
+{% endblock %}

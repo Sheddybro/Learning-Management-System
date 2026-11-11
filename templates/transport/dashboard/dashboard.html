@@ -1,0 +1,764 @@
+<!-- templates/transport/dashboard/dashboard.html -->
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Transport Dashboard - School Management System" %}{% endblock %}
+
+{% block meta_description %}{% trans "Comprehensive transport management dashboard with fleet overview, maintenance alerts, and allocation statistics." %}{% endblock %}
+
+{% block body_class %}transport-dashboard-page{% endblock %}
+
+{% block page_title %}{% trans "Transport Dashboard" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Transport Dashboard" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .transport-dashboard-page {
+        background-color: #f8f9fa;
+    }
+
+    /* Dashboard Specific Styles */
+    .transport-dashboard {
+        opacity: 1;
+        transition: opacity 0.3s ease;
+    }
+
+    .transport-dashboard.loading {
+        opacity: 0.7;
+    }
+
+    .welcome-card {
+        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+        border-radius: 1rem;
+    }
+
+    .avatar {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .avatar-sm {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+
+    .stat-card {
+        border-radius: 0.75rem;
+        border: 0;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+        min-height: 120px;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.5s ease, transform 0.5s ease, box-shadow 0.3s ease;
+    }
+
+    .stat-card.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0;
+    }
+
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+
+    .chart-container {
+        background: #fff;
+        border-radius: 0.75rem;
+        border: 0;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        padding: 1.5rem;
+        height: 100%;
+        min-height: 300px;
+    }
+
+    .quick-action-card {
+        border-radius: 0.75rem;
+        border: 0;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .quick-action-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        cursor: pointer;
+    }
+
+    .quick-action-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+    }
+
+    .incident-item {
+        border-left: 4px solid;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .incident-high {
+        border-left-color: #dc3545;
+    }
+
+    .incident-medium {
+        border-left-color: #fd7e14;
+    }
+
+    .incident-low {
+        border-left-color: #20c997;
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .maintenance-warning {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+    }
+
+    .maintenance-critical {
+        background-color: #f8d7da;
+        border-left: 4px solid #dc3545;
+    }
+
+    .progress-thin {
+        height: 6px;
+    }
+
+    .dashboard-section {
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: var(--bs-body-color);
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        z-index: 10;
+    }
+
+    [data-bs-theme="dark"] .loading-overlay {
+        background: rgba(0, 0, 0, 0.8);
+    }
+
+    /* Dark theme support */
+    [data-bs-theme="dark"] .transport-dashboard-page {
+        background-color: #212529;
+    }
+
+    [data-bs-theme="dark"] .chart-container {
+        background-color: #2d3338;
+        border-color: #495057;
+    }
+
+    [data-bs-theme="dark"] .text-muted {
+        color: #adb5bd !important;
+    }
+
+    [data-bs-theme="dark"] .card {
+        background-color: #2d3338;
+        border-color: #495057;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .stat-value {
+            font-size: 1.5rem;
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 1.25rem;
+        }
+
+        .chart-container {
+            min-height: 250px;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .stat-card {
+            min-height: 100px;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            font-size: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="transport-dashboard" id="transportDashboard">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 bg-primary text-white welcome-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="card-title h4 mb-2">
+                                {% trans "Welcome to Transport Management" %}, {{ user.display_name }}!
+                            </h2>
+                            <p class="card-text mb-0 opacity-75">
+                                {% now "l, F j, Y" %}
+                            </p>
+                            {% if user.user_type %}
+                            <span class="badge bg-light text-primary mt-2">
+                                {{ user.get_user_type_display }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <div class="dashboard-stats-mini">
+                                <div class="stat-item">
+                                    <i class="bi bi-bus-front fs-1 opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="dashboard-section">
+        <div class="row">
+            <div class="col-12">
+                <h3 class="section-title">{% trans "Transport Overview" %}</h3>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Vehicle Statistics -->
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card stat-card" id="statVehicle">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h2 class="stat-value text-primary">{{ total_vehicles }}</h2>
+                                <p class="stat-label">{% trans "Total Vehicles" %}</p>
+                            </div>
+                            <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                                <i class="fas fa-bus"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-success">
+                                <i class="fas fa-check-circle me-1"></i>
+                                {{ active_vehicles }} {% trans "Active" %}
+                            </small>
+                            <small class="text-warning ms-2">
+                                <i class="fas fa-tools me-1"></i>
+                                {{ maintenance_vehicles }} {% trans "In Maintenance" %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Driver Statistics -->
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card stat-card" id="statDriver">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h2 class="stat-value text-success">{{ total_drivers }}</h2>
+                                <p class="stat-label">{% trans "Total Drivers" %}</p>
+                            </div>
+                            <div class="stat-icon bg-success bg-opacity-10 text-success">
+                                <i class="fas fa-id-card"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-success">
+                                <i class="fas fa-check-circle me-1"></i>
+                                {{ active_drivers }} {% trans "Active" %}
+                            </small>
+                            {% if drivers_with_expired_license > 0 %}
+                            <small class="text-danger ms-2">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                {{ drivers_with_expired_license }} {% trans "License Expired" %}
+                            </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Route Statistics -->
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card stat-card" id="statRoute">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h2 class="stat-value text-info">{{ total_routes }}</h2>
+                                <p class="stat-label">{% trans "Total Routes" %}</p>
+                            </div>
+                            <div class="stat-icon bg-info bg-opacity-10 text-info">
+                                <i class="fas fa-route"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-success">
+                                <i class="fas fa-check-circle me-1"></i>
+                                {{ active_routes }} {% trans "Active" %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Allocation Statistics -->
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card stat-card" id="statAllocation">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h2 class="stat-value text-warning">{{ total_allocations }}</h2>
+                                <p class="stat-label">{% trans "Total Allocations" %}</p>
+                            </div>
+                            <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                                <i class="fas fa-users"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-success">
+                                <i class="fas fa-check-circle me-1"></i>
+                                {{ active_allocations }} {% trans "Active" %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts and Detailed Information -->
+    <div class="dashboard-section">
+        <div class="row">
+            <!-- Vehicle Status Chart -->
+            <div class="col-lg-8 mb-4">
+                <div class="chart-container position-relative">
+                    <h5 class="mb-3">{% trans "Vehicle Status Distribution" %}</h5>
+                    <canvas id="vehicleStatusChart" height="300"></canvas>
+                    <div class="loading-overlay" id="chartLoading" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">{% trans "Loading chart..." %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="col-lg-4 mb-4">
+                <div class="chart-container">
+                    <h5 class="mb-3">{% trans "Quick Actions" %}</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6 col-sm-6">
+                            <a href="{% url 'transport:vehicle_create' %}" class="card quick-action-card text-decoration-none">
+                                <div class="card-body text-center">
+                                    <div class="quick-action-icon bg-primary bg-opacity-10 text-primary mx-auto">
+                                        <i class="fas fa-plus"></i>
+                                    </div>
+                                    <h6 class="card-title mb-0">{% trans "Add Vehicle" %}</h6>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-6 col-sm-6">
+                            <a href="{% url 'transport:route_create' %}" class="card quick-action-card text-decoration-none">
+                                <div class="card-body text-center">
+                                    <div class="quick-action-icon bg-info bg-opacity-10 text-info mx-auto">
+                                        <i class="fas fa-road"></i>
+                                    </div>
+                                    <h6 class="card-title mb-0">{% trans "Create Route" %}</h6>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-6 col-sm-6">
+                            <a href="{% url 'transport:routeschedule_create' %}" class="card quick-action-card text-decoration-none">
+                                <div class="card-body text-center">
+                                    <div class="quick-action-icon bg-success bg-opacity-10 text-success mx-auto">
+                                        <i class="fas fa-calendar-plus"></i>
+                                    </div>
+                                    <h6 class="card-title mb-0">{% trans "Schedule Route" %}</h6>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-6 col-sm-6">
+                            <a href="{% url 'transport:transportallocation_create' %}" class="card quick-action-card text-decoration-none">
+                                <div class="card-body text-center">
+                                    <div class="quick-action-icon bg-warning bg-opacity-10 text-warning mx-auto">
+                                        <i class="fas fa-user-plus"></i>
+                                    </div>
+                                    <h6 class="card-title mb-0">{% trans "Allocate Student" %}</h6>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Maintenance and Incidents -->
+    <div class="dashboard-section">
+        <div class="row">
+            <!-- Maintenance Alerts -->
+            <div class="col-lg-6 mb-4">
+                <div class="chart-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">{% trans "Maintenance Alerts" %}</h5>
+                        <span class="badge bg-warning">{{ pending_maintenance }}</span>
+                    </div>
+
+                    {% if pending_maintenance > 0 %}
+                        <div class="alert alert-warning d-flex align-items-center" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <div>
+                                {% trans "You have" %} {{ pending_maintenance }} {% trans "vehicles due for maintenance soon" %}
+                            </div>
+                        </div>
+
+                        <div class="maintenance-warning p-3 mb-3">
+                            <h6 class="mb-2">{% trans "Vehicles Due for Maintenance" %}</h6>
+                            <p class="mb-1 small">{% trans "Regular maintenance ensures vehicle safety and reliability." %}</p>
+                            <a href="{% url 'transport:vehicle_maintenance_schedule' %}" class="btn btn-sm btn-outline-warning mt-2">
+                                {% trans "View Maintenance Schedule" %}
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-check-circle text-success fa-2x mb-2"></i>
+                            <p class="mb-0 text-muted">{% trans "All vehicles are up to date with maintenance" %}</p>
+                        </div>
+                    {% endif %}
+
+                    <div class="mt-3">
+                        <a href="{% url 'transport:maintenancerecord_create' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus me-1"></i> {% trans "Add Maintenance Record" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Incidents -->
+            <div class="col-lg-6 mb-4">
+                <div class="chart-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">{% trans "Recent Incidents" %}</h5>
+                        <a href="{% url 'transport:incidentreport_list' %}" class="btn btn-sm btn-outline-primary">{% trans "View All" %}</a>
+                    </div>
+
+                    {% if recent_incidents %}
+                        {% for incident in recent_incidents %}
+                        <div class="incident-item {% if incident.severity == 'high' or incident.severity == 'critical' %}incident-high{% elif incident.severity == 'medium' %}incident-medium{% else %}incident-low{% endif %}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ incident.get_incident_type_display }}</h6>
+                                    <p class="mb-1 small">{{ incident.description|truncatewords:15 }}</p>
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar me-1"></i>{{ incident.date }}
+                                        <i class="fas fa-clock ms-2 me-1"></i>{{ incident.time|time:"H:i" }}
+                                    </small>
+                                </div>
+                                <span class="status-badge {% if incident.severity == 'high' or incident.severity == 'critical' %}bg-danger{% elif incident.severity == 'medium' %}bg-warning{% else %}bg-success{% endif %}">
+                                    {{ incident.get_severity_display }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-check-circle text-success fa-2x mb-2"></i>
+                            <p class="mb-0 text-muted">{% trans "No recent incidents reported" %}</p>
+                        </div>
+                    {% endif %}
+
+                    <div class="mt-3">
+                        <a href="{% url 'transport:incidentreport_create' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus me-1"></i> {% trans "Report Incident" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Information -->
+    <div class="dashboard-section">
+        <div class="row">
+            <div class="col-12">
+                <div class="chart-container">
+                    <h5 class="mb-3">{% trans "Transport Management Links" %}</h5>
+                    <div class="row">
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="d-flex align-items-center p-2 border rounded">
+                                <i class="fas fa-bus text-primary me-3"></i>
+                                <div>
+                                    <a href="{% url 'transport:vehicle_list' %}" class="text-decoration-none">
+                                        <h6 class="mb-0">{% trans "Vehicle Management" %}</h6>
+                                    </a>
+                                    <small class="text-muted">{% trans "Manage fleet vehicles" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="d-flex align-items-center p-2 border rounded">
+                                <i class="fas fa-id-card text-success me-3"></i>
+                                <div>
+                                    <a href="{% url 'transport:driver_list' %}" class="text-decoration-none">
+                                        <h6 class="mb-0">{% trans "Driver Management" %}</h6>
+                                    </a>
+                                    <small class="text-muted">{% trans "Manage drivers and licenses" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="d-flex align-items-center p-2 border rounded">
+                                <i class="fas fa-route text-info me-3"></i>
+                                <div>
+                                    <a href="{% url 'transport:route_list' %}" class="text-decoration-none">
+                                        <h6 class="mb-0">{% trans "Route Management" %}</h6>
+                                    </a>
+                                    <small class="text-muted">{% trans "Manage transport routes" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="d-flex align-items-center p-2 border rounded">
+                                <i class="fas fa-chart-bar text-warning me-3"></i>
+                                <div>
+                                    <a href="{% url 'transport:analytics' %}" class="text-decoration-none">
+                                        <h6 class="mb-0">{% trans "Analytics" %}</h6>
+                                    </a>
+                                    <small class="text-muted">{% trans "View transport analytics" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize dashboard
+        initDashboard();
+
+        function initDashboard() {
+            initializeCharts();
+            initializeAnimations();
+            setupEventListeners();
+        }
+
+        function initializeCharts() {
+            const vehicleStatusCtx = document.getElementById('vehicleStatusChart');
+            if (!vehicleStatusCtx) return;
+
+            // Show loading state
+            const chartLoading = document.getElementById('chartLoading');
+            if (chartLoading) {
+                chartLoading.style.display = 'flex';
+            }
+
+            // Get data from Django template variables
+            const vehicleStatusData = {
+                {% for status, count in vehicle_status_distribution.items %}
+                    '{{ status }}': {{ count }},
+                {% endfor %}
+            };
+
+            // Prepare chart data
+            const statusLabels = [];
+            const statusCounts = [];
+
+            const statusDisplayNames = {
+                'active': 'Active',
+                'inactive': 'Inactive',
+                'maintenance': 'Maintenance',
+                'out_of_service': 'Out of Service'
+            };
+
+            for (const [status, count] of Object.entries(vehicleStatusData)) {
+                statusLabels.push(statusDisplayNames[status] || status);
+                statusCounts.push(count);
+            }
+
+            // Create the chart with delay to ensure proper rendering
+            setTimeout(() => {
+                try {
+                    const vehicleStatusChart = new Chart(vehicleStatusCtx.getContext('2d'), {
+                        type: 'doughnut',
+                        data: {
+                            labels: statusLabels,
+                            datasets: [{
+                                data: statusCounts,
+                                backgroundColor: [
+                                    '#28a745',
+                                    '#6c757d',
+                                    '#fd7e14',
+                                    '#dc3545'
+                                ],
+                                borderWidth: 2,
+                                borderColor: '#fff'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: {
+                                duration: 1000,
+                                easing: 'easeOutQuart'
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        padding: 20,
+                                        usePointStyle: true
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const label = context.label || '';
+                                            const value = context.raw || 0;
+                                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                            const percentage = Math.round((value / total) * 100);
+                                            return `${label}: ${value} (${percentage}%)`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    // Hide loading state
+                    if (chartLoading) {
+                        chartLoading.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error('Error initializing chart:', error);
+                    if (chartLoading) {
+                        chartLoading.style.display = 'none';
+                    }
+                }
+            }, 100);
+        }
+
+        function initializeAnimations() {
+            // Initialize stat cards with intersection observer
+            const statCards = document.querySelectorAll('.stat-card');
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && !entry.target.classList.contains('visible')) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, {
+                threshold: 0.1,
+                rootMargin: '0px 0px 0px 0px'
+            });
+
+            statCards.forEach(card => {
+                observer.observe(card);
+            });
+
+            // Add staggered animation delay
+            statCards.forEach((card, index) => {
+                card.style.transitionDelay = `${index * 0.1}s`;
+            });
+        }
+
+        function setupEventListeners() {
+            // Quick action card hover effects
+            const quickActionCards = document.querySelectorAll('.quick-action-card');
+            quickActionCards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.cursor = 'pointer';
+                });
+            });
+
+            // Window resize handler for charts
+            let resizeTimeout;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    // Reinitialize charts on resize if needed
+                    console.log('Window resized - charts should be responsive');
+                }, 250);
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,886 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Reservations" %}{% endblock %}
+
+{% block page_title %}{% trans "Book Reservations" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Reservations" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stats-card-1 { border-left-color: #6f42c1; }
+    .stats-card-2 { border-left-color: #28a745; }
+    .stats-card-3 { border-left-color: #ffc107; }
+    .stats-card-4 { border-left-color: #dc3545; }
+    
+    .reservation-card {
+        border-left: 4px solid #6f42c1;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .reservation-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .reservation-card.expired {
+        border-left-color: #dc3545;
+        opacity: 0.8;
+    }
+    
+    .reservation-card.fulfilled {
+        border-left-color: #28a745;
+    }
+    
+    .reservation-card.cancelled {
+        border-left-color: #6c757d;
+        opacity: 0.6;
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .table-actions {
+        white-space: nowrap;
+    }
+    
+    .search-box {
+        max-width: 300px;
+    }
+    
+    .view-toggle {
+        border-radius: 0.375rem;
+    }
+    
+    .view-toggle .btn {
+        border-radius: 0;
+    }
+    
+    .view-toggle .btn:first-child {
+        border-top-left-radius: 0.375rem;
+        border-bottom-left-radius: 0.375rem;
+    }
+    
+    .view-toggle .btn:last-child {
+        border-top-right-radius: 0.375rem;
+        border-bottom-right-radius: 0.375rem;
+    }
+    
+    .member-avatar {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #65a0f9 0%, #4a7df6 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        font-weight: bold;
+        color: white;
+    }
+    
+    .book-cover {
+        width: 50px;
+        height: 65px;
+        object-fit: cover;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .priority-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .priority-high { background-color: #dc3545; }
+    .priority-medium { background-color: #ffc107; }
+    .priority-low { background-color: #28a745; }
+    
+    .grid-view {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .list-view .reservation-item {
+        border-left: 4px solid #6f42c1;
+        transition: all 0.2s ease;
+    }
+    
+    .list-view .reservation-item:hover {
+        background-color: #f8f9fa;
+        border-left-color: #28a745;
+    }
+    
+    .list-view .reservation-item.expired {
+        border-left-color: #dc3545;
+    }
+    
+    .list-view .reservation-item.fulfilled {
+        border-left-color: #28a745;
+    }
+    
+    .empty-state {
+        padding: 3rem 1rem;
+    }
+    
+    .expiry-warning {
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        border: 1px solid #f5c6cb;
+    }
+    
+    .action-buttons {
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+    
+    .reservation-card:hover .action-buttons,
+    .reservation-item:hover .action-buttons {
+        opacity: 1;
+    }
+    
+    @media (max-width: 768px) {
+        .grid-view {
+            grid-template-columns: 1fr;
+        }
+        
+        .search-box {
+            max-width: 100%;
+        }
+        
+        .action-buttons {
+            opacity: 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-1 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-primary">{{ total_reservations }}</div>
+                            <div class="stat-label">{% trans "Total Reservations" %}</div>
+                        </div>
+                        <div class="stat-icon text-primary">
+                            <i class="bi bi-bookmark-check"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-arrow-up-right text-success me-1"></i>
+                            {% trans "All time reservations" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-2 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-success">{{ pending_reservations }}</div>
+                            <div class="stat-label">{% trans "Pending" %}</div>
+                        </div>
+                        <div class="stat-icon text-success">
+                            <i class="bi bi-clock"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-hourglass-split text-warning me-1"></i>
+                            {% trans "Awaiting fulfillment" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-3 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-warning">{{ expiring_soon }}</div>
+                            <div class="stat-label">{% trans "Expiring Soon" %}</div>
+                        </div>
+                        <div class="stat-icon text-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-clock-history text-danger me-1"></i>
+                            {% trans "Within 2 days" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-danger">{{ expired_reservations }}</div>
+                            <div class="stat-label">{% trans "Expired" %}</div>
+                        </div>
+                        <div class="stat-icon text-danger">
+                            <i class="bi bi-x-circle"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-archive text-secondary me-1"></i>
+                            {% trans "Auto-cancelled" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Bar -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bookmark-check me-2"></i>
+                        {% trans "Book Reservations" %}
+                    </h5>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-end gap-2 flex-wrap">
+                        <!-- Search Box -->
+                        <div class="search-box">
+                            <form method="get" class="d-flex">
+                                <input type="text" name="search" class="form-control" 
+                                       placeholder="{% trans 'Search reservations...' %}" 
+                                       value="{{ request.GET.search }}">
+                                <button type="submit" class="btn btn-outline-primary ms-2">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- Status Filter -->
+                        <select name="status" class="form-select" style="width: auto;" onchange="this.form.submit()">
+                            <option value="">{% trans "All Status" %}</option>
+                            <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>{% trans "Pending" %}</option>
+                            <option value="fulfilled" {% if request.GET.status == 'fulfilled' %}selected{% endif %}>{% trans "Fulfilled" %}</option>
+                            <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>{% trans "Cancelled" %}</option>
+                            <option value="expired" {% if request.GET.status == 'expired' %}selected{% endif %}>{% trans "Expired" %}</option>
+                        </select>
+                        
+                        <!-- View Toggle -->
+                        <div class="btn-group view-toggle" role="group">
+                            <input type="radio" class="btn-check" name="viewMode" id="gridView" autocomplete="off" checked>
+                            <label class="btn btn-outline-primary" for="gridView" onclick="switchView('grid')">
+                                <i class="bi bi-grid-3x3-gap"></i>
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="viewMode" id="listView" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="listView" onclick="switchView('list')">
+                                <i class="bi bi-list-ul"></i>
+                            </label>
+                        </div>
+                        
+                        <!-- Create Reservation Button -->
+                        <a href="{% url 'library:reservation_create' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle me-2"></i>{% trans "New Reservation" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expiring Soon Warning -->
+    {% if expiring_soon > 0 %}
+    <div class="alert expiry-warning mb-4">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-exclamation-triangle-fill text-danger me-2 fs-5"></i>
+            <div>
+                <strong>{% trans "Reservation Expiry Alert" %}</strong>
+                {% blocktrans count count=expiring_soon %}
+                There is {{ count }} reservation expiring soon that needs attention.
+                {% plural %}
+                There are {{ count }} reservations expiring soon that need attention.
+                {% endblocktrans %}
+                <a href="?status=pending&expiring=true" class="alert-link ms-2">{% trans "View expiring reservations" %}</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Reservations Content -->
+    <div class="card">
+        <div class="card-body">
+            <!-- Grid View -->
+            <div id="gridView" class="view-content">
+                {% if reservations %}
+                <div class="grid-view">
+                    {% for reservation in reservations %}
+                    <div class="card reservation-card 
+                        {% if reservation.status == 'expired' or reservation.is_expired %}expired
+                        {% elif reservation.status == 'fulfilled' %}fulfilled
+                        {% elif reservation.status == 'cancelled' %}cancelled{% endif %}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="member-avatar me-3">
+                                        {{ reservation.member.user.get_full_name|slice:":2"|default:reservation.member.user.username|slice:":2"|upper }}
+                                    </div>
+                                    <div>
+                                        <h6 class="card-title mb-1">{{ reservation.member.user.get_full_name|default:reservation.member.user.username }}</h6>
+                                        <p class="card-text text-muted mb-0 small">{{ reservation.member.member_id }}</p>
+                                    </div>
+                                </div>
+                                <div class="dropdown action-buttons">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                            type="button" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'library:reservation_detail' reservation.pk %}">
+                                                <i class="bi bi-eye me-2"></i>{% trans "View Details" %}
+                                            </a>
+                                        </li>
+                                        {% if reservation.status == 'pending' %}
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'library:fulfill_reservation' reservation.pk %}" 
+                                               onclick="return confirm('{% trans 'Fulfill this reservation?' %}')">
+                                                <i class="bi bi-check-circle me-2"></i>{% trans "Fulfill" %}
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'library:book_detail' reservation.book.pk %}">
+                                                <i class="bi bi-book me-2"></i>{% trans "View Book" %}
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item text-danger" 
+                                               href="{% url 'library:reservation_cancel' reservation.pk %}"
+                                               onclick="return confirm('{% trans 'Cancel this reservation?' %}')">
+                                                <i class="bi bi-x-circle me-2"></i>{% trans "Cancel" %}
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <!-- Book Information -->
+                            <div class="d-flex align-items-center mb-3">
+                                {% if reservation.book.cover_image %}
+                                <img src="{{ reservation.book.cover_image.url }}" 
+                                     alt="{{ reservation.book.title }}" 
+                                     class="book-cover me-3">
+                                {% else %}
+                                <div class="book-cover bg-light d-flex align-items-center justify-content-center me-3">
+                                    <i class="bi bi-book text-muted"></i>
+                                </div>
+                                {% endif %}
+                                <div class="flex-grow-1">
+                                    <h6 class="card-title mb-1">{{ reservation.book.title|truncatewords:6 }}</h6>
+                                    <p class="card-text text-muted small mb-0">
+                                        {{ reservation.book.author_names|truncatewords:3 }}
+                                    </p>
+                                    <p class="card-text small mb-0">
+                                        <span class="text-muted">ISBN:</span> 
+                                        {{ reservation.book.isbn|default:"N/A" }}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <!-- Reservation Details -->
+                            <div class="reservation-details">
+                                <div class="row text-center mb-3">
+                                    <div class="col-4">
+                                        <div class="text-primary fw-bold small">
+                                            {% if reservation.priority == 1 %}
+                                            <span class="priority-indicator priority-high"></span>
+                                            {% trans "High" %}
+                                            {% elif reservation.priority == 2 %}
+                                            <span class="priority-indicator priority-medium"></span>
+                                            {% trans "Medium" %}
+                                            {% else %}
+                                            <span class="priority-indicator priority-low"></span>
+                                            {% trans "Low" %}
+                                            {% endif %}
+                                        </div>
+                                        <small class="text-muted">{% trans "Priority" %}</small>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="fw-bold small">{{ reservation.reserve_date|date:"M d" }}</div>
+                                        <small class="text-muted">{% trans "Reserved" %}</small>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="fw-bold small">{{ reservation.expiry_date|date:"M d" }}</div>
+                                        <small class="text-muted">{% trans "Expires" %}</small>
+                                    </div>
+                                </div>
+                                
+                                <!-- Status and Actions -->
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        {% if reservation.status == 'pending' %}
+                                            {% if reservation.is_expired %}
+                                            <span class="badge bg-danger status-badge">
+                                                <i class="bi bi-clock me-1"></i>{% trans "Expired" %}
+                                            </span>
+                                            {% else %}
+                                            <span class="badge bg-warning status-badge">
+                                                <i class="bi bi-clock me-1"></i>{% trans "Pending" %}
+                                            </span>
+                                            {% endif %}
+                                        {% elif reservation.status == 'fulfilled' %}
+                                        <span class="badge bg-success status-badge">
+                                            <i class="bi bi-check-circle me-1"></i>{% trans "Fulfilled" %}
+                                        </span>
+                                        {% elif reservation.status == 'cancelled' %}
+                                        <span class="badge bg-secondary status-badge">
+                                            <i class="bi bi-x-circle me-1"></i>{% trans "Cancelled" %}
+                                        </span>
+                                        {% endif %}
+                                        
+                                        {% if reservation.is_expired and reservation.status == 'pending' %}
+                                        <span class="badge bg-danger status-badge ms-1">
+                                            {% trans "Auto-expire" %}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if reservation.status == 'pending' and not reservation.is_expired %}
+                                    <button class="btn btn-sm btn-success action-buttons" 
+                                            onclick="fulfillReservation('{{ reservation.pk }}')">
+                                        <i class="bi bi-check-circle me-1"></i>{% trans "Fulfill" %}
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Days Remaining -->
+                                {% if reservation.status == 'pending' and not reservation.is_expired %}
+                                <div class="mt-2">
+                                    <div class="progress" style="height: 4px;">
+                                        <div class="progress-bar 
+                                            {% if reservation.days_remaining <= 2 %}bg-danger
+                                            {% elif reservation.days_remaining <= 4 %}bg-warning
+                                            {% else %}bg-success{% endif %}" 
+                                            style="width: {{ reservation.remaining_percentage }}%">
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">
+                                        {{ reservation.days_remaining }} {% trans "days remaining" %}
+                                    </small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state text-center">
+                    <i class="bi bi-bookmark display-1 text-muted d-block mb-3"></i>
+                    <h4>{% trans "No Reservations Found" %}</h4>
+                    <p class="text-muted mb-4">
+                        {% if request.GET.search or request.GET.status %}
+                            {% trans "No reservations match your current filters." %}
+                        {% else %}
+                            {% trans "Get started by creating your first reservation." %}
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'library:reservation_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>{% trans "Create First Reservation" %}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- List View (Hidden by default) -->
+            <div id="listView" class="view-content" style="display: none;">
+                {% if reservations %}
+                <div class="list-view">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% trans "Member" %}</th>
+                                    <th>{% trans "Book" %}</th>
+                                    <th>{% trans "Reserved" %}</th>
+                                    <th>{% trans "Expires" %}</th>
+                                    <th>{% trans "Priority" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                    <th class="text-center">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for reservation in reservations %}
+                                <tr class="reservation-item 
+                                    {% if reservation.status == 'expired' or reservation.is_expired %}expired
+                                    {% elif reservation.status == 'fulfilled' %}fulfilled
+                                    {% elif reservation.status == 'cancelled' %}cancelled{% endif %}">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="member-avatar me-3" style="width: 40px; height: 40px; font-size: 0.875rem;">
+                                                {{ reservation.member.user.get_full_name|slice:":2"|default:reservation.member.user.username|slice:":2"|upper }}
+                                            </div>
+                                            <div>
+                                                <strong>{{ reservation.member.user.get_full_name|default:reservation.member.user.username }}</strong>
+                                                <div class="text-muted small">
+                                                    {{ reservation.member.member_id }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <strong>{{ reservation.book.title|truncatewords:4 }}</strong>
+                                            <div class="text-muted small">
+                                                {{ reservation.book.author_names|truncatewords:2 }}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {{ reservation.reserve_date|date:"M d, Y" }}
+                                        <div class="text-muted small">
+                                            {{ reservation.reserve_date|timesince }} ago
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {{ reservation.expiry_date|date:"M d, Y" }}
+                                        {% if reservation.status == 'pending' and not reservation.is_expired %}
+                                        <div class="text-muted small">
+                                            {{ reservation.days_remaining }} days left
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if reservation.priority == 1 %}
+                                        <span class="badge bg-danger status-badge">{% trans "High" %}</span>
+                                        {% elif reservation.priority == 2 %}
+                                        <span class="badge bg-warning status-badge">{% trans "Medium" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-success status-badge">{% trans "Low" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if reservation.status == 'pending' %}
+                                            {% if reservation.is_expired %}
+                                            <span class="badge bg-danger status-badge">
+                                                <i class="bi bi-clock me-1"></i>{% trans "Expired" %}
+                                            </span>
+                                            {% else %}
+                                            <span class="badge bg-warning status-badge">
+                                                <i class="bi bi-clock me-1"></i>{% trans "Pending" %}
+                                            </span>
+                                            {% endif %}
+                                        {% elif reservation.status == 'fulfilled' %}
+                                        <span class="badge bg-success status-badge">
+                                            <i class="bi bi-check-circle me-1"></i>{% trans "Fulfilled" %}
+                                        </span>
+                                        {% elif reservation.status == 'cancelled' %}
+                                        <span class="badge bg-secondary status-badge">
+                                            <i class="bi bi-x-circle me-1"></i>{% trans "Cancelled" %}
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center table-actions">
+                                        <div class="btn-group btn-group-sm action-buttons" role="group">
+                                            <a href="{% url 'library:reservation_detail' reservation.pk %}" 
+                                               class="btn btn-outline-primary" 
+                                               title="{% trans 'View Details' %}"
+                                               data-bs-toggle="tooltip">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            {% if reservation.status == 'pending' and not reservation.is_expired %}
+                                            <a href="{% url 'library:fulfill_reservation' reservation.pk %}" 
+                                               class="btn btn-outline-success" 
+                                               title="{% trans 'Fulfill' %}"
+                                               data-bs-toggle="tooltip"
+                                               onclick="return confirm('{% trans 'Fulfill this reservation?' %}')">
+                                                <i class="bi bi-check-circle"></i>
+                                            </a>
+                                            {% endif %}
+                                            <a href="{% url 'library:book_detail' reservation.book.pk %}" 
+                                               class="btn btn-outline-info" 
+                                               title="{% trans 'View Book' %}"
+                                               data-bs-toggle="tooltip">
+                                                <i class="bi bi-book"></i>
+                                            </a>
+                                            <a href="{% url 'library:reservation_cancel' reservation.pk %}" 
+                                               class="btn btn-outline-danger" 
+                                               title="{% trans 'Cancel' %}"
+                                               data-bs-toggle="tooltip"
+                                               onclick="return confirm('{% trans 'Cancel this reservation?' %}')">
+                                                <i class="bi bi-x-circle"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty-state text-center">
+                    <i class="bi bi-bookmark display-1 text-muted d-block mb-3"></i>
+                    <h4>{% trans "No Reservations Found" %}</h4>
+                    <p class="text-muted mb-4">
+                        {% if request.GET.search or request.GET.status %}
+                            {% trans "No reservations match your current filters." %}
+                        {% else %}
+                            {% trans "Get started by creating your first reservation." %}
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'library:reservation_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>{% trans "Create First Reservation" %}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated and reservations %}
+            <nav aria-label="{% trans 'Reservations pagination' %}" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                <div class="text-center text-muted small mt-2">
+                    {% trans "Showing" %} {{ page_obj.start_index }} - {{ page_obj.end_index }} {% trans "of" %} {{ paginator.count }} {% trans "reservations" %}
+                </div>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Check if there's a saved view preference
+        const savedView = localStorage.getItem('reservationViewMode') || 'grid';
+        switchView(savedView);
+        
+        // Update radio buttons based on saved view
+        if (savedView === 'grid') {
+            document.getElementById('gridView').checked = true;
+        } else {
+            document.getElementById('listView').checked = true;
+        }
+        
+        // Auto-submit search on Enter key
+        const searchInput = document.querySelector('input[name="search"]');
+        if (searchInput) {
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    this.form.submit();
+                }
+            });
+        }
+        
+        // Auto-submit status filter on change
+        const statusFilter = document.querySelector('select[name="status"]');
+        if (statusFilter) {
+            statusFilter.addEventListener('change', function() {
+                this.form.submit();
+            });
+        }
+        
+        // Add loading state to action buttons
+        const actionButtons = document.querySelectorAll('a.btn, button.btn');
+        actionButtons.forEach(button => {
+            if (button.getAttribute('href') && !button.getAttribute('data-bs-toggle')) {
+                button.addEventListener('click', function(e) {
+                    if (this.getAttribute('onclick') && !this.getAttribute('onclick').includes('confirm')) {
+                        return; // Skip if there's a confirmation dialog
+                    }
+                    
+                    const originalText = this.innerHTML;
+                    this.innerHTML = '<i class="bi bi-arrow-repeat spinner-border spinner-border-sm me-2"></i>Loading...';
+                    this.disabled = true;
+                    
+                    // Revert after 3 seconds if still on same page (in case of error)
+                    setTimeout(() => {
+                        if (this.disabled) {
+                            this.innerHTML = originalText;
+                            this.disabled = false;
+                        }
+                    }, 3000);
+                });
+            }
+        });
+    });
+    
+    function switchView(mode) {
+        const gridView = document.getElementById('gridView');
+        const listView = document.getElementById('listView');
+        const gridRadio = document.getElementById('gridView');
+        const listRadio = document.getElementById('listView');
+        
+        if (mode === 'grid') {
+            gridView.style.display = 'block';
+            listView.style.display = 'none';
+            gridRadio.checked = true;
+            localStorage.setItem('reservationViewMode', 'grid');
+        } else {
+            gridView.style.display = 'none';
+            listView.style.display = 'block';
+            listRadio.checked = true;
+            localStorage.setItem('reservationViewMode', 'list');
+        }
+    }
+    
+    function fulfillReservation(reservationId) {
+        if (confirm('{% trans "Fulfill this reservation and notify the member?" %}')) {
+            window.location.href = window.location.origin + "/library/reservations/" + reservationId + "/fulfill/";
+        }
+    }
+    
+    function cancelReservation(reservationId) {
+        if (confirm('{% trans "Cancel this reservation? This action cannot be undone." %}')) {
+            window.location.href = window.location.origin + "/library/reservations/" + reservationId + "/cancel/";
+        }
+    }
+    
+    // Quick filter functions
+    function filterByStatus(status) {
+        const url = new URL(window.location.href);
+        if (status) {
+            url.searchParams.set('status', status);
+        } else {
+            url.searchParams.delete('status');
+        }
+        url.searchParams.delete('page'); // Reset to first page
+        window.location.href = url.toString();
+    }
+    
+    function showExpiringSoon() {
+        const url = new URL(window.location.href);
+        url.searchParams.set('status', 'pending');
+        url.searchParams.set('expiring', 'true');
+        window.location.href = url.toString();
+    }
+    
+    function clearFilters() {
+        window.location.href = '{% url "library:reservation_list" %}';
+    }
+    
+    // Export functionality
+    function exportReservations() {
+        if (confirm('{% trans "Export reservation list to CSV?" %}')) {
+            window.location.href = '{% url "library:export_reservations" %}?' + new URLSearchParams(window.location.search);
+        }
+    }
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // '/' key to focus search
+        if (e.key === '/' && !e.ctrlKey && !e.altKey) {
+            e.preventDefault();
+            const searchInput = document.querySelector('input[name="search"]');
+            if (searchInput) {
+                searchInput.focus();
+            }
+        }
+        
+        // 'n' key for new reservation
+        if (e.key === 'n' && e.ctrlKey) {
+            e.preventDefault();
+            window.location.href = '{% url "library:reservation_create" %}';
+        }
+        
+        // '1-4' keys for status filters
+        if (e.key >= '1' && e.key <= '4' && !e.ctrlKey) {
+            e.preventDefault();
+            const statusMap = { '1': '', '2': 'pending', '3': 'fulfilled', '4': 'cancelled' };
+            filterByStatus(statusMap[e.key]);
+        }
+    });
+    
+    // Auto-refresh for pending reservations
+    {% if request.GET.status == 'pending' or not request.GET.status %}
+    setInterval(function() {
+        // In a real implementation, this would check for new reservations or status changes
+        console.log('Auto-refreshing reservations...');
+        // You could implement AJAX refresh here if needed
+    }, 60000); // Refresh every minute for pending reservations
+    {% endif %}
+</script>
+{% endblock %}

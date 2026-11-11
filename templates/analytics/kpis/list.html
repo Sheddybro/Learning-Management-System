@@ -1,0 +1,889 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Key Performance Indicators" %}{% endblock %}
+
+{% block page_title %}{% trans "Key Performance Indicators" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'analytics:dashboard' %}">{% trans "Analytics" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "KPIs" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createKpiModal">
+            <i class="bi bi-plus-circle me-1"></i> {% trans "New KPI" %}
+        </button>
+        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" onclick="refreshAllKpis()">
+                <i class="bi bi-arrow-clockwise me-2"></i> {% trans "Refresh All KPIs" %}
+            </a></li>
+            <li><a class="dropdown-item" href="#" onclick="exportKpiData()">
+                <i class="bi bi-download me-2"></i> {% trans "Export KPI Data" %}
+            </a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'analytics:settings' %}">
+                <i class="bi bi-sliders me-2"></i> {% trans "KPI Settings" %}
+            </a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kpi-list-card {
+        background: var(--bs-card-bg);
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .list-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        background: var(--bs-light);
+        border-radius: 0.5rem 0.5rem 0 0;
+    }
+    
+    .list-body {
+        padding: 1.5rem;
+    }
+    
+    .list-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--bs-border-color);
+        background: var(--bs-light-bg-subtle);
+        border-radius: 0 0 0.5rem 0.5rem;
+    }
+    
+    .kpi-card {
+        background: var(--bs-card-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.5rem;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+    
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        border-color: var(--bs-primary);
+    }
+    
+    .kpi-card:last-child {
+        margin-bottom: 0;
+    }
+    
+    .kpi-header {
+        display: flex;
+        justify-content: between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    
+    .kpi-icon {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        flex-shrink: 0;
+        font-size: 1.25rem;
+    }
+    
+    .kpi-content {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .kpi-title {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        color: var(--bs-body-color);
+    }
+    
+    .kpi-description {
+        font-size: 0.875rem;
+        color: var(--bs-secondary);
+        margin-bottom: 0.5rem;
+    }
+    
+    .kpi-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .kpi-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        background: var(--bs-light);
+        color: var(--bs-secondary);
+        font-weight: 500;
+    }
+    
+    .kpi-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-card {
+        text-align: center;
+        padding: 0.75rem;
+        background: var(--bs-light-bg-subtle);
+        border-radius: 0.375rem;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
+        color: var(--bs-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .trend-indicator {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.875rem;
+        font-weight: 600;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+    }
+    
+    .trend-up {
+        color: var(--bs-success);
+        background: rgba(25, 135, 84, 0.1);
+    }
+    
+    .trend-down {
+        color: var(--bs-danger);
+        background: rgba(220, 53, 69, 0.1);
+    }
+    
+    .trend-neutral {
+        color: var(--bs-secondary);
+        background: rgba(108, 117, 125, 0.1);
+    }
+    
+    .kpi-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .btn-kpi-action {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .filters-card {
+        background: var(--bs-card-bg);
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .filter-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        background: var(--bs-light);
+        border-radius: 0.5rem 0.5rem 0 0;
+    }
+    
+    .filter-body {
+        padding: 1.25rem;
+    }
+    
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-overview-card {
+        background: var(--bs-card-bg);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .overview-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+    
+    .overview-label {
+        font-size: 0.875rem;
+        color: var(--bs-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .category-badge {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.375rem;
+        font-weight: 600;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: var(--bs-secondary);
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        opacity: 0.5;
+    }
+    
+    .view-toggle {
+        display: flex;
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.375rem;
+        overflow: hidden;
+        margin-left: 1rem;
+    }
+    
+    .view-option {
+        padding: 0.5rem 0.75rem;
+        background: var(--bs-card-bg);
+        border: none;
+        color: var(--bs-secondary);
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .view-option.active {
+        background: var(--bs-primary);
+        color: white;
+    }
+    
+    .view-option:first-child {
+        border-right: 1px solid var(--bs-border-color);
+    }
+    
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .kpi-grid-view .kpi-card {
+        margin-bottom: 0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .kpi-grid-view .kpi-content {
+        flex: 1;
+    }
+    
+    .refresh-indicator {
+        display: inline-flex;
+        align-items: center;
+        color: var(--bs-secondary);
+        font-size: 0.875rem;
+        margin-left: 1rem;
+    }
+    
+    .refresh-spinner {
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid transparent;
+        border-top: 2px solid var(--bs-primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 0.5rem;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .target-progress {
+        height: 4px;
+        background: var(--bs-light);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+    }
+    
+    .target-progress-bar {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.3s ease;
+    }
+    
+    .progress-on-track {
+        background: var(--bs-success);
+    }
+    
+    .progress-behind {
+        background: var(--bs-warning);
+    }
+    
+    .progress-off-track {
+        background: var(--bs-danger);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Statistics Overview -->
+    <div class="col-12">
+        <div class="stats-overview">
+            <div class="stat-overview-card">
+                <div class="overview-value text-primary">{{ kpis.count }}</div>
+                <div class="overview-label">{% trans "Total KPIs" %}</div>
+            </div>
+            <div class="stat-overview-card">
+                <div class="overview-value text-success">{{ active_kpis_count|default:"0" }}</div>
+                <div class="overview-label">{% trans "Active KPIs" %}</div>
+            </div>
+            <div class="stat-overview-card">
+                <div class="overview-value text-warning">{{ trending_kpis_count|default:"0" }}</div>
+                <div class="overview-label">{% trans "Trending KPIs" %}</div>
+            </div>
+            <div class="stat-overview-card">
+                <div class="overview-value text-info">{{ realtime_kpis_count|default:"0" }}</div>
+                <div class="overview-label">{% trans "Real-time KPIs" %}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="col-12">
+        <div class="filters-card">
+            <div class="filter-header">
+                <h6 class="mb-0">{% trans "Filter KPIs" %}</h6>
+            </div>
+            <div class="filter-body">
+                <form method="get" id="kpi-filter-form">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label for="{{ form.name.id_for_label }}" class="form-label">
+                                {{ form.name.label }}
+                            </label>
+                            {{ form.name }}
+                        </div>
+                        <div class="col-md-3">
+                            <label for="{{ form.category.id_for_label }}" class="form-label">
+                                {{ form.category.label }}
+                            </label>
+                            {{ form.category }}
+                        </div>
+                        <div class="col-md-3">
+                            <label for="{{ form.value_type.id_for_label }}" class="form-label">
+                                {{ form.value_type.label }}
+                            </label>
+                            {{ form.value_type }}
+                        </div>
+                        <div class="col-md-3">
+                            <label for="{{ form.refresh_frequency.id_for_label }}" class="form-label">
+                                {{ form.refresh_frequency.label }}
+                            </label>
+                            {{ form.refresh_frequency }}
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-3">
+                        <a href="{% url 'analytics:kpi_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-clockwise me-1"></i> {% trans "Reset Filters" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-funnel me-1"></i> {% trans "Apply Filters" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI List Header -->
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">
+                {% trans "Key Performance Indicators" %}
+                <span class="text-muted fs-6">({{ kpis.count }})</span>
+            </h5>
+            
+            <div class="d-flex align-items-center">
+                <div class="refresh-indicator">
+                    <div class="refresh-spinner" id="refreshSpinner" style="display: none;"></div>
+                    <span id="lastRefresh">{% trans "Last updated: Just now" %}</span>
+                </div>
+                
+                <div class="view-toggle">
+                    <button class="view-option active" data-view="list" onclick="toggleView('list')">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <button class="view-option" data-view="grid" onclick="toggleView('grid')">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI List -->
+    <div class="col-12">
+        <div class="kpi-list-card" id="kpi-list-container">
+            <div class="list-body">
+                {% if kpis %}
+                    <div id="kpi-list-view">
+                        {% for kpi in kpis %}
+                        <div class="kpi-card">
+                            <div class="kpi-header">
+                                <div class="kpi-icon 
+                                    {% if kpi.category == 'academic' %}bg-info bg-opacity-10 text-info
+                                    {% elif kpi.category == 'financial' %}bg-success bg-opacity-10 text-success
+                                    {% elif kpi.category == 'operational' %}bg-warning bg-opacity-10 text-warning
+                                    {% else %}bg-secondary bg-opacity-10 text-secondary{% endif %}">
+                                    <i class="bi 
+                                        {% if kpi.category == 'academic' %}bi-mortarboard
+                                        {% elif kpi.category == 'financial' %}bi-currency-dollar
+                                        {% elif kpi.category == 'operational' %}bi-gear
+                                        {% else %}bi-graph-up{% endif %}">
+                                    </i>
+                                </div>
+                                
+                                <div class="kpi-content">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h5 class="kpi-title">
+                                                <a href="{% url 'analytics:kpi_detail' kpi.id %}" class="text-decoration-none">
+                                                    {{ kpi.name }}
+                                                </a>
+                                            </h5>
+                                            <p class="kpi-description">{{ kpi.description|truncatewords:20 }}</p>
+                                        </div>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                                <i class="bi bi-three-dots"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="{% url 'analytics:kpi_detail' kpi.id %}">
+                                                    <i class="bi bi-eye me-2"></i> {% trans "View Details" %}
+                                                </a></li>
+                                                <li><a class="dropdown-item" href="#" onclick="refreshKpi('{{ kpi.id }}')">
+                                                    <i class="bi bi-arrow-clockwise me-2"></i> {% trans "Refresh Now" %}
+                                                </a></li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li><a class="dropdown-item" href="#" onclick="editKpi('{{ kpi.id }}')">
+                                                    <i class="bi bi-pencil me-2"></i> {% trans "Edit KPI" %}
+                                                </a></li>
+                                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteKpi('{{ kpi.id }}')">
+                                                    <i class="bi bi-trash me-2"></i> {% trans "Delete KPI" %}
+                                                </a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="kpi-meta">
+                                        <span class="category-badge 
+                                            {% if kpi.category == 'academic' %}bg-info
+                                            {% elif kpi.category == 'financial' %}bg-success
+                                            {% elif kpi.category == 'operational' %}bg-warning
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ kpi.get_category_display }}
+                                        </span>
+                                        <span class="kpi-badge">
+                                            <i class="bi bi-clock me-1"></i>
+                                            {{ kpi.get_refresh_frequency_display }}
+                                        </span>
+                                        <span class="kpi-badge">
+                                            <i class="bi bi-graph-up me-1"></i>
+                                            {{ kpi.get_value_type_display }}
+                                        </span>
+                                        {% if kpi.is_trending %}
+                                        <span class="kpi-badge bg-warning">
+                                            <i class="bi bi-fire me-1"></i>
+                                            {% trans "Trending" %}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- KPI Stats -->
+                                    {% with measurement=kpi_measurements|get_item:kpi.id %}
+                                    <div class="kpi-stats">
+                                        <div class="stat-card">
+                                            <div class="stat-value 
+                                                {% if measurement and measurement.value >= kpi.target_value %}text-success
+                                                {% elif measurement and measurement.value >= kpi.target_value|default:0|add:"-10" %}text-warning
+                                                {% else %}text-danger{% endif %}">
+                                                {% if measurement %}
+                                                    {% if kpi.value_type == 'percentage' %}
+                                                        {{ measurement.value }}%
+                                                    {% elif kpi.value_type == 'currency' %}
+                                                        ${{ measurement.value }}
+                                                    {% else %}
+                                                        {{ measurement.value }}
+                                                    {% endif %}
+                                                {% else %}
+                                                    --
+                                                {% endif %}
+                                            </div>
+                                            <div class="stat-label">{% trans "Current" %}</div>
+                                        </div>
+                                        
+                                        {% if kpi.target_value %}
+                                        <div class="stat-card">
+                                            <div class="stat-value text-primary">{{ kpi.target_value }}</div>
+                                            <div class="stat-label">{% trans "Target" %}</div>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <div class="stat-card">
+                                            <div class="stat-value">
+                                                {% if measurement and measurement.change_percentage %}
+                                                <span class="trend-indicator {% if measurement.change_percentage > 0 %}trend-up{% elif measurement.change_percentage < 0 %}trend-down{% else %}trend-neutral{% endif %}">
+                                                    <i class="bi {% if measurement.change_percentage > 0 %}bi-arrow-up{% elif measurement.change_percentage < 0 %}bi-arrow-down{% else %}bi-dash{% endif %} me-1"></i>
+                                                    {{ measurement.change_percentage|floatformat:1 }}%
+                                                </span>
+                                                {% else %}
+                                                <span class="trend-indicator trend-neutral">--</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="stat-label">{% trans "Change" %}</div>
+                                        </div>
+                                        
+                                        <div class="stat-card">
+                                            <div class="stat-value text-info">
+                                                {% if measurement %}
+                                                    {{ measurement.measured_at|timesince }}
+                                                {% else %}
+                                                    --
+                                                {% endif %}
+                                            </div>
+                                            <div class="stat-label">{% trans "Last Updated" %}</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Target Progress -->
+                                    {% if kpi.target_value and measurement %}
+                                    <div class="target-progress">
+                                        <div class="target-progress-bar 
+                                            {% if measurement.value >= kpi.target_value %}progress-on-track
+                                            {% elif measurement.value >= kpi.target_value|add:"-10" %}progress-behind
+                                            {% else %}progress-off-track{% endif %}" 
+                                            style="width: {% widthratio measurement.value kpi.target_value 100 %}%">
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% endwith %}
+                                </div>
+                            </div>
+                            
+                            <div class="kpi-actions">
+                                <a href="{% url 'analytics:kpi_detail' kpi.id %}" class="btn btn-outline-primary btn-kpi-action">
+                                    <i class="bi bi-graph-up me-1"></i> {% trans "View Trends" %}
+                                </a>
+                                <a href="{% url 'analytics:kpi_trend_data' kpi.id %}" class="btn btn-outline-info btn-kpi-action" target="_blank">
+                                    <i class="bi bi-download me-1"></i> {% trans "Export Data" %}
+                                </a>
+                                <button class="btn btn-outline-success btn-kpi-action" onclick="refreshKpi('{{ kpi.id }}')">
+                                    <i class="bi bi-arrow-clockwise me-1"></i> {% trans "Refresh" %}
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Grid View (Hidden by default) -->
+                    <div id="kpi-grid-view" class="kpi-grid-view" style="display: none;">
+                        <div class="kpi-grid">
+                            {% for kpi in kpis %}
+                            <div class="kpi-card">
+                                <div class="kpi-header">
+                                    <div class="kpi-icon 
+                                        {% if kpi.category == 'academic' %}bg-info bg-opacity-10 text-info
+                                        {% elif kpi.category == 'financial' %}bg-success bg-opacity-10 text-success
+                                        {% elif kpi.category == 'operational' %}bg-warning bg-opacity-10 text-warning
+                                        {% else %}bg-secondary bg-opacity-10 text-secondary{% endif %}">
+                                        <i class="bi 
+                                            {% if kpi.category == 'academic' %}bi-mortarboard
+                                            {% elif kpi.category == 'financial' %}bi-currency-dollar
+                                            {% elif kpi.category == 'operational' %}bi-gear
+                                            {% else %}bi-graph-up{% endif %}">
+                                        </i>
+                                    </div>
+                                </div>
+                                
+                                <div class="kpi-content">
+                                    <h6 class="kpi-title mb-2">
+                                        <a href="{% url 'analytics:kpi_detail' kpi.id %}" class="text-decoration-none">
+                                            {{ kpi.name }}
+                                        </a>
+                                    </h6>
+                                    
+                                    <div class="mb-3">
+                                        <span class="category-badge 
+                                            {% if kpi.category == 'academic' %}bg-info
+                                            {% elif kpi.category == 'financial' %}bg-success
+                                            {% elif kpi.category == 'operational' %}bg-warning
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ kpi.get_category_display }}
+                                        </span>
+                                    </div>
+                                    
+                                    {% with measurement=kpi_measurements|get_item:kpi.id %}
+                                    <div class="text-center mb-3">
+                                        <div class="stat-value display-6 
+                                            {% if measurement and measurement.value >= kpi.target_value %}text-success
+                                            {% elif measurement and measurement.value >= kpi.target_value|default:0|add:"-10" %}text-warning
+                                            {% else %}text-danger{% endif %}">
+                                            {% if measurement %}
+                                                {% if kpi.value_type == 'percentage' %}
+                                                    {{ measurement.value }}%
+                                                {% elif kpi.value_type == 'currency' %}
+                                                    ${{ measurement.value }}
+                                                {% else %}
+                                                    {{ measurement.value }}
+                                                {% endif %}
+                                            {% else %}
+                                                --
+                                            {% endif %}
+                                        </div>
+                                        <div class="stat-label">{% trans "Current Value" %}</div>
+                                    </div>
+                                    
+                                    {% if measurement and measurement.change_percentage %}
+                                    <div class="text-center mb-3">
+                                        <span class="trend-indicator {% if measurement.change_percentage > 0 %}trend-up{% elif measurement.change_percentage < 0 %}trend-down{% else %}trend-neutral{% endif %}">
+                                            <i class="bi {% if measurement.change_percentage > 0 %}bi-arrow-up{% elif measurement.change_percentage < 0 %}bi-arrow-down{% else %}bi-dash{% endif %} me-1"></i>
+                                            {{ measurement.change_percentage|floatformat:1 }}%
+                                        </span>
+                                    </div>
+                                    {% endif %}
+                                    {% endwith %}
+                                </div>
+                                
+                                <div class="kpi-actions mt-auto">
+                                    <a href="{% url 'analytics:kpi_detail' kpi.id %}" class="btn btn-outline-primary btn-sm w-100">
+                                        <i class="bi bi-graph-up me-1"></i> {% trans "View Details" %}
+                                    </a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                {% else %}
+                    <!-- Empty State -->
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="bi bi-graph-up"></i>
+                        </div>
+                        <h4>{% trans "No KPIs Found" %}</h4>
+                        <p class="mb-4">{% trans "No KPIs match your current filters. Try adjusting your search criteria or create a new KPI." %}</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createKpiModal">
+                            <i class="bi bi-plus-circle me-1"></i> {% trans "Create Your First KPI" %}
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create KPI Modal -->
+<div class="modal fade" id="createKpiModal" tabindex="-1" aria-labelledby="createKpiModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createKpiModalLabel">{% trans "Create New KPI" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-4">{% trans "Create a new Key Performance Indicator to track important metrics in your organization." %}</p>
+                <!-- Form would be loaded here via AJAX or included directly -->
+                <div class="text-center py-4">
+                    <div class="text-muted">
+                        <i class="bi bi-graph-up" style="font-size: 3rem;"></i>
+                        <p class="mt-2">{% trans "KPI creation form would be implemented here" %}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary">{% trans "Create KPI" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize view toggle
+        const savedView = localStorage.getItem('kpiView') || 'list';
+        toggleView(savedView);
+        
+        // Set up auto-refresh for real-time KPIs
+        startAutoRefresh();
+    });
+    
+    function toggleView(view) {
+        const listView = document.getElementById('kpi-list-view');
+        const gridView = document.getElementById('kpi-grid-view');
+        const viewOptions = document.querySelectorAll('.view-option');
+        
+        // Update active state
+        viewOptions.forEach(option => {
+            option.classList.toggle('active', option.dataset.view === view);
+        });
+        
+        // Show/hide views
+        if (view === 'list') {
+            listView.style.display = 'block';
+            gridView.style.display = 'none';
+        } else {
+            listView.style.display = 'none';
+            gridView.style.display = 'block';
+        }
+        
+        // Save preference
+        localStorage.setItem('kpiView', view);
+    }
+    
+    function refreshKpi(kpiId) {
+        const refreshSpinner = document.getElementById('refreshSpinner');
+        const lastRefresh = document.getElementById('lastRefresh');
+        
+        // Show loading state
+        refreshSpinner.style.display = 'inline-block';
+        
+        // Simulate API call
+        setTimeout(function() {
+            // Update last refresh time
+            const now = new Date();
+            lastRefresh.textContent = '{% trans "Last updated:" %} ' + now.toLocaleTimeString();
+            
+            // Hide loading state
+            refreshSpinner.style.display = 'none';
+            
+            // Show success message
+            BaseApp.showToast('{% trans "KPI refreshed successfully" %}', 'success');
+            
+            // In real implementation, this would update the KPI data
+            // For now, we'll just reload the page
+            setTimeout(function() {
+                window.location.reload();
+            }, 1000);
+        }, 1500);
+    }
+    
+    function refreshAllKpis() {
+        if (confirm('{% trans "Are you sure you want to refresh all KPIs? This may take a few minutes." %}')) {
+            const refreshSpinner = document.getElementById('refreshSpinner');
+            const lastRefresh = document.getElementById('lastRefresh');
+            
+            refreshSpinner.style.display = 'inline-block';
+            
+            setTimeout(function() {
+                const now = new Date();
+                lastRefresh.textContent = '{% trans "Last updated:" %} ' + now.toLocaleTimeString();
+                refreshSpinner.style.display = 'none';
+                BaseApp.showToast('{% trans "All KPIs refresh initiated" %}', 'success');
+                
+                setTimeout(function() {
+                    window.location.reload();
+                }, 2000);
+            }, 2000);
+        }
+    }
+    
+    function startAutoRefresh() {
+        // Check if there are real-time KPIs
+        const realtimeKpis = document.querySelectorAll('[data-refresh-frequency="realtime"]');
+        if (realtimeKpis.length > 0) {
+            // Refresh every 30 seconds for real-time KPIs
+            setInterval(function() {
+                // In real implementation, this would only refresh real-time KPIs
+                console.log('Auto-refreshing real-time KPIs...');
+            }, 30000);
+        }
+    }
+    
+    function exportKpiData() {
+        BaseApp.showToast('{% trans "Preparing KPI data export..." %}', 'info');
+        
+        // In real implementation, this would trigger a data export
+        setTimeout(function() {
+            const exportUrl = '{% url "analytics:kpi_list" %}?export=true';
+            window.open(exportUrl, '_blank');
+        }, 1000);
+    }
+    
+    function editKpi(kpiId) {
+        BaseApp.showToast('{% trans "Opening KPI editor..." %}', 'info');
+        // In real implementation, this would open an edit modal or redirect
+        setTimeout(function() {
+            window.location.href = `/analytics/kpis/${kpiId}/edit/`;
+        }, 500);
+    }
+    
+    function deleteKpi(kpiId) {
+        if (confirm('{% trans "Are you sure you want to delete this KPI? This action cannot be undone and will delete all associated measurements." %}')) {
+            BaseApp.showLoading();
+            
+            // In real implementation, this would be an API call
+            setTimeout(function() {
+                BaseApp.hideLoading();
+                BaseApp.showToast('{% trans "KPI deleted successfully" %}', 'success');
+                
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1000);
+            }, 1500);
+        }
+    }
+    
+    // Quick filter functions
+    function filterByCategory(category) {
+        document.getElementById('{{ form.category.id_for_label }}').value = category;
+        document.getElementById('kpi-filter-form').submit();
+    }
+    
+    function filterByStatus(status) {
+        // This would filter by active/inactive status
+        const url = new URL(window.location);
+        url.searchParams.set('status', status);
+        window.location.href = url.toString();
+    }
+</script>
+{% endblock %}

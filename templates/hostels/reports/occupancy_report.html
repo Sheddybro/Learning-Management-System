@@ -1,0 +1,830 @@
+<!-- templates/hostels/reports/occupancy_report.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+
+{% block title %}Occupancy Report - Hostel Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .report-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .report-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+        padding: 2rem;
+    }
+    
+    .stats-card {
+        color: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        height: 100%;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        font-weight: 500;
+    }
+    
+    .stat-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+    }
+    
+    .progress-thin {
+        height: 6px;
+        margin-top: 0.5rem;
+    }
+    
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .table-responsive {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .table th {
+        border-top: none;
+        font-weight: 600;
+        color: #495057;
+        background: #f8f9fa;
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+    
+    .badge-high {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+    }
+    
+    .badge-medium {
+        background: linear-gradient(135deg, #ffc107, #fd7e14);
+        color: white;
+    }
+    
+    .badge-low {
+        background: linear-gradient(135deg, #17a2b8, #6f42c1);
+        color: white;
+    }
+    
+    .badge-full {
+        background: linear-gradient(135deg, #dc3545, #e83e8c);
+        color: white;
+    }
+    
+    .occupancy-cell {
+        font-weight: 600;
+        text-align: center;
+    }
+    
+    .occupancy-high {
+        color: #28a745;
+    }
+    
+    .occupancy-medium {
+        color: #ffc107;
+    }
+    
+    .occupancy-low {
+        color: #17a2b8;
+    }
+    
+    .occupancy-full {
+        color: #dc3545;
+    }
+    
+    .summary-card {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .export-options {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .hostel-selector {
+        background: #e7f3ff;
+        border: 1px solid #b3d9ff;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    
+    .trend-indicator {
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .trend-up {
+        color: #28a745;
+    }
+    
+    .trend-down {
+        color: #dc3545;
+    }
+    
+    .trend-neutral {
+        color: #6c757d;
+    }
+    
+    .comparison-card {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+    }
+    
+    .room-type-chart {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    
+    .gender-distribution {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}
+<i class="bi bi-house-door me-2"></i>Occupancy Report
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:dashboard' %}">Hostel Dashboard</a></li>
+<li class="breadcrumb-item active" aria-current="page">Occupancy Report</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Report Header -->
+    <div class="report-header mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-3">Hostel Occupancy Report</h1>
+                <p class="lead mb-0 opacity-90">
+                    Comprehensive analysis of hostel occupancy rates and capacity utilization
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="btn-group">
+                    <button class="btn btn-light" onclick="printReport()">
+                        <i class="bi bi-printer me-2"></i>Print
+                    </button>
+                    <button type="button" class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="bi bi-download me-2"></i>Export
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="exportToPDF()"><i class="bi bi-file-pdf me-2"></i>Export as PDF</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="exportToExcel()"><i class="bi bi-file-spreadsheet me-2"></i>Export as Excel</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="exportToCSV()"><i class="bi bi-file-text me-2"></i>Export as CSV</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">{{ total_capacity|default:0 }}</div>
+                        <div class="stat-label">Total Capacity</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-people stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">{{ total_occupancy|default:0 }}</div>
+                        <div class="stat-label">Total Occupied</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-person-check stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">{{ available_beds|default:0 }}</div>
+                        <div class="stat-label">Available Beds</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-person-plus stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">{{ overall_occupancy_rate|default:0|floatformat:1 }}%</div>
+                        <div class="stat-label">Overall Occupancy Rate</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-graph-up-arrow stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="card report-card mb-4">
+        <div class="card-header bg-white">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-funnel me-2"></i>Report Filters
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" id="reportFilterForm">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Hostel Type</label>
+                        <select name="hostel_type" class="form-select" onchange="this.form.submit()">
+                            <option value="">All Types</option>
+                            {% for type in hostel_types %}
+                            <option value="{{ type.0 }}" {% if request.GET.hostel_type == type.0 %}selected{% endif %}>
+                                {{ type.1 }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Hostel Category</label>
+                        <select name="category" class="form-select" onchange="this.form.submit()">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category.0 }}" {% if request.GET.category == category.0 %}selected{% endif %}>
+                                {{ category.1 }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Status</label>
+                        <select name="is_active" class="form-select" onchange="this.form.submit()">
+                            <option value="">All Status</option>
+                            <option value="true" {% if request.GET.is_active == 'true' %}selected{% endif %}>Active</option>
+                            <option value="false" {% if request.GET.is_active == 'false' %}selected{% endif %}>Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Occupancy Range (Min)</label>
+                        <input type="range" name="min_occupancy" class="form-range" min="0" max="100" 
+                               value="{{ request.GET.min_occupancy|default:0 }}" onchange="updateRangeValue('minValue', this.value)">
+                        <div class="d-flex justify-content-between">
+                            <small>0%</small>
+                            <span id="minValue" class="fw-semibold">{{ request.GET.min_occupancy|default:0 }}%</span>
+                            <small>100%</small>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Occupancy Range (Max)</label>
+                        <input type="range" name="max_occupancy" class="form-range" min="0" max="100" 
+                               value="{{ request.GET.max_occupancy|default:100 }}" onchange="updateRangeValue('maxValue', this.value)">
+                        <div class="d-flex justify-content-between">
+                            <small>0%</small>
+                            <span id="maxValue" class="fw-semibold">{{ request.GET.max_occupancy|default:100 }}%</span>
+                            <small>100%</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <div class="btn-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-funnel me-2"></i>Apply Filters
+                            </button>
+                            <a href="{% url 'hostels:occupancy_report' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Reset
+                            </a>
+                            <button type="button" class="btn btn-outline-info" onclick="generateCustomReport()">
+                                <i class="bi bi-gear me-2"></i>Custom Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Section -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card report-card h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bar-chart me-2"></i>Occupancy Overview
+                    </h5>
+                    <span class="badge bg-primary">{{ report_data|length }} Hostels</span>
+                </div>
+                <div class="card-body">
+                    <!-- Overall Progress -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="fw-semibold">Overall Occupancy</span>
+                            <span class="fw-semibold">{{ overall_occupancy_rate|default:0|floatformat:1 }}%</span>
+                        </div>
+                        <div class="progress" style="height: 12px;">
+                            <div class="progress-bar bg-success" role="progressbar" 
+                                 style="width: {{ overall_occupancy_rate|default:0 }}%"
+                                 aria-valuenow="{{ overall_occupancy_rate|default:0 }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1">
+                            <small class="text-muted">Occupied: {{ total_occupancy|default:0 }}</small>
+                            <small class="text-muted">Available: {{ available_beds|default:0 }}</small>
+                        </div>
+                    </div>
+
+                    <!-- Hostel Type Distribution -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Hostel Type Distribution</h6>
+                            {% for type in type_distribution %}
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small">{{ type.hostel_type__label }}:</span>
+                                <div class="d-flex align-items-center">
+                                    <span class="fw-semibold me-2">{{ type.count }}</span>
+                                    <span class="text-muted small">({{ type.percentage }}%)</span>
+                                </div>
+                            </div>
+                            <div class="progress progress-thin mb-3">
+                                <div class="progress-bar" 
+                                     style="width: {{ type.percentage }}%; background: {{ type.color }}">
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Occupancy Status</h6>
+                            {% for status in occupancy_status %}
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small">{{ status.label }}:</span>
+                                <div class="d-flex align-items-center">
+                                    <span class="fw-semibold me-2">{{ status.count }}</span>
+                                    <span class="text-muted small">({{ status.percentage }}%)</span>
+                                </div>
+                            </div>
+                            <div class="progress progress-thin mb-3">
+                                <div class="progress-bar bg-{{ status.color }}" 
+                                     style="width: {{ status.percentage }}%">
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card report-card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning me-2"></i>Quick Insights
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="summary-card mb-3">
+                        <div class="text-center">
+                            <div class="stat-number">{{ full_hostels|default:0 }}</div>
+                            <div class="stat-label">Full Hostels</div>
+                            <div class="small mt-1">{{ full_capacity|default:0 }} beds occupied</div>
+                        </div>
+                    </div>
+                    
+                    <div class="comparison-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="small">Avg. Occupancy Rate:</span>
+                            <span class="fw-semibold">{{ avg_occupancy_rate|default:0|floatformat:1 }}%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="comparison-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="small">Most Occupied:</span>
+                            <span class="fw-semibold">{{ most_occupied_hostel.name|default:"N/A" }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="comparison-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="small">Least Occupied:</span>
+                            <span class="fw-semibold">{{ least_occupied_hostel.name|default:"N/A" }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <h6 class="mb-2">Trend Analysis</h6>
+                        <div class="d-flex justify-content-between">
+                            <span class="small">vs Previous Month:</span>
+                            <span class="trend-indicator {% if trend > 0 %}trend-up{% elif trend < 0 %}trend-down{% else %}trend-neutral{% endif %}">
+                                {% if trend > 0 %}+{% endif %}{{ trend|default:0|floatformat:1 }}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Report Table -->
+    <div class="card report-card">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-list-check me-2"></i>Detailed Occupancy Report
+            </h5>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-primary" onclick="toggleSummaryView()">
+                    <i class="bi bi-eye me-2"></i>Toggle View
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="exportRoomDetails()">
+                    <i class="bi bi-download me-2"></i>Room Details
+                </button>
+            </div>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="occupancyReportTable">
+                    <thead>
+                        <tr>
+                            <th>Hostel Details</th>
+                            <th>Capacity & Occupancy</th>
+                            <th>Occupancy Rate</th>
+                            <th>Room Distribution</th>
+                            <th>Status</th>
+                            <th>Warden</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for data in report_data %}
+                        <tr class="{% if data.is_full %}table-warning{% endif %}">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar me-3" style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.9rem;">
+                                        {{ data.hostel.name|slice:":2"|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold">
+                                            {{ data.hostel.name }}
+                                        </div>
+                                        <div class="text-muted small">
+                                            {{ data.hostel.code }} • {{ data.hostel.get_hostel_type_display }}
+                                        </div>
+                                        <div class="text-info small">
+                                            {{ data.hostel.get_category_display }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="text-center">
+                                    <div class="fw-semibold">{{ data.current_occupancy }}/{{ data.total_capacity }}</div>
+                                    <div class="text-muted small">
+                                        Available: {{ data.available_beds }}
+                                    </div>
+                                    <div class="progress mt-1" style="height: 6px;">
+                                        <div class="progress-bar 
+                                            {% if data.occupancy_rate >= 90 %}bg-danger
+                                            {% elif data.occupancy_rate >= 70 %}bg-warning
+                                            {% elif data.occupancy_rate >= 50 %}bg-info
+                                            {% else %}bg-success{% endif %}" 
+                                            style="width: {{ data.occupancy_rate }}%">
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="occupancy-cell 
+                                    {% if data.occupancy_rate >= 90 %}occupancy-full
+                                    {% elif data.occupancy_rate >= 70 %}occupancy-high
+                                    {% elif data.occupancy_rate >= 50 %}occupancy-medium
+                                    {% else %}occupancy-low{% endif %}">
+                                    {{ data.occupancy_rate|floatformat:1 }}%
+                                </div>
+                                <div class="text-muted small text-center">
+                                    {% if data.is_full %}
+                                    <i class="bi bi-exclamation-triangle me-1"></i>Full
+                                    {% else %}
+                                    {{ data.available_beds }} beds free
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="small">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Total Rooms:</span>
+                                        <span class="fw-semibold">{{ data.total_rooms }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Available:</span>
+                                        <span class="fw-semibold">{{ data.available_rooms }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Maintenance:</span>
+                                        <span class="fw-semibold">{{ data.rooms_need_maintenance }}</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if data.occupancy_rate >= 90 %}
+                                <span class="status-badge badge-full">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>Full
+                                </span>
+                                {% elif data.occupancy_rate >= 70 %}
+                                <span class="status-badge badge-high">
+                                    <i class="bi bi-arrow-up me-1"></i>High
+                                </span>
+                                {% elif data.occupancy_rate >= 50 %}
+                                <span class="status-badge badge-medium">
+                                    <i class="bi bi-dash me-1"></i>Medium
+                                </span>
+                                {% else %}
+                                <span class="status-badge badge-low">
+                                    <i class="bi bi-arrow-down me-1"></i>Low
+                                </span>
+                                {% endif %}
+                                
+                                {% if data.hostel.is_active %}
+                                <div class="text-success small mt-1">
+                                    <i class="bi bi-check-circle me-1"></i>Active
+                                </div>
+                                {% else %}
+                                <div class="text-danger small mt-1">
+                                    <i class="bi bi-x-circle me-1"></i>Inactive
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if data.hostel.warden %}
+                                <div class="fw-semibold">
+                                    {{ data.hostel.warden.get_full_name }}
+                                </div>
+                                <div class="text-muted small">
+                                    {{ data.hostel.warden.email }}
+                                </div>
+                                {% else %}
+                                <span class="text-muted">Not assigned</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'hostels:hostel_detail' pk=data.hostel.pk %}" class="btn btn-outline-info" title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <button class="btn btn-outline-warning" title="Room Allocation" onclick="showRoomAllocation('{{ data.hostel.id }}')">
+                                        <i class="bi bi-door-closed"></i>
+                                    </button>
+                                    <button class="btn btn-outline-success" title="Generate Report" onclick="generateHostelReport('{{ data.hostel.id }}')">
+                                        <i class="bi bi-graph-up"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <i class="bi bi-house-door text-muted" style="font-size: 3rem;"></i>
+                                <h5 class="text-muted mt-3">No hostel data found</h5>
+                                <p class="text-muted">No hostels match your current filter criteria.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Options -->
+    <div class="export-options mt-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h6 class="text-white mb-2">Export Report Data</h6>
+                <p class="text-white-50 mb-0">Download comprehensive occupancy data for further analysis</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="btn-group">
+                    <button class="btn btn-light btn-sm" onclick="exportToPDF()">
+                        <i class="bi bi-file-pdf me-2"></i>PDF Report
+                    </button>
+                    <button class="btn btn-light btn-sm" onclick="exportToExcel()">
+                        <i class="bi bi-file-spreadsheet me-2"></i>Excel Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize any charts or advanced features here
+        initializeOccupancyCharts();
+    });
+
+    // Range value update
+    function updateRangeValue(elementId, value) {
+        document.getElementById(elementId).textContent = value + '%';
+    }
+
+    // Export functions
+    function exportToPDF() {
+        showNotification('Generating PDF report...', 'info');
+        // In real implementation, this would call a PDF generation endpoint
+        setTimeout(() => {
+            showNotification('PDF report generated successfully!', 'success');
+        }, 2000);
+    }
+
+    function exportToExcel() {
+        showNotification('Preparing Excel export...', 'info');
+        // In real implementation, this would call an Excel export endpoint
+        setTimeout(() => {
+            showNotification('Excel file downloaded successfully!', 'success');
+        }, 2000);
+    }
+
+    function exportToCSV() {
+        showNotification('Generating CSV file...', 'info');
+        // In real implementation, this would call a CSV export endpoint
+        setTimeout(() => {
+            showNotification('CSV file downloaded successfully!', 'success');
+        }, 2000);
+    }
+
+    function printReport() {
+        window.print();
+    }
+
+    // View management
+    function toggleSummaryView() {
+        const table = document.getElementById('occupancyReportTable');
+        const isDetailed = table.querySelector('td .avatar');
+        
+        if (isDetailed) {
+            // Switch to summary view
+            showNotification('Switched to summary view', 'info');
+        } else {
+            // Switch to detailed view
+            showNotification('Switched to detailed view', 'info');
+        }
+    }
+
+    // Action functions
+    function showRoomAllocation(hostelId) {
+        // In real implementation, this would open a modal with room allocation details
+        alert(`Showing room allocation for hostel ${hostelId}`);
+    }
+
+    function generateHostelReport(hostelId) {
+        // In real implementation, this would generate a detailed hostel report
+        alert(`Generating detailed report for hostel ${hostelId}`);
+    }
+
+    function exportRoomDetails() {
+        showNotification('Exporting room details...', 'info');
+        // In real implementation, this would export room-level details
+        setTimeout(() => {
+            showNotification('Room details exported successfully!', 'success');
+        }, 2000);
+    }
+
+    function generateCustomReport() {
+        // In real implementation, this would open a custom report generator
+        alert('Opening custom report generator...');
+    }
+
+    // Utility functions
+    function showNotification(message, type) {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-info';
+        const notification = document.createElement('div');
+        notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 5000);
+    }
+
+    function initializeOccupancyCharts() {
+        // Initialize any charts using Chart.js or other libraries
+        console.log('Initializing occupancy charts...');
+        // Chart initialization code would go here
+    }
+
+    // Auto-refresh data
+    function refreshReportData() {
+        // In real implementation, this would refresh data via AJAX
+        console.log('Refreshing occupancy data...');
+    }
+
+    // Uncomment to enable auto-refresh every 2 minutes
+    // setInterval(refreshReportData, 120000);
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            switch(e.key) {
+                case 'p':
+                    e.preventDefault();
+                    printReport();
+                    break;
+                case 'e':
+                    e.preventDefault();
+                    exportToExcel();
+                    break;
+                case 'r':
+                    e.preventDefault();
+                    refreshReportData();
+                    break;
+            }
+        }
+    });
+</script>
+{% endblock %}

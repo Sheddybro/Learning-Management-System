@@ -1,0 +1,539 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Fine Payments" %}{% endblock %}
+
+{% block page_title %}{% trans "Fine Payment Records" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Fine Payments" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stats-card-1 { border-left-color: #28a745; }
+    .stats-card-2 { border-left-color: #ffc107; }
+    .stats-card-3 { border-left-color: #dc3545; }
+    
+    .payment-status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .table-actions {
+        white-space: nowrap;
+    }
+    
+    .amount-positive {
+        color: #28a745;
+        font-weight: 600;
+    }
+    
+    .filter-section {
+        background-color: #f8f9fa;
+        border-radius: 0.375rem;
+        padding: 1.5rem;
+    }
+    
+    .export-btn {
+        transition: all 0.2s ease;
+    }
+    
+    .export-btn:hover {
+        transform: translateY(-1px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-1 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-success">${{ total_collected|default:0 }}</div>
+                            <div class="stat-label">{% trans "Total Collected" %}</div>
+                        </div>
+                        <div class="stat-icon text-success">
+                            <i class="bi bi-cash-stack"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-arrow-up-short text-success"></i>
+                            {% trans "All time collections" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-2 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-warning">{{ total_payments }}</div>
+                            <div class="stat-label">{% trans "Total Payments" %}</div>
+                        </div>
+                        <div class="stat-icon text-warning">
+                            <i class="bi bi-receipt"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-file-text"></i>
+                            {% trans "Payment records" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-3 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-danger">${{ outstanding_fines|default:0 }}</div>
+                            <div class="stat-label">{% trans "Outstanding Fines" %}</div>
+                        </div>
+                        <div class="stat-icon text-danger">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-clock-history text-danger"></i>
+                            {% trans "Unpaid fines" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card bg-light h-100">
+                <div class="card-body text-center d-flex flex-column justify-content-center">
+                    <a href="{% url 'library:finepayment_create' %}" class="btn btn-primary w-100 py-3 mb-2">
+                        <i class="bi bi-plus-circle me-2"></i>
+                        {% trans "Record Payment" %}
+                    </a>
+                    <small class="text-muted">
+                        {% trans "Add new fine payment record" %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-funnel me-2"></i>
+                {% trans "Filters & Search" %}
+            </h5>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+                <i class="bi bi-chevron-down"></i>
+            </button>
+        </div>
+        <div class="collapse show" id="filterCollapse">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="payment_method" class="form-label">{% trans "Payment Method" %}</label>
+                        <select name="payment_method" id="payment_method" class="form-select">
+                            <option value="">{% trans "All Methods" %}</option>
+                            <option value="cash" {% if request.GET.payment_method == 'cash' %}selected{% endif %}>{% trans "Cash" %}</option>
+                            <option value="card" {% if request.GET.payment_method == 'card' %}selected{% endif %}>{% trans "Card" %}</option>
+                            <option value="online" {% if request.GET.payment_method == 'online' %}selected{% endif %}>{% trans "Online" %}</option>
+                            <option value="transfer" {% if request.GET.payment_method == 'transfer' %}selected{% endif %}>{% trans "Bank Transfer" %}</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label for="start_date" class="form-label">{% trans "Start Date" %}</label>
+                        <input type="date" name="start_date" id="start_date" class="form-control" 
+                               value="{{ request.GET.start_date }}">
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label for="end_date" class="form-label">{% trans "End Date" %}</label>
+                        <input type="date" name="end_date" id="end_date" class="form-control" 
+                               value="{{ request.GET.end_date }}">
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label for="status" class="form-label">{% trans "Status" %}</label>
+                        <select name="status" id="status" class="form-select">
+                            <option value="">{% trans "All Status" %}</option>
+                            <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>{% trans "Active" %}</option>
+                            <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>{% trans "Inactive" %}</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label for="search" class="form-label">{% trans "Search" %}</label>
+                        <input type="text" name="search" id="search" class="form-control" 
+                               placeholder="{% trans 'Receipt number, member, or book...' %}" 
+                               value="{{ request.GET.search }}">
+                    </div>
+                    
+                    <div class="col-12">
+                        <div class="d-flex gap-2 align-items-center">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-filter me-2"></i>{% trans "Apply Filters" %}
+                            </button>
+                            <a href="{% url 'library:finepayment_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-clockwise me-2"></i>{% trans "Reset" %}
+                            </a>
+                            <div class="ms-auto">
+                                <span class="text-muted small">
+                                    {{ paginator.count }} {% trans "records found" %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fine Payments Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-list-check me-2"></i>
+                {% trans "Fine Payment Records" %}
+            </h5>
+            <div class="d-flex gap-2">
+                <a href="{% url 'library:report_fine_collection' %}" class="btn btn-outline-info btn-sm export-btn">
+                    <i class="bi bi-graph-up me-2"></i>{% trans "Reports" %}
+                </a>
+                <button class="btn btn-outline-success btn-sm export-btn" onclick="exportToCSV()">
+                    <i class="bi bi-download me-2"></i>{% trans "Export CSV" %}
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if fine_payments %}
+            <div class="table-responsive">
+                <table class="table table-hover table-striped" id="finePaymentsTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "Receipt No." %}</th>
+                            <th>{% trans "Member" %}</th>
+                            <th>{% trans "Book" %}</th>
+                            <th class="text-end">{% trans "Amount" %}</th>
+                            <th>{% trans "Payment Date" %}</th>
+                            <th>{% trans "Method" %}</th>
+                            <th>{% trans "Received By" %}</th>
+                            <th>{% trans "Status" %}</th>
+                            <th class="text-center">{% trans "Actions" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in fine_payments %}
+                        <tr>
+                            <td>
+                                <div>
+                                    <strong class="text-primary">{{ payment.receipt_number }}</strong>
+                                    {% if payment.notes %}
+                                    <i class="bi bi-chat-text text-muted ms-1" title="{{ payment.notes }}"></i>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <strong>{{ payment.borrow_record.member.member_id }}</strong>
+                                    <div class="text-muted small">
+                                        {{ payment.borrow_record.member.user.get_full_name|default:payment.borrow_record.member.user.username }}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    {{ payment.borrow_record.book_copy.book.title|truncatewords:3 }}
+                                    <div class="text-muted small">
+                                        {{ payment.borrow_record.book_copy.book.isbn|default:"No ISBN" }}
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-end">
+                                <strong class="amount-positive">${{ payment.amount_paid }}</strong>
+                            </td>
+                            <td>
+                                <div>
+                                    {{ payment.payment_date|date:"M d, Y" }}
+                                    <div class="text-muted small">
+                                        {{ payment.payment_date|timesince }} {% trans "ago" %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge payment-status-badge 
+                                    {% if payment.payment_method == 'cash' %}bg-success
+                                    {% elif payment.payment_method == 'card' %}bg-primary
+                                    {% elif payment.payment_method == 'online' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ payment.get_payment_method_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if payment.received_by %}
+                                <div>
+                                    {{ payment.received_by.get_full_name|default:payment.received_by.username }}
+                                    <div class="text-muted small">
+                                        {{ payment.received_by.email }}
+                                    </div>
+                                </div>
+                                {% else %}
+                                <span class="text-muted">{% trans "Not specified" %}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if payment.status == 'active' %}
+                                <span class="badge bg-success payment-status-badge">
+                                    <i class="bi bi-check-circle me-1"></i>{% trans "Active" %}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary payment-status-badge">
+                                    <i class="bi bi-x-circle me-1"></i>{% trans "Inactive" %}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center table-actions">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{% url 'library:finepayment_update' payment.pk %}" 
+                                       class="btn btn-outline-primary" 
+                                       title="{% trans 'Edit' %}"
+                                       data-bs-toggle="tooltip">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'library:finepayment_detail' payment.pk %}" 
+                                       class="btn btn-outline-info" 
+                                       title="{% trans 'View Details' %}"
+                                       data-bs-toggle="tooltip">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <button type="button" 
+                                            class="btn btn-outline-danger" 
+                                            title="{% trans 'Delete' %}"
+                                            data-bs-toggle="tooltip"
+                                            onclick="confirmDelete('{{ payment.receipt_number }}', '{% url 'library:finepayment_delete' payment.pk %}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4">
+                                <div class="text-muted">
+                                    <i class="bi bi-receipt display-4 d-block mb-2"></i>
+                                    <h5>{% trans "No payments found" %}</h5>
+                                    <p>{% trans "Try adjusting your filters or add a new payment record." %}</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if fine_payments %}
+                    <tfoot class="table-light">
+                        <tr>
+                            <td colspan="3" class="text-end"><strong>{% trans "Page Total:" %}</strong></td>
+                            <td class="text-end"><strong class="text-success">${{ page_total|default:0 }}</strong></td>
+                            <td colspan="5"></td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="{% trans 'Fine payments pagination' %}" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="First">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Previous">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Next">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Last">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                <div class="text-center text-muted small mt-2">
+                    {% trans "Showing" %} {{ page_obj.start_index }} - {{ page_obj.end_index }} {% trans "of" %} {{ paginator.count }} {% trans "records" %}
+                </div>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-receipt display-1 text-muted d-block mb-3"></i>
+                <h4>{% trans "No Fine Payments Found" %}</h4>
+                <p class="text-muted mb-4">
+                    {% trans "No fine payment records match your current filters." %}
+                </p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="{% url 'library:finepayment_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>{% trans "Record First Payment" %}
+                    </a>
+                    <a href="{% url 'library:finepayment_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise me-2"></i>{% trans "Clear Filters" %}
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Auto-submit form when certain filters change
+        const autoSubmitFilters = ['payment_method', 'status'];
+        autoSubmitFilters.forEach(function(filterId) {
+            const element = document.getElementById(filterId);
+            if (element) {
+                element.addEventListener('change', function() {
+                    this.form.submit();
+                });
+            }
+        });
+        
+        // Set default dates for filter
+        const startDateField = document.getElementById('start_date');
+        const endDateField = document.getElementById('end_date');
+        
+        if (!startDateField.value) {
+            // Default to first day of current month
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            startDateField.value = firstDay.toISOString().split('T')[0];
+        }
+        
+        if (!endDateField.value) {
+            // Default to today
+            const today = new Date().toISOString().split('T')[0];
+            endDateField.value = today;
+        }
+    });
+    
+    function exportToCSV() {
+        // Simple CSV export functionality
+        const table = document.getElementById('finePaymentsTable');
+        let csv = [];
+        const rows = table.querySelectorAll('tr');
+        
+        for (let i = 0; i < rows.length; i++) {
+            let row = [], cols = rows[i].querySelectorAll('td, th');
+            
+            for (let j = 0; j < cols.length - 1; j++) { // Exclude actions column
+                // Clean and escape data
+                let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/(\s\s)/gm, ' ');
+                data = data.replace(/"/g, '""');
+                row.push('"' + data + '"');
+            }
+            
+            csv.push(row.join(','));
+        }
+        
+        // Download CSV file
+        const csvString = csv.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('hidden', '');
+        a.setAttribute('href', url);
+        a.setAttribute('download', 'fine_payments_' + new Date().toISOString().split('T')[0] + '.csv');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+    
+    function confirmDelete(receiptNumber, deleteUrl) {
+        if (confirm('{% trans "Are you sure you want to delete fine payment" %} "' + receiptNumber + '"?')) {
+            window.location.href = deleteUrl;
+        }
+    }
+    
+    // Quick filter buttons
+    function applyQuickFilter(filterType) {
+        const now = new Date();
+        let startDate, endDate;
+        
+        switch(filterType) {
+            case 'today':
+                startDate = now.toISOString().split('T')[0];
+                endDate = startDate;
+                break;
+            case 'week':
+                startDate = new Date(now.setDate(now.getDate() - 7)).toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+            case 'month':
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+        }
+        
+        document.getElementById('start_date').value = startDate;
+        document.getElementById('end_date').value = endDate;
+        document.querySelector('form').submit();
+    }
+</script>
+{% endblock %}

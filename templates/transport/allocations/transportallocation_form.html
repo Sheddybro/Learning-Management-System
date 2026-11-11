@@ -1,0 +1,857 @@
+<!-- templates/transport/allocations/transportallocation_form.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if object %}{% trans "Edit Transport Allocation" %}{% else %}{% trans "Create Transport Allocation" %}{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if object %}{% trans "Edit Transport Allocation" %}{% else %}{% trans "Create Transport Allocation" %}{% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:transportallocation_list' %}">{% trans "Allocations" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if object %}{% trans "Edit Allocation" %}{% else %}{% trans "New Allocation" %}{% endif %}
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .allocation-form {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    
+    .form-section {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .form-section h5 {
+        color: #0d6efd;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .form-section h5 i {
+        margin-right: 0.5rem;
+    }
+    
+    .info-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-left: 4px solid #20c997;
+    }
+    
+    .info-card h6 {
+        color: #20c997;
+        margin-bottom: 0.5rem;
+    }
+    
+    .availability-badge {
+        font-size: 0.875rem;
+        padding: 0.35rem 0.75rem;
+    }
+    
+    .student-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background: white;
+    }
+    
+    .student-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+    
+    .route-details {
+        background: #e7f1ff;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .stop-selector {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .stop-selector:hover {
+        border-color: #0d6efd;
+        background: #f8f9fa;
+    }
+    
+    .stop-info {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stop-time {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .map-preview {
+        height: 200px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    
+    .fee-calculator {
+        background: #fff3cd;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .conflict-alert {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .schedule-summary {
+        background: #d1ecf1;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .form-actions {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+        padding: 1rem;
+        position: sticky;
+        bottom: 0;
+        margin-top: 2rem;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .form-section {
+            padding: 1rem;
+        }
+        
+        .student-avatar {
+            width: 50px;
+            height: 50px;
+            font-size: 1.25rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="allocation-form">
+    <form method="post" id="allocationForm">
+        {% csrf_token %}
+        
+        <!-- Student Selection Section -->
+        <div class="form-section">
+            <h5><i class="fas fa-user-graduate"></i> {% trans "Student Information" %}</h5>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <label for="{{ form.student.id_for_label }}" class="form-label">
+                            <strong>{% trans "Select Student" %} *</strong>
+                        </label>
+                        {{ form.student }}
+                        {% if form.student.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.student.errors %}
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.allocation_type.id_for_label }}" class="form-label">
+                            <strong>{% trans "Allocation Type" %} *</strong>
+                        </label>
+                        {{ form.allocation_type }}
+                        {% if form.allocation_type.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.allocation_type.errors %}
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Selected Student Info (Dynamic) -->
+            <div id="studentInfo" class="student-card" style="display: none;">
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        <div class="student-avatar" id="studentAvatar">S</div>
+                    </div>
+                    <div class="col">
+                        <h6 id="studentName">{% trans "Student Name" %}</h6>
+                        <p class="mb-1 small" id="studentDetails">
+                            <span id="studentGrade">{% trans "Grade" %}</span> • 
+                            <span id="studentSection">{% trans "Section" %}</span>
+                        </p>
+                        <p class="mb-0 small text-muted" id="studentContact">
+                            {% trans "Contact information" %}
+                        </p>
+                    </div>
+                    <div class="col-auto">
+                        <span class="badge bg-success" id="studentStatus">{% trans "Active" %}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Route Schedule Selection -->
+        <div class="form-section">
+            <h5><i class="fas fa-route"></i> {% trans "Route & Schedule" %}</h5>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.route_schedule.id_for_label }}" class="form-label">
+                            <strong>{% trans "Route Schedule" %} *</strong>
+                        </label>
+                        {{ form.route_schedule }}
+                        {% if form.route_schedule.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.route_schedule.errors %}
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.status.id_for_label }}" class="form-label">
+                            <strong>{% trans "Status" %} *</strong>
+                        </label>
+                        {{ form.status }}
+                        {% if form.status.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.status.errors %}
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Route Details (Dynamic) -->
+            <div id="routeInfo" class="route-details" style="display: none;">
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>{% trans "Route:" %}</strong>
+                        <span id="routeName">-</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>{% trans "Vehicle:" %}</strong>
+                        <span id="vehicleInfo">-</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>{% trans "Driver:" %}</strong>
+                        <span id="driverInfo">-</span>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-4">
+                        <strong>{% trans "Morning:" %}</strong>
+                        <span id="morningTiming">-</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>{% trans "Evening:" %}</strong>
+                        <span id="eveningTiming">-</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>{% trans "Available Seats:" %}</strong>
+                        <span id="availableSeats" class="availability-badge badge bg-success">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Capacity Warning -->
+            <div id="capacityWarning" class="alert alert-warning mt-3" style="display: none;">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>{% trans "Capacity Warning:" %}</strong>
+                <span id="warningMessage">{% trans "This vehicle has limited available seats." %}</span>
+            </div>
+        </div>
+
+        <!-- Stop Selection -->
+        <div class="form-section">
+            <h5><i class="fas fa-map-marker-alt"></i> {% trans "Pickup & Drop Points" %}</h5>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="stop-selector">
+                        <label for="{{ form.pickup_stop.id_for_label }}" class="form-label">
+                            <strong>{% trans "Pickup Stop" %} *</strong>
+                        </label>
+                        {{ form.pickup_stop }}
+                        {% if form.pickup_stop.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.pickup_stop.errors %}
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Pickup Stop Info -->
+                        <div id="pickupStopInfo" class="stop-info mt-2" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong id="pickupStopName">{% trans "Stop Name" %}</strong>
+                                    <div class="stop-time">
+                                        <i class="fas fa-clock me-1"></i>
+                                        {% trans "Pickup:" %} <span id="pickupTime">-</span>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <small class="text-muted">{% trans "Sequence:" %} <span id="pickupSequence">-</span></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="stop-selector">
+                        <label for="{{ form.drop_stop.id_for_label }}" class="form-label">
+                            <strong>{% trans "Drop Stop" %} *</strong>
+                        </label>
+                        {{ form.drop_stop }}
+                        {% if form.drop_stop.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.drop_stop.errors %}
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Drop Stop Info -->
+                        <div id="dropStopInfo" class="stop-info mt-2" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong id="dropStopName">{% trans "Stop Name" %}</strong>
+                                    <div class="stop-time">
+                                        <i class="fas fa-clock me-1"></i>
+                                        {% trans "Drop:" %} <span id="dropTime">-</span>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <small class="text-muted">{% trans "Sequence:" %} <span id="dropSequence">-</span></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Route Map Preview -->
+            <div class="map-preview mt-3">
+                <i class="fas fa-map-marked-alt fa-2x me-2"></i>
+                <span>{% trans "Route map preview will appear here" %}</span>
+            </div>
+            
+            <!-- Stop Validation -->
+            <div id="stopValidation" class="alert alert-info mt-3" style="display: none;">
+                <i class="fas fa-info-circle me-2"></i>
+                <span id="validationMessage">{% trans "Please select both pickup and drop stops." %}</span>
+            </div>
+        </div>
+
+        <!-- Date & Financial Information -->
+        <div class="form-section">
+            <h5><i class="fas fa-calendar-alt"></i> {% trans "Date & Financial Details" %}</h5>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.start_date.id_for_label }}" class="form-label">
+                            <strong>{% trans "Start Date" %} *</strong>
+                        </label>
+                        {{ form.start_date }}
+                        {% if form.start_date.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.start_date.errors %}
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.end_date.id_for_label }}" class="form-label">
+                            <strong>{% trans "End Date" %}</strong>
+                        </label>
+                        {{ form.end_date }}
+                        <div class="form-text">{% trans "Leave empty for indefinite allocation" %}</div>
+                        {% if form.end_date.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.end_date.errors %}
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.monthly_fee.id_for_label }}" class="form-label">
+                            <strong>{% trans "Monthly Fee" %} *</strong>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            {{ form.monthly_fee }}
+                        </div>
+                        {% if form.monthly_fee.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.monthly_fee.errors %}
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Fee Calculator -->
+            <div class="fee-calculator">
+                <h6><i class="fas fa-calculator me-2"></i>{% trans "Fee Calculation" %}</h6>
+                <div class="row">
+                    <div class="col-md-4">
+                        <small>{% trans "Base Rate:" %}</small>
+                        <div><strong id="baseRate">$0.00</strong></div>
+                    </div>
+                    <div class="col-md-4">
+                        <small>{% trans "Distance Factor:" %}</small>
+                        <div><strong id="distanceFactor">0%</strong></div>
+                    </div>
+                    <div class="col-md-4">
+                        <small>{% trans "Total Monthly:" %}</small>
+                        <div><strong id="totalMonthly">$0.00</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Information -->
+        <div class="form-section">
+            <h5><i class="fas fa-sticky-note"></i> {% trans "Additional Information" %}</h5>
+            
+            <div class="mb-3">
+                <label for="{{ form.notes.id_for_label }}" class="form-label">
+                    <strong>{% trans "Notes" %}</strong>
+                </label>
+                {{ form.notes }}
+                <div class="form-text">{% trans "Any special instructions or notes about this allocation" %}</div>
+                {% if form.notes.errors %}
+                <div class="text-danger small mt-1">
+                    {% for error in form.notes.errors %}
+                    <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <a href="{% url 'transport:transportallocation_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>
+                        {% trans "Back to Allocations" %}
+                    </a>
+                </div>
+                
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-primary" id="previewBtn">
+                        <i class="fas fa-eye me-1"></i>
+                        {% trans "Preview" %}
+                    </button>
+                    <button type="submit" class="btn btn-success" id="submitBtn">
+                        <i class="fas fa-save me-1"></i>
+                        {% if object %}{% trans "Update Allocation" %}{% else %}{% trans "Create Allocation" %}{% endif %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previewModalLabel">
+                    <i class="fas fa-eye me-2"></i>{% trans "Allocation Preview" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="previewContent">
+                <!-- Preview content will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-primary" id="confirmSubmit">
+                    <i class="fas fa-check me-1"></i>{% trans "Confirm Allocation" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form elements
+        const studentSelect = document.getElementById('{{ form.student.id_for_label }}');
+        const routeScheduleSelect = document.getElementById('{{ form.route_schedule.id_for_label }}');
+        const pickupStopSelect = document.getElementById('{{ form.pickup_stop.id_for_label }}');
+        const dropStopSelect = document.getElementById('{{ form.drop_stop.id_for_label }}');
+        const allocationTypeSelect = document.getElementById('{{ form.allocation_type.id_for_label }}');
+        const monthlyFeeInput = document.getElementById('{{ form.monthly_fee.id_for_label }}');
+        
+        // Info containers
+        const studentInfo = document.getElementById('studentInfo');
+        const routeInfo = document.getElementById('routeInfo');
+        const pickupStopInfo = document.getElementById('pickupStopInfo');
+        const dropStopInfo = document.getElementById('dropStopInfo');
+        const capacityWarning = document.getElementById('capacityWarning');
+        
+        // Student selection handler
+        studentSelect.addEventListener('change', function() {
+            const studentId = this.value;
+            if (studentId) {
+                fetchStudentInfo(studentId);
+                studentInfo.style.display = 'block';
+            } else {
+                studentInfo.style.display = 'none';
+            }
+        });
+        
+        // Route schedule selection handler
+        routeScheduleSelect.addEventListener('change', function() {
+            const scheduleId = this.value;
+            if (scheduleId) {
+                fetchRouteInfo(scheduleId);
+                routeInfo.style.display = 'block';
+                loadRouteStops(scheduleId);
+            } else {
+                routeInfo.style.display = 'none';
+                clearStopSelects();
+            }
+        });
+        
+        // Stop selection handlers
+        pickupStopSelect.addEventListener('change', function() {
+            const stopId = this.value;
+            if (stopId) {
+                fetchStopInfo(stopId, 'pickup');
+                pickupStopInfo.style.display = 'block';
+            } else {
+                pickupStopInfo.style.display = 'none';
+            }
+            validateStops();
+        });
+        
+        dropStopSelect.addEventListener('change', function() {
+            const stopId = this.value;
+            if (stopId) {
+                fetchStopInfo(stopId, 'drop');
+                dropStopInfo.style.display = 'block';
+            } else {
+                dropStopInfo.style.display = 'none';
+            }
+            validateStops();
+        });
+        
+        // Allocation type change handler
+        allocationTypeSelect.addEventListener('change', function() {
+            updateFeeCalculation();
+        });
+        
+        // Preview button handler
+        document.getElementById('previewBtn').addEventListener('click', function() {
+            generatePreview();
+        });
+        
+        // Confirm submit handler
+        document.getElementById('confirmSubmit').addEventListener('click', function() {
+            document.getElementById('allocationForm').submit();
+        });
+        
+        // Fetch student information
+        function fetchStudentInfo(studentId) {
+            // In real implementation, this would be an API call
+            console.log('Fetching student info for:', studentId);
+            
+            // Simulated response
+            const studentData = {
+                name: "John Doe",
+                grade: "Grade 5",
+                section: "A",
+                contact: "parent@email.com",
+                status: "Active"
+            };
+            
+            document.getElementById('studentAvatar').textContent = studentData.name.charAt(0);
+            document.getElementById('studentName').textContent = studentData.name;
+            document.getElementById('studentGrade').textContent = studentData.grade;
+            document.getElementById('studentSection').textContent = studentData.section;
+            document.getElementById('studentContact').textContent = studentData.contact;
+            document.getElementById('studentStatus').textContent = studentData.status;
+        }
+        
+        // Fetch route information
+        function fetchRouteInfo(scheduleId) {
+            // In real implementation, this would be an API call
+            console.log('Fetching route info for:', scheduleId);
+            
+            // Simulated response
+            const routeData = {
+                name: "Route A - Downtown",
+                vehicle: "BUS-001 (Toyota Coaster)",
+                driver: "John Smith",
+                morning: "07:00 - 08:30",
+                evening: "15:00 - 16:30",
+                availableSeats: 3
+            };
+            
+            document.getElementById('routeName').textContent = routeData.name;
+            document.getElementById('vehicleInfo').textContent = routeData.vehicle;
+            document.getElementById('driverInfo').textContent = routeData.driver;
+            document.getElementById('morningTiming').textContent = routeData.morning;
+            document.getElementById('eveningTiming').textContent = routeData.evening;
+            document.getElementById('availableSeats').textContent = routeData.availableSeats;
+            
+            // Show capacity warning if limited seats
+            if (routeData.availableSeats <= 2) {
+                capacityWarning.style.display = 'block';
+                document.getElementById('warningMessage').textContent = 
+                    `Only ${routeData.availableSeats} seat(s) available on this vehicle.`;
+            } else {
+                capacityWarning.style.display = 'none';
+            }
+        }
+        
+        // Load route stops
+        function loadRouteStops(scheduleId) {
+            // Clear existing options
+            clearStopSelects();
+            
+            // In real implementation, this would be an API call
+            console.log('Loading stops for schedule:', scheduleId);
+            
+            // Simulated stops data
+            const stops = [
+                { id: 1, name: "Main Street Stop", sequence: 1, pickup: "07:00", drop: "16:30" },
+                { id: 2, name: "Park Avenue", sequence: 2, pickup: "07:15", drop: "16:15" },
+                { id: 3, name: "City Center", sequence: 3, pickup: "07:30", drop: "16:00" },
+                { id: 4, name: "School Gate", sequence: 4, pickup: "07:45", drop: "15:45" }
+            ];
+            
+            // Populate stop selects
+            stops.forEach(stop => {
+                const option1 = new Option(`${stop.sequence}. ${stop.name}`, stop.id);
+                const option2 = new Option(`${stop.sequence}. ${stop.name}`, stop.id);
+                pickupStopSelect.add(option1);
+                dropStopSelect.add(option2);
+            });
+        }
+        
+        // Fetch stop information
+        function fetchStopInfo(stopId, type) {
+            // In real implementation, this would be an API call
+            console.log('Fetching stop info for:', stopId, type);
+            
+            // Simulated stop data
+            const stopData = {
+                name: "Main Street Stop",
+                sequence: 1,
+                pickup: "07:00",
+                drop: "16:30"
+            };
+            
+            if (type === 'pickup') {
+                document.getElementById('pickupStopName').textContent = stopData.name;
+                document.getElementById('pickupTime').textContent = stopData.pickup;
+                document.getElementById('pickupSequence').textContent = stopData.sequence;
+            } else {
+                document.getElementById('dropStopName').textContent = stopData.name;
+                document.getElementById('dropTime').textContent = stopData.drop;
+                document.getElementById('dropSequence').textContent = stopData.sequence;
+            }
+        }
+        
+        // Validate stop selection
+        function validateStops() {
+            const pickupStop = pickupStopSelect.value;
+            const dropStop = dropStopSelect.value;
+            const validationDiv = document.getElementById('stopValidation');
+            
+            if (pickupStop && dropStop) {
+                const pickupSeq = parseInt(pickupStopSelect.options[pickupStopSelect.selectedIndex].text.split('.')[0]);
+                const dropSeq = parseInt(dropStopSelect.options[dropStopSelect.selectedIndex].text.split('.')[0]);
+                
+                if (pickupSeq >= dropSeq) {
+                    validationDiv.className = 'alert alert-danger mt-3';
+                    validationDiv.style.display = 'block';
+                    document.getElementById('validationMessage').textContent = 
+                        '{% trans "Drop stop must come after pickup stop in the route sequence." %}';
+                } else {
+                    validationDiv.className = 'alert alert-success mt-3';
+                    validationDiv.style.display = 'block';
+                    document.getElementById('validationMessage').textContent = 
+                        '{% trans "Stop selection is valid. Estimated travel time calculated." %}';
+                    updateFeeCalculation();
+                }
+            } else {
+                validationDiv.style.display = 'none';
+            }
+        }
+        
+        // Update fee calculation
+        function updateFeeCalculation() {
+            const allocationType = allocationTypeSelect.value;
+            const baseRate = 100.00; // Base monthly rate
+            
+            let multiplier = 1.0;
+            if (allocationType === 'morning' || allocationType === 'evening') {
+                multiplier = 0.6; // 60% for one-way
+            }
+            
+            // Distance factor (simplified)
+            const distanceFactor = 0.1; // 10% additional
+            
+            const total = baseRate * multiplier * (1 + distanceFactor);
+            
+            document.getElementById('baseRate').textContent = `$${baseRate.toFixed(2)}`;
+            document.getElementById('distanceFactor').textContent = `${(distanceFactor * 100).toFixed(0)}%`;
+            document.getElementById('totalMonthly').textContent = `$${total.toFixed(2)}`;
+            
+            // Update monthly fee field
+            monthlyFeeInput.value = total.toFixed(2);
+        }
+        
+        // Generate preview
+        function generatePreview() {
+            const previewContent = document.getElementById('previewContent');
+            
+            // Collect form data
+            const formData = {
+                student: studentSelect.options[studentSelect.selectedIndex]?.text,
+                route: document.getElementById('routeName').textContent,
+                allocationType: allocationTypeSelect.options[allocationTypeSelect.selectedIndex]?.text,
+                pickupStop: pickupStopSelect.options[pickupStopSelect.selectedIndex]?.text,
+                dropStop: dropStopSelect.options[dropStopSelect.selectedIndex]?.text,
+                startDate: document.getElementById('{{ form.start_date.id_for_label }}').value,
+                endDate: document.getElementById('{{ form.end_date.id_for_label }}').value || 'Indefinite',
+                monthlyFee: monthlyFeeInput.value,
+                notes: document.getElementById('{{ form.notes.id_for_label }}').value
+            };
+            
+            // Generate preview HTML
+            previewContent.innerHTML = `
+                <div class="preview-section">
+                    <h6>{% trans "Allocation Summary" %}</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <tr><td><strong>{% trans "Student:" %}</strong></td><td>${formData.student}</td></tr>
+                            <tr><td><strong>{% trans "Route:" %}</strong></td><td>${formData.route}</td></tr>
+                            <tr><td><strong>{% trans "Allocation Type:" %}</strong></td><td>${formData.allocationType}</td></tr>
+                            <tr><td><strong>{% trans "Pickup Stop:" %}</strong></td><td>${formData.pickupStop}</td></tr>
+                            <tr><td><strong>{% trans "Drop Stop:" %}</strong></td><td>${formData.dropStop}</td></tr>
+                            <tr><td><strong>{% trans "Start Date:" %}</strong></td><td>${formData.startDate}</td></tr>
+                            <tr><td><strong>{% trans "End Date:" %}</strong></td><td>${formData.endDate}</td></tr>
+                            <tr><td><strong>{% trans "Monthly Fee:" %}</strong></td><td>$${formData.monthlyFee}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                ${formData.notes ? `
+                <div class="preview-section mt-3">
+                    <h6>{% trans "Additional Notes" %}</h6>
+                    <p>${formData.notes}</p>
+                </div>
+                ` : ''}
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    {% trans "Please review the allocation details before confirming." %}
+                </div>
+            `;
+            
+            // Show preview modal
+            new bootstrap.Modal(document.getElementById('previewModal')).show();
+        }
+        
+        // Utility functions
+        function clearStopSelects() {
+            pickupStopSelect.innerHTML = '<option value="">{% trans "Select a pickup stop..." %}</option>';
+            dropStopSelect.innerHTML = '<option value="">{% trans "Select a drop stop..." %}</option>';
+            pickupStopInfo.style.display = 'none';
+            dropStopInfo.style.display = 'none';
+        }
+        
+        // Initialize form
+        function initializeForm() {
+            // Trigger change events for existing values (edit mode)
+            if (studentSelect.value) studentSelect.dispatchEvent(new Event('change'));
+            if (routeScheduleSelect.value) routeScheduleSelect.dispatchEvent(new Event('change'));
+            if (pickupStopSelect.value) pickupStopSelect.dispatchEvent(new Event('change'));
+            if (dropStopSelect.value) dropStopSelect.dispatchEvent(new Event('change'));
+            
+            // Initialize fee calculation
+            updateFeeCalculation();
+        }
+        
+        // Call initialization
+        initializeForm();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,551 @@
+<!-- templates/hostels/hostels/hostel_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Hostels List - Hostel Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hostel-list-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        margin-bottom: 1.5rem;
+    }
+    
+    .hostel-list-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+    }
+    
+    .hostel-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    
+    .hostel-type-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+    }
+    
+    .occupancy-indicator {
+        height: 6px;
+        border-radius: 3px;
+        background-color: #e9ecef;
+        overflow: hidden;
+    }
+    
+    .occupancy-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+    
+    .occupancy-low { background-color: #28a745; }
+    .occupancy-medium { background-color: #ffc107; }
+    .occupancy-high { background-color: #fd7e14; }
+    .occupancy-full { background-color: #dc3545; }
+    
+    .status-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .status-active { background-color: #28a745; }
+    .status-inactive { background-color: #6c757d; }
+    
+    .action-buttons .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+        margin-left: 0.25rem;
+    }
+    
+    .filter-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .hostel-features {
+        font-size: 0.875rem;
+    }
+    
+    .feature-tag {
+        background-color: #e9ecef;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        margin-right: 0.25rem;
+        margin-bottom: 0.25rem;
+        display: inline-block;
+    }
+    
+    .table-responsive {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .view-toggle {
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    
+    .view-toggle-btn {
+        border: none;
+        border-radius: 0;
+        padding: 0.5rem 1rem;
+    }
+    
+    .view-toggle-btn.active {
+        background-color: #007bff;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}Hostels Management{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:dashboard' %}">Hostels</a></li>
+<li class="breadcrumb-item active" aria-current="page">All Hostels</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'hostels:hostel_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>Add New Hostel
+        </a>
+        <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="visually-hidden">Toggle Dropdown</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'hostels:occupancy_report' %}"><i class="bi bi-bar-chart me-2"></i>Occupancy Report</a></li>
+            <li><a class="dropdown-item" href="#"><i class="bi bi-download me-2"></i>Export List</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Filters Section -->
+    <div class="filter-section">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="hostelTypeFilter" class="form-label">Hostel Type</label>
+                <select class="form-select" id="hostelTypeFilter">
+                    <option value="">All Types</option>
+                    {% for value, label in hostel_types %}
+                    <option value="{{ value }}" {% if request.GET.hostel_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="categoryFilter" class="form-label">Category</label>
+                <select class="form-select" id="categoryFilter">
+                    <option value="">All Categories</option>
+                    {% for value, label in categories %}
+                    <option value="{{ value }}" {% if request.GET.category == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="statusFilter" class="form-label">Status</label>
+                <select class="form-select" id="statusFilter">
+                    <option value="">All Status</option>
+                    <option value="true" {% if request.GET.is_active == 'true' %}selected{% endif %}>Active</option>
+                    <option value="false" {% if request.GET.is_active == 'false' %}selected{% endif %}>Inactive</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="searchFilter" class="form-label">Search</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="searchFilter" placeholder="Search hostels...">
+                    <button class="btn btn-outline-secondary" type="button" id="clearFilters">
+                        <i class="bi bi-x-circle"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Toggle and Stats -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <span class="text-muted">Showing {{ hostels.count }} hostels</span>
+        </div>
+        <div class="d-flex align-items-center">
+            <span class="me-2 text-muted">View:</span>
+            <div class="btn-group view-toggle" role="group">
+                <button type="button" class="btn btn-sm view-toggle-btn active" data-view="grid">
+                    <i class="bi bi-grid-3x3-gap"></i>
+                </button>
+                <button type="button" class="btn btn-sm view-toggle-btn" data-view="list">
+                    <i class="bi bi-list-ul"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid View -->
+    <div id="gridView">
+        <div class="row">
+            {% for hostel in hostels %}
+            <div class="col-xl-4 col-lg-6 mb-4">
+                <div class="card hostel-list-card">
+                    <div class="card-body">
+                        <div class="row align-items-start">
+                            <div class="col-auto">
+                                <div class="hostel-avatar">
+                                    {{ hostel.name|slice:":2"|upper }}
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <h5 class="card-title mb-1">{{ hostel.name }}</h5>
+                                        <p class="card-text text-muted small mb-1">{{ hostel.code }}</p>
+                                    </div>
+                                    <div class="action-buttons">
+                                        <a href="{% url 'hostels:hostel_detail' pk=hostel.pk %}" class="btn btn-sm btn-outline-primary" title="View Details">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{% url 'hostels:hostel_update' pk=hostel.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-2">
+                                    <span class="badge hostel-type-badge bg-primary">{{ hostel.get_hostel_type_display }}</span>
+                                    <span class="badge hostel-type-badge bg-secondary">{{ hostel.get_category_display }}</span>
+                                    <span class="badge hostel-type-badge {% if hostel.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                        <span class="status-indicator status-{% if hostel.is_active %}active{% else %}inactive{% endif %}"></span>
+                                        {{ hostel.is_active|yesno:"Active,Inactive" }}
+                                    </span>
+                                </div>
+                                
+                                <!-- Occupancy -->
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between small mb-1">
+                                        <span>Occupancy</span>
+                                        <span>{{ hostel.current_occupancy }}/{{ hostel.capacity }} ({{ hostel.occupancy_percentage }}%)</span>
+                                    </div>
+                                    <div class="occupancy-indicator">
+                                        <div class="occupancy-fill 
+                                            {% if hostel.occupancy_percentage >= 90 %}occupancy-full
+                                            {% elif hostel.occupancy_percentage >= 70 %}occupancy-high
+                                            {% elif hostel.occupancy_percentage >= 50 %}occupancy-medium
+                                            {% else %}occupancy-low{% endif %}" 
+                                            style="width: {{ hostel.occupancy_percentage }}%">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Quick Stats -->
+                                <div class="row text-center small mb-3">
+                                    <div class="col-4">
+                                        <div class="fw-bold text-primary">{{ hostel.total_rooms }}</div>
+                                        <div class="text-muted">Rooms</div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="fw-bold text-success">{{ hostel.available_beds }}</div>
+                                        <div class="text-muted">Available</div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="fw-bold text-info">₹{{ hostel.monthly_rent }}</div>
+                                        <div class="text-muted">Rent/Month</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Warden Info -->
+                                {% if hostel.warden %}
+                                <div class="d-flex align-items-center small text-muted">
+                                    <i class="bi bi-person-badge me-1"></i>
+                                    <span>Warden: {{ hostel.warden.get_full_name|default:hostel.warden.username }}</span>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Features -->
+                                {% if hostel.amenities %}
+                                <div class="hostel-features mt-2">
+                                    {% for amenity in hostel.amenities|slice:":3" %}
+                                    <span class="feature-tag">{{ amenity }}</span>
+                                    {% endfor %}
+                                    {% if hostel.amenities|length > 3 %}
+                                    <span class="feature-tag">+{{ hostel.amenities|length|add:"-3" }} more</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="bi bi-building text-muted mb-3" style="font-size: 4rem;"></i>
+                    <h4 class="text-muted">No Hostels Found</h4>
+                    <p class="text-muted mb-4">Get started by creating your first hostel.</p>
+                    <a href="{% url 'hostels:hostel_create' %}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-plus-circle me-2"></i>Create First Hostel
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Table View (Hidden by default) -->
+    <div id="tableView" style="display: none;">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Code</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Capacity</th>
+                        <th>Occupancy</th>
+                        <th>Available</th>
+                        <th>Rent</th>
+                        <th>Status</th>
+                        <th>Warden</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for hostel in hostels %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="hostel-avatar me-3" style="width: 40px; height: 40px; font-size: 0.9rem;">
+                                    {{ hostel.name|slice:":2"|upper }}
+                                </div>
+                                <strong>{{ hostel.name }}</strong>
+                            </div>
+                        </td>
+                        <td>{{ hostel.code }}</td>
+                        <td>
+                            <span class="badge bg-primary">{{ hostel.get_hostel_type_display }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ hostel.get_category_display }}</span>
+                        </td>
+                        <td>{{ hostel.capacity }}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="occupancy-indicator me-2" style="width: 60px;">
+                                    <div class="occupancy-fill 
+                                        {% if hostel.occupancy_percentage >= 90 %}occupancy-full
+                                        {% elif hostel.occupancy_percentage >= 70 %}occupancy-high
+                                        {% elif hostel.occupancy_percentage >= 50 %}occupancy-medium
+                                        {% else %}occupancy-low{% endif %}" 
+                                        style="width: {{ hostel.occupancy_percentage }}%">
+                                    </div>
+                                </div>
+                                <small>{{ hostel.occupancy_percentage }}%</small>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge {% if hostel.available_beds > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ hostel.available_beds }}
+                            </span>
+                        </td>
+                        <td>₹{{ hostel.monthly_rent }}</td>
+                        <td>
+                            <span class="badge {% if hostel.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                <span class="status-indicator status-{% if hostel.is_active %}active{% else %}inactive{% endif %}"></span>
+                                {{ hostel.is_active|yesno:"Active,Inactive" }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if hostel.warden %}
+                            <small>{{ hostel.warden.get_full_name|default:hostel.warden.username }}</small>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="{% url 'hostels:hostel_detail' pk=hostel.pk %}" class="btn btn-sm btn-outline-primary" title="View Details">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'hostels:hostel_update' pk=hostel.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="Hostels pagination" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">First</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Previous</a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Last</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const viewToggleBtns = document.querySelectorAll('.view-toggle-btn');
+        const gridView = document.getElementById('gridView');
+        const tableView = document.getElementById('tableView');
+        
+        viewToggleBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const view = this.getAttribute('data-view');
+                
+                // Update active state
+                viewToggleBtns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide views
+                if (view === 'grid') {
+                    gridView.style.display = 'block';
+                    tableView.style.display = 'none';
+                } else {
+                    gridView.style.display = 'none';
+                    tableView.style.display = 'block';
+                }
+            });
+        });
+
+        // Filter functionality
+        const hostelTypeFilter = document.getElementById('hostelTypeFilter');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const statusFilter = document.getElementById('statusFilter');
+        const searchFilter = document.getElementById('searchFilter');
+        const clearFilters = document.getElementById('clearFilters');
+
+        function applyFilters() {
+            const params = new URLSearchParams();
+            
+            if (hostelTypeFilter.value) {
+                params.set('hostel_type', hostelTypeFilter.value);
+            }
+            
+            if (categoryFilter.value) {
+                params.set('category', categoryFilter.value);
+            }
+            
+            if (statusFilter.value) {
+                params.set('is_active', statusFilter.value);
+            }
+            
+            if (searchFilter.value) {
+                params.set('search', searchFilter.value);
+            }
+            
+            window.location.href = '?' + params.toString();
+        }
+
+        [hostelTypeFilter, categoryFilter, statusFilter].forEach(filter => {
+            filter.addEventListener('change', applyFilters);
+        });
+
+        searchFilter.addEventListener('input', function() {
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = setTimeout(applyFilters, 500);
+        });
+
+        clearFilters.addEventListener('click', function() {
+            hostelTypeFilter.value = '';
+            categoryFilter.value = '';
+            statusFilter.value = '';
+            searchFilter.value = '';
+            applyFilters();
+        });
+
+        // Quick status toggle
+        document.querySelectorAll('.status-toggle').forEach(toggle => {
+            toggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                const hostelId = this.getAttribute('data-hostel-id');
+                const currentState = this.getAttribute('data-active') === 'true';
+                
+                // Here you would typically make an AJAX call to update the status
+                console.log(`Toggling hostel ${hostelId} to ${!currentState}`);
+                
+                // Update UI immediately (you would update this based on AJAX response)
+                const badge = this.querySelector('.badge');
+                const indicator = this.querySelector('.status-indicator');
+                
+                if (currentState) {
+                    badge.classList.remove('bg-success');
+                    badge.classList.add('bg-danger');
+                    badge.textContent = 'Inactive';
+                    indicator.classList.remove('status-active');
+                    indicator.classList.add('status-inactive');
+                    this.setAttribute('data-active', 'false');
+                } else {
+                    badge.classList.remove('bg-danger');
+                    badge.classList.add('bg-success');
+                    badge.textContent = 'Active';
+                    indicator.classList.remove('status-inactive');
+                    indicator.classList.add('status-active');
+                    this.setAttribute('data-active', 'true');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

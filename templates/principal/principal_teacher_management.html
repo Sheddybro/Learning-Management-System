@@ -1,0 +1,880 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">{{ page_title }}</h1>
+            <p class="text-muted">{% trans "Oversee teacher assignments, workloads, and performance metrics" %}</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if current_session %}
+                <span class="badge bg-primary fs-6">{{ current_session.name }}</span>
+            {% endif %}
+            <small class="text-muted">{{ request.user.get_full_name }}</small>
+        </div>
+    </div>
+
+    <!-- Teacher Overview Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                {% trans "Total Teachers" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ teachers_data|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chalkboard-teacher fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                {% trans "Class Teachers" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% for teacher in teachers_data %}
+                                    {% if teacher.teacher.is_class_teacher %}
+                                        {% cycle 1 2 3 4 5 6 7 8 9 10 as counter silent %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ counter|default:0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-user-graduate fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                {% trans "Avg Workload" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% load mathfilters %}
+                                {% for teacher in teachers_data %}
+                                    {% if teacher.total_periods %}
+                                        {% cycle teacher.total_periods teacher.total_periods teacher.total_periods teacher.total_periods teacher.total_periods as periods silent %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ periods|default:0 }} {% trans "periods/week" %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                {% trans "High Performers" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% for teacher in teachers_data %}
+                                    {% if teacher.avg_student_performance >= 85 %}
+                                        {% cycle 1 2 3 4 5 6 7 8 9 10 as high_performers silent %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ high_performers|default:0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-star fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "Teacher Filters" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <input type="text" class="form-control" id="searchTeacher" placeholder="{% trans 'Search teachers...' %}">
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="departmentFilter">
+                                <option value="">{% trans "All Departments" %}</option>
+                                <!-- Department options will be populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="workloadFilter">
+                                <option value="">{% trans "All Workloads" %}</option>
+                                <option value="low">{% trans "Low (< 15 periods)" %}</option>
+                                <option value="medium">{% trans "Medium (15-25 periods)" %}</option>
+                                <option value="high">{% trans "High (> 25 periods)" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="performanceFilter">
+                                <option value="">{% trans "All Performance" %}</option>
+                                <option value="excellent">{% trans "Excellent (≥ 90%)" %}</option>
+                                <option value="good">{% trans "Good (80-89%)" %}</option>
+                                <option value="average">{% trans "Average (70-79%)" %}</option>
+                                <option value="needs_improvement">{% trans "Needs Improvement (< 70%)" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary me-2" onclick="applyFilters()">
+                                <i class="fas fa-filter"></i> {% trans "Apply Filters" %}
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="exportTeacherReport()">
+                                <i class="fas fa-download"></i> {% trans "Export" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Teacher Management Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "Teacher Overview" %}</h6>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="toggleView('cards')">
+                            <i class="fas fa-th"></i> {% trans "Cards" %}
+                        </button>
+                        <button class="btn btn-sm btn-outline-success" onclick="toggleView('table')">
+                            <i class="fas fa-table"></i> {% trans "Table" %}
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+
+                    <!-- Card View -->
+                    <div id="teacherCards" class="row">
+                        {% for teacher_data in teachers_data %}
+                        <div class="col-lg-4 col-md-6 mb-4 teacher-card" data-teacher-id="{{ teacher_data.teacher.id }}">
+                            <div class="card h-100">
+                                <div class="card-header bg-gradient-primary text-white">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="m-0">{{ teacher_data.teacher.user.get_full_name }}</h6>
+                                        {% if teacher_data.teacher.is_class_teacher %}
+                                            <span class="badge bg-light text-dark">{% trans "Class Teacher" %}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <small class="text-muted">{% trans "ID" %}</small>
+                                            <div>{{ teacher_data.teacher.teacher_id }}</div>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted">{% trans "Department" %}</small>
+                                            <div>{{ teacher_data.teacher.department.name|default:"--" }}</div>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <small class="text-muted">{% trans "Workload" %}</small>
+                                            <div class="fw-bold">{{ teacher_data.total_periods }} {% trans "periods/week" %}</div>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted">{% trans "Classes" %}</small>
+                                            <div class="fw-bold">{{ teacher_data.classes_count }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <small class="text-muted">{% trans "Performance" %}</small>
+                                            <div>
+                                                <span class="badge bg-{% if teacher_data.avg_student_performance >= 85 %}success{% elif teacher_data.avg_student_performance >= 70 %}warning{% else %}danger{% endif %}">
+                                                    {{ teacher_data.avg_student_performance|floatformat:1 }}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <small class="text-muted">{% trans "Subjects" %}</small>
+                                        <div>
+                                            {% for subject in teacher_data.subjects %}
+                                                <span class="badge bg-light text-dark me-1">{{ subject }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer">
+                                    <button class="btn btn-sm btn-outline-primary me-2" onclick="viewTeacherDetails({{ teacher_data.teacher.id }})">
+                                        <i class="fas fa-eye"></i> {% trans "View Details" %}
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-success" onclick="manageAssignments({{ teacher_data.teacher.id }})">
+                                        <i class="fas fa-tasks"></i> {% trans "Assignments" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12 text-center py-5">
+                            <i class="fas fa-chalkboard-teacher fa-4x text-muted mb-3"></i>
+                            <h4>{% trans "No Teachers Found" %}</h4>
+                            <p class="text-muted">{% trans "No teachers match the current filters or no teachers are assigned to this session." %}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Table View -->
+                    <div id="teacherTable" class="table-responsive d-none">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>{% trans "Teacher" %}</th>
+                                    <th>{% trans "ID" %}</th>
+                                    <th>{% trans "Department" %}</th>
+                                    <th>{% trans "Workload" %}</th>
+                                    <th>{% trans "Classes" %}</th>
+                                    <th>{% trans "Performance" %}</th>
+                                    <th>{% trans "Subjects" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for teacher_data in teachers_data %}
+                                <tr>
+                                    <td>
+                                        {{ teacher_data.teacher.user.get_full_name }}
+                                        {% if teacher_data.teacher.is_class_teacher %}
+                                            <br><small class="badge bg-primary">{% trans "Class Teacher" %}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ teacher_data.teacher.teacher_id }}</td>
+                                    <td>{{ teacher_data.teacher.department.name|default:"--" }}</td>
+                                    <td>{{ teacher_data.total_periods }} {% trans "periods/week" %}</td>
+                                    <td>{{ teacher_data.classes_count }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if teacher_data.avg_student_performance >= 85 %}success{% elif teacher_data.avg_student_performance >= 70 %}warning{% else %}danger{% endif %}">
+                                            {{ teacher_data.avg_student_performance|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% for subject in teacher_data.subjects %}
+                                            <span class="badge bg-light text-dark me-1">{{ subject }}</span>
+                                        {% endfor %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary me-1" onclick="viewTeacherDetails({{ teacher_data.teacher.id }})">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-success" onclick="manageAssignments({{ teacher_data.teacher.id }})">
+                                            <i class="fas fa-tasks"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-4">
+                                        <i class="fas fa-chalkboard-teacher fa-3x text-muted mb-3"></i>
+                                        <p class="text-muted">{% trans "No teachers found matching the current criteria." %}</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workload Distribution Chart -->
+    <div class="row mt-4">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "Workload Distribution" %}</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="workloadChart" width="100%" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Department Distribution -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "Department Distribution" %}</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="departmentChart" width="100%" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+/* Teacher Management Styles */
+.card {
+    border: none;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+
+.bg-gradient-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.75em;
+    padding: 0.375rem 0.5rem;
+}
+
+.btn-outline-primary {
+    color: #4e73df;
+    border-color: #4e73df;
+}
+
+.btn-outline-primary:hover {
+    color: #fff;
+    background-color: #4e73df;
+    border-color: #4e73df;
+}
+
+.btn-outline-success {
+    color: #1cc88a;
+    border-color: #1cc88a;
+}
+
+.btn-outline-success:hover {
+    color: #fff;
+    background-color: #1cc88a;
+    border-color: #1cc88a;
+}
+
+/* Teacher card animations */
+.teacher-card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.teacher-card:hover {
+    transform: translateY(-5px);
+}
+
+/* Chart containers */
+canvas {
+    max-width: 100%;
+    height: auto !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+
+    .card-body .row {
+        margin-left: -5px;
+        margin-right: -5px;
+    }
+
+    .card-body .row > div {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+}
+
+/* Loading states */
+.chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    background: #f8f9fc;
+    border-radius: 0.5rem;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Teacher Management JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Teacher Management page loaded');
+
+    // Initialize page
+    initializeTeacherManagement();
+
+    // Set up event listeners
+    setupEventListeners();
+
+    // Load initial data
+    loadTeacherData();
+
+    function initializeTeacherManagement() {
+        // Show loading states for charts
+        showChartLoadingStates();
+
+        // Initialize filters
+        initializeFilters();
+
+        // Setup responsive design
+        setupResponsiveDesign();
+    }
+
+    function showChartLoadingStates() {
+        const chartContainers = document.querySelectorAll('canvas');
+        chartContainers.forEach(canvas => {
+            const container = canvas.parentElement;
+            container.innerHTML = `
+                <div class="chart-loading">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="ms-2">Loading chart...</span>
+                </div>
+            `;
+        });
+    }
+
+    function initializeFilters() {
+        // Populate department filter dynamically
+        populateDepartmentFilter();
+
+        // Set up search functionality
+        const searchInput = document.getElementById('searchTeacher');
+        searchInput.addEventListener('input', function() {
+            filterTeachers();
+        });
+
+        // Set up filter change handlers
+        const filters = document.querySelectorAll('select[id*="Filter"]');
+        filters.forEach(filter => {
+            filter.addEventListener('change', function() {
+                filterTeachers();
+            });
+        });
+    }
+
+    function populateDepartmentFilter() {
+        // This would typically fetch departments from API
+        // For now, we'll use placeholder data
+        const departmentFilter = document.getElementById('departmentFilter');
+        const departments = [
+            'Mathematics',
+            'English',
+            'Science',
+            'History',
+            'Geography',
+            'Art',
+            'Physical Education'
+        ];
+
+        departments.forEach(dept => {
+            const option = document.createElement('option');
+            option.value = dept.toLowerCase().replace(' ', '_');
+            option.textContent = dept;
+            departmentFilter.appendChild(option);
+        });
+    }
+
+    function setupResponsiveDesign() {
+        // Handle mobile responsiveness
+        const handleResize = () => {
+            const width = window.innerWidth;
+
+            if (width < 768) {
+                // Mobile: stack cards vertically
+                const teacherCards = document.querySelectorAll('.col-lg-4');
+                teacherCards.forEach(card => {
+                    card.classList.remove('col-lg-4');
+                    card.classList.add('col-12');
+                });
+            } else {
+                // Desktop: restore grid layout
+                const teacherCards = document.querySelectorAll('.col-12');
+                teacherCards.forEach(card => {
+                    if (card.classList.contains('teacher-card')) {
+                        card.classList.remove('col-12');
+                        card.classList.add('col-lg-4');
+                    }
+                });
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Initial call
+    }
+
+    function setupEventListeners() {
+        // View toggle buttons
+        document.querySelectorAll('[onclick*="toggleView"]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const viewType = this.onclick.toString().match(/'(\w+)'/)[1];
+                toggleView(viewType);
+            });
+        });
+    }
+
+    async function loadTeacherData() {
+        try {
+            // Fetch teacher data from API
+            const response = await fetch('/core/api/teacher/data/', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCSRFToken()
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                renderCharts(data);
+            } else {
+                throw new Error('Failed to load teacher data');
+            }
+        } catch (error) {
+            console.error('Error loading teacher data:', error);
+            showErrorMessage('Failed to load teacher data. Please try again.');
+        }
+    }
+
+    function renderCharts(data) {
+        // Render workload distribution chart
+        renderWorkloadChart(data.workload_data || {});
+
+        // Render department distribution chart
+        renderDepartmentChart(data.department_data || {});
+    }
+
+    function renderWorkloadChart(workloadData) {
+        const container = document.getElementById('workloadChart').parentElement;
+        container.innerHTML = '<canvas id="workloadChart" width="100%" height="300"></canvas>';
+
+        const ctx = document.getElementById('workloadChart').getContext('2d');
+
+        const labels = ['Low (< 15)', 'Medium (15-25)', 'High (> 25)'];
+        const data = [
+            workloadData.low || 0,
+            workloadData.medium || 0,
+            workloadData.high || 0
+        ];
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: ['#1cc88a', '#f6c23e', '#e74a3b'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0;
+                                return `${context.label}: ${context.parsed} teachers (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderDepartmentChart(departmentData) {
+        const container = document.getElementById('departmentChart').parentElement;
+        container.innerHTML = '<canvas id="departmentChart" width="100%" height="300"></canvas>';
+
+        const ctx = document.getElementById('departmentChart').getContext('2d');
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(departmentData),
+                datasets: [{
+                    label: 'Number of Teachers',
+                    data: Object.values(departmentData),
+                    backgroundColor: '#4e73df',
+                    borderColor: '#2e59d9',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.parsed.y} teachers`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function filterTeachers() {
+        const searchTerm = document.getElementById('searchTeacher').value.toLowerCase();
+        const departmentFilter = document.getElementById('departmentFilter').value;
+        const workloadFilter = document.getElementById('workloadFilter').value;
+        const performanceFilter = document.getElementById('performanceFilter').value;
+
+        const teacherCards = document.querySelectorAll('.teacher-card');
+
+        teacherCards.forEach(card => {
+            const teacherName = card.querySelector('h6').textContent.toLowerCase();
+            const teacherData = JSON.parse(card.dataset.teacherData || '{}');
+
+            let showCard = true;
+
+            // Search filter
+            if (searchTerm && !teacherName.includes(searchTerm)) {
+                showCard = false;
+            }
+
+            // Department filter
+            if (departmentFilter && teacherData.department !== departmentFilter) {
+                showCard = false;
+            }
+
+            // Workload filter
+            if (workloadFilter) {
+                const workload = teacherData.total_periods || 0;
+                if (workloadFilter === 'low' && workload >= 15) showCard = false;
+                if (workloadFilter === 'medium' && (workload < 15 || workload > 25)) showCard = false;
+                if (workloadFilter === 'high' && workload <= 25) showCard = false;
+            }
+
+            // Performance filter
+            if (performanceFilter) {
+                const performance = teacherData.avg_performance || 0;
+                if (performanceFilter === 'excellent' && performance < 90) showCard = false;
+                if (performanceFilter === 'good' && (performance < 80 || performance >= 90)) showCard = false;
+                if (performanceFilter === 'average' && (performance < 70 || performance >= 80)) showCard = false;
+                if (performanceFilter === 'needs_improvement' && performance >= 70) showCard = false;
+            }
+
+            card.style.display = showCard ? 'block' : 'none';
+        });
+    }
+
+    function applyFilters() {
+        filterTeachers();
+        // Could also update charts based on filters
+    }
+
+    function toggleView(viewType) {
+        const cardView = document.getElementById('teacherCards');
+        const tableView = document.getElementById('teacherTable');
+
+        if (viewType === 'cards') {
+            cardView.classList.remove('d-none');
+            tableView.classList.add('d-none');
+        } else if (viewType === 'table') {
+            cardView.classList.add('d-none');
+            tableView.classList.remove('d-none');
+        }
+    }
+
+    function viewTeacherDetails(teacherId) {
+        // Navigate to teacher details page
+        window.location.href = `/academics/teachers/${teacherId}/`;
+    }
+
+    function manageAssignments(teacherId) {
+        // Navigate to teacher assignments management
+        window.location.href = `/academics/teachers/${teacherId}/assignments/`;
+    }
+
+    function exportTeacherReport() {
+        // Export teacher report
+        const filters = {
+            search: document.getElementById('searchTeacher').value,
+            department: document.getElementById('departmentFilter').value,
+            workload: document.getElementById('workloadFilter').value,
+            performance: document.getElementById('performanceFilter').value
+        };
+
+        const queryString = new URLSearchParams(filters).toString();
+        window.open(`/core/api/teacher/export/?${queryString}`, '_blank');
+    }
+
+    function showErrorMessage(message) {
+        // Show error message to user
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        document.body.appendChild(alertDiv);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+
+    function getCSRFToken() {
+        // Get CSRF token from cookies or meta tag
+        const tokenElement = document.querySelector('meta[name="csrf-token"]');
+        if (tokenElement) {
+            return tokenElement.getAttribute('content');
+        }
+
+        // Fallback: get from cookies
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'csrftoken') {
+                return value;
+            }
+        }
+        return '';
+    }
+
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + E to export
+        if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+            e.preventDefault();
+            exportTeacherReport();
+        }
+
+        // Alt + C to toggle to card view
+        if (e.altKey && e.key === 'c') {
+            e.preventDefault();
+            toggleView('cards');
+        }
+
+        // Alt + T to toggle to table view
+        if (e.altKey && e.key === 't') {
+            e.preventDefault();
+            toggleView('table');
+        }
+    });
+
+    // Performance monitoring
+    if ('performance' in window && 'getEntriesByType' in performance) {
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                const navigation = performance.getEntriesByType('navigation')[0];
+                const loadTime = navigation.loadEventEnd - navigation.fetchStart;
+
+                console.log(`Teacher management page loaded in ${loadTime.toFixed(2)}ms`);
+            }, 0);
+        });
+    }
+});
+</script>
+{% endblock %}

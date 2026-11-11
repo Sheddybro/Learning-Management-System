@@ -1,0 +1,965 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">{{ page_title }}</h1>
+            <p class="text-muted">{% trans "Stakeholder communication and messaging tools" %}</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if current_session %}
+                <span class="badge bg-primary fs-6">{{ current_session.name }}</span>
+            {% endif %}
+            <small class="text-muted">{{ request.user.get_full_name }}</small>
+        </div>
+    </div>
+
+    <!-- Communication Overview Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                {% trans "Sent Messages" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ communication_data.message_threads|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-envelope fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                {% trans "Published Announcements" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ communication_data.recent_announcements|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-bullhorn fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                {% trans "Response Rate" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">78%</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-reply fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                {% trans "Pending Feedback" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ communication_data.feedback_summary.total_responses }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-comments fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Communication Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "Quick Communication Actions" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <button class="btn btn-primary w-100" onclick="composeMessage()">
+                                <i class="fas fa-edit"></i><br>
+                                <small>{% trans "Compose Message" %}</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-success w-100" onclick="createAnnouncement()">
+                                <i class="fas fa-plus-circle"></i><br>
+                                <small>{% trans "New Announcement" %}</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-info w-100" onclick="bulkMessaging()">
+                                <i class="fas fa-users"></i><br>
+                                <small>{% trans "Bulk Messaging" %}</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-warning w-100" onclick="sendNewsletter()">
+                                <i class="fas fa-newspaper"></i><br>
+                                <small>{% trans "Send Newsletter" %}</small>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Communication Interface -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <ul class="nav nav-tabs card-header-tabs" id="communicationTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="messages-tab" data-bs-toggle="tab" data-bs-target="#messages" type="button" role="tab">
+                                <i class="fas fa-envelope"></i> {% trans "Messages" %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="announcements-tab" data-bs-toggle="tab" data-bs-target="#announcements" type="button" role="tab">
+                                <i class="fas fa-bullhorn"></i> {% trans "Announcements" %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="feedback-tab" data-bs-toggle="tab" data-bs-target="#feedback" type="button" role="tab">
+                                <i class="fas fa-comments"></i> {% trans "Feedback" %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="templates-tab" data-bs-toggle="tab" data-bs-target="#templates" type="button" role="tab">
+                                <i class="fas fa-file-alt"></i> {% trans "Templates" %}
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="communicationTabContent">
+
+                        <!-- Messages Tab -->
+                        <div class="tab-pane fade show active" id="messages" role="tabpanel">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <input type="text" class="form-control" id="messageSearch" placeholder="{% trans 'Search messages...' %}">
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select" id="messageFilter">
+                                        <option value="">{% trans "All Messages" %}</option>
+                                        <option value="sent">{% trans "Sent" %}</option>
+                                        <option value="received">{% trans "Received" %}</option>
+                                        <option value="important">{% trans "Important" %}</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn btn-outline-primary" onclick="refreshMessages()">
+                                        <i class="fas fa-sync"></i> {% trans "Refresh" %}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="message-list">
+                                {% for message in communication_data.message_threads %}
+                                <div class="card message-card mb-3">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="flex-grow-1">
+                                                <h6 class="card-title mb-1">
+                                                    {{ message.subject }}
+                                                    {% if message.is_important %}
+                                                        <span class="badge bg-danger ms-2">{% trans "Important" %}</span>
+                                                    {% endif %}
+                                                </h6>
+                                                <p class="card-text text-muted small mb-2">
+                                                    {% trans "To" %}: {{ message.recipients.all|join:", " }} •
+                                                    {{ message.created_at|date:"M d, Y H:i" }}
+                                                </p>
+                                                <p class="card-text">{{ message.content|truncatechars:150 }}</p>
+                                            </div>
+                                            <div class="ms-3">
+                                                <button class="btn btn-sm btn-outline-primary me-1" onclick="viewMessage({{ message.id }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-success" onclick="replyToMessage({{ message.id }})">
+                                                    <i class="fas fa-reply"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-envelope-open fa-4x text-muted mb-3"></i>
+                                    <h5>{% trans "No Messages" %}</h5>
+                                    <p class="text-muted">{% trans "You haven't sent any messages yet." %}</p>
+                                    <button class="btn btn-primary" onclick="composeMessage()">
+                                        {% trans "Compose Your First Message" %}
+                                    </button>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Announcements Tab -->
+                        <div class="tab-pane fade" id="announcements" role="tabpanel">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <input type="text" class="form-control" id="announcementSearch" placeholder="{% trans 'Search announcements...' %}">
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select" id="announcementFilter">
+                                        <option value="">{% trans "All Announcements" %}</option>
+                                        <option value="published">{% trans "Published" %}</option>
+                                        <option value="draft">{% trans "Draft" %}</option>
+                                        <option value="scheduled">{% trans "Scheduled" %}</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn btn-outline-primary" onclick="refreshAnnouncements()">
+                                        <i class="fas fa-sync"></i> {% trans "Refresh" %}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="announcement-list">
+                                {% for announcement in communication_data.recent_announcements %}
+                                <div class="card announcement-card mb-3">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="flex-grow-1">
+                                                <h6 class="card-title mb-1">
+                                                    {{ announcement.title }}
+                                                    {% if announcement.priority == 'urgent' %}
+                                                        <span class="badge bg-danger ms-2">{% trans "Urgent" %}</span>
+                                                    {% endif %}
+                                                </h6>
+                                                <p class="card-text text-muted small mb-2">
+                                                    {{ announcement.get_announcement_type_display }} •
+                                                    {% if announcement.is_published %}
+                                                        {% trans "Published" %} {{ announcement.published_at|date:"M d, Y" }}
+                                                    {% else %}
+                                                        {% trans "Draft" %}
+                                                    {% endif %}
+                                                </p>
+                                                <p class="card-text">{{ announcement.content|truncatechars:200 }}</p>
+                                                <small class="text-muted">
+                                                    {% trans "Target" %}: {{ announcement.get_target_audience_display }}
+                                                </small>
+                                            </div>
+                                            <div class="ms-3">
+                                                <button class="btn btn-sm btn-outline-primary me-1" onclick="viewAnnouncement({{ announcement.id }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-warning me-1" onclick="editAnnouncement({{ announcement.id }})">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-info" onclick="duplicateAnnouncement({{ announcement.id }})">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-bullhorn fa-4x text-muted mb-3"></i>
+                                    <h5>{% trans "No Announcements" %}</h5>
+                                    <p class="text-muted">{% trans "You haven't created any announcements yet." %}</p>
+                                    <button class="btn btn-success" onclick="createAnnouncement()">
+                                        {% trans "Create Your First Announcement" %}
+                                    </button>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Feedback Tab -->
+                        <div class="tab-pane fade" id="feedback" role="tabpanel">
+                            <div class="row">
+                                <div class="col-lg-8 mb-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="m-0 font-weight-bold text-primary">{% trans "Feedback Summary" %}</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-4">
+                                                    <div class="text-center">
+                                                        <h4 class="text-success">{{ communication_data.feedback_summary.positive_feedback }}</h4>
+                                                        <small class="text-muted">{% trans "Positive" %}</small>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="text-center">
+                                                        <h4 class="text-info">{{ communication_data.feedback_summary.needs_attention }}</h4>
+                                                        <small class="text-muted">{% trans "Needs Attention" %}</small>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="text-center">
+                                                        <h4 class="text-primary">{{ communication_data.feedback_summary.total_responses }}</h4>
+                                                        <small class="text-muted">{% trans "Total Responses" %}</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-4 mb-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="m-0 font-weight-bold text-primary">{% trans "Quick Actions" %}</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="sendFeedbackRequest()">
+                                                <i class="fas fa-paper-plane"></i> {% trans "Request Feedback" %}
+                                            </button>
+                                            <button class="btn btn-outline-success btn-sm w-100 mb-2" onclick="viewFeedbackReports()">
+                                                <i class="fas fa-chart-bar"></i> {% trans "View Reports" %}
+                                            </button>
+                                            <button class="btn btn-outline-info btn-sm w-100" onclick="exportFeedback()">
+                                                <i class="fas fa-download"></i> {% trans "Export Data" %}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="m-0 font-weight-bold text-primary">{% trans "Recent Feedback" %}</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="text-center py-5">
+                                        <i class="fas fa-comments fa-4x text-muted mb-3"></i>
+                                        <p class="text-muted">{% trans "Feedback collection system would be integrated here." %}</p>
+                                        <small class="text-muted">{% trans "This would show recent feedback from parents, teachers, and students." %}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Templates Tab -->
+                        <div class="tab-pane fade" id="templates" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-4 mb-4">
+                                    <div class="card template-card" onclick="useTemplate('welcome')">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-handshake fa-3x text-primary mb-3"></i>
+                                            <h6>{% trans "Welcome Message" %}</h6>
+                                            <p class="text-muted small">{% trans "Welcome new students and parents" %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-4">
+                                    <div class="card template-card" onclick="useTemplate('academic')">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-graduation-cap fa-3x text-success mb-3"></i>
+                                            <h6>{% trans "Academic Update" %}</h6>
+                                            <p class="text-muted small">{% trans "Share academic performance updates" %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-4">
+                                    <div class="card template-card" onclick="useTemplate('event')">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-calendar-alt fa-3x text-info mb-3"></i>
+                                            <h6>{% trans "Event Invitation" %}</h6>
+                                            <p class="text-muted small">{% trans "Invite to school events and activities" %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-4">
+                                    <div class="card template-card" onclick="useTemplate('emergency')">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                                            <h6>{% trans "Emergency Notice" %}</h6>
+                                            <p class="text-muted small">{% trans "Important emergency communications" %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-4">
+                                    <div class="card template-card" onclick="useTemplate('reminder')">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-bell fa-3x text-warning mb-3"></i>
+                                            <h6>{% trans "Payment Reminder" %}</h6>
+                                            <p class="text-muted small">{% trans "Fee payment and deadline reminders" %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-4">
+                                    <div class="card template-card" onclick="useTemplate('custom')">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-plus fa-3x text-secondary mb-3"></i>
+                                            <h6>{% trans "Custom Template" %}</h6>
+                                            <p class="text-muted small">{% trans "Create your own message template" %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+/* Communication Styles */
+.card {
+    border: none;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+
+.btn-outline-primary {
+    color: #4e73df;
+    border-color: #4e73df;
+}
+
+.btn-outline-primary:hover {
+    color: #fff;
+    background-color: #4e73df;
+    border-color: #4e73df;
+}
+
+.btn-outline-success {
+    color: #1cc88a;
+    border-color: #1cc88a;
+}
+
+.btn-outline-success:hover {
+    color: #fff;
+    background-color: #1cc88a;
+    border-color: #1cc88a;
+}
+
+.btn-outline-info {
+    color: #36b9cc;
+    border-color: #36b9cc;
+}
+
+.btn-outline-info:hover {
+    color: #fff;
+    background-color: #36b9cc;
+    border-color: #36b9cc;
+}
+
+.btn-outline-warning {
+    color: #f6c23e;
+    border-color: #f6c23e;
+    color: #f6c23e;
+}
+
+.btn-outline-warning:hover {
+    color: #fff;
+    background-color: #f6c23e;
+    border-color: #f6c23e;
+}
+
+/* Tab styles */
+.nav-tabs .nav-link {
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: #e9ecef;
+    color: #495057;
+}
+
+.nav-tabs .nav-link.active {
+    border-bottom-color: #4e73df;
+    color: #4e73df;
+    background-color: transparent;
+}
+
+/* Message and announcement cards */
+.message-card, .announcement-card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.message-card:hover, .announcement-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* Template cards */
+.template-card {
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    border: 2px solid transparent;
+}
+
+.template-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+    border-color: #4e73df;
+}
+
+/* Badge styles */
+.badge {
+    font-size: 0.75em;
+    padding: 0.375rem 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+
+    .card-body .row {
+        margin-left: -5px;
+        margin-right: -5px;
+    }
+
+    .card-body .row > div {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+
+    .btn {
+        font-size: 0.875rem;
+        padding: 0.375rem 0.75rem;
+    }
+}
+
+/* Loading states */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+</style>
+
+<script>
+// Communication JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Communication page loaded');
+
+    // Initialize page
+    initializeCommunication();
+
+    // Set up event listeners
+    setupEventListeners();
+
+    function initializeCommunication() {
+        // Initialize tabs
+        initializeTabs();
+
+        // Setup responsive design
+        setupResponsiveDesign();
+
+        // Initialize search and filters
+        initializeSearchAndFilters();
+    }
+
+    function initializeTabs() {
+        // Bootstrap tabs are already initialized
+        const tabs = document.querySelectorAll('#communicationTabs .nav-link');
+        tabs.forEach(tab => {
+            tab.addEventListener('shown.bs.tab', function(e) {
+                const targetId = e.target.getAttribute('data-bs-target').substring(1);
+                console.log('Switched to tab:', targetId);
+
+                // Load data for specific tab if needed
+                if (targetId === 'feedback') {
+                    loadFeedbackData();
+                } else if (targetId === 'templates') {
+                    loadTemplatesData();
+                }
+            });
+        });
+    }
+
+    function setupResponsiveDesign() {
+        // Handle mobile responsiveness
+        const handleResize = () => {
+            const width = window.innerWidth;
+
+            if (width < 768) {
+                // Mobile adjustments
+                const cards = document.querySelectorAll('.template-card');
+                cards.forEach(card => {
+                    card.classList.add('mb-3');
+                });
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Initial call
+    }
+
+    function initializeSearchAndFilters() {
+        // Set up search functionality
+        const messageSearch = document.getElementById('messageSearch');
+        if (messageSearch) {
+            messageSearch.addEventListener('input', function() {
+                filterMessages();
+            });
+        }
+
+        const announcementSearch = document.getElementById('announcementSearch');
+        if (announcementSearch) {
+            announcementSearch.addEventListener('input', function() {
+                filterAnnouncements();
+            });
+        }
+
+        // Set up filter change handlers
+        const filters = document.querySelectorAll('select[id*="Filter"]');
+        filters.forEach(filter => {
+            filter.addEventListener('change', function() {
+                const filterType = this.id.replace('Filter', '').toLowerCase();
+                if (filterType === 'message') {
+                    filterMessages();
+                } else if (filterType === 'announcement') {
+                    filterAnnouncements();
+                }
+            });
+        });
+    }
+
+    function setupEventListeners() {
+        // Template card clicks are handled by onclick attributes
+    }
+
+    async function loadFeedbackData() {
+        try {
+            const response = await fetch('/core/api/communication/feedback/', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCSRFToken()
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                updateFeedbackData(data);
+            }
+        } catch (error) {
+            console.error('Error loading feedback data:', error);
+        }
+    }
+
+    async function loadTemplatesData() {
+        // Templates are loaded from template
+        console.log('Templates loaded from template');
+    }
+
+    function updateFeedbackData(data) {
+        // Update feedback statistics
+        console.log('Updating feedback data:', data);
+    }
+
+    function filterMessages() {
+        const searchTerm = document.getElementById('messageSearch').value.toLowerCase();
+        const filterValue = document.getElementById('messageFilter').value;
+
+        const messageCards = document.querySelectorAll('.message-card');
+
+        messageCards.forEach(card => {
+            const title = card.querySelector('.card-title').textContent.toLowerCase();
+            const content = card.querySelector('.card-text').textContent.toLowerCase();
+
+            let showCard = true;
+
+            // Search filter
+            if (searchTerm && !title.includes(searchTerm) && !content.includes(searchTerm)) {
+                showCard = false;
+            }
+
+            // Type filter
+            if (filterValue) {
+                const isImportant = card.querySelector('.badge') !== null;
+                if (filterValue === 'important' && !isImportant) {
+                    showCard = false;
+                }
+                // Add other filter logic as needed
+            }
+
+            card.style.display = showCard ? 'block' : 'none';
+        });
+    }
+
+    function filterAnnouncements() {
+        const searchTerm = document.getElementById('announcementSearch').value.toLowerCase();
+        const filterValue = document.getElementById('announcementFilter').value;
+
+        const announcementCards = document.querySelectorAll('.announcement-card');
+
+        announcementCards.forEach(card => {
+            const title = card.querySelector('.card-title').textContent.toLowerCase();
+            const content = card.querySelector('.card-text').textContent.toLowerCase();
+
+            let showCard = true;
+
+            // Search filter
+            if (searchTerm && !title.includes(searchTerm) && !content.includes(searchTerm)) {
+                showCard = false;
+            }
+
+            // Status filter
+            if (filterValue) {
+                const statusText = card.querySelector('small').textContent.toLowerCase();
+                if (filterValue === 'published' && !statusText.includes('published')) {
+                    showCard = false;
+                } else if (filterValue === 'draft' && statusText.includes('published')) {
+                    showCard = false;
+                }
+            }
+
+            card.style.display = showCard ? 'block' : 'none';
+        });
+    }
+
+    function composeMessage() {
+        // Navigate to compose message page
+        window.location.href = '/communication/messages/compose/';
+    }
+
+    function createAnnouncement() {
+        // Navigate to create announcement page
+        window.location.href = '/communication/announcements/create/';
+    }
+
+    function bulkMessaging() {
+        // Navigate to bulk messaging page
+        window.location.href = '/communication/bulk-messaging/';
+    }
+
+    function sendNewsletter() {
+        // Navigate to newsletter page
+        window.location.href = '/communication/newsletter/';
+    }
+
+    function viewMessage(messageId) {
+        // Navigate to message details
+        window.location.href = `/communication/messages/${messageId}/`;
+    }
+
+    function replyToMessage(messageId) {
+        // Navigate to reply page
+        window.location.href = `/communication/messages/${messageId}/reply/`;
+    }
+
+    function viewAnnouncement(announcementId) {
+        // Navigate to announcement details
+        window.location.href = `/communication/announcements/${announcementId}/`;
+    }
+
+    function editAnnouncement(announcementId) {
+        // Navigate to edit announcement page
+        window.location.href = `/communication/announcements/${announcementId}/edit/`;
+    }
+
+    function duplicateAnnouncement(announcementId) {
+        if (confirm('Are you sure you want to duplicate this announcement?')) {
+            // Make API call to duplicate announcement
+            fetch(`/communication/api/announcements/${announcementId}/duplicate/`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCSRFToken()
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccessMessage('Announcement duplicated successfully!');
+                    // Reload the page to show the new announcement
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showErrorMessage('Failed to duplicate announcement.');
+                }
+            })
+            .catch(error => {
+                console.error('Error duplicating announcement:', error);
+                showErrorMessage('Failed to duplicate announcement.');
+            });
+        }
+    }
+
+    function sendFeedbackRequest() {
+        // Navigate to feedback request page
+        window.location.href = '/communication/feedback/request/';
+    }
+
+    function viewFeedbackReports() {
+        // Navigate to feedback reports page
+        window.location.href = '/communication/feedback/reports/';
+    }
+
+    function exportFeedback() {
+        // Export feedback data
+        window.open('/communication/api/feedback/export/', '_blank');
+    }
+
+    function useTemplate(templateType) {
+        // Navigate to compose with template
+        window.location.href = `/communication/messages/compose/?template=${templateType}`;
+    }
+
+    function refreshMessages() {
+        // Refresh messages list
+        location.reload();
+    }
+
+    function refreshAnnouncements() {
+        // Refresh announcements list
+        location.reload();
+    }
+
+    function showSuccessMessage(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            <i class="fas fa-check-circle"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        document.body.appendChild(alertDiv);
+
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+
+    function showErrorMessage(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        document.body.appendChild(alertDiv);
+
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+
+    function getCSRFToken() {
+        const tokenElement = document.querySelector('meta[name="csrf-token"]');
+        if (tokenElement) {
+            return tokenElement.getAttribute('content');
+        }
+
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'csrftoken') {
+                return value;
+            }
+        }
+        return '';
+    }
+
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + N to compose new message
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+            e.preventDefault();
+            composeMessage();
+        }
+
+        // Alt + 1-4 to switch tabs
+        if (e.altKey && e.key >= '1' && e.key <= '4') {
+            e.preventDefault();
+            const tabIndex = parseInt(e.key) - 1;
+            const tabs = document.querySelectorAll('#communicationTabs .nav-link');
+            if (tabs[tabIndex]) {
+                tabs[tabIndex].click();
+            }
+        }
+    });
+
+    // Performance monitoring
+    if ('performance' in window && 'getEntriesByType' in performance) {
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                const navigation = performance.getEntriesByType('navigation')[0];
+                const loadTime = navigation.loadEventEnd - navigation.fetchStart;
+
+                console.log(`Communication page loaded in ${loadTime.toFixed(2)}ms`);
+            }, 0);
+        });
+    }
+});
+</script>
+{% endblock %}

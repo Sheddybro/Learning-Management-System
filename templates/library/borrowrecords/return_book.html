@@ -1,0 +1,931 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Return Book" %}{% endblock %}
+
+{% block page_title %}{% trans "Return Book" %}{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <a href="{% url 'library:borrowrecord_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i> {% trans "Back to Records" %}
+    </a>
+</div>
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:borrowrecord_list' %}">{% trans "Borrow Records" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Return Book" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Return Book Specific Styles */
+    .return-summary-card {
+        border-left: 4px solid #65a0f9;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .book-cover-large {
+        width: 120px;
+        height: 160px;
+        object-fit: cover;
+        border-radius: 6px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .book-cover-placeholder-large {
+        width: 120px;
+        height: 160px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        color: #6c757d;
+    }
+    
+    .member-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    
+    .member-avatar-placeholder {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #65a0f9 0%, #8bb8ff 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 1.25rem;
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .fine-calculator {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .fine-amount {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #dc3545;
+    }
+    
+    .condition-assessment {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        transition: border-color 0.3s ease;
+    }
+    
+    .condition-assessment.damaged {
+        border-color: #dc3545;
+        background-color: rgba(220, 53, 69, 0.05);
+    }
+    
+    .condition-option {
+        padding: 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .condition-option:hover {
+        border-color: #65a0f9;
+        background-color: rgba(101, 160, 249, 0.05);
+    }
+    
+    .condition-option.selected {
+        border-color: #28a745;
+        background-color: rgba(40, 167, 69, 0.1);
+    }
+    
+    .condition-option.damaged {
+        border-color: #dc3545;
+        background-color: rgba(220, 53, 69, 0.05);
+    }
+    
+    .damage-severity {
+        display: none;
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 6px;
+    }
+    
+    .quick-actions {
+        background: #e7f3ff;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .action-button {
+        padding: 0.75rem 1rem;
+        border: none;
+        border-radius: 6px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    
+    .action-button.return {
+        background: #28a745;
+        color: white;
+    }
+    
+    .action-button.return:hover {
+        background: #218838;
+        transform: translateY(-1px);
+    }
+    
+    .action-button.return-fine {
+        background: #ffc107;
+        color: #212529;
+    }
+    
+    .action-button.return-fine:hover {
+        background: #e0a800;
+        transform: translateY(-1px);
+    }
+    
+    .barcode-scanner {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+    
+    .scanner-placeholder {
+        width: 100%;
+        height: 200px;
+        background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    
+    .form-section {
+        margin-bottom: 2rem;
+    }
+    
+    .form-section h5 {
+        color: #495057;
+        margin-bottom: 1rem;
+        font-weight: 600;
+        border-bottom: 2px solid #65a0f9;
+        padding-bottom: 0.5rem;
+    }
+    
+    @media (max-width: 768px) {
+        .book-cover-large,
+        .book-cover-placeholder-large {
+            width: 80px;
+            height: 120px;
+        }
+        
+        .member-avatar,
+        .member-avatar-placeholder {
+            width: 50px;
+            height: 50px;
+            font-size: 1rem;
+        }
+        
+        .fine-amount {
+            font-size: 1.25rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Barcode Scanner Section -->
+            <div class="form-section">
+                <h5><i class="bi bi-upc-scan text-primary me-2"></i>{% trans "Scan Book Barcode" %}</h5>
+                <div class="barcode-scanner">
+                    <div class="scanner-placeholder">
+                        <i class="bi bi-camera" style="font-size: 3rem;"></i>
+                    </div>
+                    <div class="mb-3">
+                        <label for="barcodeInput" class="form-label">{% trans "Enter or Scan Barcode" %}</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="barcodeInput" 
+                                   placeholder="{% trans 'Scan barcode or enter manually...' %}" 
+                                   autofocus>
+                            <button class="btn btn-outline-primary" type="button" onclick="simulateScan()">
+                                <i class="bi bi-camera me-2"></i> {% trans "Simulate Scan" %}
+                            </button>
+                        </div>
+                        <div class="form-text">
+                            {% trans "Scan the book's barcode or enter it manually to load borrowing details." %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Book Return Summary (Initially Hidden) -->
+            <div id="returnSummary" style="display: none;">
+                <!-- Book and Member Information -->
+                <div class="card return-summary-card mb-4">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <div id="bookCover" class="book-cover-placeholder-large">
+                                    <i class="bi bi-book" style="font-size: 2rem;"></i>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <h4 id="bookTitle" class="card-title mb-2"></h4>
+                                        <p id="bookAuthors" class="text-muted mb-2"></p>
+                                        <p id="bookDetails" class="text-muted small mb-3"></p>
+                                        
+                                        <div class="d-flex align-items-center mb-3">
+                                            <div id="memberAvatar" class="member-avatar-placeholder me-3">
+                                                <i class="bi bi-person"></i>
+                                            </div>
+                                            <div>
+                                                <h6 id="memberName" class="mb-1"></h6>
+                                                <p id="memberDetails" class="text-muted small mb-0"></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-end">
+                                            <div class="mb-3">
+                                                <strong>{% trans "Borrowed On" %}:</strong>
+                                                <div id="borrowDate" class="fw-semibold"></div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <strong>{% trans "Due Date" %}:</strong>
+                                                <div id="dueDate" class="fw-semibold"></div>
+                                            </div>
+                                            <div id="overdueStatus" class="mb-3"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fine Calculation -->
+                <div id="fineSection" class="fine-calculator" style="display: none;">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h5 class="text-warning mb-2">
+                                <i class="bi bi-exclamation-triangle me-2"></i>{% trans "Overdue Fine Applicable" %}
+                            </h5>
+                            <p class="mb-2" id="fineCalculation"></p>
+                            <p class="mb-0 small text-muted" id="finePolicy"></p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="fine-amount" id="calculatedFine">$0.00</div>
+                            <div class="small text-muted">{% trans "Total Fine Amount" %}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Condition Assessment -->
+                <div class="form-section">
+                    <h5><i class="bi bi-clipboard-check text-primary me-2"></i>{% trans "Condition Assessment" %}</h5>
+                    
+                    <div class="condition-assessment" id="conditionAssessment">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">{% trans "Select Book Condition" %}</label>
+                            <div id="conditionOptions">
+                                <div class="condition-option" data-condition="excellent" onclick="selectCondition('excellent')">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>{% trans "Excellent" %}</strong>
+                                            <div class="small text-muted">{% trans "Like new, no visible damage" %}</div>
+                                        </div>
+                                        <i class="bi bi-check-circle text-success"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="condition-option" data-condition="good" onclick="selectCondition('good')">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>{% trans "Good" %}</strong>
+                                            <div class="small text-muted">{% trans "Minor wear, fully functional" %}</div>
+                                        </div>
+                                        <i class="bi bi-check-circle text-success"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="condition-option" data-condition="fair" onclick="selectCondition('fair')">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>{% trans "Fair" %}</strong>
+                                            <div class="small text-muted">{% trans "Noticeable wear but readable" %}</div>
+                                        </div>
+                                        <i class="bi bi-exclamation-circle text-warning"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="condition-option" data-condition="damaged" onclick="selectCondition('damaged')">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>{% trans "Damaged" %}</strong>
+                                            <div class="small text-muted">{% trans "Significant damage affecting usability" %}</div>
+                                        </div>
+                                        <i class="bi bi-x-circle text-danger"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Damage Details (Shown only when damaged is selected) -->
+                        <div id="damageDetails" class="damage-severity">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">{% trans "Damage Type" %}</label>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="damageCover">
+                                            <label class="form-check-label" for="damageCover">
+                                                {% trans "Cover Damage" %}
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="damagePages">
+                                            <label class="form-check-label" for="damagePages">
+                                                {% trans "Torn/Missing Pages" %}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="damageSpine">
+                                            <label class="form-check-label" for="damageSpine">
+                                                {% trans "Spine Damage" %}
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="damageWriting">
+                                            <label class="form-check-label" for="damageWriting">
+                                                {% trans "Writing/Marking" %}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="damageDescription" class="form-label">{% trans "Damage Description" %}</label>
+                                <textarea class="form-control" id="damageDescription" rows="3" 
+                                          placeholder="{% trans 'Describe the damage in detail...' %}"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Repair Assessment" %}</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="repairAction" id="repairMinor" value="minor" checked>
+                                    <label class="form-check-label" for="repairMinor">
+                                        {% trans "Minor repair needed" %}
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="repairAction" id="repairMajor" value="major">
+                                    <label class="form-check-label" for="repairMajor">
+                                        {% trans "Major repair/replacement needed" %}
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="repairAction" id="repairWithdraw" value="withdraw">
+                                    <label class="form-check-label" for="repairWithdraw">
+                                        {% trans "Withdraw from circulation" %}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- General Condition Notes -->
+                        <div class="mb-3">
+                            <label for="conditionNotes" class="form-label">{% trans "Condition Notes" %}</label>
+                            <textarea class="form-control" id="conditionNotes" rows="3" 
+                                      placeholder="{% trans 'Any additional notes about the book condition...' %}"></textarea>
+                            <div class="form-text">
+                                {% trans "These notes will be saved with the book copy record." %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <button class="btn btn-success w-100 action-button return" onclick="processReturn('return')">
+                                <i class="bi bi-check-lg"></i>
+                                <span id="returnButtonText">{% trans "Process Return" %}</span>
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <button class="btn btn-warning w-100 action-button return-fine" onclick="processReturn('return_with_fine')" style="display: none;" id="returnWithFineButton">
+                                <i class="bi bi-cash-coin"></i>
+                                {% trans "Return with Fine" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Quick Stats -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-speedometer2 me-2"></i>{% trans "Today's Returns" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="h4 text-primary mb-0" id="todayReturns">0</div>
+                            <small class="text-muted">{% trans "Processed" %}</small>
+                        </div>
+                        <div class="col-6">
+                            <div class="h4 text-warning mb-0" id="todayFines">$0.00</div>
+                            <small class="text-muted">{% trans "Fines Collected" %}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Return Instructions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>{% trans "Return Instructions" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ol class="small">
+                        <li>{% trans "Scan or enter the book barcode" %}</li>
+                        <li>{% trans "Verify book and member information" %}</li>
+                        <li>{% trans "Assess book condition thoroughly" %}</li>
+                        <li>{% trans "Note any damage or issues" %}</li>
+                        <li>{% trans "Calculate fines if applicable" %}</li>
+                        <li>{% trans "Process the return" %}</li>
+                    </ol>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        <strong>{% trans "Tip:" %}</strong> {% trans "Always inspect books carefully before accepting returns." %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Common Conditions -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clipboard-data me-2"></i>{% trans "Condition Guidelines" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="small">
+                        <p><strong>{% trans "Excellent:" %}</strong> {% trans "No visible wear, like new condition" %}</p>
+                        <p><strong>{% trans "Good:" %}</strong> {% trans "Minor shelf wear, fully readable" %}</p>
+                        <p><strong>{% trans "Fair:" %}</strong> {% trans "Visible wear but structurally sound" %}</p>
+                        <p><strong>{% trans "Damaged:" %}</strong> {% trans "Requires repair or withdrawal" %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="successModalLabel">
+                    <i class="bi bi-check-circle me-2"></i>{% trans "Return Processed" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <i class="bi bi-check-circle-fill text-success display-4 d-block mb-3"></i>
+                <h5 id="successTitle">{% trans "Book Returned Successfully!" %}</h5>
+                <p id="successMessage" class="text-muted"></p>
+                
+                <div id="fineReceipt" class="mt-4" style="display: none;">
+                    <div class="card border-warning">
+                        <div class="card-body">
+                            <h6 class="card-title">{% trans "Fine Receipt" %}</h6>
+                            <div class="d-flex justify-content-between">
+                                <span>{% trans "Fine Amount:" %}</span>
+                                <strong class="text-danger" id="receiptFineAmount">$0.00</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>{% trans "Receipt #:" %}</span>
+                                <span id="receiptNumber">RCT-001</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-primary" onclick="resetForm()">
+                    <i class="bi bi-arrow-repeat me-2"></i>{% trans "Return Another Book" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Global variables
+    let currentRecord = null;
+    let calculatedFine = 0;
+    let selectedCondition = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeReturnForm();
+        loadTodayStats();
+    });
+
+    function initializeReturnForm() {
+        // Focus on barcode input
+        const barcodeInput = document.getElementById('barcodeInput');
+        barcodeInput.focus();
+        
+        // Add event listener for barcode input
+        barcodeInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                processBarcode(this.value);
+            }
+        });
+        
+        // Add event listener for barcode scanning simulation
+        barcodeInput.addEventListener('input', function() {
+            if (this.value.length >= 8) {
+                // Simulate automatic processing for longer barcodes (like scanned ones)
+                setTimeout(() => {
+                    processBarcode(this.value);
+                }, 500);
+            }
+        });
+    }
+
+    function simulateScan() {
+        // Simulate scanning a barcode
+        const sampleBarcodes = ['BK001', 'BK002', 'BK003', 'BK004'];
+        const randomBarcode = sampleBarcodes[Math.floor(Math.random() * sampleBarcodes.length)];
+        document.getElementById('barcodeInput').value = randomBarcode;
+        processBarcode(randomBarcode);
+    }
+
+    function processBarcode(barcode) {
+        if (!barcode.trim()) {
+            showAlert('Please enter a barcode', 'warning');
+            return;
+        }
+
+        // Show loading state
+        showLoading(true);
+
+        // Simulate API call to fetch borrow record
+        setTimeout(() => {
+            // Mock data - replace with actual API call
+            const mockRecords = {
+                'BK001': {
+                    id: 1,
+                    book: {
+                        title: 'Introduction to Django Web Development',
+                        authors: 'John Smith, Sarah Johnson',
+                        isbn: '978-0123456789',
+                        cover_image: null,
+                        copy_number: 1,
+                        barcode: 'BK001'
+                    },
+                    member: {
+                        id: 1,
+                        member_id: 'MEM2023001',
+                        full_name: 'John Smith',
+                        email: 'john.smith@example.com',
+                        avatar: null
+                    },
+                    borrow_date: '2024-01-15',
+                    due_date: '2024-01-29',
+                    days_overdue: 2,
+                    fine_per_day: 5.00
+                },
+                'BK002': {
+                    id: 2,
+                    book: {
+                        title: 'Advanced Python Programming',
+                        authors: 'Michael Brown',
+                        isbn: '978-0987654321',
+                        cover_image: null,
+                        copy_number: 2,
+                        barcode: 'BK002'
+                    },
+                    member: {
+                        id: 2,
+                        member_id: 'MEM2023002',
+                        full_name: 'Sarah Johnson',
+                        email: 'sarah.j@example.com',
+                        avatar: null
+                    },
+                    borrow_date: '2024-01-20',
+                    due_date: '2024-02-03',
+                    days_overdue: 0,
+                    fine_per_day: 5.00
+                }
+            };
+
+            const record = mockRecords[barcode];
+            
+            if (record) {
+                currentRecord = record;
+                displayReturnSummary(record);
+                calculateFine(record);
+                showLoading(false);
+            } else {
+                showAlert('No active borrow record found for this barcode', 'danger');
+                showLoading(false);
+            }
+        }, 1000);
+    }
+
+    function displayReturnSummary(record) {
+        // Update book information
+        document.getElementById('bookTitle').textContent = record.book.title;
+        document.getElementById('bookAuthors').textContent = record.book.authors;
+        document.getElementById('bookDetails').innerHTML = `
+            ISBN: ${record.book.isbn} • Copy #${record.book.copy_number}<br>
+            Barcode: ${record.book.barcode}
+        `;
+
+        // Update member information
+        document.getElementById('memberName').textContent = record.member.full_name;
+        document.getElementById('memberDetails').innerHTML = `
+            ${record.member.member_id}<br>
+            ${record.member.email}
+        `;
+        document.getElementById('memberAvatar').innerHTML = record.member.full_name.charAt(0).toUpperCase();
+
+        // Update dates
+        document.getElementById('borrowDate').textContent = formatDate(record.borrow_date);
+        document.getElementById('dueDate').textContent = formatDate(record.due_date);
+
+        // Update overdue status
+        const overdueStatus = document.getElementById('overdueStatus');
+        if (record.days_overdue > 0) {
+            overdueStatus.innerHTML = `
+                <span class="badge bg-danger status-badge">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    ${record.days_overdue} {% trans "days overdue" %}
+                </span>
+            `;
+        } else {
+            overdueStatus.innerHTML = `
+                <span class="badge bg-success status-badge">
+                    <i class="bi bi-check-circle me-1"></i>
+                    {% trans "On time" %}
+                </span>
+            `;
+        }
+
+        // Show return summary
+        document.getElementById('returnSummary').style.display = 'block';
+
+        // Scroll to summary
+        document.getElementById('returnSummary').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function calculateFine(record) {
+        if (record.days_overdue > 0) {
+            calculatedFine = record.days_overdue * record.fine_per_day;
+            
+            document.getElementById('calculatedFine').textContent = `$${calculatedFine.toFixed(2)}`;
+            document.getElementById('fineCalculation').textContent = 
+                `${record.days_overdue} days × $${record.fine_per_day.toFixed(2)} per day = $${calculatedFine.toFixed(2)}`;
+            document.getElementById('finePolicy').textContent = 
+                'Fine policy: $5.00 per day for overdue books';
+            
+            document.getElementById('fineSection').style.display = 'block';
+            document.getElementById('returnWithFineButton').style.display = 'block';
+            document.getElementById('returnButtonText').textContent = '{% trans "Return Without Fine" %}';
+        } else {
+            calculatedFine = 0;
+            document.getElementById('fineSection').style.display = 'none';
+            document.getElementById('returnWithFineButton').style.display = 'none';
+            document.getElementById('returnButtonText').textContent = '{% trans "Process Return" %}';
+        }
+    }
+
+    function selectCondition(condition) {
+        selectedCondition = condition;
+        
+        // Remove selected class from all options
+        document.querySelectorAll('.condition-option').forEach(option => {
+            option.classList.remove('selected');
+        });
+        
+        // Add selected class to clicked option
+        event.currentTarget.classList.add('selected');
+        
+        // Show/hide damage details
+        const damageDetails = document.getElementById('damageDetails');
+        const conditionAssessment = document.getElementById('conditionAssessment');
+        
+        if (condition === 'damaged') {
+            damageDetails.style.display = 'block';
+            conditionAssessment.classList.add('damaged');
+        } else {
+            damageDetails.style.display = 'none';
+            conditionAssessment.classList.remove('damaged');
+        }
+    }
+
+    function processReturn(action) {
+        if (!selectedCondition) {
+            showAlert('Please assess the book condition before processing return', 'warning');
+            return;
+        }
+
+        // Validate damage details if condition is damaged
+        if (selectedCondition === 'damaged') {
+            const damageDescription = document.getElementById('damageDescription').value;
+            if (!damageDescription.trim()) {
+                showAlert('Please provide a description of the damage', 'warning');
+                return;
+            }
+        }
+
+        // Show loading state
+        showLoading(true);
+
+        // Simulate API call to process return
+        setTimeout(() => {
+            showLoading(false);
+            
+            // Prepare success message
+            const successTitle = action === 'return_with_fine' ? 
+                '{% trans "Return Processed with Fine" %}' : 
+                '{% trans "Book Returned Successfully" %}';
+                
+            const successMessage = `
+                <strong>${currentRecord.book.title}</strong><br>
+                Returned by ${currentRecord.member.full_name}<br>
+                Condition: ${getConditionText(selectedCondition)}
+            `;
+
+            // Show fine receipt if applicable
+            if (action === 'return_with_fine' && calculatedFine > 0) {
+                document.getElementById('fineReceipt').style.display = 'block';
+                document.getElementById('receiptFineAmount').textContent = `$${calculatedFine.toFixed(2)}`;
+                document.getElementById('receiptNumber').textContent = `RCT-${Date.now().toString().slice(-6)}`;
+            } else {
+                document.getElementById('fineReceipt').style.display = 'none';
+            }
+
+            // Update success modal
+            document.getElementById('successTitle').textContent = successTitle;
+            document.getElementById('successMessage').innerHTML = successMessage;
+
+            // Show success modal
+            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+            successModal.show();
+
+            // Update today's stats
+            updateTodayStats();
+
+        }, 1500);
+    }
+
+    function resetForm() {
+        // Reset form state
+        document.getElementById('barcodeInput').value = '';
+        document.getElementById('returnSummary').style.display = 'none';
+        document.getElementById('fineSection').style.display = 'none';
+        document.getElementById('conditionAssessment').classList.remove('damaged');
+        document.getElementById('damageDetails').style.display = 'none';
+        document.querySelectorAll('.condition-option').forEach(option => {
+            option.classList.remove('selected');
+        });
+        document.getElementById('conditionNotes').value = '';
+        document.getElementById('damageDescription').value = '';
+        
+        // Reset checkboxes and radio buttons
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        document.querySelectorAll('input[type="radio"]').forEach(radio => {
+            radio.checked = false;
+        });
+        document.getElementById('repairMinor').checked = true;
+
+        // Focus on barcode input
+        document.getElementById('barcodeInput').focus();
+        
+        // Close success modal
+        const successModal = bootstrap.Modal.getInstance(document.getElementById('successModal'));
+        successModal.hide();
+
+        currentRecord = null;
+        calculatedFine = 0;
+        selectedCondition = null;
+    }
+
+    function loadTodayStats() {
+        // Simulate loading today's stats
+        setTimeout(() => {
+            document.getElementById('todayReturns').textContent = '12';
+            document.getElementById('todayFines').textContent = '$45.00';
+        }, 500);
+    }
+
+    function updateTodayStats() {
+        const todayReturns = parseInt(document.getElementById('todayReturns').textContent) + 1;
+        const todayFines = parseFloat(document.getElementById('todayFines').textContent.replace('$', '')) + calculatedFine;
+        
+        document.getElementById('todayReturns').textContent = todayReturns;
+        document.getElementById('todayFines').textContent = `$${todayFines.toFixed(2)}`;
+    }
+
+    // Utility functions
+    function formatDate(dateString) {
+        const options = { year: 'numeric', month: 'short', day: 'numeric' };
+        return new Date(dateString).toLocaleDateString(undefined, options);
+    }
+
+    function getConditionText(condition) {
+        const conditions = {
+            'excellent': '{% trans "Excellent" %}',
+            'good': '{% trans "Good" %}',
+            'fair': '{% trans "Fair" %}',
+            'damaged': '{% trans "Damaged" %}'
+        };
+        return conditions[condition] || condition;
+    }
+
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.querySelector('.container-fluid').insertBefore(alertDiv, document.querySelector('.row'));
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+
+    function showLoading(show) {
+        // Implement loading indicator if needed
+        if (show) {
+            // Show loading state
+        } else {
+            // Hide loading state
+        }
+    }
+</script>
+{% endblock %}

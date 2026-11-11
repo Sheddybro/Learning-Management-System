@@ -1,0 +1,578 @@
+<!-- templates/academics/enrollments/enrollment_list.html -->
+
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Student Enrollments" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/academics/enrollment_list.css' %}">
+{% endblock %}
+
+{% block page_title %}{% trans "Student Enrollments" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'academics:dashboard' %}">{% trans "Academics" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Enrollments" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'academics:enrollment_create' %}" class="btn btn-primary">
+            <i class="bi bi-person-plus me-1"></i> {% trans "New Enrollment" %}
+        </a>
+        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="{% url 'academics:bulk_enrollment' %}">
+                    <i class="bi bi-people me-2"></i> {% trans "Bulk Enrollment" %}
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="#" id="export-enrollments">
+                    <i class="bi bi-download me-2"></i> {% trans "Export to Excel" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="#" id="print-enrollments">
+                    <i class="bi bi-printer me-2"></i> {% trans "Print List" %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="enrollment-list-container">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-people-fill text-primary fs-2"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-1">{% trans "Total Enrollments" %}</h6>
+                            <h4 class="mb-0" id="total-enrollments">{{ enrollments.count }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-person-check text-success fs-2"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-1">{% trans "Active Enrollments" %}</h6>
+                            <h4 class="mb-0" id="active-enrollments">
+                                {{ enrollments|length }}
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-building text-info fs-2"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-1">{% trans "Classes" %}</h6>
+                            <h4 class="mb-0" id="total-classes">{{ total_classes }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-calendar-range text-warning fs-2"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-1">{% trans "Current Session" %}</h6>
+                            <h4 class="mb-0" id="current-session">
+                                {% if current_session %}{{ current_session.name }}{% else %}{% trans "None" %}{% endif %}
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-funnel me-2"></i>{% trans "Filters & Search" %}
+                    </h5>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filtersCollapse">
+                        <i class="bi bi-filter me-1"></i> {% trans "Filters" %}
+                        <span class="badge bg-primary ms-1" id="active-filters-count">0</span>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" id="reset-filters">
+                        <i class="bi bi-arrow-clockwise me-1"></i> {% trans "Reset" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="collapse" id="filtersCollapse">
+            <div class="card-body">
+                <form method="get" id="enrollment-filters">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label for="class_filter" class="form-label">{% trans "Class" %}</label>
+                            <select class="form-select" id="class_filter" name="class">
+                                <option value="">{% trans "All Classes" %}</option>
+                                {% for class in classes %}
+                                <option value="{{ class.id }}" {% if request.GET.class == class.id|stringformat:"i" %}selected{% endif %}>
+                                    {{ class.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="session_filter" class="form-label">{% trans "Academic Session" %}</label>
+                            <select class="form-select" id="session_filter" name="session">
+                                <option value="">{% trans "All Sessions" %}</option>
+                                {% for session in sessions %}
+                                <option value="{{ session.id }}" {% if request.GET.session == session.id|stringformat:"i" %}selected{% endif %}>
+                                    {{ session.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="status_filter" class="form-label">{% trans "Status" %}</label>
+                            <select class="form-select" id="status_filter" name="status">
+                                <option value="">{% trans "All Statuses" %}</option>
+                                <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>{% trans "Active" %}</option>
+                                <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>{% trans "Completed" %}</option>
+                                <option value="transferred" {% if request.GET.status == 'transferred' %}selected{% endif %}>{% trans "Transferred" %}</option>
+                                <option value="withdrawn" {% if request.GET.status == 'withdrawn' %}selected{% endif %}>{% trans "Withdrawn" %}</option>
+                                <option value="suspended" {% if request.GET.status == 'suspended' %}selected{% endif %}>{% trans "Suspended" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="student_type_filter" class="form-label">{% trans "Student Type" %}</label>
+                            <select class="form-select" id="student_type_filter" name="student_type">
+                                <option value="">{% trans "All Types" %}</option>
+                                <option value="regular" {% if request.GET.student_type == 'regular' %}selected{% endif %}>{% trans "Regular" %}</option>
+                                <option value="transfer" {% if request.GET.student_type == 'transfer' %}selected{% endif %}>{% trans "Transfer" %}</option>
+                                <option value="repeater" {% if request.GET.student_type == 'repeater' %}selected{% endif %}>{% trans "Repeater" %}</option>
+                                <option value="international" {% if request.GET.student_type == 'international' %}selected{% endif %}>{% trans "International" %}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-6">
+                            <label for="search_input" class="form-label">{% trans "Search Students" %}</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="search_input" name="search" 
+                                       placeholder="{% trans 'Search by student name or ID...' %}" 
+                                       value="{{ request.GET.search }}">
+                                <button class="btn btn-outline-secondary" type="button" id="clear-search">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="date_from" class="form-label">{% trans "Enrollment Date From" %}</label>
+                            <input type="date" class="form-control" id="date_from" name="date_from" 
+                                   value="{{ request.GET.date_from }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="date_to" class="form-label">{% trans "Enrollment Date To" %}</label>
+                            <input type="date" class="form-control" id="date_to" name="date_to" 
+                                   value="{{ request.GET.date_to }}">
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search me-1"></i> {% trans "Apply Filters" %}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enrollments Table -->
+    <div class="card">
+        <div class="card-header">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-list-ul me-2"></i>{% trans "Enrollment Records" %}
+                    </h5>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-secondary" id="toggle-columns">
+                            <i class="bi bi-layout-sidebar me-1"></i> {% trans "Columns" %}
+                        </button>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="bi bi-download me-1"></i> {% trans "Export" %}
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" data-export-type="csv">{% trans "CSV" %}</a></li>
+                                <li><a class="dropdown-item" href="#" data-export-type="excel">{% trans "Excel" %}</a></li>
+                                <li><a class="dropdown-item" href="#" data-export-type="pdf">{% trans "PDF" %}</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if enrollments %}
+            <div class="table-responsive">
+                <table class="table table-hover table-striped" id="enrollments-table">
+                    <thead>
+                        <tr>
+                            <th width="50">
+                                <input type="checkbox" class="form-check-input" id="select-all">
+                            </th>
+                            <th>{% trans "Student" %}</th>
+                            <th>{% trans "Student ID" %}</th>
+                            <th>{% trans "Class" %}</th>
+                            <th>{% trans "Department" %}</th>
+                            <th>{% trans "Roll No." %}</th>
+                            <th>{% trans "Session" %}</th>
+                            <th>{% trans "Enrollment Date" %}</th>
+                            <th>{% trans "Status" %}</th>
+                            <th>{% trans "Type" %}</th>
+                            <th width="120">{% trans "Actions" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for enrollment in enrollments %}
+                        <tr data-enrollment-id="{{ enrollment.id }}" class="enrollment-row">
+                            <td>
+                                <input type="checkbox" class="form-check-input enrollment-checkbox" value="{{ enrollment.id }}">
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if enrollment.student.photo %}
+                                    <img src="{{ enrollment.student.photo.url }}" alt="{{ enrollment.student.user.get_full_name }}" 
+                                         class="student-avatar rounded-circle me-2" width="32" height="32">
+                                    {% else %}
+                                    <div class="student-avatar-placeholder rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-2" 
+                                         style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                        {{ enrollment.student.user.get_initials }}
+                                    </div>
+                                    {% endif %}
+                                    <div>
+                                        <a href="{% url 'academics:student_detail' enrollment.student.pk %}" class="text-decoration-none fw-semibold">
+                                            {{ enrollment.student.user.get_full_name }}
+                                        </a>
+                                        {% if enrollment.student.has_special_needs %}
+                                        <span class="badge bg-warning ms-1" title="{% trans 'Special Needs' %}">
+                                            <i class="bi bi-heart-pulse"></i>
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <code class="text-primary">{{ enrollment.student.student_id }}</code>
+                            </td>
+                            <td>
+                                <a href="{% url 'academics:class_detail' enrollment.class_enrolled.pk %}" class="text-decoration-none">
+                                    {{ enrollment.class_enrolled.name }}
+                                </a>
+                                <br>
+                                <small class="text-muted">{{ enrollment.class_enrolled.grade_level.name }}</small>
+                            </td>
+                            <td>
+                                {% if enrollment.department %}
+                                    <span class="badge bg-secondary">{{ enrollment.department.name }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-primary fs-6">{{ enrollment.roll_number }}</span>
+                            </td>
+                            <td>
+                                <span class="text-muted">{{ enrollment.academic_session.name }}</span>
+                            </td>
+                            <td>
+                                {{ enrollment.enrollment_date|date:"M d, Y" }}
+                                <br>
+                                <small class="text-muted">{{ enrollment.enrollment_date|timesince }} ago</small>
+                            </td>
+                            <td>
+                                <span class="badge enrollment-status-badge status-{{ enrollment.enrollment_status }}">
+                                    {{ enrollment.get_enrollment_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ enrollment.student.get_student_type_display }}</span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{% url 'academics:enrollment_update' enrollment.pk %}" 
+                                       class="btn btn-outline-primary" title="{% trans 'Edit Enrollment' %}">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'academics:student_detail' enrollment.student.pk %}" 
+                                       class="btn btn-outline-info" title="{% trans 'View Student' %}">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" 
+                                            data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'academics:student_report' enrollment.student.pk %}">
+                                                <i class="bi bi-graph-up me-2"></i>{% trans "Progress Report" %}
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" data-bs-toggle="modal" 
+                                               data-bs-target="#transferModal" data-enrollment-id="{{ enrollment.id }}">
+                                                <i class="bi bi-arrow-left-right me-2"></i>{% trans "Transfer Class" %}
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" 
+                                               data-bs-target="#withdrawModal" data-enrollment-id="{{ enrollment.id }}">
+                                                <i class="bi bi-person-dash me-2"></i>{% trans "Withdraw Student" %}
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Bulk Actions -->
+            <div class="row mt-3" id="bulk-actions" style="display: none;">
+                <div class="col-12">
+                    <div class="card bg-light">
+                        <div class="card-body py-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span id="selected-count">0</span> {% trans "enrollments selected" %}
+                                </div>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="bulk-edit">
+                                        <i class="bi bi-pencil me-1"></i> {% trans "Edit Status" %}
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-success" id="bulk-transfer">
+                                        <i class="bi bi-arrow-left-right me-1"></i> {% trans "Transfer" %}
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" id="bulk-withdraw">
+                                        <i class="bi bi-person-dash me-1"></i> {% trans "Withdraw" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <div class="row mt-4">
+                <div class="col-12">
+                    {% include 'academics/includes/pagination.html' with page_obj=page_obj %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-people display-1 text-muted"></i>
+                <h4 class="text-muted mt-3">{% trans "No Enrollments Found" %}</h4>
+                <p class="text-muted">{% trans "No student enrollments match your current filters." %}</p>
+                <div class="mt-3">
+                    <a href="{% url 'academics:enrollment_create' %}" class="btn btn-primary me-2">
+                        <i class="bi bi-person-plus me-1"></i> {% trans "Create Enrollment" %}
+                    </a>
+                    <button class="btn btn-outline-secondary" id="clear-all-filters">
+                        <i class="bi bi-arrow-clockwise me-1"></i> {% trans "Clear Filters" %}
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Transfer Modal -->
+<div class="modal fade" id="transferModal" tabindex="-1" aria-labelledby="transferModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="transferModalLabel">{% trans "Transfer Student" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="transfer-form">
+                    <input type="hidden" id="transfer-enrollment-id">
+                    <div class="mb-3">
+                        <label for="transfer-class" class="form-label">{% trans "Transfer to Class" %}</label>
+                        <select class="form-select" id="transfer-class" required>
+                            <option value="">{% trans "Select Class" %}</option>
+                            {% for class in classes %}
+                            <option value="{{ class.id }}">{{ class.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="transfer-reason" class="form-label">{% trans "Reason for Transfer" %}</label>
+                        <textarea class="form-control" id="transfer-reason" rows="3" placeholder="{% trans 'Enter reason for transfer...' %}"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="transfer-date" class="form-label">{% trans "Transfer Date" %}</label>
+                        <input type="date" class="form-control" id="transfer-date" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="confirm-transfer">{% trans "Transfer Student" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Withdraw Modal -->
+<div class="modal fade" id="withdrawModal" tabindex="-1" aria-labelledby="withdrawModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="withdrawModalLabel">{% trans "Withdraw Student" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="withdraw-form">
+                    <input type="hidden" id="withdraw-enrollment-id">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        {% trans "This action will mark the student as withdrawn. This cannot be undone." %}
+                    </div>
+                    <div class="mb-3">
+                        <label for="withdraw-reason" class="form-label">{% trans "Reason for Withdrawal" %}</label>
+                        <select class="form-select" id="withdraw-reason" required>
+                            <option value="">{% trans "Select Reason" %}</option>
+                            <option value="transferred">{% trans "Transferred to another school" %}</option>
+                            <option value="family">{% trans "Family reasons" %}</option>
+                            <option value="academic">{% trans "Academic reasons" %}</option>
+                            <option value="disciplinary">{% trans "Disciplinary reasons" %}</option>
+                            <option value="financial">{% trans "Financial reasons" %}</option>
+                            <option value="other">{% trans "Other" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="withdraw-details" class="form-label">{% trans "Additional Details" %}</label>
+                        <textarea class="form-control" id="withdraw-details" rows="3" placeholder="{% trans 'Enter additional details...' %}"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="withdraw-date" class="form-label">{% trans "Withdrawal Date" %}</label>
+                        <input type="date" class="form-control" id="withdraw-date" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-danger" id="confirm-withdraw">{% trans "Withdraw Student" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Status Modal -->
+<div class="modal fade" id="bulkStatusModal" tabindex="-1" aria-labelledby="bulkStatusModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkStatusModalLabel">{% trans "Update Enrollment Status" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="bulk-status-form">
+                    <div class="mb-3">
+                        <label for="bulk-status" class="form-label">{% trans "New Status" %}</label>
+                        <select class="form-select" id="bulk-status" required>
+                            <option value="">{% trans "Select Status" %}</option>
+                            <option value="active">{% trans "Active" %}</option>
+                            <option value="completed">{% trans "Completed" %}</option>
+                            <option value="transferred">{% trans "Transferred" %}</option>
+                            <option value="withdrawn">{% trans "Withdrawn" %}</option>
+                            <option value="suspended">{% trans "Suspended" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="bulk-status-date" class="form-label">{% trans "Effective Date" %}</label>
+                        <input type="date" class="form-control" id="bulk-status-date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="bulk-status-reason" class="form-label">{% trans "Reason" %}</label>
+                        <textarea class="form-control" id="bulk-status-reason" rows="3" placeholder="{% trans 'Enter reason for status change...' %}"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="confirm-bulk-status">{% trans "Update Status" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/academics/enrollment_list.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const enrollmentList = new EnrollmentList({
+            urls: {
+                bulkUpdate: '{% url "academics:api_bulk_update_enrollments" %}',
+                transferStudent: '{% url "academics:api_transfer_student" %}',
+                withdrawStudent: '{% url "academics:api_withdraw_student" %}',
+                exportEnrollments: '{% url "academics:api_export_enrollments" %}'
+            },
+            filters: {
+                class: '{{ request.GET.class|default:"" }}',
+                session: '{{ request.GET.session|default:"" }}',
+                status: '{{ request.GET.status|default:"" }}',
+                search: '{{ request.GET.search|default:"" }}'
+            }
+        });
+        
+        enrollmentList.init();
+    });
+</script>
+{% endblock %}

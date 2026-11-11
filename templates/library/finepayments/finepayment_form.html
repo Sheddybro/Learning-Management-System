@@ -1,0 +1,329 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if object %}{% trans "Edit Fine Payment" %}{% else %}{% trans "Add Fine Payment" %}{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if object %}
+        {% trans "Edit Fine Payment" %}
+    {% else %}
+        {% trans "Add Fine Payment" %}
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:finepayment_list' %}">{% trans "Fine Payments" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if object %}{% trans "Edit Payment" %}{% else %}{% trans "Add Payment" %}{% endif %}
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        border-left: 4px solid #6f42c1;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .form-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .borrow-info-card {
+        background-color: #f8f9fa;
+        border-left: 4px solid #65a0f9;
+    }
+    
+    .fine-calculator {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 0.375rem;
+        padding: 1rem;
+    }
+    
+    .calculated-fine {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card form-card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-cash-coin text-primary me-2"></i>
+                        {% if object %}
+                            {% trans "Edit Fine Payment" %}
+                        {% else %}
+                            {% trans "Record Fine Payment" %}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Borrow Record Information -->
+                        {% if form.borrow_record.value %}
+                        <div class="card borrow-info-card mb-4">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    {% trans "Borrow Record Information" %}
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>{% trans "Member:" %}</strong> 
+                                        {{ form.borrow_record.instance.member.user.get_full_name|default:form.borrow_record.instance.member.user.username }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>{% trans "Book:" %}</strong> 
+                                        {{ form.borrow_record.instance.book_copy.book.title }}
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-md-6">
+                                        <strong>{% trans "Due Date:" %}</strong> 
+                                        {{ form.borrow_record.instance.due_date|date:"M d, Y" }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>{% trans "Days Overdue:" %}</strong> 
+                                        <span class="badge bg-danger">{{ form.borrow_record.instance.days_overdue }}</span>
+                                    </div>
+                                </div>
+                                {% if not object %}
+                                <div class="fine-calculator mt-3">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-6">
+                                            <strong>{% trans "Calculated Fine:" %}</strong>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <span class="calculated-fine">${{ form.borrow_record.instance.calculated_fine }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row">
+                            <!-- Left Column -->
+                            <div class="col-md-6">
+                                <!-- Borrow Record -->
+                                <div class="mb-3">
+                                    <label for="{{ form.borrow_record.id_for_label }}" class="form-label">
+                                        {{ form.borrow_record.label }} *
+                                    </label>
+                                    {{ form.borrow_record }}
+                                    {% if form.borrow_record.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.borrow_record.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text">{{ form.borrow_record.help_text }}</div>
+                                </div>
+                                
+                                <!-- Amount Paid -->
+                                <div class="mb-3">
+                                    <label for="{{ form.amount_paid.id_for_label }}" class="form-label">
+                                        {{ form.amount_paid.label }} *
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        {{ form.amount_paid }}
+                                    </div>
+                                    {% if form.amount_paid.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.amount_paid.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text">{{ form.amount_paid.help_text }}</div>
+                                </div>
+                                
+                                <!-- Payment Date -->
+                                <div class="mb-3">
+                                    <label for="{{ form.payment_date.id_for_label }}" class="form-label">
+                                        {{ form.payment_date.label }} *
+                                    </label>
+                                    {{ form.payment_date }}
+                                    {% if form.payment_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.payment_date.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Right Column -->
+                            <div class="col-md-6">
+                                <!-- Payment Method -->
+                                <div class="mb-3">
+                                    <label for="{{ form.payment_method.id_for_label }}" class="form-label">
+                                        {{ form.payment_method.label }} *
+                                    </label>
+                                    {{ form.payment_method }}
+                                    {% if form.payment_method.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.payment_method.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Receipt Number -->
+                                <div class="mb-3">
+                                    <label for="{{ form.receipt_number.id_for_label }}" class="form-label">
+                                        {{ form.receipt_number.label }} *
+                                    </label>
+                                    {{ form.receipt_number }}
+                                    {% if form.receipt_number.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.receipt_number.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text">{{ form.receipt_number.help_text }}</div>
+                                </div>
+                                
+                                <!-- Received By -->
+                                <div class="mb-3">
+                                    <label for="{{ form.received_by.id_for_label }}" class="form-label">
+                                        {{ form.received_by.label }}
+                                    </label>
+                                    {{ form.received_by }}
+                                    {% if form.received_by.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.received_by.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Notes -->
+                        <div class="mb-4">
+                            <label for="{{ form.notes.id_for_label }}" class="form-label">
+                                {{ form.notes.label }}
+                            </label>
+                            {{ form.notes }}
+                            {% if form.notes.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.notes.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Status -->
+                        <div class="mb-4">
+                            <label for="{{ form.status.id_for_label }}" class="form-label">
+                                {{ form.status.label }}
+                            </label>
+                            {{ form.status }}
+                            {% if form.status.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.status.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Form Actions -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{% url 'library:finepayment_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>{% trans "Cancel" %}
+                            </a>
+                            <div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    {% if object %}
+                                        {% trans "Update Payment" %}
+                                    {% else %}
+                                        {% trans "Record Payment" %}
+                                    {% endif %}
+                                </button>
+                                {% if object %}
+                                <a href="{% url 'library:finepayment_delete' object.pk %}" class="btn btn-danger ms-2">
+                                    <i class="bi bi-trash me-2"></i>{% trans "Delete" %}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auto-fill current date for payment date
+        const paymentDateField = document.getElementById('{{ form.payment_date.id_for_label }}');
+        if (!paymentDateField.value && !{{ object|yesno:"true,false" }}) {
+            const today = new Date().toISOString().split('T')[0];
+            paymentDateField.value = today;
+        }
+        
+        // Auto-generate receipt number if not provided
+        const receiptNumberField = document.getElementById('{{ form.receipt_number.id_for_label }}');
+        if (!receiptNumberField.value && !{{ object|yesno:"true,false" }}) {
+            const timestamp = new Date().getTime();
+            receiptNumberField.value = 'FINE-' + timestamp;
+        }
+        
+        // Set received by to current user
+        const receivedByField = document.getElementById('{{ form.received_by.id_for_label }}');
+        if (receivedByField && !receivedByField.value) {
+            // This would typically be set from the backend, but we can set a default
+            receivedByField.value = '{{ request.user.id }}';
+        }
+        
+        // Calculate suggested amount based on borrow record
+        const borrowRecordField = document.getElementById('{{ form.borrow_record.id_for_label }}');
+        const amountPaidField = document.getElementById('{{ form.amount_paid.id_for_label }}');
+        
+        if (borrowRecordField && amountPaidField) {
+            borrowRecordField.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption && selectedOption.dataset.fineAmount) {
+                    amountPaidField.value = selectedOption.dataset.fineAmount;
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

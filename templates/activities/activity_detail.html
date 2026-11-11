@@ -1,0 +1,1063 @@
+{% extends 'base/base.html' %}
+{% load static i18n user_filters %}
+
+{% block title %}{{ activity.title }}{% endblock %}
+
+{% block body_class %}activities-activity-detail{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'activities:activity_list' %}">{% trans "Activities" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ activity.title }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        {% if user.is_staff or activity.coordinator == user %}
+        <a href="{% url 'activities:activity_update' activity.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-pencil me-2"></i>{% trans "Edit" %}
+        </a>
+        <a href="{% url 'activities:activity_attendance' activity.pk %}" class="btn btn-outline-info">
+            <i class="bi bi-check-circle me-2"></i>{% trans "Attendance" %}
+        </a>
+        {% endif %}
+        {% if user|has_role:'student' %}
+            {% if enrollment %}
+                {% if enrollment.status == 'active' %}
+                <button type="button" class="btn btn-outline-danger" onclick="confirmUnenroll()">
+                    <i class="bi bi-x-circle me-2"></i>{% trans "Unenroll" %}
+                </button>
+                {% elif enrollment.status == 'pending' %}
+                <span class="btn btn-warning disabled">
+                    <i class="bi bi-clock me-2"></i>{% trans "Pending Approval" %}
+                </span>
+                {% else %}
+                <button type="button" class="btn btn-success" onclick="enrollActivity()">
+                    <i class="bi bi-plus-circle me-2"></i>{% trans "Enroll" %}
+                </button>
+                {% endif %}
+            {% else %}
+            <button type="button" class="btn btn-success" onclick="enrollActivity()">
+                <i class="bi bi-plus-circle me-2"></i>{% trans "Enroll" %}
+            </button>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.activity-detail-container {
+    max-width: 100%;
+}
+
+.activity-hero {
+    background: linear-gradient(135deg, var(--bs-success), #28a745);
+    color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.activity-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    transform: translate(50%, -50%);
+}
+
+.activity-status-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.status-planning { background: var(--bs-secondary); }
+.status-active { background: var(--bs-success); }
+.status-completed { background: var(--bs-primary); }
+.status-cancelled { background: var(--bs-danger); }
+
+.activity-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.meta-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.meta-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-color: var(--bs-success);
+}
+
+.meta-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.meta-icon i {
+    font-size: 1.5rem;
+    color: white;
+}
+
+.icon-primary { background: var(--bs-primary); }
+.icon-success { background: var(--bs-success); }
+.icon-info { background: var(--bs-info); }
+.icon-warning { background: var(--bs-warning); }
+
+.activity-content {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.activity-image {
+    width: 100%;
+    height: 300px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+}
+
+.activity-description {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: var(--bs-body-color);
+    margin-bottom: 2rem;
+}
+
+.objectives-section, .prerequisites-section {
+    background: var(--bs-light);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border-left: 4px solid var(--bs-success);
+}
+
+.section-title {
+    color: var(--bs-primary);
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+}
+
+.section-title i {
+    margin-right: 0.5rem;
+    color: var(--bs-success);
+}
+
+.schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.schedule-item {
+    background: var(--bs-light);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.schedule-item h6 {
+    color: var(--bs-primary);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+}
+
+.schedule-item h6 i {
+    margin-right: 0.5rem;
+}
+
+.schedule-detail {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.schedule-detail i {
+    margin-right: 0.75rem;
+    width: 16px;
+    color: var(--bs-secondary);
+}
+
+.staff-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.staff-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.staff-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--bs-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.competition-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.competition-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-color: var(--bs-warning);
+}
+
+.enrollment-status {
+    background: linear-gradient(135deg, var(--bs-light), #f8f9fa);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.status-active { background: var(--bs-success); color: white; }
+.status-pending { background: var(--bs-warning); color: #212529; }
+.status-not-enrolled { background: var(--bs-secondary); color: white; }
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: var(--bs-light);
+    border-radius: 8px;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--bs-primary);
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--bs-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.coordinator-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.coordinator-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--bs-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    font-weight: bold;
+    font-size: 2rem;
+}
+
+@media (max-width: 768px) {
+    .activity-hero {
+        padding: 1.5rem;
+    }
+
+    .activity-meta-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .schedule-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .activity-content {
+        padding: 1.5rem;
+    }
+
+    .enrollment-status {
+        padding: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="activity-detail-container">
+    <!-- Activity Hero Section -->
+    <div class="activity-hero">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <div class="d-flex align-items-center mb-2">
+                    <span class="activity-status-badge status-{{ activity.status|lower }}">
+                        {{ activity.get_status_display }}
+                    </span>
+                </div>
+                <h1 class="display-5 fw-bold mb-3">{{ activity.title }}</h1>
+                <p class="lead mb-4 opacity-90">{{ activity.description|truncatechars:200 }}</p>
+
+                <div class="d-flex flex-wrap gap-3 mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-tag me-2"></i>
+                        <span class="badge bg-light text-dark px-3 py-2">{{ activity.category.name }}</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-people me-2"></i>
+                        <span class="badge bg-light text-dark px-3 py-2">{{ activity.get_activity_type_display }}</span>
+                    </div>
+                    {% if activity.fee_amount > 0 %}
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-cash me-2"></i>
+                        <span class="badge bg-success px-3 py-2">${{ activity.fee_amount }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-lg-4 text-center">
+                {% if activity.image %}
+                <img src="{{ activity.image.url }}" alt="{{ activity.title }}"
+                     class="img-fluid rounded shadow" style="max-height: 200px;">
+                {% else %}
+                <div class="bg-white bg-opacity-20 rounded p-4 d-inline-block">
+                    <i class="bi bi-calendar-event display-1 text-white"></i>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Meta Information Grid -->
+    <div class="activity-meta-grid">
+        <div class="meta-card">
+            <div class="meta-icon icon-primary">
+                <i class="bi bi-calendar"></i>
+            </div>
+            <h6 class="mb-2">{% trans "Duration" %}</h6>
+            <p class="mb-0 text-muted">
+                {{ activity.start_date|date:"M j, Y" }}
+                {% if activity.end_date %} - {{ activity.end_date|date:"M j, Y" }}{% endif %}
+            </p>
+        </div>
+
+        <div class="meta-card">
+            <div class="meta-icon icon-success">
+                <i class="bi bi-clock"></i>
+            </div>
+            <h6 class="mb-2">{% trans "Schedule" %}</h6>
+            <p class="mb-0 text-muted">
+                {% if activity.start_time %}
+                    {{ activity.start_time|time:"g:i A" }}
+                    {% if activity.end_time %} - {{ activity.end_time|time:"g:i A" }}{% endif %}
+                {% else %}
+                    {% trans "Flexible timing" %}
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="meta-card">
+            <div class="meta-icon icon-info">
+                <i class="bi bi-geo-alt"></i>
+            </div>
+            <h6 class="mb-2">{% trans "Location" %}</h6>
+            <p class="mb-0 text-muted">
+                {% if activity.venue %}
+                    {{ activity.venue }}
+                    {% if activity.room_number %} (Room {{ activity.room_number }}){% endif %}
+                {% else %}
+                    {% trans "TBD" %}
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="meta-card">
+            <div class="meta-icon icon-warning">
+                <i class="bi bi-people"></i>
+            </div>
+            <h6 class="mb-2">{% trans "Capacity" %}</h6>
+            <p class="mb-0 text-muted">
+                {% if activity.max_participants %}
+                    {{ activity.current_participants }} / {{ activity.max_participants }}
+                    {% if activity.available_spots > 0 %}
+                        <span class="text-success">({{ activity.available_spots }} {% trans "available" %})</span>
+                    {% else %}
+                        <span class="text-danger">({% trans "Full" %})</span>
+                    {% endif %}
+                {% else %}
+                    {{ activity.current_participants }} {% trans "enrolled" %}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Activity Details -->
+            <div class="activity-content">
+                {% if activity.image %}
+                <img src="{{ activity.image.url }}" alt="{{ activity.title }}" class="activity-image">
+                {% endif %}
+
+                <div class="activity-description">
+                    {{ activity.description }}
+                </div>
+
+                {% if activity.objectives %}
+                <div class="objectives-section">
+                    <h5 class="section-title">
+                        <i class="bi bi-target"></i>{% trans "Learning Objectives" %}
+                    </h5>
+                    <p class="mb-0">{{ activity.objectives }}</p>
+                </div>
+                {% endif %}
+
+                {% if activity.prerequisites %}
+                <div class="prerequisites-section">
+                    <h5 class="section-title">
+                        <i class="bi bi-list-check"></i>{% trans "Prerequisites" %}
+                    </h5>
+                    <p class="mb-0">{{ activity.prerequisites }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Schedule & Details -->
+            <div class="activity-content">
+                <h4 class="mb-4">
+                    <i class="bi bi-calendar-event me-2 text-primary"></i>{% trans "Schedule & Details" %}
+                </h4>
+
+                <div class="schedule-grid">
+                    <div class="schedule-item">
+                        <h6><i class="bi bi-calendar"></i>{% trans "Duration" %}</h6>
+                        <div class="schedule-detail">
+                            <i class="bi bi-calendar-event"></i>
+                            <span>{{ activity.start_date|date:"F j, Y" }}{% if activity.end_date %} - {{ activity.end_date|date:"F j, Y" }}{% endif %}</span>
+                        </div>
+                        {% if activity.start_time %}
+                        <div class="schedule-detail">
+                            <i class="bi bi-clock"></i>
+                            <span>{{ activity.start_time|time:"g:i A" }}{% if activity.end_time %} - {{ activity.end_time|time:"g:i A" }}{% endif %}</span>
+                        </div>
+                        {% endif %}
+                        {% if activity.days_of_week %}
+                        <div class="schedule-detail">
+                            <i class="bi bi-repeat"></i>
+                            <span>{{ activity.days_of_week|title }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="schedule-item">
+                        <h6><i class="bi bi-geo-alt"></i>{% trans "Location & Capacity" %}</h6>
+                        {% if activity.venue %}
+                        <div class="schedule-detail">
+                            <i class="bi bi-geo-alt"></i>
+                            <span>{{ activity.venue }}</span>
+                        </div>
+                        {% endif %}
+                        {% if activity.room_number %}
+                        <div class="schedule-detail">
+                            <i class="bi bi-house"></i>
+                            <span>{% trans "Room" %} {{ activity.room_number }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="schedule-detail">
+                            <i class="bi bi-people"></i>
+                            <span>
+                                {% if activity.max_participants %}
+                                    {{ activity.current_participants }} / {{ activity.max_participants }} {% trans "enrolled" %}
+                                    {% if activity.available_spots > 0 %}
+                                        <span class="text-success">({{ activity.available_spots }} {% trans "spots left" %})</span>
+                                    {% else %}
+                                        <span class="text-danger">({% trans "Full" %})</span>
+                                    {% endif %}
+                                {% else %}
+                                    {{ activity.current_participants }} {% trans "enrolled" %} ({% trans "Unlimited capacity" %})
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Staff & Equipment -->
+            {% if staff_assignments or equipment %}
+            <div class="activity-content">
+                <h4 class="mb-4">
+                    <i class="bi bi-person-badge me-2 text-primary"></i>{% trans "Staff & Resources" %}
+                </h4>
+
+                {% if staff_assignments %}
+                <div class="mb-4">
+                    <h5 class="text-primary mb-3">{% trans "Activity Staff" %}</h5>
+                    <div class="staff-grid">
+                        {% for assignment in staff_assignments %}
+                        <div class="staff-card">
+                            <div class="staff-avatar">
+                                {{ assignment.staff_member.get_full_name|make_list|first|upper }}
+                            </div>
+                            <h6 class="mb-1">{{ assignment.staff_member.get_full_name }}</h6>
+                            <small class="text-muted">{{ assignment.get_role_display }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if equipment %}
+                <div>
+                    <h5 class="text-primary mb-3">{% trans "Equipment & Resources" %}</h5>
+                    <div class="row">
+                        {% for item in equipment %}
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex align-items-center p-3 bg-light rounded">
+                                <i class="bi bi-tools me-3 text-primary fs-4"></i>
+                                <div>
+                                    <div class="fw-bold">{{ item.name }}</div>
+                                    <small class="text-muted">{{ item.quantity_available }}/{{ item.quantity_total }} {% trans "available" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Related Competitions -->
+            {% if competitions %}
+            <div class="activity-content">
+                <h4 class="mb-4">
+                    <i class="bi bi-trophy me-2 text-primary"></i>{% trans "Related Competitions" %}
+                </h4>
+
+                <div class="row">
+                    {% for competition in competitions %}
+                    <div class="col-md-6 mb-3">
+                        <div class="competition-card">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-0">{{ competition.title }}</h6>
+                                <span class="badge bg-secondary">{{ competition.get_level_display }}</span>
+                            </div>
+                            <p class="text-muted small mb-2">{{ competition.description|truncatechars:100 }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar me-1"></i>{{ competition.start_date|date:"M j, Y" }}
+                                </small>
+                                <a href="{% url 'activities:competition_detail' competition.pk %}"
+                                   class="btn btn-sm btn-outline-warning">
+                                    {% trans "View" %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Enrollment Status -->
+            {% if user|has_role:'student' %}
+            <div class="enrollment-status">
+                {% if enrollment %}
+                    {% if enrollment.status == 'active' %}
+                        <div class="status-indicator status-active mb-3">
+                            <i class="bi bi-check-circle me-2"></i>
+                            {% trans "Enrolled" %}
+                        </div>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-number">{{ enrollment.attendance_count }}</span>
+                                <span class="stat-label">{% trans "Sessions" %}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number">{{ enrollment.attendance_percentage|floatformat:0 }}%</span>
+                                <span class="stat-label">{% trans "Attendance" %}</span>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mt-2">
+                            {% trans "Enrolled on" %} {{ enrollment.enrollment_date|date:"M j, Y" }}
+                        </small>
+                    {% elif enrollment.status == 'pending' %}
+                        <div class="status-indicator status-pending">
+                            <i class="bi bi-clock me-2"></i>
+                            {% trans "Pending Approval" %}
+                        </div>
+                    {% else %}
+                        <div class="status-indicator status-not-enrolled">
+                            <i class="bi bi-x-circle me-2"></i>
+                            {% trans "Not Enrolled" %}
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="status-indicator status-not-enrolled mb-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        {% trans "Not Enrolled" %}
+                    </div>
+                    <p class="mb-3 text-muted">{% trans "Join this activity to enhance your skills and network with peers." %}</p>
+                    <button type="button" class="btn btn-success btn-lg w-100" onclick="enrollActivity()">
+                        <i class="bi bi-plus-circle me-2"></i>{% trans "Enroll Now" %}
+                    </button>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Quick Stats -->
+            <div class="activity-content">
+                <h5 class="mb-3 text-center">
+                    <i class="bi bi-bar-chart me-2 text-primary"></i>{% trans "Activity Stats" %}
+                </h5>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-number">{{ activity.current_participants }}</span>
+                        <span class="stat-label">{% trans "Enrolled" %}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">
+                            {% widthratio activity.current_participants 1 1 %}
+                        </span>
+                        <span class="stat-label">{% trans "Active" %}</span>
+                    </div>
+                    {% if activity.max_participants %}
+                    <div class="stat-item">
+                        <span class="stat-number">{{ activity.available_spots }}</span>
+                        <span class="stat-label">{% trans "Available" %}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Coordinator Info -->
+            {% if activity.coordinator %}
+            <div class="coordinator-card">
+                <h5 class="mb-3">
+                    <i class="bi bi-person-badge me-2 text-primary"></i>{% trans "Activity Coordinator" %}
+                </h5>
+                <div class="coordinator-avatar">
+                    {{ activity.coordinator.get_full_name|make_list|first|upper }}
+                </div>
+                <h6 class="mb-1">{{ activity.coordinator.get_full_name }}</h6>
+                {% if activity.contact_info %}
+                <p class="text-muted mb-0">{{ activity.contact_info }}</p>
+                {% endif %}
+                {% if activity.coordinator.email %}
+                <small class="text-muted">{{ activity.coordinator.email }}</small>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Enrollment functionality
+    window.enrollActivity = function() {
+        // Create a form to submit enrollment
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `{% url 'activities:activity_enroll' activity.pk %}`;
+
+        // Add CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) {
+            form.appendChild(csrfToken.cloneNode(true));
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+    };
+
+    window.confirmUnenroll = function() {
+        if (confirm('{% trans "Are you sure you want to unenroll from this activity?" %}')) {
+            // Create a form to submit unenrollment
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `{% url 'activities:activity_unenroll' activity.pk %}`;
+
+            // Add CSRF token
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (csrfToken) {
+                form.appendChild(csrfToken.cloneNode(true));
+            }
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+    };
+
+    // Animate elements on scroll
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+
+    // Apply animations to key elements
+    const animateElements = document.querySelectorAll('.activity-content, .enrollment-status, .coordinator-card');
+    animateElements.forEach((element, index) => {
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(20px)';
+        element.style.transition = `opacity 0.6s ease ${index * 0.1}s, transform 0.6s ease ${index * 0.1}s`;
+        observer.observe(element);
+    });
+
+    // Trigger initial animation for visible elements
+    setTimeout(() => {
+        const visibleElements = document.querySelectorAll('.activity-content:not([style*="none"]), .enrollment-status:not([style*="none"]), .coordinator-card:not([style*="none"])');
+        visibleElements.forEach(element => {
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        });
+    }, 100);
+});
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            {% if activity.image %}
+            <img src="{{ activity.image.url }}" class="card-img-top" alt="{{ activity.title }}">
+            {% endif %}
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h2 class="card-title mb-1">{{ activity.title }}</h2>
+                        <p class="text-muted mb-0">
+                            <i class="bi bi-tag me-1"></i>{{ activity.category.name }} •
+                            <i class="bi bi-people me-1"></i>{{ activity.get_activity_type_display }} •
+                            <span class="badge bg-{{ activity.status|lower }}">{{ activity.get_status_display }}</span>
+                        </p>
+                    </div>
+                    {% if activity.fee_amount > 0 %}
+                    <div class="text-end">
+                        <div class="h4 text-success mb-0">${{ activity.fee_amount }}</div>
+                        <small class="text-muted">Activity Fee</small>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <p class="card-text">{{ activity.description }}</p>
+
+                {% if activity.objectives %}
+                <div class="mb-3">
+                    <h5><i class="bi bi-target me-2"></i>Learning Objectives</h5>
+                    <p class="text-muted">{{ activity.objectives }}</p>
+                </div>
+                {% endif %}
+
+                {% if activity.prerequisites %}
+                <div class="mb-3">
+                    <h5><i class="bi bi-list-check me-2"></i>Prerequisites</h5>
+                    <p class="text-muted">{{ activity.prerequisites }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Schedule & Details -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-calendar-event me-2"></i>Schedule & Details</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Duration</h6>
+                        <p class="mb-1">
+                            <i class="bi bi-calendar me-2"></i>
+                            {{ activity.start_date|date:"F j, Y" }}
+                            {% if activity.end_date %} - {{ activity.end_date|date:"F j, Y" }}{% endif %}
+                        </p>
+                        {% if activity.start_time %}
+                        <p class="mb-1">
+                            <i class="bi bi-clock me-2"></i>
+                            {{ activity.start_time|time:"g:i A" }}
+                            {% if activity.end_time %} - {{ activity.end_time|time:"g:i A" }}{% endif %}
+                        </p>
+                        {% endif %}
+                        {% if activity.days_of_week %}
+                        <p class="mb-0">
+                            <i class="bi bi-repeat me-2"></i>
+                            {{ activity.days_of_week|title }}
+                        </p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Location & Capacity</h6>
+                        {% if activity.venue %}
+                        <p class="mb-1">
+                            <i class="bi bi-geo-alt me-2"></i>{{ activity.venue }}
+                        </p>
+                        {% endif %}
+                        {% if activity.room_number %}
+                        <p class="mb-1">
+                            <i class="bi bi-house me-2"></i>Room {{ activity.room_number }}
+                        </p>
+                        {% endif %}
+                        <p class="mb-0">
+                            <i class="bi bi-people me-2"></i>
+                            {% if activity.max_participants %}
+                                {{ activity.current_participants }} / {{ activity.max_participants }} enrolled
+                                {% if activity.available_spots > 0 %}
+                                    <span class="text-success">({{ activity.available_spots }} spots left)</span>
+                                {% else %}
+                                    <span class="text-danger">(Full)</span>
+                                {% endif %}
+                            {% else %}
+                                {{ activity.current_participants }} enrolled (Unlimited capacity)
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Staff & Equipment -->
+        {% if staff_assignments or equipment %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-person-badge me-2"></i>Staff & Resources</h5>
+            </div>
+            <div class="card-body">
+                {% if staff_assignments %}
+                <div class="mb-3">
+                    <h6>Activity Staff</h6>
+                    <div class="row">
+                        {% for assignment in staff_assignments %}
+                        <div class="col-md-6 mb-2">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="avatar avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center">
+                                        {{ assignment.staff_member.get_full_name|make_list|first|upper }}
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-2">
+                                    <div class="fw-bold">{{ assignment.staff_member.get_full_name }}</div>
+                                    <small class="text-muted">{{ assignment.get_role_display }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if equipment %}
+                <div>
+                    <h6>Equipment & Resources</h6>
+                    <div class="row">
+                        {% for item in equipment %}
+                        <div class="col-md-6 mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-tools me-2 text-muted"></i>
+                                <span>{{ item.name }} ({{ item.quantity_available }}/{{ item.quantity_total }} available)</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Related Competitions -->
+        {% if competitions %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-trophy me-2"></i>Related Competitions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for competition in competitions %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6 class="card-title">{{ competition.title }}</h6>
+                                <p class="card-text small text-muted">{{ competition.description|truncatechars:100 }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">{{ competition.start_date|date:"M j, Y" }}</small>
+                                    <span class="badge bg-secondary">{{ competition.get_level_display }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Enrollment Status -->
+        {% if user|has_role:'student' %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Your Enrollment</h5>
+            </div>
+            <div class="card-body">
+                {% if enrollment %}
+                <div class="alert alert-{% if enrollment.status == 'active' %}success{% elif enrollment.status == 'pending' %}warning{% else %}secondary{% endif %}">
+                    <strong>Status:</strong> {{ enrollment.get_status_display }}
+                    {% if enrollment.status == 'active' %}
+                    <br><small class="text-muted">Enrolled on {{ enrollment.enrollment_date|date:"M j, Y" }}</small>
+                    {% endif %}
+                </div>
+
+                {% if enrollment.status == 'active' %}
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="h5 mb-0">{{ enrollment.attendance_count }}</div>
+                        <small class="text-muted">Sessions Attended</small>
+                    </div>
+                    <div class="col-6">
+                        <div class="h5 mb-0">{{ enrollment.attendance_percentage|floatformat:1 }}%</div>
+                        <small class="text-muted">Attendance Rate</small>
+                    </div>
+                </div>
+                {% endif %}
+                {% else %}
+                <p class="mb-3">You are not enrolled in this activity.</p>
+                <a href="{% url 'activities:activity_enroll' activity.pk %}" class="btn btn-success w-100">
+                    <i class="bi bi-plus-circle me-2"></i>Enroll Now
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Quick Stats -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Activity Stats</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="h4 mb-0 text-primary">{{ activity.current_participants }}</div>
+                        <small class="text-muted">Enrolled</small>
+                    </div>
+                    <div class="col-6">
+                        <div class="h4 mb-0 text-success">
+                            {% widthratio activity.current_participants 1 1 %}
+                        </div>
+                        <small class="text-muted">Active</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coordinator Info -->
+        {% if activity.coordinator %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Activity Coordinator</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar avatar-lg bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3">
+                        {{ activity.coordinator.get_full_name|make_list|first|upper }}
+                    </div>
+                    <div>
+                        <div class="fw-bold">{{ activity.coordinator.get_full_name }}</div>
+                        {% if activity.contact_info %}
+                        <small class="text-muted">{{ activity.contact_info }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

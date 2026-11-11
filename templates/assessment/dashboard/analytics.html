@@ -1,0 +1,931 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Assessment Analytics - Dashboard{% endblock %}
+
+{% block page_title %}Assessment Analytics{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'assessment:dashboard' %}">Assessment Dashboard</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Analytics</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-secondary" id="refreshAnalytics">
+            <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+        </button>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-download me-1"></i> Export
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="exportAnalytics('pdf')">PDF Report</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportAnalytics('excel')">Excel Data</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportAnalytics('csv')">CSV Data</a></li>
+            </ul>
+        </div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+            <i class="bi bi-funnel me-1"></i> Filters
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-dashboard-container">
+    <!-- Filters Summary -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h6 class="card-title mb-2">Current Filters</h6>
+                    <div class="filter-tags">
+                        {% if class_id %}
+                        <span class="badge bg-primary me-2">
+                            Class: {{ selected_class.name|default:class_id }}
+                            <button type="button" class="btn-close btn-close-white ms-1" onclick="removeFilter('class_id')"></button>
+                        </span>
+                        {% endif %}
+                        {% if subject_id %}
+                        <span class="badge bg-success me-2">
+                            Subject: {{ selected_subject.name|default:subject_id }}
+                            <button type="button" class="btn-close btn-close-white ms-1" onclick="removeFilter('subject_id')"></button>
+                        </span>
+                        {% endif %}
+                        {% if exam_type_id %}
+                        <span class="badge bg-info me-2">
+                            Exam Type: {{ selected_exam_type.name|default:exam_type_id }}
+                            <button type="button" class="btn-close btn-close-white ms-1" onclick="removeFilter('exam_type_id')"></button>
+                        </span>
+                        {% endif %}
+                        {% if not class_id and not subject_id and not exam_type_id %}
+                        <span class="text-muted">No filters applied - showing all data</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4 text-end">
+                    <div class="date-range">
+                        <small class="text-muted">Data as of {{ current_date|date:"M d, Y H:i" }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card metric-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="metric-icon bg-primary">
+                            <i class="bi bi-graph-up"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">{{ marks_stats.avg_percentage|floatformat:1|default:"0.0" }}%</h4>
+                            <p class="text-muted mb-0">Average Score</p>
+                        </div>
+                    </div>
+                    <div class="metric-trend mt-2">
+                        <span class="trend-indicator {% if marks_stats.avg_percentage > 75 %}text-success{% elif marks_stats.avg_percentage > 50 %}text-warning{% else %}text-danger{% endif %}">
+                            <i class="bi bi-{% if marks_stats.avg_percentage > 75 %}arrow-up{% elif marks_stats.avg_percentage > 50 %}dash{% else %}arrow-down{% endif %} me-1"></i>
+                            {% if marks_stats.avg_percentage > 75 %}Excellent{% elif marks_stats.avg_percentage > 50 %}Average{% else %}Needs Improvement{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card metric-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="metric-icon bg-success">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">{{ marks_stats.total_entries|default:0 }}</h4>
+                            <p class="text-muted mb-0">Total Assessments</p>
+                        </div>
+                    </div>
+                    <div class="metric-trend mt-2">
+                        <span class="text-muted">
+                            <i class="bi bi-people me-1"></i>
+                            {{ unique_students|default:0 }} students
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card metric-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="metric-icon bg-warning">
+                            <i class="bi bi-award"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">{{ marks_stats.max_percentage|floatformat:1|default:"0.0" }}%</h4>
+                            <p class="text-muted mb-0">Highest Score</p>
+                        </div>
+                    </div>
+                    <div class="metric-trend mt-2">
+                        <span class="text-success">
+                            <i class="bi bi-trophy me-1"></i>
+                            Top Performance
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card metric-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="metric-icon bg-info">
+                            <i class="bi bi-clock-history"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">{{ assignment_stats.submission_rate|floatformat:1|default:"0.0" }}%</h4>
+                            <p class="text-muted mb-0">Submission Rate</p>
+                        </div>
+                    </div>
+                    <div class="metric-trend mt-2">
+                        <span class="{% if assignment_stats.submission_rate > 80 %}text-success{% elif assignment_stats.submission_rate > 60 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ assignment_stats.total_submissions|default:0 }} submissions
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts and Visualizations -->
+    <div class="row mb-4">
+        <!-- Performance Trends -->
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-graph-up me-2"></i>Performance Trends
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="performanceChart" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Grade Distribution -->
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-pie-chart me-2"></i>Grade Distribution
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="gradeDistributionChart" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Analytics -->
+    <div class="row">
+        <!-- Class Performance -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-bar-chart me-2"></i>Class Performance
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm" id="classPerformanceTable">
+                            <thead>
+                                <tr>
+                                    <th>Class</th>
+                                    <th>Average %</th>
+                                    <th>Students</th>
+                                    <th>Trend</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in grade_distribution %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ item.exam__academic_class__name|default:"All Classes" }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold {% if item.avg_percentage > 75 %}text-success{% elif item.avg_percentage > 50 %}text-warning{% else %}text-danger{% endif %}">
+                                            {{ item.avg_percentage|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                    <td>{{ item.student_count }}</td>
+                                    <td>
+                                        <div class="progress" style="height: 6px; width: 80px;">
+                                            <div class="progress-bar {% if item.avg_percentage > 75 %}bg-success{% elif item.avg_percentage > 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                                 style="width: {{ item.avg_percentage }}%">
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-3">
+                                        No class performance data available
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assignment Analytics -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-check-square me-2"></i>Assignment Analytics
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="stat-item">
+                                <h3 class="text-primary">{{ assignment_stats.total_submissions|default:0 }}</h3>
+                                <small class="text-muted">Total Submissions</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-item">
+                                <h3 class="text-success">{{ assignment_stats.avg_marks|floatformat:1|default:"0.0" }}</h3>
+                                <small class="text-muted">Avg Marks</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-item">
+                                <h3 class="text-info">{{ assignment_stats.submission_rate|floatformat:1|default:"0.0" }}%</h3>
+                                <small class="text-muted">Submission Rate</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h6 class="mb-3">Submission Status</h6>
+                        <div class="progress-stacked mb-3">
+                            <div class="progress" style="width: {{ graded_percentage }}%">
+                                <div class="progress-bar bg-success" title="Graded: {{ graded_percentage }}%"></div>
+                            </div>
+                            <div class="progress" style="width: {{ submitted_percentage }}%">
+                                <div class="progress-bar bg-warning" title="Submitted: {{ submitted_percentage }}%"></div>
+                            </div>
+                            <div class="progress" style="width: {{ pending_percentage }}%">
+                                <div class="progress-bar bg-danger" title="Pending: {{ pending_percentage }}%"></div>
+                            </div>
+                        </div>
+                        <div class="legend d-flex justify-content-between">
+                            <small><span class="badge bg-success me-1"></span> Graded</small>
+                            <small><span class="badge bg-warning me-1"></span> Submitted</small>
+                            <small><span class="badge bg-danger me-1"></span> Pending</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subject-wise Performance -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-book me-2"></i>Subject-wise Performance
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="subjectPerformanceChart" height="150"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Insights and Recommendations -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>Insights & Recommendations
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="insight-item mb-3">
+                                <div class="d-flex align-items-start">
+                                    <i class="bi bi-exclamation-triangle text-warning me-2 mt-1"></i>
+                                    <div>
+                                        <h6 class="mb-1">Areas Needing Attention</h6>
+                                        <p class="mb-0 text-muted">
+                                            {% if marks_stats.avg_percentage < 60 %}
+                                            Overall performance is below expectations. Consider additional support sessions.
+                                            {% else %}
+                                            Performance is generally good. Focus on maintaining standards.
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="insight-item mb-3">
+                                <div class="d-flex align-items-start">
+                                    <i class="bi bi-arrow-up-right text-success me-2 mt-1"></i>
+                                    <div>
+                                        <h6 class="mb-1">Top Performing Areas</h6>
+                                        <p class="mb-0 text-muted">
+                                            {% if marks_stats.max_percentage > 90 %}
+                                            Excellent performance observed in top students. Consider advanced materials.
+                                            {% else %}
+                                            Good performance with room for improvement across the board.
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="insight-item mb-3">
+                                <div class="d-flex align-items-start">
+                                    <i class="bi bi-people text-primary me-2 mt-1"></i>
+                                    <div>
+                                        <h6 class="mb-1">Student Engagement</h6>
+                                        <p class="mb-0 text-muted">
+                                            {% if assignment_stats.submission_rate > 80 %}
+                                            High submission rate indicates good student engagement.
+                                            {% else %}
+                                            Submission rate could be improved with reminders and support.
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="insight-item mb-3">
+                                <div class="d-flex align-items-start">
+                                    <i class="bi bi-graph-up text-info me-2 mt-1"></i>
+                                    <div>
+                                        <h6 class="mb-1">Performance Trends</h6>
+                                        <p class="mb-0 text-muted">
+                                            Monitor performance trends over time to identify improvement areas.
+                                            Consider targeted interventions for struggling students.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterModalLabel">Analytics Filters</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="get" id="analyticsFilterForm">
+                    <div class="mb-3">
+                        <label for="class_id" class="form-label">Class</label>
+                        <select class="form-select" id="class_id" name="class_id">
+                            <option value="">All Classes</option>
+                            {% for class in classes %}
+                            <option value="{{ class.id }}" {% if request.GET.class_id == class.id|stringformat:"i" %}selected{% endif %}>
+                                {{ class.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="subject_id" class="form-label">Subject</label>
+                        <select class="form-select" id="subject_id" name="subject_id">
+                            <option value="">All Subjects</option>
+                            {% for subject in subjects %}
+                            <option value="{{ subject.id }}" {% if request.GET.subject_id == subject.id|stringformat:"i" %}selected{% endif %}>
+                                {{ subject.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="exam_type_id" class="form-label">Exam Type</label>
+                        <select class="form-select" id="exam_type_id" name="exam_type_id">
+                            <option value="">All Exam Types</option>
+                            {% for exam_type in exam_types %}
+                            <option value="{{ exam_type.id }}" {% if request.GET.exam_type_id == exam_type.id|stringformat:"i" %}selected{% endif %}>
+                                {{ exam_type.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="date_range" class="form-label">Date Range</label>
+                        <select class="form-select" id="date_range" name="date_range">
+                            <option value="all_time">All Time</option>
+                            <option value="this_month">This Month</option>
+                            <option value="last_month">Last Month</option>
+                            <option value="this_quarter">This Quarter</option>
+                            <option value="this_year">This Year</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="mt-2">Loading analytics data...</p>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.analytics-dashboard-container {
+    max-width: 100%;
+}
+
+/* Metric Cards */
+.metric-card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: transform 0.2s ease-in-out;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+}
+
+.metric-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+}
+
+.metric-trend {
+    font-size: 0.875rem;
+}
+
+.trend-indicator.text-success { color: #198754; }
+.trend-indicator.text-warning { color: #fd7e14; }
+.trend-indicator.text-danger { color: #dc3545; }
+
+/* Charts */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+/* Filter Tags */
+.filter-tags .badge {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+}
+
+.filter-tags .btn-close {
+    font-size: 0.5rem;
+}
+
+/* Progress Stacked */
+.progress-stacked {
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+.progress-stacked .progress {
+    border-radius: 0;
+}
+
+/* Table Styling */
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* Stat Items */
+.stat-item {
+    padding: 1rem;
+}
+
+.stat-item h3 {
+    margin-bottom: 0.5rem;
+}
+
+/* Insight Items */
+.insight-item {
+    padding: 1rem;
+    border-left: 4px solid #e9ecef;
+    background-color: #f8f9fa;
+    border-radius: 0.375rem;
+}
+
+.insight-item:hover {
+    background-color: #e9ecef;
+}
+
+/* Legend */
+.legend {
+    font-size: 0.875rem;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+/* Custom Scrollbar */
+.table-responsive::-webkit-scrollbar {
+    height: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .metric-card .d-flex {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .metric-icon {
+        margin: 0 auto 0.5rem auto;
+    }
+    
+    .chart-container {
+        height: 250px;
+    }
+    
+    .stat-item {
+        padding: 0.5rem;
+    }
+    
+    .stat-item h3 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Animation for metric updates */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.metric-update {
+    animation: pulse 0.5s ease-in-out;
+}
+
+/* Custom badge colors */
+.bg-excellent { background-color: #198754; }
+.bg-good { background-color: #20c997; }
+.bg-average { background-color: #fd7e14; }
+.bg-poor { background-color: #dc3545; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Sample data - in real implementation, this would come from Django context
+const analyticsData = {
+    performanceTrends: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        datasets: [{
+            label: 'Average Score',
+            data: [65, 72, 68, 75, 78, 82],
+            borderColor: '#0d6efd',
+            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    gradeDistribution: {
+        labels: ['A (90-100%)', 'B (80-89%)', 'C (70-79%)', 'D (60-69%)', 'F (<60%)'],
+        datasets: [{
+            data: [15, 25, 30, 20, 10],
+            backgroundColor: [
+                '#198754',
+                '#20c997',
+                '#ffc107',
+                '#fd7e14',
+                '#dc3545'
+            ]
+        }]
+    },
+    subjectPerformance: {
+        labels: ['Mathematics', 'Science', 'English', 'History', 'Geography', 'Art'],
+        datasets: [{
+            label: 'Average Score',
+            data: [78, 82, 75, 68, 72, 80],
+            backgroundColor: 'rgba(13, 110, 253, 0.6)',
+            borderColor: '#0d6efd',
+            borderWidth: 1
+        }]
+    }
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts
+    initializeCharts();
+    
+    // Initialize event listeners
+    initializeEventListeners();
+    
+    // Load real data from context
+    loadRealData();
+
+    function initializeCharts() {
+        // Performance Trends Chart
+        const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+        window.performanceChart = new Chart(performanceCtx, {
+            type: 'line',
+            data: analyticsData.performanceTrends,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Percentage Score'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Grade Distribution Chart
+        const gradeDistCtx = document.getElementById('gradeDistributionChart').getContext('2d');
+        window.gradeDistributionChart = new Chart(gradeDistCtx, {
+            type: 'doughnut',
+            data: analyticsData.gradeDistribution,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Subject Performance Chart
+        const subjectCtx = document.getElementById('subjectPerformanceChart').getContext('2d');
+        window.subjectPerformanceChart = new Chart(subjectCtx, {
+            type: 'bar',
+            data: analyticsData.subjectPerformance,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Average Score'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function initializeEventListeners() {
+        // Refresh analytics
+        document.getElementById('refreshAnalytics').addEventListener('click', refreshAnalytics);
+        
+        // Auto-refresh every 5 minutes
+        setInterval(refreshAnalytics, 300000);
+    }
+
+    function loadRealData() {
+        // This function would update charts with real data from Django context
+        // For now, we're using sample data
+        console.log('Loading real analytics data...');
+        
+        // Update metrics with real data if available
+        updateMetricsWithRealData();
+    }
+
+    function updateMetricsWithRealData() {
+        // Update metrics with data from Django context
+        const metrics = document.querySelectorAll('.metric-card h4');
+        metrics.forEach(metric => {
+            metric.classList.add('metric-update');
+            setTimeout(() => {
+                metric.classList.remove('metric-update');
+            }, 500);
+        });
+    }
+
+    function refreshAnalytics() {
+        showLoading();
+        
+        // Simulate API call to refresh data
+        setTimeout(() => {
+            // In real implementation, this would fetch new data from the server
+            console.log('Refreshing analytics data...');
+            
+            // Update charts with new data
+            updateChartsWithNewData();
+            
+            hideLoading();
+            showToast('Analytics data refreshed successfully', 'success');
+        }, 1500);
+    }
+
+    function updateChartsWithNewData() {
+        // Simulate new data - in real implementation, this would come from an API
+        const newPerformanceData = analyticsData.performanceTrends.datasets[0].data.map(
+            value => Math.min(100, Math.max(0, value + (Math.random() * 10 - 5)))
+        );
+        
+        window.performanceChart.data.datasets[0].data = newPerformanceData;
+        window.performanceChart.update('none');
+        
+        // Add animation to metrics
+        updateMetricsWithRealData();
+    }
+});
+
+// Filter functions
+function removeFilter(filterName) {
+    const url = new URL(window.location);
+    url.searchParams.delete(filterName);
+    window.location.href = url.toString();
+}
+
+function applyFilters() {
+    document.getElementById('analyticsFilterForm').submit();
+}
+
+function exportAnalytics(format) {
+    showLoading();
+    
+    // Simulate export process
+    setTimeout(() => {
+        hideLoading();
+        showToast(`Analytics exported as ${format.toUpperCase()} successfully`, 'success');
+        
+        // In real implementation, this would trigger a download
+        console.log(`Exporting analytics as ${format}`);
+    }, 2000);
+}
+
+// Utility functions
+function showLoading() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'primary'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+    });
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + R to refresh
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+        e.preventDefault();
+        document.getElementById('refreshAnalytics').click();
+    }
+    
+    // Ctrl/Cmd + F to open filters
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        const filterModal = new bootstrap.Modal(document.getElementById('filterModal'));
+        filterModal.show();
+    }
+});
+</script>
+{% endblock %}

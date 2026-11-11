@@ -1,0 +1,823 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if object %}{% trans "Edit Reservation" %}{% else %}{% trans "Create Reservation" %}{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if object %}
+        {% trans "Edit Reservation" %}
+    {% else %}
+        {% trans "Create New Reservation" %}
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:reservation_list' %}">{% trans "Reservations" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if object %}{% trans "Edit Reservation" %}{% else %}{% trans "New Reservation" %}{% endif %}
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        border-left: 4px solid #6f42c1;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .form-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .member-info-card {
+        background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+        border: 1px solid #bee5eb;
+    }
+    
+    .book-info-card {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        border: 1px solid #ffeaa7;
+    }
+    
+    .availability-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border: 2px dashed #dee2e6;
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .book-cover {
+        width: 80px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .help-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .member-avatar {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #65a0f9 0%, #4a7df6 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        font-weight: bold;
+        color: white;
+    }
+    
+    .search-results {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        display: none;
+    }
+    
+    .search-result-item {
+        padding: 0.75rem;
+        border-bottom: 1px solid #e9ecef;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    
+    .search-result-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .search-result-item:last-child {
+        border-bottom: none;
+    }
+    
+    .availability-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .available { background-color: #28a745; }
+    .unavailable { background-color: #dc3545; }
+    .limited { background-color: #ffc107; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card form-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bookmark-plus me-2"></i>
+                        {% if object %}
+                            {% trans "Edit Reservation" %}
+                        {% else %}
+                            {% trans "Create New Reservation" %}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate id="reservationForm">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            <h6 class="alert-heading">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                {% trans "Please correct the following errors:" %}
+                            </h6>
+                            <ul class="mb-0">
+                                {% for error in form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+
+                        <!-- Member Selection Section -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="bi bi-person me-2"></i>
+                                    {% trans "1. Select Member" %}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <!-- Member Field -->
+                                        <div class="mb-3">
+                                            <label for="{{ form.member.id_for_label }}" class="form-label required-field">
+                                                {{ form.member.label }}
+                                            </label>
+                                            {{ form.member }}
+                                            {% if form.member.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.member.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            <div class="help-text">{% trans "Select the library member making this reservation" %}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <!-- Quick Member Search -->
+                                        <div class="mb-3">
+                                            <label class="form-label">{% trans "Quick Search" %}</label>
+                                            <input type="text" class="form-control" id="memberSearch" 
+                                                   placeholder="{% trans 'Search by name or ID...' %}">
+                                            <div id="memberSearchResults" class="search-results mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Member Information Preview -->
+                                <div id="memberInfo" class="card member-info-card mt-3" style="display: none;">
+                                    <div class="card-body">
+                                        <div class="row align-items-center">
+                                            <div class="col-auto">
+                                                <div class="member-avatar" id="memberAvatar">
+                                                    M
+                                                </div>
+                                            </div>
+                                            <div class="col">
+                                                <h6 id="memberName" class="card-title">{% trans "Member Name" %}</h6>
+                                                <p class="card-text mb-1">
+                                                    <strong>{% trans "Member ID:" %}</strong> 
+                                                    <span id="memberId">-</span>
+                                                </p>
+                                                <p class="card-text mb-1">
+                                                    <strong>{% trans "Type:" %}</strong> 
+                                                    <span id="memberType">-</span>
+                                                </p>
+                                                <p class="card-text mb-0">
+                                                    <strong>{% trans "Status:" %}</strong> 
+                                                    <span id="memberStatus" class="badge bg-success status-badge">{% trans "Active" %}</span>
+                                                </p>
+                                            </div>
+                                            <div class="col-auto">
+                                                <p class="card-text mb-1">
+                                                    <strong>{% trans "Current Borrows:" %}</strong> 
+                                                    <span id="currentBorrows">0</span>
+                                                </p>
+                                                <p class="card-text mb-0">
+                                                    <strong>{% trans "Borrow Limit:" %}</strong> 
+                                                    <span id="borrowLimit">0</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Book Selection Section -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="bi bi-book me-2"></i>
+                                    {% trans "2. Select Book" %}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <!-- Book Field -->
+                                        <div class="mb-3">
+                                            <label for="{{ form.book.id_for_label }}" class="form-label required-field">
+                                                {{ form.book.label }}
+                                            </label>
+                                            {{ form.book }}
+                                            {% if form.book.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.book.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            <div class="help-text">{% trans "Select the book to reserve" %}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <!-- Quick Book Search -->
+                                        <div class="mb-3">
+                                            <label class="form-label">{% trans "Quick Search" %}</label>
+                                            <input type="text" class="form-control" id="bookSearch" 
+                                                   placeholder="{% trans 'Search by title or ISBN...' %}">
+                                            <div id="bookSearchResults" class="search-results mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Book Information Preview -->
+                                <div id="bookInfo" class="card book-info-card mt-3" style="display: none;">
+                                    <div class="card-body">
+                                        <div class="row align-items-center">
+                                            <div class="col-auto">
+                                                {% if object and object.book.cover_image %}
+                                                <img src="{{ object.book.cover_image.url }}" 
+                                                     alt="{{ object.book.title }}" 
+                                                     class="book-cover">
+                                                {% else %}
+                                                <div class="book-cover bg-light d-flex align-items-center justify-content-center">
+                                                    <i class="bi bi-book text-muted fs-1"></i>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="col">
+                                                <h6 id="bookTitle" class="card-title">{% trans "Book Title" %}</h6>
+                                                <p class="card-text mb-1">
+                                                    <strong>{% trans "Authors:" %}</strong> 
+                                                    <span id="bookAuthors">-</span>
+                                                </p>
+                                                <p class="card-text mb-1">
+                                                    <strong>{% trans "ISBN:" %}</strong> 
+                                                    <span id="bookIsbn">-</span>
+                                                </p>
+                                                <p class="card-text mb-0">
+                                                    <strong>{% trans "Category:" %}</strong> 
+                                                    <span id="bookCategory">-</span>
+                                                </p>
+                                            </div>
+                                            <div class="col-auto">
+                                                <p class="card-text mb-1">
+                                                    <strong>{% trans "Available Copies:" %}</strong> 
+                                                    <span id="availableCopies">0</span>
+                                                </p>
+                                                <p class="card-text mb-1">
+                                                    <strong>{% trans "Total Copies:" %}</strong> 
+                                                    <span id="totalCopies">0</span>
+                                                </p>
+                                                <p class="card-text mb-0">
+                                                    <strong>{% trans "Status:" %}</strong> 
+                                                    <span id="bookStatus" class="badge bg-success status-badge">{% trans "Available" %}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Availability Information -->
+                                <div id="availabilityInfo" class="card availability-card mt-3" style="display: none;">
+                                    <div class="card-body text-center">
+                                        <h6 class="card-title">{% trans "Availability Status" %}</h6>
+                                        <div id="availabilityMessage" class="mb-2">
+                                            <!-- Dynamic availability message will go here -->
+                                        </div>
+                                        <div id="reservationQueue" class="small text-muted">
+                                            <!-- Reservation queue information will go here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reservation Details Section -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="bi bi-calendar me-2"></i>
+                                    {% trans "3. Reservation Details" %}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <!-- Priority -->
+                                        <div class="mb-3">
+                                            <label for="{{ form.priority.id_for_label }}" class="form-label">
+                                                {{ form.priority.label }}
+                                            </label>
+                                            {{ form.priority }}
+                                            {% if form.priority.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.priority.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            <div class="help-text">{{ form.priority.help_text }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <!-- Reserve Date -->
+                                        <div class="mb-3">
+                                            <label for="{{ form.reserve_date.id_for_label }}" class="form-label">
+                                                {{ form.reserve_date.label }}
+                                            </label>
+                                            {{ form.reserve_date }}
+                                            {% if form.reserve_date.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.reserve_date.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <!-- Expiry Date -->
+                                        <div class="mb-3">
+                                            <label for="{{ form.expiry_date.id_for_label }}" class="form-label">
+                                                {{ form.expiry_date.label }}
+                                            </label>
+                                            {{ form.expiry_date }}
+                                            {% if form.expiry_date.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.expiry_date.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            <div class="help-text">{% trans "Reservation will expire automatically after this date" %}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <!-- Status -->
+                                        <div class="mb-3">
+                                            <label for="{{ form.status.id_for_label }}" class="form-label">
+                                                {{ form.status.label }}
+                                            </label>
+                                            {{ form.status }}
+                                            {% if form.status.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.status.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Notes -->
+                                <div class="mb-3">
+                                    <label for="{{ form.notes.id_for_label }}" class="form-label">
+                                        {{ form.notes.label }}
+                                    </label>
+                                    {{ form.notes }}
+                                    {% if form.notes.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.notes.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="help-text">{% trans "Optional notes about this reservation" %}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reservation Summary -->
+                        <div class="card border-primary mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="card-title mb-0">
+                                    <i class="bi bi-clipboard-check me-2"></i>
+                                    {% trans "Reservation Summary" %}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p><strong>{% trans "Member:" %}</strong> <span id="summaryMember">-</span></p>
+                                        <p><strong>{% trans "Book:" %}</strong> <span id="summaryBook">-</span></p>
+                                        <p><strong>{% trans "Reservation Date:" %}</strong> <span id="summaryReserveDate">-</span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p><strong>{% trans "Expiry Date:" %}</strong> <span id="summaryExpiryDate">-</span></p>
+                                        <p><strong>{% trans "Priority:" %}</strong> <span id="summaryPriority">-</span></p>
+                                        <p><strong>{% trans "Status:" %}</strong> <span id="summaryStatus">-</span></p>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info mt-3">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    <strong>{% trans "Reservation Policy:" %}</strong>
+                                    {% trans "Reservations are held for 7 days. Members will be notified when the book becomes available. Multiple reservations are allowed per member, but only one active reservation per book." %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="d-flex justify-content-between align-items-center border-top pt-4">
+                            <div>
+                                <a href="{% url 'library:reservation_list' %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-left me-2"></i>{% trans "Back to Reservations" %}
+                                </a>
+                                {% if object %}
+                                <a href="{% url 'library:reservation_detail' object.pk %}" class="btn btn-outline-info ms-2">
+                                    <i class="bi bi-eye me-2"></i>{% trans "View Details" %}
+                                </a>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <button type="submit" class="btn btn-primary" id="submitBtn">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    {% if object %}
+                                        {% trans "Update Reservation" %}
+                                    {% else %}
+                                        {% trans "Create Reservation" %}
+                                    {% endif %}
+                                </button>
+                                {% if object %}
+                                <button type="button" class="btn btn-danger ms-2" data-bs-toggle="modal" data-bs-target="#cancelModal">
+                                    <i class="bi bi-x-circle me-2"></i>{% trans "Cancel Reservation" %}
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Reservation Modal -->
+{% if object %}
+<div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cancelModalLabel">
+                    <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                    {% trans "Cancel Reservation" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <h6 class="alert-heading">{% trans "Are you sure?" %}</h6>
+                    {% trans "You are about to cancel the reservation for" %} <strong>{{ object.book.title }}</strong> 
+                    {% trans "by" %} <strong>{{ object.member.user.get_full_name|default:object.member.user.username }}</strong>.
+                </div>
+                <p class="mb-0">
+                    {% trans "This action cannot be undone. The reservation will be marked as cancelled and removed from the active queue." %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>{% trans "Keep Reservation" %}
+                </button>
+                <form method="post" action="{% url 'library:reservation_cancel' object.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-2"></i>{% trans "Cancel Reservation" %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize date fields
+        const reserveDateField = document.getElementById('{{ form.reserve_date.id_for_label }}');
+        const expiryDateField = document.getElementById('{{ form.expiry_date.id_for_label }}');
+        
+        // Set default dates if not provided
+        if (!reserveDateField.value && !{{ object|yesno:"true,false" }}) {
+            const today = new Date().toISOString().split('T')[0];
+            reserveDateField.value = today;
+        }
+        
+        if (!expiryDateField.value && !{{ object|yesno:"true,false" }}) {
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + 7); // 7 days from now
+            expiryDateField.value = expiryDate.toISOString().split('T')[0];
+        }
+        
+        // Update summary in real-time
+        function updateSummary() {
+            document.getElementById('summaryReserveDate').textContent = reserveDateField.value || '{% trans "Not set" %}';
+            document.getElementById('summaryExpiryDate').textContent = expiryDateField.value || '{% trans "Not set" %}';
+            
+            const priorityField = document.getElementById('{{ form.priority.id_for_label }}');
+            const statusField = document.getElementById('{{ form.status.id_for_label }}');
+            
+            if (priorityField) {
+                document.getElementById('summaryPriority').textContent = priorityField.value;
+            }
+            if (statusField) {
+                const selectedOption = statusField.options[statusField.selectedIndex];
+                document.getElementById('summaryStatus').textContent = selectedOption.text;
+            }
+        }
+        
+        if (reserveDateField) reserveDateField.addEventListener('change', updateSummary);
+        if (expiryDateField) expiryDateField.addEventListener('change', updateSummary);
+        
+        // Initial summary update
+        updateSummary();
+        
+        // Member selection handling
+        const memberField = document.getElementById('{{ form.member.id_for_label }}');
+        const memberSearch = document.getElementById('memberSearch');
+        const memberSearchResults = document.getElementById('memberSearchResults');
+        
+        if (memberField) {
+            memberField.addEventListener('change', function() {
+                updateMemberInfo(this.value);
+            });
+            
+            // Initial member info if editing
+            {% if object %}
+            updateMemberInfo('{{ object.member.pk }}');
+            {% endif %}
+        }
+        
+        // Book selection handling
+        const bookField = document.getElementById('{{ form.book.id_for_label }}');
+        const bookSearch = document.getElementById('bookSearch');
+        const bookSearchResults = document.getElementById('bookSearchResults');
+        
+        if (bookField) {
+            bookField.addEventListener('change', function() {
+                updateBookInfo(this.value);
+            });
+            
+            // Initial book info if editing
+            {% if object %}
+            updateBookInfo('{{ object.book.pk }}');
+            {% endif %}
+        }
+        
+        // Member search functionality
+        if (memberSearch) {
+            memberSearch.addEventListener('input', function() {
+                const query = this.value.trim();
+                if (query.length >= 2) {
+                    searchMembers(query);
+                } else {
+                    memberSearchResults.style.display = 'none';
+                }
+            });
+        }
+        
+        // Book search functionality
+        if (bookSearch) {
+            bookSearch.addEventListener('input', function() {
+                const query = this.value.trim();
+                if (query.length >= 2) {
+                    searchBooks(query);
+                } else {
+                    bookSearchResults.style.display = 'none';
+                }
+            });
+        }
+        
+        // Form validation
+        const form = document.getElementById('reservationForm');
+        form.addEventListener('submit', function(e) {
+            const memberField = document.getElementById('{{ form.member.id_for_label }}');
+            const bookField = document.getElementById('{{ form.book.id_for_label }}');
+            
+            if (!memberField.value || !bookField.value) {
+                e.preventDefault();
+                alert('{% trans "Please select both a member and a book before submitting." %}');
+                return;
+            }
+            
+            // Show loading state
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.innerHTML = '<i class="bi bi-arrow-repeat spinner-border spinner-border-sm me-2"></i>{% trans "Processing..." %}';
+            submitBtn.disabled = true;
+        });
+    });
+    
+    function updateMemberInfo(memberId) {
+        if (!memberId) {
+            document.getElementById('memberInfo').style.display = 'none';
+            document.getElementById('summaryMember').textContent = '-';
+            return;
+        }
+        
+        // In a real implementation, this would fetch member data via AJAX
+        // For now, we'll simulate with the selected option text
+        const memberField = document.getElementById('{{ form.member.id_for_label }}');
+        const selectedOption = memberField.options[memberField.selectedIndex];
+        const memberName = selectedOption.text;
+        
+        document.getElementById('memberName').textContent = memberName;
+        document.getElementById('memberId').textContent = 'MEM-' + memberId.slice(0, 8);
+        document.getElementById('summaryMember').textContent = memberName;
+        
+        // Update member avatar with initials
+        const initials = memberName.split(' ').map(n => n[0]).join('').toUpperCase();
+        document.getElementById('memberAvatar').textContent = initials || 'M';
+        
+        document.getElementById('memberInfo').style.display = 'block';
+    }
+    
+    function updateBookInfo(bookId) {
+        if (!bookId) {
+            document.getElementById('bookInfo').style.display = 'none';
+            document.getElementById('availabilityInfo').style.display = 'none';
+            document.getElementById('summaryBook').textContent = '-';
+            return;
+        }
+        
+        // In a real implementation, this would fetch book data via AJAX
+        const bookField = document.getElementById('{{ form.book.id_for_label }}');
+        const selectedOption = bookField.options[bookField.selectedIndex];
+        const bookTitle = selectedOption.text;
+        
+        document.getElementById('bookTitle').textContent = bookTitle;
+        document.getElementById('summaryBook').textContent = bookTitle;
+        
+        // Simulate availability check
+        const availableCopies = Math.floor(Math.random() * 5) + 1;
+        const totalCopies = availableCopies + Math.floor(Math.random() * 3);
+        
+        document.getElementById('availableCopies').textContent = availableCopies;
+        document.getElementById('totalCopies').textContent = totalCopies;
+        
+        let statusText, statusClass, availabilityMessage;
+        
+        if (availableCopies > 0) {
+            statusText = '{% trans "Available" %}';
+            statusClass = 'bg-success';
+            availabilityMessage = `<span class="available availability-indicator"></span> ${availableCopies} {% trans "copies available for immediate borrowing" %}`;
+        } else {
+            statusText = '{% trans "Unavailable" %}';
+            statusClass = 'bg-danger';
+            availabilityMessage = `<span class="unavailable availability-indicator"></span> {% trans "All copies are currently borrowed. Placing reservation in queue." %}`;
+        }
+        
+        document.getElementById('bookStatus').textContent = statusText;
+        document.getElementById('bookStatus').className = `badge ${statusClass} status-badge`;
+        document.getElementById('availabilityMessage').innerHTML = availabilityMessage;
+        
+        document.getElementById('bookInfo').style.display = 'block';
+        document.getElementById('availabilityInfo').style.display = 'block';
+    }
+    
+    function searchMembers(query) {
+        // In a real implementation, this would make an AJAX call to search members
+        const resultsContainer = document.getElementById('memberSearchResults');
+        resultsContainer.innerHTML = '';
+        
+        // Simulate search results
+        const simulatedResults = [
+            { id: '1', name: 'John Smith', memberId: 'MEM-001', type: 'Student' },
+            { id: '2', name: 'Sarah Johnson', memberId: 'MEM-002', type: 'Teacher' },
+            { id: '3', name: 'Mike Brown', memberId: 'MEM-003', type: 'Staff' }
+        ].filter(member => 
+            member.name.toLowerCase().includes(query.toLowerCase()) || 
+            member.memberId.toLowerCase().includes(query.toLowerCase())
+        );
+        
+        if (simulatedResults.length > 0) {
+            simulatedResults.forEach(member => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                item.innerHTML = `
+                    <strong>${member.name}</strong>
+                    <div class="text-muted small">${member.memberId} - ${member.type}</div>
+                `;
+                item.addEventListener('click', function() {
+                    document.getElementById('{{ form.member.id_for_label }}').value = member.id;
+                    updateMemberInfo(member.id);
+                    resultsContainer.style.display = 'none';
+                    document.getElementById('memberSearch').value = '';
+                });
+                resultsContainer.appendChild(item);
+            });
+            resultsContainer.style.display = 'block';
+        } else {
+            resultsContainer.innerHTML = '<div class="search-result-item text-muted">{% trans "No members found" %}</div>';
+            resultsContainer.style.display = 'block';
+        }
+    }
+    
+    function searchBooks(query) {
+        // In a real implementation, this would make an AJAX call to search books
+        const resultsContainer = document.getElementById('bookSearchResults');
+        resultsContainer.innerHTML = '';
+        
+        // Simulate search results
+        const simulatedResults = [
+            { id: '1', title: 'Introduction to Python', isbn: '978-0134845628', author: 'John Doe' },
+            { id: '2', title: 'Advanced Django Development', isbn: '978-0134854567', author: 'Jane Smith' },
+            { id: '3', title: 'Database Design Fundamentals', isbn: '978-0134987654', author: 'Mike Johnson' }
+        ].filter(book => 
+            book.title.toLowerCase().includes(query.toLowerCase()) || 
+            book.isbn.toLowerCase().includes(query.toLowerCase())
+        );
+        
+        if (simulatedResults.length > 0) {
+            simulatedResults.forEach(book => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                item.innerHTML = `
+                    <strong>${book.title}</strong>
+                    <div class="text-muted small">${book.isbn} - ${book.author}</div>
+                `;
+                item.addEventListener('click', function() {
+                    document.getElementById('{{ form.book.id_for_label }}').value = book.id;
+                    updateBookInfo(book.id);
+                    resultsContainer.style.display = 'none';
+                    document.getElementById('bookSearch').value = '';
+                });
+                resultsContainer.appendChild(item);
+            });
+            resultsContainer.style.display = 'block';
+        } else {
+            resultsContainer.innerHTML = '<div class="search-result-item text-muted">{% trans "No books found" %}</div>';
+            resultsContainer.style.display = 'block';
+        }
+    }
+    
+    // Close search results when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#memberSearch') && !e.target.closest('#memberSearchResults')) {
+            document.getElementById('memberSearchResults').style.display = 'none';
+        }
+        if (!e.target.closest('#bookSearch') && !e.target.closest('#bookSearchResults')) {
+            document.getElementById('bookSearchResults').style.display = 'none';
+        }
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl + S to save
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            document.getElementById('submitBtn').click();
+        }
+        
+        // Escape key to cancel
+        if (e.key === 'Escape') {
+            window.location.href = '{% url "library:reservation_list" %}';
+        }
+    });
+</script>
+{% endblock %}

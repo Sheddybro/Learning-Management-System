@@ -1,0 +1,526 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Teachers" %}{% endblock %}
+
+{% block body_class %}academics-teachers{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'academics:teacher_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>{% trans "New Teacher" %}
+        </a>
+        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterModal">
+            <i class="bi bi-funnel me-2"></i>{% trans "Filter" %}
+        </button>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download me-2"></i>{% trans "Export" %}
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-pdf me-2"></i>PDF</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-excel me-2"></i>Excel</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-text me-2"></i>CSV</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/academics/lists.css' %}">
+<style>
+    .teacher-card { transition: all 0.3s ease; }
+    .teacher-card:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15); }
+    .teacher-avatar { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; }
+    .avatar-placeholder { 
+        width: 60px; height: 60px; border-radius: 50%; 
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 600; font-size: 1.2rem;
+    }
+    .qualification-badge { font-size: 0.7rem; }
+    .department-badge { background: linear-gradient(135deg, var(--bs-primary), #4a6fff); }
+    .class-teacher-badge { background: linear-gradient(135deg, var(--bs-success), #28a745); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="teachers-list-container">
+    <!-- Search and Filter Bar -->
+    <div class="search-filter-bar mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-3">
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" class="form-control" placeholder="{% trans 'Search teachers...' %}" id="searchInput">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="departmentFilter">
+                    <option value="">{% trans "All Departments" %}</option>
+                    {% for department in departments %}
+                    <option value="{{ department.id }}">{{ department.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="typeFilter">
+                    <option value="">{% trans "All Types" %}</option>
+                    <option value="full_time">{% trans "Full Time" %}</option>
+                    <option value="part_time">{% trans "Part Time" %}</option>
+                    <option value="visiting">{% trans "Visiting" %}</option>
+                    <option value="contract">{% trans "Contract" %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="qualificationFilter">
+                    <option value="">{% trans "All Qualifications" %}</option>
+                    <option value="bachelors">{% trans "Bachelors" %}</option>
+                    <option value="masters">{% trans "Masters" %}</option>
+                    <option value="phd">{% trans "PhD" %}</option>
+                    <option value="diploma">{% trans "Diploma" %}</option>
+                    <option value="certification">{% trans "Certification" %}</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ total_teachers }}</h4>
+                            <p class="card-text mb-0">{% trans "Total Teachers" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-person-badge fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ active_teachers }}</h4>
+                            <p class="card-text mb-0">{% trans "Active Teachers" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-check-circle fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ full_time_teachers }}</h4>
+                            <p class="card-text mb-0">{% trans "Full Time" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-clock fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ class_teachers }}</h4>
+                            <p class="card-text mb-0">{% trans "Class Teachers" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-house-door fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Teachers Grid View -->
+    <div class="teachers-grid">
+        <div class="row">
+            {% for teacher in teachers %}
+            <div class="col-xl-4 col-lg-6 mb-4 teacher-card-col" 
+                 data-department="{% if teacher.department %}{{ teacher.department.id }}{% endif %}"
+                 data-type="{{ teacher.teacher_type }}"
+                 data-qualification="{{ teacher.qualification }}">
+                <div class="card teacher-card h-100">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-1">{{ teacher.user.get_full_name }}</h5>
+                                <p class="text-muted mb-0 small">#{{ teacher.teacher_id }}</p>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <span class="badge {% if teacher.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ teacher.get_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Teacher Photo and Basic Info -->
+                        <div class="d-flex align-items-start mb-3">
+                            {% if teacher.photo %}
+                            <img src="{{ teacher.photo.url }}" alt="{{ teacher.user.get_full_name }}" class="teacher-avatar me-3">
+                            {% else %}
+                            <div class="avatar-placeholder bg-primary text-white me-3">
+                                {{ teacher.user.get_initials }}
+                            </div>
+                            {% endif %}
+                            <div class="flex-grow-1">
+                                <div class="teacher-basic-info">
+                                    <p class="mb-1">
+                                        <i class="bi bi-envelope text-secondary me-2"></i>
+                                        <small>{{ teacher.user.email }}</small>
+                                    </p>
+                                    <p class="mb-1">
+                                        <i class="bi bi-telephone text-secondary me-2"></i>
+                                        <small>{{ teacher.user.mobile|default:"N/A" }}</small>
+                                    </p>
+                                    <p class="mb-0">
+                                        <i class="bi bi-gender-ambiguous text-secondary me-2"></i>
+                                        <small>{{ teacher.get_gender_display }}</small>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Department and Qualification -->
+                        <div class="teacher-qualifications mb-3">
+                            {% if teacher.department %}
+                            <div class="department-info mb-2">
+                                <small class="text-muted d-block">{% trans "Department" %}</small>
+                                <span class="badge department-badge">
+                                    <i class="bi bi-building me-1"></i>{{ teacher.department.name }}
+                                </span>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="qualification-info">
+                                <small class="text-muted d-block">{% trans "Qualification" %}</small>
+                                <span class="badge bg-light text-dark qualification-badge">
+                                    <i class="bi bi-award me-1"></i>{{ teacher.get_qualification_display }}
+                                </span>
+                                {% if teacher.specialization %}
+                                <span class="badge bg-info qualification-badge">
+                                    {{ teacher.specialization }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Teacher Type and Experience -->
+                        <div class="teacher-meta mb-3">
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="meta-item">
+                                        <h6 class="text-primary mb-1">{{ teacher.get_teacher_type_display }}</h6>
+                                        <small class="text-muted">{% trans "Type" %}</small>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="meta-item">
+                                        <h6 class="text-success mb-1">{{ teacher.experience_years }}+</h6>
+                                        <small class="text-muted">{% trans "Years Exp" %}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Current Assignments -->
+                        <div class="current-assignments">
+                            <small class="text-muted d-block">{% trans "Current Assignments" %}</small>
+                            
+                            <!-- Class Teacher -->
+                            {% if teacher.is_class_teacher %}
+                            <div class="assignment-item mb-2">
+                                <span class="badge class-teacher-badge">
+                                    <i class="bi bi-house-door me-1"></i>{% trans "Class Teacher" %}
+                                </span>
+                                {% for class in teacher.homeroom_classes.all %}
+                                <small class="text-muted d-block mt-1">{{ class.name }}</small>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            <!-- Subjects Taught -->
+                            {% with subjects=teacher.subjects_taught %}
+                            {% if subjects %}
+                            <div class="assignment-item">
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-journals me-1"></i>{{ subjects.count }} {% trans "Subjects" %}
+                                </span>
+                                <div class="subject-list mt-1">
+                                    {% for subject in subjects|slice:":3" %}
+                                    <small class="text-muted d-block">{{ subject.name }}</small>
+                                    {% endfor %}
+                                    {% if subjects.count > 3 %}
+                                    <small class="text-muted">+{{ subjects.count|add:"-3" }} more</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+
+                        <!-- Joining Date -->
+                        <div class="joining-date mt-3">
+                            <small class="text-muted">
+                                <i class="bi bi-calendar me-1"></i>
+                                {% trans "Joined" %} {{ teacher.joining_date|date:"M Y" }}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <div class="btn-group w-100" role="group">
+                            <a href="{% url 'academics:teacher_detail' teacher.pk %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye me-1"></i>{% trans "View" %}
+                            </a>
+                            <a href="{% url 'academics:teacher_update' teacher.pk %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-pencil me-1"></i>{% trans "Edit" %}
+                            </a>
+                            <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-journals me-2"></i>{% trans "Subject Assignments" %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-calendar-week me-2"></i>{% trans "Timetable" %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-people me-2"></i>{% trans "Manage Classes" %}
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item text-warning" href="#">
+                                        <i class="bi bi-arrow-repeat me-2"></i>{% trans "Toggle Status" %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item text-danger" href="#">
+                                        <i class="bi bi-trash me-2"></i>{% trans "Delete" %}
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="bi bi-person-badge text-muted fs-1"></i>
+                    <h4 class="text-muted mt-3">{% trans "No Teachers Found" %}</h4>
+                    <p class="text-muted mb-4">{% trans "Get started by adding your first teacher." %}</p>
+                    <a href="{% url 'academics:teacher_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>{% trans "Add First Teacher" %}
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="{% trans 'Teacher pagination' %}" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">{% trans "First" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">{% trans "Last" %}</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterModalLabel">{% trans "Filter Teachers" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="get" id="filterForm">
+                    <div class="mb-3">
+                        <label for="modalStatusFilter" class="form-label">{% trans "Status" %}</label>
+                        <select class="form-select" id="modalStatusFilter" name="status">
+                            <option value="">{% trans "All Statuses" %}</option>
+                            <option value="active">{% trans "Active" %}</option>
+                            <option value="inactive">{% trans "Inactive" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalDepartmentFilter" class="form-label">{% trans "Department" %}</label>
+                        <select class="form-select" id="modalDepartmentFilter" name="department">
+                            <option value="">{% trans "All Departments" %}</option>
+                            {% for department in departments %}
+                            <option value="{{ department.id }}">{{ department.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalTypeFilter" class="form-label">{% trans "Teacher Type" %}</label>
+                        <select class="form-select" id="modalTypeFilter" name="teacher_type">
+                            <option value="">{% trans "All Types" %}</option>
+                            <option value="full_time">{% trans "Full Time" %}</option>
+                            <option value="part_time">{% trans "Part Time" %}</option>
+                            <option value="visiting">{% trans "Visiting" %}</option>
+                            <option value="contract">{% trans "Contract" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalQualificationFilter" class="form-label">{% trans "Qualification" %}</label>
+                        <select class="form-select" id="modalQualificationFilter" name="qualification">
+                            <option value="">{% trans "All Qualifications" %}</option>
+                            <option value="bachelors">{% trans "Bachelors" %}</option>
+                            <option value="masters">{% trans "Masters" %}</option>
+                            <option value="phd">{% trans "PhD" %}</option>
+                            <option value="diploma">{% trans "Diploma" %}</option>
+                            <option value="certification">{% trans "Certification" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="experienceFilter" class="form-label">{% trans "Experience" %}</label>
+                        <select class="form-select" id="experienceFilter" name="experience">
+                            <option value="">{% trans "Any Experience" %}</option>
+                            <option value="0-2">0-2 {% trans "years" %}</option>
+                            <option value="3-5">3-5 {% trans "years" %}</option>
+                            <option value="6-10">6-10 {% trans "years" %}</option>
+                            <option value="10+">10+ {% trans "years" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="classTeacherFilter" name="class_teacher">
+                            <label class="form-check-label" for="classTeacherFilter">
+                                {% trans "Only class teachers" %}
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('filterForm').reset()">
+                    {% trans "Reset" %}
+                </button>
+                <button type="submit" form="filterForm" class="btn btn-primary">{% trans "Apply Filters" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Filter functionality
+        const searchInput = document.getElementById('searchInput');
+        const departmentFilter = document.getElementById('departmentFilter');
+        const typeFilter = document.getElementById('typeFilter');
+        const qualificationFilter = document.getElementById('qualificationFilter');
+        const teacherCards = document.querySelectorAll('.teacher-card-col');
+        
+        function filterTeachers() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const departmentValue = departmentFilter.value;
+            const typeValue = typeFilter.value;
+            const qualificationValue = qualificationFilter.value;
+            
+            teacherCards.forEach(card => {
+                const teacherName = card.querySelector('.card-title').textContent.toLowerCase();
+                const teacherId = card.querySelector('.card-header p').textContent.toLowerCase();
+                const teacherEmail = card.querySelector('.teacher-basic-info p:nth-child(1) small').textContent.toLowerCase();
+                const teacherDepartment = card.getAttribute('data-department');
+                const teacherType = card.getAttribute('data-type');
+                const teacherQualification = card.getAttribute('data-qualification');
+                
+                const matchesSearch = teacherName.includes(searchTerm) || 
+                                   teacherId.includes(searchTerm) || 
+                                   teacherEmail.includes(searchTerm);
+                const matchesDepartment = !departmentValue || teacherDepartment === departmentValue;
+                const matchesType = !typeValue || teacherType === typeValue;
+                const matchesQualification = !qualificationValue || teacherQualification === qualificationValue;
+                
+                if (matchesSearch && matchesDepartment && matchesType && matchesQualification) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+        
+        searchInput.addEventListener('input', filterTeachers);
+        departmentFilter.addEventListener('change', filterTeachers);
+        typeFilter.addEventListener('change', filterTeachers);
+        qualificationFilter.addEventListener('change', filterTeachers);
+
+        // Teacher card hover effects
+        const teacherCardsElements = document.querySelectorAll('.teacher-card');
+        teacherCardsElements.forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-5px)';
+                this.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+                this.style.boxShadow = '';
+            });
+        });
+    });
+</script>
+{% endblock %}

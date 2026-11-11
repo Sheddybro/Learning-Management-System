@@ -1,0 +1,875 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Academic Sessions" %}{% endblock %}
+
+{% block body_class %}academics-sessions{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        {% if can_manage_sessions %}
+        <a href="{% url 'academics:session_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>{% trans "New Session" %}
+        </a>
+        {% endif %}
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+            <i class="bi bi-funnel me-2"></i>{% trans "Filter" %}
+        </button>
+        {% if can_manage_sessions %}
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-download me-2"></i>{% trans "Export" %}
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-pdf me-2"></i>PDF</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-excel me-2"></i>Excel</a></li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/academics/lists.css' %}">
+<style>
+/* Dark mode fixes for page actions and teacher header elements */
+[data-bs-theme="dark"] .page-actions .btn {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .page-actions .btn:hover {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .page-actions .btn-primary {
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+}
+
+[data-bs-theme="dark"] .page-actions .btn-primary:hover {
+    background-color: #0b5ed7 !important;
+    border-color: #0a58ca !important;
+}
+
+[data-bs-theme="dark"] .page-actions .btn-outline-primary {
+    color: #6ea8fe !important;
+    border-color: #6ea8fe !important;
+}
+
+[data-bs-theme="dark"] .page-actions .btn-outline-primary:hover {
+    background-color: #6ea8fe !important;
+    border-color: #6ea8fe !important;
+    color: #000 !important;
+}
+
+[data-bs-theme="dark"] .page-actions .dropdown-menu {
+    background-color: rgba(33, 37, 41, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(10px);
+}
+
+[data-bs-theme="dark"] .page-actions .dropdown-item {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+[data-bs-theme="dark"] .page-actions .dropdown-item:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+}
+
+/* Light mode styles for teacher quick actions section */
+.quick-actions {
+    background: #f8f9fa !important;
+    border: 1px solid rgba(0, 0, 0, 0.125) !important;
+    color: #212529 !important;
+}
+
+.quick-actions .text-muted {
+    color: #6c757d !important;
+}
+
+.quick-actions .badge.bg-primary {
+    background-color: #0d6efd !important;
+    color: #ffffff !important;
+}
+
+.quick-actions .badge.bg-success {
+    background-color: #198754 !important;
+    color: #ffffff !important;
+}
+
+/* Dark mode styles for teacher quick actions section */
+[data-bs-theme="dark"] .quick-actions {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-bs-theme="dark"] .quick-actions .text-muted {
+    color: rgba(255, 255, 255, 0.6) !important;
+}
+
+[data-bs-theme="dark"] .quick-actions .badge {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+}
+.session-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.session-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.session-card.current-session {
+    border-left-color: #28a745;
+    background: linear-gradient(135deg, #f8fff8 0%, #e8f5e8 100%);
+}
+
+.session-card.upcoming-session {
+    border-left-color: #17a2b8;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e1f5fe 100%);
+}
+
+.session-card.completed-session {
+    border-left-color: #6c757d;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.session-card.active-session {
+    border-left-color: #007bff;
+    background: linear-gradient(135deg, #f0f8ff 0%, #e3f2fd 100%);
+}
+
+.session-badge {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+/* Light mode styles for summary cards */
+.session-stats-card {
+    border: none;
+    border-radius: 12px;
+    transition: transform 0.2s ease;
+    color: #ffffff !important;
+}
+
+.session-stats-card:hover {
+    transform: translateY(-2px);
+}
+
+.session-stats-card.bg-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+}
+
+.session-stats-card.bg-gradient-success {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;
+}
+
+.session-stats-card.bg-gradient-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%) !important;
+}
+
+.session-stats-card.bg-gradient-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%) !important;
+    color: #212529 !important; /* Dark text for warning background */
+}
+
+.session-stats-card .card-title {
+    color: #ffffff !important;
+}
+
+.session-stats-card .card-text {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Dark mode styles for summary cards */
+[data-bs-theme="dark"] .session-stats-card.bg-gradient-warning .card-title,
+[data-bs-theme="dark"] .session-stats-card.bg-gradient-warning .card-text {
+    color: #212529 !important;
+}
+
+.date-range {
+    font-size: 0.9rem;
+}
+
+.session-actions .btn {
+    border-radius: 8px;
+    margin: 2px;
+}
+
+.progress-bar {
+    border-radius: 4px;
+}
+
+.session-progress {
+    height: 6px;
+    border-radius: 3px;
+}
+
+.quick-actions {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.role-badge {
+    font-size: 0.7rem;
+    padding: 3px 6px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sessions-list-container">
+    <!-- Quick Actions for Teachers and Students -->
+    {% if is_teacher or is_student %}
+    <div class="quick-actions mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h6 class="mb-1">
+                    {% if is_teacher %}
+                    <i class="bi bi-person-badge text-primary me-2"></i>{% trans "Teacher View" %}
+                    {% elif is_student %}
+                    <i class="bi bi-person text-success me-2"></i>{% trans "Student View" %}
+                    {% endif %}
+                </h6>
+                <small class="text-muted">
+                    {% if is_teacher %}
+                    {% trans "View academic sessions for your teaching assignments" %}
+                    {% elif is_student %}
+                    {% trans "View your academic sessions and progress" %}
+                    {% endif %}
+                </small>
+            </div>
+            <div class="col-md-4 text-end">
+                {% if is_teacher %}
+                <span class="badge bg-primary role-badge">{% trans "Teacher" %}</span>
+                {% elif is_student %}
+                <span class="badge bg-success role-badge">{% trans "Student" %}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+            <!-- Current Session Management -->
+            {% if active_sessions > 0 and can_manage_sessions %}
+            <div class="alert alert-info d-flex align-items-center justify-content-between mb-4">
+                <div>
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Current Session Active:</strong> There is currently {{ active_sessions }} active session(s).
+                    If you need to deactivate all current sessions (e.g., to set up a new one), click the button below.
+                </div>
+                <form method="post" action="{% url 'academics:session_list' %}" class="d-inline ms-3" onsubmit="return confirm('Are you sure you want to deactivate all current sessions?')">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="deactivate_current">
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="bi bi-dash-circle me-1"></i>Deactivate Current Session
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card session-stats-card bg-gradient-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="card-title mb-0">{{ total_sessions }}</h3>
+                            <p class="card-text mb-0 opacity-75">{% trans "Total Sessions" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-calendar-range fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card session-stats-card bg-gradient-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="card-title mb-0">{{ active_sessions }}</h3>
+                            <p class="card-text mb-0 opacity-75">{% trans "Active Sessions" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-play-circle fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card session-stats-card bg-gradient-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="card-title mb-0">{{ upcoming_sessions }}</h3>
+                            <p class="card-text mb-0 opacity-75">{% trans "Upcoming Sessions" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-calendar-plus fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card session-stats-card bg-gradient-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="card-title mb-0">{{ completed_sessions }}</h3>
+                            <p class="card-text mb-0 opacity-75">{% trans "Completed Sessions" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-check-circle fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Filters -->
+    {% if active_filter or year_filter %}
+    <div class="alert alert-info d-flex align-items-center mb-4">
+        <i class="bi bi-info-circle me-2"></i>
+        <div>
+            {% trans "Active filters:" %}
+            {% if active_filter %}
+            <span class="badge bg-primary ms-2">{{ active_filter|title }}</span>
+            {% endif %}
+            {% if year_filter %}
+            <span class="badge bg-primary ms-2">Year: {{ year_filter }}</span>
+            {% endif %}
+            <a href="{% url 'academics:session_list' %}" class="btn btn-sm btn-outline-primary ms-3">{% trans "Clear All" %}</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Sessions Grid/List View -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 py-3">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5 class="card-title mb-0 text-dark">
+                        <i class="bi bi-calendar-range me-2 text-primary"></i>{% trans "Academic Sessions" %}
+                    </h5>
+                </div>
+                <div class="col-md-6 text-end">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-primary active" id="gridViewBtn">
+                            <i class="bi bi-grid-3x3-gap"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="listViewBtn">
+                            <i class="bi bi-list-ul"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if sessions %}
+            <!-- Grid View -->
+            <div id="gridView" class="row">
+                {% for session in sessions %}
+                <div class="col-xl-4 col-lg-6 mb-4">
+                    <div class="card session-card h-100 
+                        {% if session.is_current %}current-session
+                        {% elif session.start_date > today %}upcoming-session
+                        {% elif session.end_date < today %}completed-session
+                        {% else %}active-session{% endif %}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    {% if session.is_current %}
+                                    <span class="badge bg-success session-badge">
+                                        <i class="bi bi-star-fill me-1"></i>{% trans "Current" %}
+                                    </span>
+                                    {% elif session.start_date > today %}
+                                    <span class="badge bg-info session-badge">
+                                        <i class="bi bi-clock me-1"></i>{% trans "Upcoming" %}
+                                    </span>
+                                    {% elif session.end_date < today %}
+                                    <span class="badge bg-secondary session-badge">
+                                        <i class="bi bi-check-lg me-1"></i>{% trans "Completed" %}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-primary session-badge">
+                                        <i class="bi bi-play-circle me-1"></i>{% trans "Active" %}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary border-0" type="button" 
+                                            data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'academics:session_detail' session.pk %}">
+                                                <i class="bi bi-eye me-2"></i>{% trans "View Details" %}
+                                            </a>
+                                        </li>
+                                        {% if can_manage_sessions %}
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'academics:session_update' session.pk %}">
+                                                <i class="bi bi-pencil me-2"></i>{% trans "Edit" %}
+                                            </a>
+                                        </li>
+                                        {% if not session.is_current %}
+                                        <li>
+                                            <form method="post" action="{% url 'academics:session_list' %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="session_id" value="{{ session.pk }}">
+                                                <input type="hidden" name="action" value="set_current">
+                                                <button type="submit" class="dropdown-item">
+                                                    <i class="bi bi-check-lg me-2"></i>{% trans "Set as Current" %}
+                                                </button>
+                                            </form>
+                                        </li>
+                                        {% endif %}
+                                        {% if not session.is_current %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <button type="button" class="dropdown-item text-danger"
+                                                    onclick="showDeleteModal('{{ session.pk }}', '{{ session.name }}', '{% url 'academics:session_delete' session.pk %}')">
+                                                <i class="bi bi-trash me-2"></i>{% trans "Delete" %}
+                                            </button>
+                                        </li>
+                                        {% endif %}
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <h6 class="card-title text-dark mb-2">{{ session.name }}</h6>
+                            <p class="text-muted small mb-3">{{ session.semester_name }}</p>
+                            
+                            <div class="date-range mb-3">
+                                <small class="text-muted d-block">
+                                    <i class="bi bi-calendar-event me-1"></i>
+                                    {{ session.start_date|date:"M j, Y" }} - {{ session.end_date|date:"M j, Y" }}
+                                </small>
+                            </div>
+                            
+                            <!-- Progress Bar -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between small text-muted mb-1">
+                                    <span>{% trans "Progress" %}</span>
+                                    <span>{{ session.progress_percentage }}%</span>
+                                </div>
+                                <div class="progress session-progress">
+                                    <div class="progress-bar bg-{% if session.is_current %}success{% else %}primary{% endif %}" 
+                                         style="width: {{ session.progress_percentage }}%"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-light text-dark">
+                                    <i class="bi bi-people me-1"></i>
+                                    {{ session.classes.count }} {% trans "classes" %}
+                                </span>
+                                <div class="session-actions">
+                                    <a href="{% url 'academics:session_detail' session.pk %}"
+                                       class="btn btn-sm btn-outline-info"
+                                       title="{% trans 'View Details' %}">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    {% if can_manage_sessions %}
+                                    <a href="{% url 'academics:session_update' session.pk %}"
+                                       class="btn btn-sm btn-outline-primary"
+                                       title="{% trans 'Edit' %}">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- List View (Hidden by default) -->
+            <div id="listView" class="d-none">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{% trans "Session Name" %}</th>
+                                <th>{% trans "Duration" %}</th>
+                                <th>{% trans "Semesters" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                <th>{% trans "Progress" %}</th>
+                                <th>{% trans "Classes" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for session in sessions %}
+                            <tr class="{% if session.is_current %}table-success{% endif %}">
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0 me-3">
+                                            {% if session.is_current %}
+                                            <i class="bi bi-star-fill text-success"></i>
+                                            {% elif session.start_date > today %}
+                                            <i class="bi bi-clock text-info"></i>
+                                            {% elif session.end_date < today %}
+                                            <i class="bi bi-check-lg text-secondary"></i>
+                                            {% else %}
+                                            <i class="bi bi-play-circle text-primary"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0">{{ session.name }}</h6>
+                                            <small class="text-muted">{{ session.semester_name }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <small>
+                                        {{ session.start_date|date:"M j, Y" }}<br>
+                                        <span class="text-muted">to</span><br>
+                                        {{ session.end_date|date:"M j, Y" }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ session.number_of_semesters }} {% trans "semesters" %}</span>
+                                </td>
+                                <td>
+                                    {% if session.is_current %}
+                                    <span class="badge bg-success">{% trans "Current" %}</span>
+                                    {% elif session.start_date > today %}
+                                    <span class="badge bg-info">{% trans "Upcoming" %}</span>
+                                    {% elif session.end_date < today %}
+                                    <span class="badge bg-secondary">{% trans "Completed" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-primary">{% trans "Active" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="progress session-progress" style="width: 80px;">
+                                        <div class="progress-bar bg-{% if session.is_current %}success{% else %}primary{% endif %}" 
+                                             style="width: {{ session.progress_percentage }}%"></div>
+                                    </div>
+                                    <small class="text-muted">{{ session.progress_percentage }}%</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">{{ session.classes.count }} {% trans "classes" %}</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'academics:session_detail' session.pk %}" class="btn btn-outline-info" title="{% trans 'View Details' %}">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% if can_manage_sessions %}
+                                        <a href="{% url 'academics:session_update' session.pk %}" class="btn btn-outline-primary" title="{% trans 'Edit' %}">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        {% if not session.is_current %}
+                                        <form method="post" action="{% url 'academics:session_list' %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="session_id" value="{{ session.pk }}">
+                                            <input type="hidden" name="action" value="set_current">
+                                            <button type="submit" class="btn btn-outline-success" title="{% trans 'Set as Current' %}">
+                                                <i class="bi bi-check-lg"></i>
+                                            </button>
+                                        </form>
+                                        <button type="button" class="btn btn-outline-danger"
+                                                onclick="showDeleteModal('{{ session.pk }}', '{{ session.name }}', '{% url 'academics:session_delete' session.pk %}')"
+                                                title="{% trans 'Delete' %}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="{% trans 'Session pagination' %}" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if active_filter %}&status={{ active_filter }}{% endif %}{% if year_filter %}&year={{ year_filter }}{% endif %}">
+                            {% trans "First" %}
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if active_filter %}&status={{ active_filter }}{% endif %}{% if year_filter %}&year={{ year_filter }}{% endif %}">
+                            {% trans "Previous" %}
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if active_filter %}&status={{ active_filter }}{% endif %}{% if year_filter %}&year={{ year_filter }}{% endif %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if active_filter %}&status={{ active_filter }}{% endif %}{% if year_filter %}&year={{ year_filter }}{% endif %}">
+                            {% trans "Next" %}
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if active_filter %}&status={{ active_filter }}{% endif %}{% if year_filter %}&year={{ year_filter }}{% endif %}">
+                            {% trans "Last" %}
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-calendar-x text-muted fs-1"></i>
+                <h4 class="text-muted mt-3">{% trans "No Academic Sessions Found" %}</h4>
+                <p class="text-muted mb-4">{% trans "No sessions match your current filters." %}</p>
+                <a href="{% url 'academics:session_list' %}" class="btn btn-outline-primary me-2">
+                    {% trans "Clear Filters" %}
+                </a>
+                {% if can_manage_sessions %}
+                <a href="{% url 'academics:session_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-2"></i>{% trans "Create First Session" %}
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>{% trans "Confirm Deletion" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Are you sure you want to delete the academic session" %} <strong id="sessionName"></strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    {% trans "This action cannot be undone. The session and all associated data will be permanently deleted." %}
+                </div>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>{% trans "Note:" %}</strong> {% trans "If the session contains enrollments, academic records, or active classes, deletion will be blocked for data safety. Current sessions cannot be deleted." %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">{% trans "Delete Session" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterModalLabel">
+                    <i class="bi bi-funnel me-2"></i>{% trans "Filter Sessions" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="get" id="filterForm">
+                    <div class="mb-3">
+                        <label for="statusFilter" class="form-label">{% trans "Status" %}</label>
+                        <select class="form-select" id="statusFilter" name="status">
+                            <option value="">{% trans "All Statuses" %}</option>
+                            <option value="current" {% if active_filter == 'current' %}selected{% endif %}>{% trans "Current" %}</option>
+                            <option value="upcoming" {% if active_filter == 'upcoming' %}selected{% endif %}>{% trans "Upcoming" %}</option>
+                            <option value="completed" {% if active_filter == 'completed' %}selected{% endif %}>{% trans "Completed" %}</option>
+                            <option value="active" {% if active_filter == 'active' %}selected{% endif %}>{% trans "Active (Not Current)" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="yearFilter" class="form-label">{% trans "Year" %}</label>
+                        <input type="number" class="form-control" id="yearFilter" name="year" 
+                               placeholder="{% trans 'e.g., 2024' %}" value="{{ year_filter }}">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('filterForm').reset()">
+                    {% trans "Reset" %}
+                </button>
+                <button type="submit" form="filterForm" class="btn btn-primary">{% trans "Apply Filters" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let sessionToDelete = null;
+    let deleteUrl = null;
+
+    // Function to show delete confirmation modal
+    function showDeleteModal(sessionId, sessionName, url) {
+        sessionToDelete = sessionId;
+        deleteUrl = url;
+        document.getElementById('sessionName').textContent = sessionName;
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        deleteModal.show();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const gridViewBtn = document.getElementById('gridViewBtn');
+        const listViewBtn = document.getElementById('listViewBtn');
+        const gridView = document.getElementById('gridView');
+        const listView = document.getElementById('listView');
+
+        gridViewBtn.addEventListener('click', function() {
+            gridView.classList.remove('d-none');
+            listView.classList.add('d-none');
+            gridViewBtn.classList.add('active');
+            listViewBtn.classList.remove('active');
+        });
+
+        listViewBtn.addEventListener('click', function() {
+            gridView.classList.add('d-none');
+            listView.classList.remove('d-none');
+            gridViewBtn.classList.remove('active');
+            listViewBtn.classList.add('active');
+        });
+
+        // Session card interactions
+        const sessionCards = document.querySelectorAll('.session-card');
+        sessionCards.forEach(card => {
+            card.addEventListener('click', function(e) {
+                if (!e.target.closest('.dropdown') && !e.target.closest('.btn')) {
+                    // Navigate to session detail
+                    console.log('Navigate to session detail');
+                }
+            });
+        });
+
+        // Handle delete confirmation
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        confirmDeleteBtn.addEventListener('click', function() {
+            if (sessionToDelete && deleteUrl) {
+                // Disable the button to prevent double-clicks
+                confirmDeleteBtn.disabled = true;
+                confirmDeleteBtn.innerHTML = '<i class="bi bi-hourglass me-2"></i>Deleting...';
+
+                // Close the modal first
+                const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
+                deleteModal.hide();
+
+                try {
+                    // Create and submit a form to delete the session
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = deleteUrl;
+                    form.style.display = 'none'; // Hide the form
+
+                    // Add CSRF token
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+                    if (csrfToken) {
+                        const csrfInput = document.createElement('input');
+                        csrfInput.type = 'hidden';
+                        csrfInput.name = 'csrfmiddlewaretoken';
+                        csrfInput.value = csrfToken.value;
+                        form.appendChild(csrfInput);
+                    }
+
+                    // Add the form to the body and submit it
+                    document.body.appendChild(form);
+                    form.submit();
+
+                } catch (error) {
+                    console.error('Error during deletion:', error);
+                    // Re-enable button and show error
+                    confirmDeleteBtn.disabled = false;
+                    confirmDeleteBtn.innerHTML = '<i class="bi bi-trash me-2"></i>Delete Session';
+
+                    // Show error message
+                    showAlert('An error occurred while deleting the session. Please try again.', 'danger');
+                }
+            } else {
+                console.error('Missing session data for deletion');
+                showAlert('Session information is missing. Please refresh the page and try again.', 'warning');
+            }
+        });
+
+        // Helper function to show alerts
+        function showAlert(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+
+            document.body.appendChild(alertDiv);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // Auto-submit filter form when selections change
+        const statusFilter = document.getElementById('statusFilter');
+        const yearFilter = document.getElementById('yearFilter');
+
+        statusFilter.addEventListener('change', function() {
+            document.getElementById('filterForm').submit();
+        });
+
+        yearFilter.addEventListener('change', function() {
+            if (yearFilter.value) {
+                document.getElementById('filterForm').submit();
+            }
+        });
+    });
+</script>
+{% endblock %}

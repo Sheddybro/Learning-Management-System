@@ -1,0 +1,607 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Library Dashboard" %}{% endblock %}
+
+{% block page_title %}{% trans "Library Management Dashboard" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Dashboard" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Library Dashboard Specific Styles */
+    .library-stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .library-stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .stats-card-1 { border-left-color: #65a0f9; }
+    .stats-card-2 { border-left-color: #28a745; }
+    .stats-card-3 { border-left-color: #ffc107; }
+    .stats-card-4 { border-left-color: #dc3545; }
+    .stats-card-5 { border-left-color: #6f42c1; }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+        opacity: 0.8;
+    }
+    
+    .quick-action-btn {
+        transition: all 0.2s ease;
+    }
+    
+    .quick-action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .activity-item {
+        border-left: 3px solid transparent;
+        padding-left: 1rem;
+        transition: all 0.2s ease;
+    }
+    
+    .activity-item:hover {
+        border-left-color: #65a0f9;
+        background-color: rgba(101, 160, 249, 0.05);
+    }
+    
+    .book-cover {
+        width: 60px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+    
+    @media (max-width: 768px) {
+        .stat-number {
+            font-size: 1.5rem;
+        }
+        
+        .quick-action-btn .btn {
+            font-size: 0.8rem;
+            padding: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card library-stats-card stats-card-1 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-primary">{{ total_books }}</div>
+                            <div class="stat-label">{% trans "Total Books" %}</div>
+                        </div>
+                        <div class="stat-icon text-primary">
+                            <i class="bi bi-book"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card library-stats-card stats-card-2 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-success">{{ total_members }}</div>
+                            <div class="stat-label">{% trans "Library Members" %}</div>
+                        </div>
+                        <div class="stat-icon text-success">
+                            <i class="bi bi-people"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card library-stats-card stats-card-3 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-warning">{{ active_borrows }}</div>
+                            <div class="stat-label">{% trans "Active Borrows" %}</div>
+                        </div>
+                        <div class="stat-icon text-warning">
+                            <i class="bi bi-arrow-left-right"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card library-stats-card stats-card-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-danger">{{ overdue_books }}</div>
+                            <div class="stat-label">{% trans "Overdue Books" %}</div>
+                        </div>
+                        <div class="stat-icon text-danger">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card library-stats-card stats-card-5 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-info">{{ pending_reservations }}</div>
+                            <div class="stat-label">{% trans "Pending Reservations" %}</div>
+                        </div>
+                        <div class="stat-icon text-info">
+                            <i class="bi bi-clock"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card library-stats-card bg-light h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-secondary">{{ libraries_count }}</div>
+                            <div class="stat-label">{% trans "Libraries" %}</div>
+                        </div>
+                        <div class="stat-icon text-secondary">
+                            <i class="bi bi-building"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions and Main Content -->
+    <div class="row">
+        <!-- Left Column: Quick Actions and Recent Activities -->
+        <div class="col-lg-8">
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning-charge text-warning me-2"></i>
+                        {% trans "Quick Actions" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 quick-action-btn">
+                        <div class="col-md-3 col-sm-6">
+                            <a href="{% url 'library:borrowrecord_create' %}" class="btn btn-primary w-100 d-flex flex-column align-items-center py-3">
+                                <i class="bi bi-journal-plus fs-2 mb-2"></i>
+                                <span>{% trans "Issue Book" %}</span>
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <a href="{% url 'library:borrowrecord_list' %}" class="btn btn-success w-100 d-flex flex-column align-items-center py-3">
+                                <i class="bi bi-journal-check fs-2 mb-2"></i>
+                                <span>{% trans "Return Book" %}</span>
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <a href="{% url 'library:book_create' %}" class="btn btn-info w-100 d-flex flex-column align-items-center py-3">
+                                <i class="bi bi-plus-circle fs-2 mb-2"></i>
+                                <span>{% trans "Add Book" %}</span>
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <a href="{% url 'library:librarymember_create' %}" class="btn btn-warning w-100 d-flex flex-column align-items-center py-3">
+                                <i class="bi bi-person-plus fs-2 mb-2"></i>
+                                <span>{% trans "Add Member" %}</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Activities -->
+            <div class="row">
+                <!-- Recent Borrows -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-arrow-up-right text-primary me-2"></i>
+                                {% trans "Recent Borrows" %}
+                            </h5>
+                            <a href="{% url 'library:borrowrecord_list' %}" class="btn btn-sm btn-outline-primary">{% trans "View All" %}</a>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="list-group list-group-flush">
+                                {% for borrow in recent_borrows %}
+                                <div class="list-group-item activity-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ borrow.book_copy.book.title|truncatewords:5 }}</h6>
+                                        <small class="text-muted">{{ borrow.borrow_date|timesince }} ago</small>
+                                    </div>
+                                    <p class="mb-1">
+                                        <span class="badge bg-light text-dark">{{ borrow.member.member_id }}</span>
+                                        <span class="text-muted">by {{ borrow.member.user.get_full_name|default:borrow.member.user.username }}</span>
+                                    </p>
+                                    <small class="text-muted">
+                                        Due: {{ borrow.due_date|date:"M d, Y" }}
+                                        {% if borrow.is_overdue %}
+                                        <span class="badge bg-danger status-badge ms-2">{% trans "Overdue" %}</span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                {% empty %}
+                                <div class="list-group-item text-center text-muted py-4">
+                                    <i class="bi bi-inbox display-6 d-block mb-2"></i>
+                                    {% trans "No recent borrows" %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Returns -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-arrow-down-left text-success me-2"></i>
+                                {% trans "Recent Returns" %}
+                            </h5>
+                            <a href="{% url 'library:borrowrecord_list' %}?status=returned" class="btn btn-sm btn-outline-success">{% trans "View All" %}</a>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="list-group list-group-flush">
+                                {% for return in recent_returns %}
+                                <div class="list-group-item activity-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ return.book_copy.book.title|truncatewords:5 }}</h6>
+                                        <small class="text-muted">{{ return.return_date|timesince }} ago</small>
+                                    </div>
+                                    <p class="mb-1">
+                                        <span class="badge bg-light text-dark">{{ return.member.member_id }}</span>
+                                        <span class="text-muted">by {{ return.member.user.get_full_name|default:return.member.user.username }}</span>
+                                    </p>
+                                    <small class="text-muted">
+                                        {% if return.fine_amount > 0 %}
+                                        <span class="badge bg-warning status-badge">Fine: ${{ return.fine_amount }}</span>
+                                        {% else %}
+                                        <span class="badge bg-success status-badge">{% trans "No Fine" %}</span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                {% empty %}
+                                <div class="list-group-item text-center text-muted py-4">
+                                    <i class="bi bi-inbox display-6 d-block mb-2"></i>
+                                    {% trans "No recent returns" %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Popular Books -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-star-fill text-warning me-2"></i>
+                        {% trans "Popular Books" %}
+                    </h5>
+                    <a href="{% url 'library:report_popular_books' %}" class="btn btn-sm btn-outline-warning">{% trans "Full Report" %}</a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Book" %}</th>
+                                    <th>{% trans "Author" %}</th>
+                                    <th>{% trans "Category" %}</th>
+                                    <th class="text-center">{% trans "Borrow Count" %}</th>
+                                    <th class="text-center">{% trans "Status" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for book in popular_books %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if book.cover_image %}
+                                            <img src="{{ book.cover_image.url }}" alt="{{ book.title }}" class="book-cover me-3">
+                                            {% else %}
+                                            <div class="book-cover bg-light d-flex align-items-center justify-content-center me-3">
+                                                <i class="bi bi-book text-muted"></i>
+                                            </div>
+                                            {% endif %}
+                                            <div>
+                                                <strong>{{ book.title|truncatewords:4 }}</strong>
+                                                <div class="text-muted small">{{ book.isbn|default:"No ISBN" }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ book.author_names|truncatewords:3 }}</td>
+                                    <td>
+                                        {% if book.category %}
+                                        <span class="badge bg-light text-dark">{{ book.category.name }}</span>
+                                        {% else %}
+                                        <span class="text-muted">{% trans "Uncategorized" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary rounded-pill">{{ book.borrow_count }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if book.is_available %}
+                                        <span class="badge bg-success status-badge">{% trans "Available" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary status-badge">{% trans "Unavailable" %}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">
+                                        <i class="bi bi-book display-6 d-block mb-2"></i>
+                                        {% trans "No popular books data available" %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column: Charts and Notifications -->
+        <div class="col-lg-4">
+            <!-- Library Status Chart -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-pie-chart text-info me-2"></i>
+                        {% trans "Library Status" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="libraryStatusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Overdue Books Alert -->
+            {% if overdue_books > 0 %}
+            <div class="card border-danger mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        {% trans "Overdue Books Alert" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        {% blocktrans count count=overdue_books %}
+                        There is {{ count }} overdue book that needs attention.
+                        {% plural %}
+                        There are {{ count }} overdue books that need attention.
+                        {% endblocktrans %}
+                    </p>
+                    <a href="{% url 'library:report_overdue_books' %}" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-eye me-1"></i> {% trans "View Details" %}
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Quick Reports -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clipboard-data text-primary me-2"></i>
+                        {% trans "Quick Reports" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <a href="{% url 'library:export_books' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="bi bi-journal-text text-primary me-2"></i>
+                                {% trans "Export Books" %}
+                            </span>
+                            <i class="bi bi-download text-muted"></i>
+                        </a>
+                        <a href="{% url 'library:export_borrow_records' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="bi bi-clock-history text-info me-2"></i>
+                                {% trans "Export Borrow Records" %}
+                            </span>
+                            <i class="bi bi-download text-muted"></i>
+                        </a>
+                        <a href="{% url 'library:report_member_activity' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="bi bi-activity text-success me-2"></i>
+                                {% trans "Member Activity Report" %}
+                            </span>
+                            <i class="bi bi-arrow-right text-muted"></i>
+                        </a>
+                        <a href="{% url 'library:report_fine_collection' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="bi bi-cash-coin text-warning me-2"></i>
+                                {% trans "Fine Collection Report" %}
+                            </span>
+                            <i class="bi bi-arrow-right text-muted"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- System Notifications -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bell text-warning me-2"></i>
+                        {% trans "Library Notifications" %}
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% if pending_reservations > 0 %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{% trans "Pending Reservations" %}</h6>
+                                <span class="badge bg-warning rounded-pill">{{ pending_reservations }}</span>
+                            </div>
+                            <p class="mb-1 small">{% trans "Books reserved by members awaiting fulfillment" %}</p>
+                            <a href="{% url 'library:reservation_list' %}" class="btn btn-sm btn-outline-warning mt-2">{% trans "Manage" %}</a>
+                        </div>
+                        {% endif %}
+                        
+                        {% if low_stock_books %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{% trans "Low Stock Alert" %}</h6>
+                                <span class="badge bg-danger rounded-pill">{{ low_stock_books|length }}</span>
+                            </div>
+                            <p class="mb-1 small">{% trans "Books with limited copies available" %}</p>
+                            <a href="{% url 'library:book_list' %}?available_copies=1" class="btn btn-sm btn-outline-danger mt-2">{% trans "View List" %}</a>
+                        </div>
+                        {% endif %}
+                        
+                        {% if expiring_memberships %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{% trans "Expiring Memberships" %}</h6>
+                                <span class="badge bg-info rounded-pill">{{ expiring_memberships }}</span>
+                            </div>
+                            <p class="mb-1 small">{% trans "Member memberships expiring soon" %}</p>
+                            <a href="{% url 'library:librarymember_list' %}?expiring=true" class="btn btn-sm btn-outline-info mt-2">{% trans "Review" %}</a>
+                        </div>
+                        {% endif %}
+                        
+                        {% if not pending_reservations and not low_stock_books and not expiring_memberships %}
+                        <div class="list-group-item text-center text-muted py-4">
+                            <i class="bi bi-check-circle display-6 d-block mb-2 text-success"></i>
+                            {% trans "All systems normal" %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Library Status Chart
+        const ctx = document.getElementById('libraryStatusChart').getContext('2d');
+        const libraryStatusChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: [
+                    '{% trans "Available" %}',
+                    '{% trans "Borrowed" %}',
+                    '{% trans "Reserved" %}',
+                    '{% trans "Maintenance" %}'
+                ],
+                datasets: [{
+                    data: [{{ available_books_count }}, {{ borrowed_books_count }}, {{ reserved_books_count }}, {{ maintenance_books_count }}],
+                    backgroundColor: [
+                        '#28a745',
+                        '#ffc107',
+                        '#17a2b8',
+                        '#6c757d'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = Math.round((value / total) * 100);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Auto-refresh dashboard every 5 minutes
+        setInterval(function() {
+            // In a real implementation, this would fetch updated data via AJAX
+            console.log('Dashboard auto-refresh triggered');
+        }, 300000);
+        
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+</script>
+{% endblock %}

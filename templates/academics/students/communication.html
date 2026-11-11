@@ -1,0 +1,490 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Communication" %} - {{ student.user.get_full_name }}{% endblock %}
+
+{% block content %}
+<div class="student-communication">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="fas fa-comments mr-2 text-primary"></i>
+                {% trans "Communication" %}
+            </h1>
+            <p class="text-muted mb-0">{% trans "Connect with teachers and stay updated with announcements" %}</p>
+        </div>
+        <div>
+            <a href="{% url 'academics:student_dashboard' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left mr-2"></i>{% trans "Back to Dashboard" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs mb-4" id="communicationTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="announcements-tab" data-toggle="tab" href="#announcements" role="tab">
+                <i class="fas fa-bullhorn mr-2"></i>{% trans "Announcements" %}
+                {% if unread_announcements %}
+                    <span class="badge badge-danger ml-1">{{ unread_announcements|length }}</span>
+                {% endif %}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="messages-tab" data-toggle="tab" href="#messages" role="tab">
+                <i class="fas fa-envelope mr-2"></i>{% trans "Messages" %}
+                {% if unread_messages %}
+                    <span class="badge badge-warning ml-1">{{ unread_messages|length }}</span>
+                {% endif %}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="compose-tab" data-toggle="tab" href="#compose" role="tab">
+                <i class="fas fa-edit mr-2"></i>{% trans "Compose" %}
+            </a>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="communicationTabContent">
+        <!-- Announcements Tab -->
+        <div class="tab-pane fade show active" id="announcements" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-bullhorn mr-2"></i>{% trans "School Announcements" %}
+                        </h5>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="filterAll">
+                                {% trans "All" %}
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="filterUnread">
+                                {% trans "Unread" %}
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="filterUrgent">
+                                {% trans "Urgent" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if announcements %}
+                        <div class="announcements-list">
+                            {% for announcement in announcements %}
+                            <div class="announcement-card card mb-3 {% if announcement.priority == 'urgent' %}border-danger{% elif announcement.is_pinned %}border-warning{% endif %}" data-announcement-id="{{ announcement.id }}">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <div class="d-flex align-items-start">
+                                                {% if announcement.priority == 'urgent' %}
+                                                    <div class="priority-indicator mr-3">
+                                                        <i class="fas fa-exclamation-triangle text-danger fa-lg"></i>
+                                                    </div>
+                                                {% elif announcement.is_pinned %}
+                                                    <div class="priority-indicator mr-3">
+                                                        <i class="fas fa-thumbtack text-warning fa-lg"></i>
+                                                    </div>
+                                                {% endif %}
+                                                <div class="announcement-content flex-grow-1">
+                                                    <h6 class="mb-2">
+                                                        {{ announcement.title }}
+                                                        {% if announcement.is_pinned %}
+                                                            <span class="badge badge-warning ml-2">{% trans "Pinned" %}</span>
+                                                        {% endif %}
+                                                    </h6>
+                                                    <p class="text-muted small mb-2">{{ announcement.content|truncatechars:200 }}</p>
+                                                    <div class="announcement-meta">
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-user mr-1"></i>{{ announcement.author.get_full_name }} |
+                                                            <i class="fas fa-calendar mr-1"></i>{{ announcement.published_at|date:"M j, Y \a\t g:i A" }} |
+                                                            <i class="fas fa-tag mr-1"></i>{{ announcement.get_announcement_type_display }}
+                                                        </small>
+                                                        {% if announcement.expires_at %}
+                                                            <br>
+                                                            <small class="text-warning">
+                                                                <i class="fas fa-clock mr-1"></i>{% trans "Expires" %} {{ announcement.expires_at|date:"M j, Y" }}
+                                                            </small>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4 text-right">
+                                            <div class="announcement-actions">
+                                                {% if announcement.banner_image %}
+                                                    <img src="{{ announcement.banner_image.url }}" alt="{{ announcement.title }}" class="img-thumbnail mb-2" style="max-width: 100px; max-height: 60px;">
+                                                {% endif %}
+                                                <button class="btn btn-primary btn-sm" onclick="viewAnnouncement({{ announcement.id }})">
+                                                    <i class="fas fa-eye mr-1"></i>{% trans "Read More" %}
+                                                </button>
+                                                {% if announcement.attachments.exists %}
+                                                    <button class="btn btn-outline-secondary btn-sm ml-2" onclick="downloadAttachments({{ announcement.id }})">
+                                                        <i class="fas fa-download mr-1"></i>{% trans "Attachments" %}
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-bullhorn fa-4x text-muted mb-3"></i>
+                            <h4 class="text-muted">{% trans "No announcements" %}</h4>
+                            <p class="text-muted">{% trans "Announcements will appear here when posted by teachers or administrators." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Messages Tab -->
+        <div class="tab-pane fade" id="messages" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-envelope mr-2"></i>{% trans "Messages" %}
+                        </h5>
+                        <div class="input-group" style="width: 300px;">
+                            <input type="text" class="form-control" id="messageSearch" placeholder="{% trans 'Search messages...' %}">
+                            <div class="input-group-append">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        <div class="messages-list">
+                            {% for message in messages %}
+                            <div class="message-card card mb-3 {% if not message.is_read %}border-primary{% endif %}" data-message-id="{{ message.id }}">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-8">
+                                            <div class="d-flex align-items-start">
+                                                {% if not message.is_read %}
+                                                    <div class="unread-indicator mr-3">
+                                                        <i class="fas fa-circle text-primary"></i>
+                                                    </div>
+                                                {% endif %}
+                                                <div class="message-content flex-grow-1">
+                                                    <h6 class="mb-1">
+                                                        {{ message.subject }}
+                                                        {% if message.is_important %}
+                                                            <span class="badge badge-danger ml-2">
+                                                                <i class="fas fa-exclamation mr-1"></i>{% trans "Important" %}
+                                                            </span>
+                                                        {% endif %}
+                                                    </h6>
+                                                    <p class="text-muted small mb-2">{{ message.content|truncatechars:150 }}</p>
+                                                    <div class="message-meta">
+                                                        <small class="text-muted">
+                                                            {% if message.sender == request.user %}
+                                                                <i class="fas fa-paper-plane mr-1"></i>{% trans "To:" %}
+                                                                {% for recipient in message.recipients.all %}
+                                                                    {{ recipient.get_full_name }}{% if not forloop.last %}, {% endif %}
+                                                                {% endfor %}
+                                                            {% else %}
+                                                                <i class="fas fa-user mr-1"></i>{{ message.sender.get_full_name }}
+                                                            {% endif %}
+                                                            |
+                                                            <i class="fas fa-calendar mr-1"></i>{{ message.created_at|date:"M j, Y \a\t g:i A" }}
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4 text-right">
+                                            <div class="message-actions">
+                                                <button class="btn btn-primary btn-sm" onclick="viewMessage({{ message.id }})">
+                                                    <i class="fas fa-eye mr-1"></i>{% trans "View" %}
+                                                </button>
+                                                {% if message.sender != request.user %}
+                                                    <button class="btn btn-success btn-sm ml-2" onclick="replyToMessage({{ message.id }})">
+                                                        <i class="fas fa-reply mr-1"></i>{% trans "Reply" %}
+                                                    </button>
+                                                {% endif %}
+                                                {% if message.attachments.exists %}
+                                                    <button class="btn btn-outline-secondary btn-sm ml-2" onclick="downloadMessageAttachments({{ message.id }})">
+                                                        <i class="fas fa-paperclip mr-1"></i>
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-envelope fa-4x text-muted mb-3"></i>
+                            <h4 class="text-muted">{% trans "No messages" %}</h4>
+                            <p class="text-muted">{% trans "Your messages with teachers will appear here." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Compose Tab -->
+        <div class="tab-pane fade" id="compose" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit mr-2"></i>{% trans "Compose New Message" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="composeMessageForm" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="recipientSelect">{% trans "Recipient" %}</label>
+                            <select class="form-control" id="recipientSelect" name="recipients" required>
+                                <option value="">{% trans "Select a teacher..." %}</option>
+                                {% for teacher in teachers %}
+                                    <option value="{{ teacher.user.id }}">{{ teacher.user.get_full_name }} ({{ teacher.user.user_roles.first.role.name }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="messageSubject">{% trans "Subject" %}</label>
+                            <input type="text" class="form-control" id="messageSubject" name="subject" required maxlength="200">
+                        </div>
+                        <div class="form-group">
+                            <label for="messageContent">{% trans "Message" %}</label>
+                            <textarea class="form-control" id="messageContent" name="content" rows="6" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="messageAttachments">{% trans "Attachments" %}</label>
+                            <input type="file" class="form-control-file" id="messageAttachments" name="attachments" multiple>
+                            <small class="form-text text-muted">{% trans "You can attach multiple files (max 10MB each)" %}</small>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="importantCheck" name="is_important">
+                            <label class="form-check-label" for="importantCheck">
+                                {% trans "Mark as important" %}
+                            </label>
+                        </div>
+                        <div class="form-group mt-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane mr-2"></i>{% trans "Send Message" %}
+                            </button>
+                            <button type="button" class="btn btn-secondary ml-2" onclick="clearComposeForm()">
+                                <i class="fas fa-times mr-2"></i>{% trans "Clear" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Announcement Detail Modal -->
+<div class="modal fade" id="announcementModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="announcementModalTitle">{% trans "Announcement Details" %}</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="announcementModalBody">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Message Detail Modal -->
+<div class="modal fade" id="messageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="messageModalTitle">{% trans "Message Details" %}</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="messageModalBody">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.announcement-card, .message-card {
+    transition: all 0.3s ease;
+}
+
+.announcement-card:hover, .message-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.unread-indicator .fa-circle {
+    font-size: 0.6em;
+    color: #007bff;
+}
+
+.priority-indicator {
+    min-width: 30px;
+    text-align: center;
+}
+
+.announcement-meta, .message-meta {
+    line-height: 1.4;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+@media (max-width: 768px) {
+    .input-group {
+        width: 100% !important;
+        margin-top: 10px;
+    }
+
+    .d-flex.justify-content-between {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .btn-group {
+        margin-top: 10px;
+    }
+}
+</style>
+
+<script>
+// Tab filtering for announcements
+$('#filterAll').on('click', function() {
+    $('.announcement-card').show();
+    $('.btn-outline-secondary').removeClass('active');
+    $(this).addClass('active');
+});
+
+$('#filterUnread').on('click', function() {
+    // In a real implementation, you'd track read/unread status
+    $('.announcement-card').show();
+    $('.btn-outline-secondary').removeClass('active');
+    $(this).addClass('active');
+});
+
+$('#filterUrgent').on('click', function() {
+    $('.announcement-card').hide();
+    $('.announcement-card.border-danger').show();
+    $('.btn-outline-secondary').removeClass('active');
+    $(this).addClass('active');
+});
+
+// Search functionality for messages
+$('#messageSearch').on('keyup', function() {
+    var searchTerm = $(this).val().toLowerCase();
+    $('.message-card').each(function() {
+        var cardText = $(this).text().toLowerCase();
+        if (cardText.indexOf(searchTerm) > -1) {
+            $(this).show();
+        } else {
+            $(this).hide();
+        }
+    });
+});
+
+// Modal functions
+function viewAnnouncement(announcementId) {
+    $('#announcementModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>');
+    $('#announcementModal').modal('show');
+
+    // In a real implementation, you would make an AJAX call here
+    setTimeout(function() {
+        $('#announcementModalBody').html(`
+            <p>Full announcement details for ID: ${announcementId}</p>
+            <p>This would load the complete announcement content via AJAX.</p>
+        `);
+    }, 500);
+}
+
+function viewMessage(messageId) {
+    $('#messageModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>');
+    $('#messageModal').modal('show');
+
+    // In a real implementation, you would make an AJAX call here
+    setTimeout(function() {
+        $('#messageModalBody').html(`
+            <p>Full message details for ID: ${messageId}</p>
+            <p>This would load the complete message content via AJAX.</p>
+        `);
+    }, 500);
+}
+
+function replyToMessage(messageId) {
+    // Switch to compose tab and pre-fill recipient
+    $('#communicationTabs a[href="#compose"]').tab('show');
+
+    // In a real implementation, you would pre-fill the form
+    setTimeout(function() {
+        $('#messageSubject').val('Re: Original Subject');
+        $('#messageContent').focus();
+    }, 100);
+}
+
+function downloadAttachments(announcementId) {
+    // In a real implementation, this would trigger downloads
+    alert('Downloading attachments for announcement ' + announcementId);
+}
+
+function downloadMessageAttachments(messageId) {
+    // In a real implementation, this would trigger downloads
+    alert('Downloading attachments for message ' + messageId);
+}
+
+function clearComposeForm() {
+    $('#composeMessageForm')[0].reset();
+    $('#recipientSelect').val('');
+}
+
+// Form submission
+$('#composeMessageForm').on('submit', function(e) {
+    e.preventDefault();
+
+    var formData = new FormData(this);
+
+    // Basic validation
+    if (!$('#recipientSelect').val()) {
+        alert('{% trans "Please select a recipient." %}');
+        return;
+    }
+
+    if (!$('#messageSubject').val().trim()) {
+        alert('{% trans "Please enter a subject." %}');
+        return;
+    }
+
+    if (!$('#messageContent').val().trim()) {
+        alert('{% trans "Please enter a message." %}');
+        return;
+    }
+
+    // In a real implementation, you would submit via AJAX
+    alert('{% trans "Message sent successfully!" %}');
+    clearComposeForm();
+});
+
+// Auto-refresh functionality
+setInterval(function() {
+    // Check for new messages and announcements periodically
+    console.log('Checking for new communications...');
+}, 60000); // Check every minute
+</script>
+{% endblock %}

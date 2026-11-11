@@ -1,0 +1,474 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Learning Materials" %} - {{ student.user.get_full_name }}{% endblock %}
+
+{% block content %}
+<div class="student-materials">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="fas fa-book mr-2 text-primary"></i>
+                {% trans "Learning Materials" %}
+            </h1>
+            <p class="text-muted mb-0">{% trans "Access your course materials, assignments, and resources" %}</p>
+        </div>
+        <div>
+            <a href="{% url 'academics:student_dashboard' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left mr-2"></i>{% trans "Back to Dashboard" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs mb-4" id="materialsTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="materials-tab" data-toggle="tab" href="#materials" role="tab">
+                <i class="fas fa-file-alt mr-2"></i>{% trans "Materials" %}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="assignments-tab" data-toggle="tab" href="#assignments" role="tab">
+                <i class="fas fa-tasks mr-2"></i>{% trans "Assignments" %}
+                {% if upcoming_assignments %}
+                    <span class="badge badge-warning ml-1">{{ upcoming_assignments|length }}</span>
+                {% endif %}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="submitted-tab" data-toggle="tab" href="#submitted" role="tab">
+                <i class="fas fa-check-circle mr-2"></i>{% trans "Submitted" %}
+                {% if submitted_assignments %}
+                    <span class="badge badge-info ml-1">{{ submitted_assignments|length }}</span>
+                {% endif %}
+            </a>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="materialsTabContent">
+        <!-- Materials Tab -->
+        <div class="tab-pane fade show active" id="materials" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-file-alt mr-2"></i>{% trans "Course Materials" %}
+                        </h5>
+                        <div class="input-group" style="width: 300px;">
+                            <input type="text" class="form-control" id="materialsSearch" placeholder="{% trans 'Search materials...' %}">
+                            <div class="input-group-append">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if materials %}
+                        <div class="materials-grid">
+                            {% for material in materials %}
+                            <div class="material-card card mb-3" data-material-id="{{ material.id }}">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-8">
+                                            <div class="d-flex align-items-start">
+                                                <div class="material-icon mr-3">
+                                                    {% if material.material_type == 'textbook' %}
+                                                        <i class="fas fa-book fa-2x text-primary"></i>
+                                                    {% elif material.material_type == 'presentation' %}
+                                                        <i class="fas fa-file-powerpoint fa-2x text-danger"></i>
+                                                    {% elif material.material_type == 'video' %}
+                                                        <i class="fas fa-video fa-2x text-success"></i>
+                                                    {% elif material.material_type == 'audio' %}
+                                                        <i class="fas fa-music fa-2x text-info"></i>
+                                                    {% else %}
+                                                        <i class="fas fa-file fa-2x text-secondary"></i>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="material-info flex-grow-1">
+                                                    <h6 class="mb-1">{{ material.title }}</h6>
+                                                    <p class="text-muted small mb-2">{{ material.description|truncatechars:150 }}</p>
+                                                    <div class="material-meta">
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-user mr-1"></i>{{ material.teacher.user.get_full_name }} |
+                                                            <i class="fas fa-calendar mr-1"></i>{{ material.publish_date|date:"M j, Y" }} |
+                                                            <i class="fas fa-tag mr-1"></i>{{ material.get_material_type_display }}
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4 text-right">
+                                            <div class="material-actions">
+                                                {% if material.file %}
+                                                    <a href="{{ material.file.url }}" class="btn btn-primary btn-sm" target="_blank">
+                                                        <i class="fas fa-download mr-1"></i>{% trans "Download" %}
+                                                    </a>
+                                                {% elif material.external_url %}
+                                                    <a href="{{ material.external_url }}" class="btn btn-success btn-sm" target="_blank">
+                                                        <i class="fas fa-external-link-alt mr-1"></i>{% trans "View" %}
+                                                    </a>
+                                                {% endif %}
+                                                <button class="btn btn-outline-info btn-sm ml-2" onclick="viewMaterialDetails({{ material.id }})">
+                                                    <i class="fas fa-info-circle"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-file-alt fa-4x text-muted mb-3"></i>
+                            <h4 class="text-muted">{% trans "No materials available" %}</h4>
+                            <p class="text-muted">{% trans "Materials will be uploaded by your teachers soon." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Assignments Tab -->
+        <div class="tab-pane fade" id="assignments" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-tasks mr-2"></i>{% trans "Pending Assignments" %}
+                        </h5>
+                        <div class="input-group" style="width: 300px;">
+                            <input type="text" class="form-control" id="assignmentsSearch" placeholder="{% trans 'Search assignments...' %}">
+                            <div class="input-group-append">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if assignments %}
+                        <div class="assignments-list">
+                            {% for assignment in assignments %}
+                            <div class="assignment-card card mb-3 border-left-warning" data-assignment-id="{{ assignment.id }}">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <h6 class="mb-2">{{ assignment.title }}</h6>
+                                            <p class="text-muted small mb-2">{{ assignment.description|truncatechars:200 }}</p>
+                                            <div class="assignment-meta">
+                                                <small class="text-muted d-block">
+                                                    <i class="fas fa-user mr-1"></i><strong>{{ assignment.teacher.user.get_full_name }}</strong> |
+                                                    <i class="fas fa-book mr-1"></i>{{ assignment.subject.name }} |
+                                                    <i class="fas fa-star mr-1"></i>{{ assignment.total_marks }} {% trans "marks" %}
+                                                </small>
+                                                <small class="text-muted d-block">
+                                                    <i class="fas fa-calendar-plus mr-1"></i>{% trans "Assigned" %} {{ assignment.publish_date|date:"M j, Y" }} |
+                                                    <i class="fas fa-calendar-times mr-1"></i>{% trans "Due" %} {{ assignment.due_date|date:"M j, Y \a\t g:i A" }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4 text-right">
+                                            <div class="assignment-status mb-2">
+                                                {% if assignment.due_date < today %}
+                                                    <span class="badge badge-danger">
+                                                        <i class="fas fa-exclamation-triangle mr-1"></i>{% trans "Overdue" %}
+                                                    </span>
+                                                {% elif assignment.due_date|date:"Y-m-d" == today|date:"Y-m-d" %}
+                                                    <span class="badge badge-warning">
+                                                        <i class="fas fa-clock mr-1"></i>{% trans "Due Today" %}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge badge-info">
+                                                        <i class="fas fa-calendar mr-1"></i>{{ assignment.due_date|timeuntil }}
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="assignment-actions">
+                                                <button class="btn btn-primary btn-sm" onclick="submitAssignment({{ assignment.id }})">
+                                                    <i class="fas fa-upload mr-1"></i>{% trans "Submit" %}
+                                                </button>
+                                                <button class="btn btn-outline-info btn-sm ml-2" onclick="viewAssignmentDetails({{ assignment.id }})">
+                                                    <i class="fas fa-info-circle"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+                            <h4 class="text-muted">{% trans "All caught up!" %}</h4>
+                            <p class="text-muted">{% trans "You have no pending assignments." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Submitted Tab -->
+        <div class="tab-pane fade" id="submitted" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-check-circle mr-2"></i>{% trans "Submitted Assignments" %}
+                        </h5>
+                        <div class="input-group" style="width: 300px;">
+                            <input type="text" class="form-control" id="submittedSearch" placeholder="{% trans 'Search submitted...' %}">
+                            <div class="input-group-append">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if submitted_assignments %}
+                        <div class="submitted-list">
+                            {% for submission in submitted_assignments %}
+                            <div class="submission-card card mb-3" data-submission-id="{{ submission.id }}">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-8">
+                                            <h6 class="mb-2">{{ submission.title }}</h6>
+                                            <div class="submission-meta">
+                                                <small class="text-muted d-block">
+                                                    <i class="fas fa-user mr-1"></i>{{ submission.teacher.user.get_full_name }} |
+                                                    <i class="fas fa-calendar mr-1"></i>{% trans "Submitted" %} {{ submission.submission_date|date:"M j, Y \a\t g:i A" }}
+                                                </small>
+                                                <small class="text-muted d-block">
+                                                    <i class="fas fa-clock mr-1"></i>{% trans "Due" %} {{ submission.due_date|date:"M j, Y" }} |
+                                                    {% if submission.is_late_submission %}
+                                                        <span class="text-danger">{% trans "Late by" %} {{ submission.late_minutes }} {% trans "minutes" %}</span>
+                                                    {% else %}
+                                                        <span class="text-success">{% trans "On time" %}</span>
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4 text-right">
+                                            <div class="submission-status mb-2">
+                                                {% if submission.submission_status == 'graded' %}
+                                                    <span class="badge badge-success">
+                                                        <i class="fas fa-check mr-1"></i>{% trans "Graded" %}
+                                                    </span>
+                                                {% elif submission.submission_status == 'under_review' %}
+                                                    <span class="badge badge-warning">
+                                                        <i class="fas fa-clock mr-1"></i>{% trans "Under Review" %}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge badge-info">
+                                                        <i class="fas fa-paper-plane mr-1"></i>{% trans "Submitted" %}
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                            {% if submission.marks_obtained is not None %}
+                                                <div class="submission-grade">
+                                                    <h5 class="mb-0 text-primary">{{ submission.marks_obtained }}/{{ submission.total_marks }}</h5>
+                                                    <small class="text-muted">{{ submission.percentage|floatformat:1 }}%</small>
+                                                </div>
+                                            {% endif %}
+                                            <div class="submission-actions">
+                                                <button class="btn btn-outline-info btn-sm" onclick="viewSubmissionDetails({{ submission.id }})">
+                                                    <i class="fas fa-eye mr-1"></i>{% trans "View" %}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                            <h4 class="text-muted">{% trans "No submissions yet" %}</h4>
+                            <p class="text-muted">{% trans "Your submitted assignments will appear here." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Material Details Modal -->
+<div class="modal fade" id="materialDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Material Details" %}</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="materialDetailsContent">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assignment Details Modal -->
+<div class="modal fade" id="assignmentDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Assignment Details" %}</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="assignmentDetailsContent">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Submission Details Modal -->
+<div class="modal fade" id="submissionDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Submission Details" %}</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="submissionDetailsContent">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.material-card, .assignment-card, .submission-card {
+    transition: all 0.3s ease;
+}
+
+.material-card:hover, .assignment-card:hover, .submission-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.material-icon {
+    min-width: 50px;
+}
+
+.assignment-meta, .material-meta {
+    line-height: 1.4;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+@media (max-width: 768px) {
+    .input-group {
+        width: 100% !important;
+        margin-top: 10px;
+    }
+
+    .d-flex.justify-content-between {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+}
+</style>
+
+<script>
+// Search functionality
+$('#materialsSearch').on('keyup', function() {
+    var searchTerm = $(this).val().toLowerCase();
+    $('.material-card').each(function() {
+        var cardText = $(this).text().toLowerCase();
+        if (cardText.indexOf(searchTerm) > -1) {
+            $(this).show();
+        } else {
+            $(this).hide();
+        }
+    });
+});
+
+$('#assignmentsSearch').on('keyup', function() {
+    var searchTerm = $(this).val().toLowerCase();
+    $('.assignment-card').each(function() {
+        var cardText = $(this).text().toLowerCase();
+        if (cardText.indexOf(searchTerm) > -1) {
+            $(this).show();
+        } else {
+            $(this).hide();
+        }
+    });
+});
+
+$('#submittedSearch').on('keyup', function() {
+    var searchTerm = $(this).val().toLowerCase();
+    $('.submission-card').each(function() {
+        var cardText = $(this).text().toLowerCase();
+        if (cardText.indexOf(searchTerm) > -1) {
+            $(this).show();
+        } else {
+            $(this).hide();
+        }
+    });
+});
+
+// Modal functions
+function viewMaterialDetails(materialId) {
+    // Load material details via AJAX
+    $('#materialDetailsContent').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>');
+    $('#materialDetailsModal').modal('show');
+
+    // In a real implementation, you would make an AJAX call here
+    setTimeout(function() {
+        $('#materialDetailsContent').html(`
+            <p>Material details for ID: ${materialId}</p>
+            <p>This would load the full material information via AJAX.</p>
+        `);
+    }, 500);
+}
+
+function viewAssignmentDetails(assignmentId) {
+    $('#assignmentDetailsContent').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>');
+    $('#assignmentDetailsModal').modal('show');
+
+    setTimeout(function() {
+        $('#assignmentDetailsContent').html(`
+            <p>Assignment details for ID: ${assignmentId}</p>
+            <p>This would load the full assignment information via AJAX.</p>
+        `);
+    }, 500);
+}
+
+function viewSubmissionDetails(submissionId) {
+    $('#submissionDetailsContent').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>');
+    $('#submissionDetailsModal').modal('show');
+
+    setTimeout(function() {
+        $('#submissionDetailsContent').html(`
+            <p>Submission details for ID: ${submissionId}</p>
+            <p>This would load the full submission information via AJAX.</p>
+        `);
+    }, 500);
+}
+
+function submitAssignment(assignmentId) {
+    // Redirect to assignment submission page
+    window.location.href = `/assessment/assignments/${assignmentId}/submit/`;
+}
+
+// Auto-refresh functionality
+setInterval(function() {
+    // Check for new materials/assignments periodically
+    console.log('Checking for updates...');
+}, 60000); // Check every minute
+</script>
+{% endblock %}

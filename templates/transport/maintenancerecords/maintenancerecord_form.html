@@ -1,0 +1,825 @@
+<!-- templates/transport/maintenancerecords/maintenancerecord_form.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if object %}{% trans "Update Maintenance Record" %}{% else %}{% trans "Create Maintenance Record" %}{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if object %}{% trans "Update Maintenance Record" %}{% else %}{% trans "Create Maintenance Record" %}{% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:maintenancerecord_list' %}">{% trans "Maintenance Records" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if object %}{% trans "Update Record" %}{% else %}{% trans "Create Record" %}{% endif %}
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Maintenance Form Specific Styles */
+    .maintenance-form-container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    
+    .form-section {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-section-header {
+        border-bottom: 2px solid #e9ecef;
+        padding-bottom: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
+    
+    .form-section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0;
+    }
+    
+    .form-section-subtitle {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .vehicle-info-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .vehicle-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    
+    .vehicle-detail-item {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .vehicle-detail-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+    }
+    
+    .vehicle-detail-value {
+        font-size: 1rem;
+        color: #2c3e50;
+        font-weight: 500;
+    }
+    
+    .maintenance-type-badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .type-routine { background-color: #28a745; color: white; }
+    .type-repair { background-color: #fd7e14; color: white; }
+    .type-breakdown { background-color: #dc3545; color: white; }
+    .type-accident { background-color: #6f42c1; color: white; }
+    .type-upgrade { background-color: #20c997; color: white; }
+    
+    .cost-input-group {
+        position: relative;
+    }
+    
+    .cost-prefix {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        font-weight: 500;
+        z-index: 3;
+    }
+    
+    .cost-input {
+        padding-left: 30px;
+    }
+    
+    .maintenance-preview {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .preview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    
+    .preview-item {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .preview-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    
+    .preview-value {
+        font-size: 1rem;
+        color: #2c757d;
+        font-weight: 500;
+    }
+    
+    .form-actions {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.25rem;
+        margin-top: 1.5rem;
+        border-top: 1px solid #dee2e6;
+    }
+    
+    .maintenance-alert {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .maintenance-suggestion {
+        background: #d1fae5;
+        border: 1px solid #a7f3d0;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .odometer-warning {
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 0.5rem;
+        display: none;
+    }
+    
+    .service-interval {
+        background: #e0f2fe;
+        border: 1px solid #bae6fd;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 0.5rem;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .form-section {
+            padding: 1rem;
+        }
+        
+        .form-section-title {
+            font-size: 1.1rem;
+        }
+        
+        .vehicle-details,
+        .preview-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* Animation for alerts */
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .slide-in {
+        animation: slideIn 0.3s ease-out;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="maintenance-form-container">
+    <form method="post" id="maintenanceRecordForm" novalidate>
+        {% csrf_token %}
+        
+        <!-- Vehicle Information Section -->
+        <div class="form-section">
+            <div class="form-section-header">
+                <h3 class="form-section-title">{% trans "Vehicle Information" %}</h3>
+                <p class="form-section-subtitle">{% trans "Select the vehicle for maintenance" %}</p>
+            </div>
+            
+            <div class="vehicle-info-card" id="vehicleInfoCard" style="display: none;">
+                <h6 class="mb-3">{% trans "Selected Vehicle Details" %}</h6>
+                <div class="vehicle-details">
+                    <div class="vehicle-detail-item">
+                        <span class="vehicle-detail-label">{% trans "Vehicle Number" %}</span>
+                        <span class="vehicle-detail-value" id="vehicleNumber">-</span>
+                    </div>
+                    <div class="vehicle-detail-item">
+                        <span class="vehicle-detail-label">{% trans "Make & Model" %}</span>
+                        <span class="vehicle-detail-value" id="vehicleMakeModel">-</span>
+                    </div>
+                    <div class="vehicle-detail-item">
+                        <span class="vehicle-detail-label">{% trans "Current Mileage" %}</span>
+                        <span class="vehicle-detail-value" id="vehicleMileage">-</span>
+                    </div>
+                    <div class="vehicle-detail-item">
+                        <span class="vehicle-detail-label">{% trans "Last Maintenance" %}</span>
+                        <span class="vehicle-detail-value" id="lastMaintenance">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="{{ form.vehicle.id_for_label }}" class="form-label required-field">
+                        {% trans "Vehicle" %}
+                    </label>
+                    {{ form.vehicle }}
+                    {% if form.vehicle.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.vehicle.errors }}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="{{ form.maintenance_type.id_for_label }}" class="form-label required-field">
+                        {% trans "Maintenance Type" %}
+                    </label>
+                    {{ form.maintenance_type }}
+                    {% if form.maintenance_type.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.maintenance_type.errors }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Maintenance Details Section -->
+        <div class="form-section">
+            <div class="form-section-header">
+                <h3 class="form-section-title">{% trans "Maintenance Details" %}</h3>
+                <p class="form-section-subtitle">{% trans "When and where was the maintenance performed?" %}</p>
+            </div>
+            
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="{{ form.date.id_for_label }}" class="form-label required-field">
+                        {% trans "Maintenance Date" %}
+                    </label>
+                    {{ form.date }}
+                    {% if form.date.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.date.errors }}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="{{ form.odometer_reading.id_for_label }}" class="form-label required-field">
+                        {% trans "Odometer Reading (km)" %}
+                    </label>
+                    {{ form.odometer_reading }}
+                    {% if form.odometer_reading.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.odometer_reading.errors }}
+                    </div>
+                    {% endif %}
+                    <div class="odometer-warning" id="odometerWarning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <span id="odometerWarningText"></span>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="{{ form.service_center.id_for_label }}" class="form-label">
+                        {% trans "Service Center" %}
+                    </label>
+                    {{ form.service_center }}
+                    {% if form.service_center.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.service_center.errors }}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="{{ form.invoice_number.id_for_label }}" class="form-label">
+                        {% trans "Invoice Number" %}
+                    </label>
+                    {{ form.invoice_number }}
+                    {% if form.invoice_number.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.invoice_number.errors }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Work Performed Section -->
+        <div class="form-section">
+            <div class="form-section-header">
+                <h3 class="form-section-title">{% trans "Work Performed" %}</h3>
+                <p class="form-section-subtitle">{% trans "What work was done and what parts were replaced?" %}</p>
+            </div>
+            
+            <div class="row g-3">
+                <div class="col-12">
+                    <label for="{{ form.description.id_for_label }}" class="form-label required-field">
+                        {% trans "Problem Description" %}
+                    </label>
+                    {{ form.description }}
+                    {% if form.description.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.description.errors }}
+                    </div>
+                    {% endif %}
+                    <div class="form-text">{% trans "Describe the issue that required maintenance" %}</div>
+                </div>
+                
+                <div class="col-12">
+                    <label for="{{ form.work_done.id_for_label }}" class="form-label required-field">
+                        {% trans "Work Performed" %}
+                    </label>
+                    {{ form.work_done }}
+                    {% if form.work_done.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.work_done.errors }}
+                    </div>
+                    {% endif %}
+                    <div class="form-text">{% trans "Detail the work that was performed during maintenance" %}</div>
+                </div>
+                
+                <div class="col-12">
+                    <label for="{{ form.parts_replaced.id_for_label }}" class="form-label">
+                        {% trans "Parts Replaced" %}
+                    </label>
+                    {{ form.parts_replaced }}
+                    {% if form.parts_replaced.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.parts_replaced.errors }}
+                    </div>
+                    {% endif %}
+                    <div class="form-text">{% trans "List any parts that were replaced (optional)" %}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cost Information Section -->
+        <div class="form-section">
+            <div class="form-section-header">
+                <h3 class="form-section-title">{% trans "Cost Information" %}</h3>
+                <p class="form-section-subtitle">{% trans "Maintenance costs and financial details" %}</p>
+            </div>
+            
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="{{ form.cost.id_for_label }}" class="form-label required-field">
+                        {% trans "Total Cost" %}
+                    </label>
+                    <div class="cost-input-group">
+                        <span class="cost-prefix">₹</span>
+                        {{ form.cost }}
+                    </div>
+                    {% if form.cost.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.cost.errors }}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="maintenance-suggestion" id="costSuggestion">
+                        <h6 class="mb-2">{% trans "Cost Analysis" %}</h6>
+                        <p class="mb-1" id="costComparison"></p>
+                        <small class="text-muted" id="costContext"></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Next Maintenance Section -->
+        <div class="form-section">
+            <div class="form-section-header">
+                <h3 class="form-section-title">{% trans "Next Maintenance" %}</h3>
+                <p class="form-section-subtitle">{% trans "Schedule the next maintenance service" %}</p>
+            </div>
+            
+            <div class="service-interval">
+                <h6 class="mb-2">{% trans "Service Interval Suggestions" %}</h6>
+                <p class="mb-2">{% trans "Based on maintenance type and vehicle usage:" %}</p>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <small><strong>{% trans "Next Due Odometer:" %}</strong> <span id="suggestedOdometer">-</span></small>
+                    </div>
+                    <div class="col-md-6">
+                        <small><strong>{% trans "Next Due Date:" %}</strong> <span id="suggestedDate">-</span></small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row g-3 mt-3">
+                <div class="col-md-6">
+                    <label for="{{ form.next_due_odometer.id_for_label }}" class="form-label">
+                        {% trans "Next Due Odometer (km)" %}
+                    </label>
+                    {{ form.next_due_odometer }}
+                    {% if form.next_due_odometer.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.next_due_odometer.errors }}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="{{ form.next_due_date.id_for_label }}" class="form-label">
+                        {% trans "Next Due Date" %}
+                    </label>
+                    {{ form.next_due_date }}
+                    {% if form.next_due_date.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.next_due_date.errors }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Maintenance Preview -->
+        <div class="form-section" id="maintenancePreview" style="display: none;">
+            <div class="form-section-header">
+                <h3 class="form-section-title">{% trans "Maintenance Preview" %}</h3>
+                <p class="form-section-subtitle">{% trans "Review the maintenance details before submitting" %}</p>
+            </div>
+            
+            <div class="maintenance-preview">
+                <div class="preview-grid">
+                    <div class="preview-item">
+                        <span class="preview-label">{% trans "Vehicle" %}</span>
+                        <span class="preview-value" id="previewVehicle"></span>
+                    </div>
+                    <div class="preview-item">
+                        <span class="preview-label">{% trans "Maintenance Type" %}</span>
+                        <span class="preview-value" id="previewType"></span>
+                    </div>
+                    <div class="preview-item">
+                        <span class="preview-label">{% trans "Date" %}</span>
+                        <span class="preview-value" id="previewDate"></span>
+                    </div>
+                    <div class="preview-item">
+                        <span class="preview-label">{% trans "Odometer" %}</span>
+                        <span class="preview-value" id="previewOdometer"></span>
+                    </div>
+                    <div class="preview-item">
+                        <span class="preview-label">{% trans "Cost" %}</span>
+                        <span class="preview-value" id="previewCost"></span>
+                    </div>
+                    <div class="preview-item">
+                        <span class="preview-label">{% trans "Next Due" %}</span>
+                        <span class="preview-value" id="previewNextDue"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <button type="button" class="btn btn-outline-secondary" id="previewBtn">
+                        <i class="fas fa-eye me-1"></i> {% trans "Preview" %}
+                    </button>
+                </div>
+                <div>
+                    <a href="{% url 'transport:maintenancerecord_list' %}" class="btn btn-secondary me-2">
+                        <i class="fas fa-times me-1"></i> {% trans "Cancel" %}
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> 
+                        {% if object %}{% trans "Update Maintenance Record" %}{% else %}{% trans "Create Maintenance Record" %}{% endif %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form elements
+        const form = document.getElementById('maintenanceRecordForm');
+        const vehicleSelect = document.getElementById('{{ form.vehicle.id_for_label }}');
+        const maintenanceTypeSelect = document.getElementById('{{ form.maintenance_type.id_for_label }}');
+        const dateInput = document.getElementById('{{ form.date.id_for_label }}');
+        const odometerInput = document.getElementById('{{ form.odometer_reading.id_for_label }}');
+        const costInput = document.getElementById('{{ form.cost.id_for_label }}');
+        const nextDueOdometerInput = document.getElementById('{{ form.next_due_odometer.id_for_label }}');
+        const nextDueDateInput = document.getElementById('{{ form.next_due_date.id_for_label }}');
+        
+        // Info cards
+        const vehicleInfoCard = document.getElementById('vehicleInfoCard');
+        const maintenancePreview = document.getElementById('maintenancePreview');
+        const odometerWarning = document.getElementById('odometerWarning');
+        const costSuggestion = document.getElementById('costSuggestion');
+        
+        // Vehicle data cache
+        let vehicleData = {};
+        
+        // Initialize form
+        initializeForm();
+        
+        // Vehicle selection handler
+        vehicleSelect.addEventListener('change', function() {
+            updateVehicleInfo(this.value);
+        });
+        
+        // Odometer validation
+        odometerInput.addEventListener('input', function() {
+            validateOdometerReading(this.value);
+            updateServiceIntervals();
+        });
+        
+        // Maintenance type change handler
+        maintenanceTypeSelect.addEventListener('change', function() {
+            updateServiceIntervals();
+            updateCostSuggestions();
+        });
+        
+        // Cost input handler
+        costInput.addEventListener('input', function() {
+            updateCostSuggestions();
+        });
+        
+        // Date input handler - set default to today for new records
+        {% if not object %}
+        if (dateInput && !dateInput.value) {
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
+        }
+        {% endif %}
+        
+        // Preview functionality
+        document.getElementById('previewBtn').addEventListener('click', function() {
+            updatePreview();
+            maintenancePreview.style.display = 'block';
+            maintenancePreview.scrollIntoView({ behavior: 'smooth' });
+        });
+        
+        function initializeForm() {
+            // Initialize vehicle info if vehicle is already selected
+            if (vehicleSelect.value) {
+                updateVehicleInfo(vehicleSelect.value);
+            }
+            
+            // Initialize service intervals
+            updateServiceIntervals();
+            
+            // Initialize cost suggestions
+            updateCostSuggestions();
+        }
+        
+        function updateVehicleInfo(vehicleId) {
+            if (!vehicleId) {
+                vehicleInfoCard.style.display = 'none';
+                return;
+            }
+            
+            // In a real implementation, this would fetch vehicle data from the server
+            // For now, we'll simulate with mock data
+            const mockVehicleData = {
+                '1': {
+                    number: 'BUS-001',
+                    makeModel: 'Tata Starbus 42 Seater',
+                    mileage: '85,250 km',
+                    lastMaintenance: '2024-01-15'
+                },
+                '2': {
+                    number: 'VAN-002',
+                    makeModel: 'Mahindra Supro Van',
+                    mileage: '45,180 km',
+                    lastMaintenance: '2024-02-20'
+                }
+            };
+            
+            const vehicle = mockVehicleData[vehicleId];
+            if (vehicle) {
+                document.getElementById('vehicleNumber').textContent = vehicle.number;
+                document.getElementById('vehicleMakeModel').textContent = vehicle.makeModel;
+                document.getElementById('vehicleMileage').textContent = vehicle.mileage;
+                document.getElementById('lastMaintenance').textContent = vehicle.lastMaintenance;
+                vehicleInfoCard.style.display = 'block';
+                
+                // Store vehicle data for calculations
+                vehicleData = vehicle;
+            }
+        }
+        
+        function validateOdometerReading(reading) {
+            if (!reading || !vehicleData.mileage) return;
+            
+            const currentReading = parseInt(reading);
+            const vehicleMileage = parseInt(vehicleData.mileage.replace(/[^\d]/g, ''));
+            
+            if (currentReading < vehicleMileage) {
+                odometerWarning.style.display = 'block';
+                odometerWarning.classList.remove('slide-in');
+                void odometerWarning.offsetWidth; // Trigger reflow
+                odometerWarning.classList.add('slide-in');
+                document.getElementById('odometerWarningText').textContent = 
+                    'Odometer reading is less than current vehicle mileage. Please verify.';
+            } else {
+                odometerWarning.style.display = 'none';
+            }
+        }
+        
+        function updateServiceIntervals() {
+            if (!odometerInput.value || !maintenanceTypeSelect.value) return;
+            
+            const currentOdometer = parseInt(odometerInput.value);
+            const maintenanceType = maintenanceTypeSelect.value;
+            
+            // Define service intervals based on maintenance type
+            const intervals = {
+                'routine': { km: 5000, days: 90 },
+                'repair': { km: 10000, days: 180 },
+                'breakdown': { km: 0, days: 30 }, // Immediate follow-up
+                'accident': { km: 0, days: 14 }, // Immediate inspection
+                'upgrade': { km: 10000, days: 365 }
+            };
+            
+            const interval = intervals[maintenanceType] || intervals.routine;
+            
+            // Calculate suggested next maintenance
+            const suggestedOdometer = currentOdometer + interval.km;
+            const nextDueDate = new Date();
+            nextDueDate.setDate(nextDueDate.getDate() + interval.days);
+            const formattedDate = nextDueDate.toISOString().split('T')[0];
+            
+            // Update suggestion display
+            document.getElementById('suggestedOdometer').textContent = suggestedOdometer.toLocaleString() + ' km';
+            document.getElementById('suggestedDate').textContent = formattedDate;
+            
+            // Pre-fill next due fields if empty
+            if (nextDueOdometerInput && !nextDueOdometerInput.value) {
+                nextDueOdometerInput.value = suggestedOdometer;
+            }
+            if (nextDueDateInput && !nextDueDateInput.value) {
+                nextDueDateInput.value = formattedDate;
+            }
+        }
+        
+        function updateCostSuggestions() {
+            if (!costInput.value || !maintenanceTypeSelect.value) return;
+            
+            const cost = parseFloat(costInput.value);
+            const maintenanceType = maintenanceTypeSelect.value;
+            
+            // Define average costs for comparison
+            const averageCosts = {
+                'routine': 5000,
+                'repair': 15000,
+                'breakdown': 25000,
+                'accident': 50000,
+                'upgrade': 30000
+            };
+            
+            const averageCost = averageCosts[maintenanceType] || 10000;
+            const difference = cost - averageCost;
+            const percentage = ((difference / averageCost) * 100).toFixed(1);
+            
+            let comparisonText = '';
+            let contextText = '';
+            
+            if (difference > 0) {
+                comparisonText = `This cost is ${percentage}% higher than average for ${maintenanceType} maintenance.`;
+                contextText = 'Consider verifying parts and labor costs.';
+                costSuggestion.style.background = '#fff3cd';
+                costSuggestion.style.borderColor = '#ffeaa7';
+            } else if (difference < 0) {
+                comparisonText = `This cost is ${Math.abs(percentage)}% lower than average for ${maintenanceType} maintenance.`;
+                contextText = 'Good cost management!';
+                costSuggestion.style.background = '#d1fae5';
+                costSuggestion.style.borderColor = '#a7f3d0';
+            } else {
+                comparisonText = 'This cost is in line with average maintenance costs.';
+                contextText = 'Standard pricing for this type of service.';
+                costSuggestion.style.background = '#e0f2fe';
+                costSuggestion.style.borderColor = '#bae6fd';
+            }
+            
+            document.getElementById('costComparison').textContent = comparisonText;
+            document.getElementById('costContext').textContent = contextText;
+        }
+        
+        function updatePreview() {
+            // Update preview with current form values
+            document.getElementById('previewVehicle').textContent = 
+                vehicleSelect.options[vehicleSelect.selectedIndex]?.text || 'Not selected';
+            document.getElementById('previewType').textContent = 
+                maintenanceTypeSelect.options[maintenanceTypeSelect.selectedIndex]?.text || 'Not selected';
+            document.getElementById('previewDate').textContent = dateInput.value || 'Not set';
+            document.getElementById('previewOdometer').textContent = 
+                odometerInput.value ? odometerInput.value + ' km' : 'Not set';
+            document.getElementById('previewCost').textContent = 
+                costInput.value ? '₹' + costInput.value : 'Not set';
+            
+            const nextDue = [];
+            if (nextDueOdometerInput.value) nextDue.push(nextDueOdometerInput.value + ' km');
+            if (nextDueDateInput.value) nextDue.push(nextDueDateInput.value);
+            document.getElementById('previewNextDue').textContent = 
+                nextDue.length > 0 ? nextDue.join(' / ') : 'Not scheduled';
+        }
+        
+        // Form validation
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        });
+        
+        // Auto-save draft functionality
+        let autoSaveTimer;
+        const formInputs = form.querySelectorAll('input, select, textarea');
+        
+        formInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = setTimeout(saveDraft, 2000);
+            });
+        });
+        
+        function saveDraft() {
+            // In real implementation, save to localStorage or send to server
+            console.log('Auto-saving maintenance record draft...');
+            showNotification('{% trans "Draft saved automatically" %}', 'info');
+        }
+        
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+    });
+</script>
+{% endblock %}

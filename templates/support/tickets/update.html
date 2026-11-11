@@ -1,0 +1,308 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Update Ticket - Support Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-2 bg-light sidebar">
+            <div class="sidebar-sticky">
+                <h5 class="sidebar-heading">Support Dashboard</h5>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:dashboard' %}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'support:ticket_list' %}">
+                            <i class="fas fa-ticket-alt"></i> Tickets
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:article_create' %}">
+                            <i class="fas fa-plus"></i> New Article
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:resource_create' %}">
+                            <i class="fas fa-plus"></i> New Resource
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:faq_create' %}">
+                            <i class="fas fa-plus"></i> New FAQ
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main content -->
+        <div class="col-md-10 ml-sm-auto px-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Update Ticket #{{ form.instance.pk }}</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <a href="{% url 'support:ticket_detail' form.instance.pk %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Ticket
+                    </a>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-8">
+                    <!-- Ticket Details -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Ticket Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Name:</strong> {{ form.instance.name }}</p>
+                                    <p><strong>Email:</strong> {{ form.instance.email }}</p>
+                                    <p><strong>Subject:</strong> {{ form.instance.subject|default:"No subject" }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Status:</strong>
+                                        {% if form.instance.resolved %}
+                                            <span class="badge badge-success">Resolved</span>
+                                        {% else %}
+                                            <span class="badge badge-warning">Open</span>
+                                        {% endif %}
+                                    </p>
+                                    <p><strong>Submitted:</strong> {{ form.instance.submitted_at|date:"M d, Y H:i" }}</p>
+                                    {% if form.instance.resolved_at %}
+                                        <p><strong>Resolved:</strong> {{ form.instance.resolved_at|date:"M d, Y H:i" }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <hr>
+                            <div>
+                                <strong>Message:</strong>
+                                <div class="mt-2 p-3 bg-light rounded">
+                                    {{ form.instance.message|linebreaks }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Update Form -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Update Ticket Status</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post">
+                                {% csrf_token %}
+
+                                <div class="form-group">
+                                    <div class="form-check">
+                                        {{ form.resolved }}
+                                        <label class="form-check-label" for="{{ form.resolved.id_for_label }}">
+                                            Mark as Resolved
+                                        </label>
+                                    </div>
+                                    {% if form.resolved.errors %}
+                                        <div class="text-danger">
+                                            {{ form.resolved.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="{{ form.notes.id_for_label }}">Support Notes</label>
+                                    {{ form.notes }}
+                                    {% if form.notes.errors %}
+                                        <div class="text-danger">
+                                            {{ form.notes.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Internal notes for support staff. These are not visible to the user.
+                                    </small>
+                                </div>
+
+                                <div class="form-group">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Update Ticket
+                                    </button>
+                                    <a href="{% url 'support:ticket_detail' form.instance.pk %}" class="btn btn-secondary ml-2">
+                                        <i class="fas fa-times"></i> Cancel
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <!-- Quick Actions -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Quick Actions</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                {% if not form.instance.resolved %}
+                                    <button class="btn btn-success btn-sm" onclick="quickResolve({{ form.instance.pk }})">
+                                        <i class="fas fa-check"></i> Quick Resolve
+                                    </button>
+                                {% endif %}
+                                <button class="btn btn-info btn-sm" onclick="copyToClipboard('{{ form.instance.email }}')">
+                                    <i class="fas fa-copy"></i> Copy Email
+                                </button>
+                                <a href="mailto:{{ form.instance.email }}?subject=Re: {{ form.instance.subject|default:'Support Request' }}"
+                                   class="btn btn-primary btn-sm">
+                                    <i class="fas fa-envelope"></i> Reply via Email
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ticket History -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Ticket History</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="timeline">
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-primary"></div>
+                                    <div class="timeline-content">
+                                        <h6 class="timeline-title">Ticket Created</h6>
+                                        <p class="timeline-text">{{ form.instance.submitted_at|date:"M d, Y H:i" }}</p>
+                                    </div>
+                                </div>
+                                {% if form.instance.resolved %}
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-success"></div>
+                                    <div class="timeline-content">
+                                        <h6 class="timeline-title">Ticket Resolved</h6>
+                                        <p class="timeline-text">{{ form.instance.resolved_at|date:"M d, Y H:i" }}</p>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.sidebar {
+    position: fixed;
+    top: 56px;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    padding: 20px 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.sidebar .nav-link {
+    font-weight: 500;
+    color: #333;
+}
+
+.sidebar .nav-link.active {
+    color: #007bff;
+}
+
+.sidebar-heading {
+    font-size: .875rem;
+    text-transform: uppercase;
+    color: #6c757d;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e9ecef;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -22px;
+    top: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+}
+
+.timeline-content {
+    background: #f8f9fa;
+    padding: 10px 15px;
+    border-radius: 4px;
+}
+
+.timeline-title {
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+    color: #495057;
+}
+
+.timeline-text {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-bottom: 0;
+}
+</style>
+
+<script>
+function quickResolve(ticketId) {
+    if (confirm('Are you sure you want to mark this ticket as resolved?')) {
+        const form = document.querySelector('form');
+        const resolvedCheckbox = document.getElementById('{{ form.resolved.id_for_label }}');
+        resolvedCheckbox.checked = true;
+        form.submit();
+    }
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        // Show success message
+        const toast = document.createElement('div');
+        toast.className = 'alert alert-success alert-dismissible fade show position-fixed';
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        toast.innerHTML = `
+            <i class="fas fa-check"></i> Email copied to clipboard!
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        `;
+        document.body.appendChild(toast);
+
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 3000);
+    });
+}
+</script>
+{% endblock %}

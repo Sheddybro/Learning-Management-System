@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}KPI Monitoring - Support Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-2 bg-light sidebar">
+            <div class="sidebar-sticky">
+                <h5 class="sidebar-heading">Support Dashboard</h5>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:dashboard' %}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:ticket_list' %}">
+                            <i class="fas fa-ticket-alt"></i> Tickets
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <h6 class="sidebar-heading">Monitoring</h6>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'support:kpi_monitoring' %}">
+                            <i class="fas fa-chart-line"></i> KPI Monitoring
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:audit_monitoring' %}">
+                            <i class="fas fa-history"></i> Audit Logs
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <h6 class="sidebar-heading">Security</h6>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:login_history' %}">
+                            <i class="fas fa-sign-in-alt"></i> Login History
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'support:user_sessions' %}">
+                            <i class="fas fa-user-clock"></i> User Sessions
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main content -->
+        <div class="col-md-10 ml-sm-auto px-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">KPI Monitoring</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group mr-2">
+                        <select id="kpiCategoryFilter" class="form-control form-control-sm">
+                            <option value="">All Categories</option>
+                            {% for category, label in kpi_categories %}
+                            <option value="{{ category }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="btn-group mr-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshKPIs()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI Statistics -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Recent KPI Measurements</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="kpiTable">
+                                    <thead>
+                                        <tr>
+                                            <th>KPI Name</th>
+                                            <th>Category</th>
+                                            <th>Value</th>
+                                            <th>Target</th>
+                                            <th>Status</th>
+                                            <th>Measured At</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for measurement in recent_measurements %}
+                                        <tr data-category="{{ measurement.kpi.category }}">
+                                            <td>{{ measurement.kpi.name }}</td>
+                                            <td>
+                                                <span class="badge badge-secondary">{{ measurement.kpi.get_category_display }}</span>
+                                            </td>
+                                            <td>{{ measurement.value }}</td>
+                                            <td>{{ measurement.target_value|default:"N/A" }}</td>
+                                            <td>
+                                                {% if measurement.target_value %}
+                                                    {% if measurement.value >= measurement.target_value %}
+                                                        <span class="badge badge-success">On Target</span>
+                                                    {% else %}
+                                                        <span class="badge badge-warning">Below Target</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="badge badge-info">Monitoring</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ measurement.measured_at|date:"M d, Y H:i" }}</td>
+                                            <td>{{ measurement.kpi.description|truncatechars:50|default:"N/A" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted">No KPI measurements found</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI Summary Cards -->
+            <div class="row">
+                {% for category, label in kpi_categories %}
+                <div class="col-md-3 mb-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">{{ label }}</h5>
+                            <h3 class="text-primary">
+                                {% widthratio recent_measurements|length 1 1 %}
+                            </h3>
+                            <p class="card-text">Active KPIs</p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.sidebar {
+    position: fixed;
+    top: 56px;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    padding: 20px 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.sidebar .nav-link {
+    font-weight: 500;
+    color: #333;
+}
+
+.sidebar .nav-link.active {
+    color: #007bff;
+}
+
+.sidebar-heading {
+    font-size: .875rem;
+    text-transform: uppercase;
+    color: #6c757d;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+</style>
+
+<script>
+document.getElementById('kpiCategoryFilter').addEventListener('change', function() {
+    const selectedCategory = this.value;
+    const rows = document.querySelectorAll('#kpiTable tbody tr');
+
+    rows.forEach(row => {
+        if (!selectedCategory || row.dataset.category === selectedCategory) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+function refreshKPIs() {
+    location.reload();
+}
+</script>
+{% endblock %}

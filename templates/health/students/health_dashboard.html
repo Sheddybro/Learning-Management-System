@@ -1,0 +1,764 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}My Health Dashboard{% endblock %}
+
+{% block page_title %}My Health Dashboard{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active" aria-current="page">My Health</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-info" id="downloadRecordsBtn">
+            <i class="bi bi-download me-1"></i> Download Records
+        </button>
+        <button type="button" class="btn btn-outline-primary" id="emergencyContactsBtn">
+            <i class="bi bi-telephone me-1"></i> Emergency Contacts
+        </button>
+        <button type="button" class="btn btn-outline-success" id="scheduleAppointmentBtn">
+            <i class="bi bi-calendar-plus me-1"></i> Schedule Visit
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="health-dashboard-container">
+    <!-- Welcome Header -->
+    <div class="welcome-header mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2">
+                    <i class="bi bi-heart-pulse text-danger me-3"></i>
+                    Welcome to Your Health Portal, {{ user.get_full_name }}
+                </h1>
+                <p class="text-muted mb-0">Stay informed about your health and wellness at school</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="health-score">
+                    <div class="score-circle">
+                        <span class="score-number">{{ health_score|default:"85" }}</span>
+                        <span class="score-label">Health Score</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Health Overview Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-primary">
+                <div class="card-body text-center">
+                    <i class="bi bi-clipboard-check fs-2 text-primary mb-2"></i>
+                    <h4 class="card-title mb-1">{{ upcoming_appointments|length }}</h4>
+                    <p class="card-text text-muted mb-2">Upcoming Appointments</p>
+                    <a href="#appointments" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-success">
+                <div class="card-body text-center">
+                    <i class="bi bi-capsule fs-2 text-success mb-2"></i>
+                    <h4 class="card-title mb-1">{{ active_medications|length }}</h4>
+                    <p class="card-text text-muted mb-2">Active Medications</p>
+                    <a href="#medications" class="btn btn-sm btn-outline-success">View All</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-info">
+                <div class="card-body text-center">
+                    <i class="bi bi-search fs-2 text-info mb-2"></i>
+                    <h4 class="card-title mb-1">{{ recent_screenings|length }}</h4>
+                    <p class="card-text text-muted mb-2">Recent Screenings</p>
+                    <a href="#screenings" class="btn btn-sm btn-outline-info">View All</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-warning">
+                <div class="card-body text-center">
+                    <i class="bi bi-exclamation-triangle fs-2 text-warning mb-2"></i>
+                    <h4 class="card-title mb-1">{{ alerts_count|default:"2" }}</h4>
+                    <p class="card-text text-muted mb-2">Health Alerts</p>
+                    <a href="#alerts" class="btn btn-sm btn-outline-warning">View Alerts</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Health Status & Vitals -->
+    <div class="row mb-4">
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-activity me-2"></i>Current Health Status
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if health_record %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="health-metric mb-3">
+                                    <div class="metric-label">Height</div>
+                                    <div class="metric-value">{{ health_record.height|default:"—" }} cm</div>
+                                </div>
+                                <div class="health-metric mb-3">
+                                    <div class="metric-label">Weight</div>
+                                    <div class="metric-value">{{ health_record.weight|default:"—" }} kg</div>
+                                </div>
+                                <div class="health-metric mb-3">
+                                    <div class="metric-label">BMI</div>
+                                    <div class="metric-value
+                                        {% if health_record.bmi %}
+                                            {% if health_record.bmi < 18.5 %}text-warning
+                                            {% elif health_record.bmi < 25 %}text-success
+                                            {% elif health_record.bmi < 30 %}text-warning
+                                            {% else %}text-danger{% endif %}
+                                        {% endif %}">
+                                        {{ health_record.bmi|default:"—" }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="health-metric mb-3">
+                                    <div class="metric-label">Blood Group</div>
+                                    <div class="metric-value">{{ health_record.get_blood_group_display|default:"Not set" }}</div>
+                                </div>
+                                <div class="health-metric mb-3">
+                                    <div class="metric-label">Health Status</div>
+                                    <div class="metric-value">
+                                        <span class="badge
+                                            {% if health_record.current_health_status == 'excellent' %}bg-success
+                                            {% elif health_record.current_health_status == 'good' %}bg-info
+                                            {% elif health_record.current_health_status == 'fair' %}bg-warning
+                                            {% else %}bg-danger{% endif %}">
+                                            {{ health_record.get_current_health_status_display }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="health-metric mb-3">
+                                    <div class="metric-label">Last Checkup</div>
+                                    <div class="metric-value">
+                                        {% if health_record.last_checkup_date %}
+                                            {{ health_record.last_checkup_date|date:"M d, Y" }}
+                                        {% else %}
+                                            Not scheduled
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <a href="{% url 'health:record_detail' pk=health_record.pk %}" class="btn btn-outline-primary">
+                                <i class="bi bi-eye me-1"></i>View Full Record
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-clipboard-x text-muted fs-1 mb-3"></i>
+                            <h6 class="text-muted">No Health Record Found</h6>
+                            <p class="text-muted">Your health record hasn't been set up yet. Please contact the school nurse.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bell me-2"></i>Important Notices
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="notice-item mb-3">
+                        <div class="notice-icon">
+                            <i class="bi bi-calendar-event text-primary"></i>
+                        </div>
+                        <div class="notice-content">
+                            <h6 class="mb-1">Annual Health Screening</h6>
+                            <p class="small text-muted mb-0">Due: {{ screening_due_date|default:"March 15, 2025"|date:"M d, Y" }}</p>
+                        </div>
+                    </div>
+
+                    <div class="notice-item mb-3">
+                        <div class="notice-icon">
+                            <i class="bi bi-shield-check text-success"></i>
+                        </div>
+                        <div class="notice-content">
+                            <h6 class="mb-1">Immunization Update</h6>
+                            <p class="small text-muted mb-0">All vaccinations up to date</p>
+                        </div>
+                    </div>
+
+                    {% if health_record and health_record.allergies %}
+                        <div class="notice-item">
+                            <div class="notice-icon">
+                                <i class="bi bi-exclamation-triangle text-warning"></i>
+                            </div>
+                            <div class="notice-content">
+                                <h6 class="mb-1">Allergy Alert</h6>
+                                <p class="small text-muted mb-0">Please review allergy information</p>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Access Sections -->
+    <div class="row">
+        <!-- Upcoming Appointments -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0" id="appointments">
+                        <i class="bi bi-calendar-event me-2"></i>Upcoming Appointments
+                    </h5>
+                    <a href="{% url 'health:appointment_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    {% if upcoming_appointments %}
+                        <div class="appointment-list">
+                            {% for appointment in upcoming_appointments|slice:":3" %}
+                                <div class="appointment-item mb-3 p-3 border rounded">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h6 class="mb-1">{{ appointment.get_appointment_type_display }}</h6>
+                                            <small class="text-muted">{{ appointment.healthcare_provider }}</small>
+                                        </div>
+                                        <span class="badge
+                                            {% if appointment.appointment_status == 'confirmed' %}bg-info
+                                            {% elif appointment.appointment_status == 'scheduled' %}bg-warning
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ appointment.get_appointment_status_display }}
+                                        </span>
+                                    </div>
+                                    <div class="appointment-details">
+                                        <p class="mb-1">
+                                            <i class="bi bi-calendar me-1"></i>{{ appointment.appointment_date|date:"l, M d, Y" }}
+                                            <i class="bi bi-clock ms-2 me-1"></i>{{ appointment.appointment_time }}
+                                        </p>
+                                        {% if appointment.reason_for_visit %}
+                                            <p class="small text-muted mb-0">{{ appointment.reason_for_visit|truncatechars:80 }}</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-calendar-x text-muted fs-1 mb-3"></i>
+                            <h6 class="text-muted">No Upcoming Appointments</h6>
+                            <p class="text-muted mb-3">You don't have any scheduled appointments.</p>
+                            <a href="{% url 'health:appointment_create' %}" class="btn btn-primary">
+                                <i class="bi bi-calendar-plus me-1"></i>Schedule Appointment
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Medications -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0" id="medications">
+                        <i class="bi bi-capsule me-2"></i>Current Medications
+                    </h5>
+                    <a href="{% url 'health:medication_list' %}" class="btn btn-sm btn-outline-success">View All</a>
+                </div>
+                <div class="card-body">
+                    {% if active_medications %}
+                        <div class="medication-list">
+                            {% for medication in active_medications|slice:":3" %}
+                                <div class="medication-item mb-3 p-3 border rounded">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h6 class="mb-1">{{ medication.medication_name }}</h6>
+                                            <small class="text-muted">{{ medication.get_medication_type_display }}</small>
+                                        </div>
+                                        <span class="badge
+                                            {% if medication.administration_status == 'administered' %}bg-success
+                                            {% elif medication.administration_status == 'pending' %}bg-warning
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ medication.get_administration_status_display }}
+                                        </span>
+                                    </div>
+                                    <div class="medication-details">
+                                        <p class="mb-1">
+                                            <i class="bi bi-clock me-1"></i>{{ medication.dosage_frequency }}
+                                            <span class="ms-2">{{ medication.dosage_amount }}</span>
+                                        </p>
+                                        {% if medication.dosage_instructions %}
+                                            <p class="small text-muted mb-0">{{ medication.dosage_instructions|truncatechars:60 }}</p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="medication-schedule mt-2">
+                                        <small class="text-muted">
+                                            Duration: {{ medication.start_date|date:"M d" }} -
+                                            {% if medication.end_date %}{{ medication.end_date|date:"M d" }}{% else %}Ongoing{% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-capsule text-muted fs-1 mb-3"></i>
+                            <h6 class="text-muted">No Active Medications</h6>
+                            <p class="text-muted mb-0">You don't have any active medications.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Screenings & Alerts -->
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0" id="screenings">
+                        <i class="bi bi-search me-2"></i>Recent Health Screenings
+                    </h5>
+                    <a href="{% url 'health:screening_list' %}" class="btn btn-sm btn-outline-info">View All</a>
+                </div>
+                <div class="card-body">
+                    {% if recent_screenings %}
+                        <div class="screening-list">
+                            {% for screening in recent_screenings|slice:":3" %}
+                                <div class="screening-item mb-3 p-3 border rounded">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h6 class="mb-1">{{ screening.get_screening_type_display }}</h6>
+                                            <small class="text-muted">{{ screening.conducted_by.get_full_name|default:"School Nurse" }}</small>
+                                        </div>
+                                        <span class="badge
+                                            {% if screening.screening_result == 'normal' %}bg-success
+                                            {% elif screening.screening_result == 'needs_attention' %}bg-warning
+                                            {% elif screening.screening_result == 'abnormal' %}bg-danger
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ screening.get_screening_result_display }}
+                                        </span>
+                                    </div>
+                                    <div class="screening-details">
+                                        <p class="mb-1">
+                                            <i class="bi bi-calendar me-1"></i>{{ screening.screening_date|date:"M d, Y" }}
+                                        </p>
+                                        {% if screening.result_details %}
+                                            <p class="small text-muted mb-0">{{ screening.result_details|truncatechars:80 }}</p>
+                                        {% endif %}
+                                        {% if screening.follow_up_required %}
+                                            <div class="mt-2">
+                                                <small class="text-info">
+                                                    <i class="bi bi-arrow-repeat me-1"></i>Follow-up required
+                                                    {% if screening.follow_up_date %}on {{ screening.follow_up_date|date:"M d" }}{% endif %}
+                                                </small>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-search text-muted fs-1 mb-3"></i>
+                            <h6 class="text-muted">No Recent Screenings</h6>
+                            <p class="text-muted mb-0">No health screenings have been recorded yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0" id="alerts">
+                        <i class="bi bi-exclamation-triangle me-2"></i>Health Alerts & Reminders
+                    </h5>
+                    <span class="badge bg-warning">{{ alerts_count|default:"2" }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="alert-item mb-3">
+                        <div class="alert alert-warning">
+                            <div class="d-flex">
+                                <div class="alert-icon me-3">
+                                    <i class="bi bi-calendar-event text-warning fs-4"></i>
+                                </div>
+                                <div>
+                                    <h6 class="alert-heading mb-1">Annual Physical Due</h6>
+                                    <p class="mb-1">Your annual physical examination is due within the next 2 weeks.</p>
+                                    <small class="text-muted">Priority: Medium</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert-item mb-3">
+                        <div class="alert alert-info">
+                            <div class="d-flex">
+                                <div class="alert-icon me-3">
+                                    <i class="bi bi-shield-check text-info fs-4"></i>
+                                </div>
+                                <div>
+                                    <h6 class="alert-heading mb-1">Immunization Reminder</h6>
+                                    <p class="mb-1">Flu vaccine is recommended for the upcoming season.</p>
+                                    <small class="text-muted">Priority: Low</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if health_record and health_record.allergies %}
+                        <div class="alert-item">
+                            <div class="alert alert-danger">
+                                <div class="d-flex">
+                                    <div class="alert-icon me-3">
+                                        <i class="bi bi-exclamation-triangle text-danger fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="alert-heading mb-1">Allergy Information</h6>
+                                        <p class="mb-1">Please ensure all staff are aware of your allergy information.</p>
+                                        <small class="text-muted">Priority: High</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emergency Contact Quick Access -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-person me-2"></i>Emergency Contact Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if emergency_contacts %}
+                        <div class="row">
+                            {% for contact in emergency_contacts|slice:":3" %}
+                                <div class="col-md-4 mb-3">
+                                    <div class="contact-card p-3 border rounded">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <div class="contact-avatar me-3">
+                                                <i class="bi bi-person-circle fs-2 text-primary"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-0">{{ contact.full_name }}</h6>
+                                                <small class="text-muted text-capitalize">{{ contact.get_relationship_display }}</small>
+                                                {% if contact.priority == 'primary' %}
+                                                    <span class="badge bg-warning text-dark ms-1">Primary</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="contact-info">
+                                            <p class="mb-1">
+                                                <i class="bi bi-telephone me-2"></i>{{ contact.phone_primary }}
+                                            </p>
+                                            {% if contact.email %}
+                                                <p class="mb-1">
+                                                    <i class="bi bi-envelope me-2"></i>{{ contact.email }}
+                                                </p>
+                                            {% endif %}
+                                            {% if contact.can_pickup_student %}
+                                                <small class="text-success">
+                                                    <i class="bi bi-check-circle me-1"></i>Authorized to pickup
+                                                </small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="text-center mt-3">
+                            <a href="{% url 'health:contact_list' %}" class="btn btn-outline-primary">
+                                <i class="bi bi-people me-1"></i>View All Emergency Contacts
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-person-x text-muted fs-1 mb-3"></i>
+                            <h6 class="text-muted">No Emergency Contacts</h6>
+                            <p class="text-muted mb-3">Emergency contact information hasn't been set up yet.</p>
+                            <button type="button" class="btn btn-primary" onclick="showEmergencyContactModal()">
+                                <i class="bi bi-person-plus me-1"></i>Add Emergency Contact
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dashboard Styles -->
+<style>
+.health-dashboard-container {
+    max-width: 100%;
+}
+
+.welcome-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.welcome-header h1 {
+    color: white;
+}
+
+.health-score {
+    text-align: center;
+}
+
+.score-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+}
+
+.score-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: white;
+}
+
+.score-label {
+    font-size: 0.875rem;
+    color: rgba(255,255,255,0.8);
+}
+
+.health-metric {
+    text-align: center;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.metric-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+.metric-value {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: #0d6efd;
+}
+
+.notice-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.notice-icon {
+    margin-right: 15px;
+    margin-top: 5px;
+}
+
+.notice-content h6 {
+    margin-bottom: 2px;
+}
+
+.appointment-item, .medication-item, .screening-item {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.appointment-item:hover, .medication-item:hover, .screening-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.contact-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.contact-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.contact-avatar {
+    color: #0d6efd;
+}
+
+.alert-item .alert {
+    margin-bottom: 0;
+}
+
+.alert-icon {
+    display: flex;
+    align-items: center;
+}
+
+.alert-heading {
+    color: inherit;
+    margin-bottom: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .welcome-header {
+        padding: 1.5rem;
+    }
+
+    .welcome-header .row {
+        text-align: center;
+    }
+
+    .health-score {
+        margin-top: 1rem;
+    }
+
+    .score-circle {
+        width: 80px;
+        height: 80px;
+    }
+
+    .score-number {
+        font-size: 1.5rem;
+    }
+}
+</style>
+
+<!-- Dashboard Scripts -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Download records functionality
+    document.getElementById('downloadRecordsBtn').addEventListener('click', function() {
+        showToast('Preparing your health records for download...', 'info');
+        // Simulate download preparation
+        setTimeout(() => {
+            showToast('Health records downloaded successfully!', 'success');
+        }, 2000);
+    });
+
+    // Emergency contacts functionality
+    document.getElementById('emergencyContactsBtn').addEventListener('click', function() {
+        window.location.href = "{% url 'health:contact_list' %}";
+    });
+
+    // Schedule appointment functionality
+    document.getElementById('scheduleAppointmentBtn').addEventListener('click', function() {
+        window.location.href = "{% url 'health:appointment_create' %}";
+    });
+
+    // Smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+
+    // Health score animation
+    const scoreElement = document.querySelector('.score-number');
+    if (scoreElement) {
+        const finalScore = parseInt(scoreElement.textContent);
+        animateScore(scoreElement, 0, finalScore, 1000);
+    }
+});
+
+// Global functions
+function animateScore(element, start, end, duration) {
+    const startTime = performance.now();
+
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        const current = Math.floor(start + (end - start) * progress);
+        element.textContent = current;
+
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        }
+    }
+
+    requestAnimationFrame(update);
+}
+
+function showEmergencyContactModal() {
+    showToast('Emergency contact setup would open here', 'info');
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'primary'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    `;
+
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+
+    toastContainer.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+
+    toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+    });
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + D to download records
+    if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        document.getElementById('downloadRecordsBtn').click();
+    }
+
+    // Ctrl/Cmd + A to schedule appointment
+    if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        document.getElementById('scheduleAppointmentBtn').click();
+    }
+});
+</script>
+{% endblock %}

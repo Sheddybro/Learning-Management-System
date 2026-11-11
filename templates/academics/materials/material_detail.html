@@ -1,0 +1,909 @@
+<!-- templates/academics/materials/material_detail.html -->
+{% extends 'academics/base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {{ material.title }}
+{% endblock %}
+
+{% block page_title %}
+    {{ material.title }}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'academics:dashboard' %}">{% trans "Academics" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'academics:material_list' %}">{% trans "Materials" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ material.title|truncatewords:5 }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'academics:material_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> {% trans "Back to Materials" %}
+        </a>
+        {% if user.teacher_profile == material.teacher or user.is_staff %}
+        <a href="{% url 'academics:material_update' material.pk %}" class="btn btn-outline-warning">
+            <i class="bi bi-pencil me-1"></i> {% trans "Edit" %}
+        </a>
+        {% endif %}
+        {% if material.file %}
+        <button type="button" class="btn btn-primary" onclick="downloadMaterial()">
+            <i class="bi bi-download me-1"></i> {% trans "Download" %}
+        </button>
+        {% endif %}
+        {% if material.external_url %}
+        <a href="{{ material.external_url }}" target="_blank" class="btn btn-info">
+            <i class="bi bi-box-arrow-up-right me-1"></i> {% trans "Visit Link" %}
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+.material-detail-container {
+    font-family: 'Inter', sans-serif;
+}
+
+.material-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 0.75rem;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.material-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.material-type-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    margin-right: 1.5rem;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+}
+
+.type-textbook { color: #e3f2fd; }
+.type-worksheet { color: #f3e5f5; }
+.type-presentation { color: #e8f5e8; }
+.type-video { color: #fff3e0; }
+.type-audio { color: #fce4ec; }
+.type-document { color: #e0f2f1; }
+.type-link { color: #fff8e1; }
+.type-quiz { color: #e8eaf6; }
+.type-assignment { color: #fbe9e7; }
+.type-syllabus { color: #e0f7fa; }
+.type-other { color: #f5f5f5; }
+
+.material-badges {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.info-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.info-card .card-header {
+    background: none;
+    border-bottom: 2px solid #e9ecef;
+    padding: 0 0 1rem 0;
+    margin-bottom: 1rem;
+}
+
+.info-card .card-title {
+    color: #495057;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.material-thumbnail {
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.metadata-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.metadata-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.metadata-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.metadata-value {
+    font-weight: 600;
+    color: #495057;
+}
+
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+
+.tag {
+    background: #e9ecef;
+    padding: 0.375rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+    color: #495057;
+}
+
+.file-preview {
+    background: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    border-radius: 0.75rem;
+    padding: 2rem;
+    text-align: center;
+    margin: 1.5rem 0;
+}
+
+.file-icon {
+    font-size: 4rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.file-info {
+    text-align: center;
+}
+
+.file-name {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.file-meta {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.version-history {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.version-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #e9ecef;
+    transition: background-color 0.2s ease;
+}
+
+.version-item:hover {
+    background: #f8f9fa;
+}
+
+.version-item:last-child {
+    border-bottom: none;
+}
+
+.version-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #0d6efd;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.version-content {
+    flex-grow: 1;
+}
+
+.version-date {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.version-notes {
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.current-version {
+    background: #e7f1ff;
+    border-left: 4px solid #0d6efd;
+}
+
+.related-materials {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.related-material-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    color: inherit;
+}
+
+.related-material-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    text-decoration: none;
+    color: inherit;
+}
+
+.related-material-type {
+    width: 40px;
+    height: 40px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.stat-card {
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #0d6efd;
+    display: block;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+.access-restricted {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    text-align: center;
+    margin: 1.5rem 0;
+}
+
+.teacher-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+}
+
+.teacher-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.download-btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.download-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: #0d6efd;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+@media (max-width: 768px) {
+    .material-header {
+        padding: 1.5rem;
+        text-align: center;
+    }
+    
+    .material-type-icon {
+        margin: 0 auto 1rem auto;
+    }
+    
+    .material-badges {
+        position: static;
+        justify-content: center;
+        margin-top: 1rem;
+    }
+    
+    .metadata-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .page-actions .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .page-actions .btn {
+        margin-bottom: 0.5rem;
+    }
+}
+
+.description-content {
+    line-height: 1.6;
+    color: #495057;
+}
+
+.description-content h1, 
+.description-content h2, 
+.description-content h3, 
+.description-content h4, 
+.description-content h5, 
+.description-content h6 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: #212529;
+}
+
+.description-content p {
+    margin-bottom: 1rem;
+}
+
+.description-content ul, 
+.description-content ol {
+    margin-bottom: 1rem;
+    padding-left: 2rem;
+}
+
+.description-content blockquote {
+    border-left: 4px solid #0d6efd;
+    padding-left: 1rem;
+    margin: 1.5rem 0;
+    font-style: italic;
+    color: #6c757d;
+}
+
+.acknowledgment-section {
+    background: #e7f3ff;
+    border: 1px solid #b3d9ff;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.acknowledgment-btn {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.expired-warning {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 1rem 0;
+    color: #721c24;
+}
+</style>
+
+<div class="material-detail-container">
+    <!-- Material Header -->
+    <div class="material-header">
+        <div class="d-flex align-items-center position-relative">
+            <div class="material-type-icon type-{{ material.material_type }}">
+                <i class="bi {{ material.get_icon_class }}"></i>
+            </div>
+            <div class="flex-grow-1 position-relative">
+                <h1 class="mb-2">{{ material.title }}</h1>
+                <p class="lead mb-0 opacity-90">{{ material.description|truncatewords:30 }}</p>
+            </div>
+        </div>
+        
+        <div class="material-badges">
+            {% if material.is_featured %}
+            <span class="badge bg-warning">
+                <i class="bi bi-star-fill me-1"></i> {% trans "Featured" %}
+            </span>
+            {% endif %}
+            {% if material.is_expired %}
+            <span class="badge bg-danger">
+                <i class="bi bi-clock me-1"></i> {% trans "Expired" %}
+            </span>
+            {% endif %}
+            <span class="badge bg-{{ material.get_access_level_color }}">
+                {{ material.get_access_level_display }}
+            </span>
+            {% if not material.is_public %}
+            <span class="badge bg-secondary">
+                <i class="bi bi-lock me-1"></i> {% trans "Private" %}
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Content Column -->
+        <div class="col-lg-8">
+            <!-- Material Content -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-file-text"></i> {% trans "Material Content" %}
+                    </h5>
+                </div>
+                
+                {% if material.is_expired %}
+                <div class="expired-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>{% trans "This material has expired." %}</strong>
+                    {% trans "It may no longer be relevant or accurate." %}
+                </div>
+                {% endif %}
+
+                {% if material.thumbnail %}
+                <img src="{{ material.thumbnail.url }}" alt="{{ material.title }}" class="material-thumbnail">
+                {% endif %}
+
+                {% if material.description %}
+                <div class="description-content">
+                    {{ material.description|linebreaks }}
+                </div>
+                {% endif %}
+
+                <!-- File Preview or External Link -->
+                {% if material.file %}
+                <div class="file-preview">
+                    <div class="file-icon">
+                        <i class="bi {{ material.get_file_icon_class }}"></i>
+                    </div>
+                    <div class="file-info">
+                        <div class="file-name">{{ material.get_file_name }}</div>
+                        <div class="file-meta">
+                            {{ material.get_file_extension|upper }} • {{ material.get_file_size_display }}
+                        </div>
+                    </div>
+                </div>
+                {% elif material.external_url %}
+                <div class="alert alert-info">
+                    <i class="bi bi-link-45deg me-2"></i>
+                    <strong>{% trans "External Resource:" %}</strong>
+                    <a href="{{ material.external_url }}" target="_blank" class="alert-link">
+                        {{ material.external_url }}
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- Acknowledgment Section -->
+                {% if material.requires_acknowledgment and user.student_profile %}
+                <div class="acknowledgment-section">
+                    <h6><i class="bi bi-check-circle me-2"></i>{% trans "Acknowledgment Required" %}</h6>
+                    <p class="mb-2">{% trans "Please confirm that you have reviewed this material." %}</p>
+                    {% if user_acknowledgment %}
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-lg me-2"></i>
+                        {% trans "Acknowledged on" %} {{ user_acknowledgment.acknowledged_at|date:"M d, Y" }}
+                    </div>
+                    {% else %}
+                    <button class="btn btn-success acknowledgment-btn" onclick="acknowledgeMaterial()">
+                        <i class="bi bi-check-lg me-2"></i> {% trans "I Acknowledge This Material" %}
+                    </button>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Version History -->
+            {% if material.revisions.exists or material.parent_material %}
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-clock-history"></i> {% trans "Version History" %}
+                    </h5>
+                </div>
+                
+                <div class="version-history">
+                    {% if material.parent_material %}
+                    <!-- Parent version -->
+                    <div class="version-item">
+                        <div class="version-badge bg-secondary">v{{ material.parent_material.version }}</div>
+                        <div class="version-content">
+                            <strong>{% trans "Previous Version" %}</strong>
+                            <div class="version-date">
+                                {{ material.parent_material.publish_date|date:"F d, Y" }}
+                            </div>
+                            {% if material.parent_material.change_log %}
+                            <div class="version-notes">
+                                {{ material.parent_material.change_log }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'academics:material_detail' material.parent_material.pk %}" 
+                           class="btn btn-outline-primary btn-sm">
+                            {% trans "View" %}
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    <!-- Current version -->
+                    <div class="version-item current-version">
+                        <div class="version-badge">v{{ material.version }}</div>
+                        <div class="version-content">
+                            <strong>{% trans "Current Version" %}</strong>
+                            <div class="version-date">
+                                {{ material.publish_date|date:"F d, Y" }}
+                                {% if material.change_log %}({{ material.change_log }}){% endif %}
+                            </div>
+                            {% if material.change_log %}
+                            <div class="version-notes">
+                                {{ material.change_log }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Child revisions -->
+                    {% for revision in material.revisions.all %}
+                    <div class="version-item">
+                        <div class="version-badge bg-light text-dark">v{{ revision.version }}</div>
+                        <div class="version-content">
+                            <strong>{% trans "Later Version" %}</strong>
+                            <div class="version-date">
+                                {{ revision.publish_date|date:"F d, Y" }}
+                            </div>
+                            {% if revision.change_log %}
+                            <div class="version-notes">
+                                {{ revision.change_log }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'academics:material_detail' revision.pk %}" 
+                           class="btn btn-outline-primary btn-sm">
+                            {% trans "View" %}
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar Column -->
+        <div class="col-lg-4">
+            <!-- Material Information -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-info-circle"></i> {% trans "Material Information" %}
+                    </h5>
+                </div>
+                
+                <div class="metadata-grid">
+                    <div class="metadata-item">
+                        <span class="metadata-label">{% trans "Type" %}</span>
+                        <span class="metadata-value">
+                            <i class="bi {{ material.get_icon_class }} me-1"></i>
+                            {{ material.get_material_type_display }}
+                        </span>
+                    </div>
+                    
+                    <div class="metadata-item">
+                        <span class="metadata-label">{% trans "Subject" %}</span>
+                        <span class="metadata-value">{{ material.subject.name }}</span>
+                    </div>
+                    
+                    <div class="metadata-item">
+                        <span class="metadata-label">{% trans "Class" %}</span>
+                        <span class="metadata-value">{{ material.class_assigned.name }}</span>
+                    </div>
+                    
+                    <div class="metadata-item">
+                        <span class="metadata-label">{% trans "Published" %}</span>
+                        <span class="metadata-value">{{ material.publish_date|date:"M d, Y" }}</span>
+                    </div>
+                    
+                    {% if material.expiry_date %}
+                    <div class="metadata-item">
+                        <span class="metadata-label">{% trans "Expires" %}</span>
+                        <span class="metadata-value">{{ material.expiry_date|date:"M d, Y" }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="metadata-item">
+                        <span class="metadata-label">{% trans "Access" %}</span>
+                        <span class="metadata-value">{{ material.get_access_level_display }}</span>
+                    </div>
+                </div>
+
+                <!-- Tags -->
+                {% if material.tags %}
+                <div class="metadata-item">
+                    <span class="metadata-label">{% trans "Tags" %}</span>
+                    <div class="tags-container">
+                        {% for tag in material.get_tags_list %}
+                        <span class="tag">{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Statistics -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-graph-up"></i> {% trans "Statistics" %}
+                    </h5>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-number">{{ material.view_count }}</span>
+                        <span class="stat-label">{% trans "Views" %}</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number">{{ material.download_count }}</span>
+                        <span class="stat-label">{% trans "Downloads" %}</span>
+                    </div>
+                    {% if material.requires_acknowledgment %}
+                    <div class="stat-card">
+                        <span class="stat-number">{{ acknowledgment_count }}</span>
+                        <span class="stat-label">{% trans "Acknowledged" %}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="metadata-item">
+                    <span class="metadata-label">{% trans "Last Viewed" %}</span>
+                    <span class="metadata-value">
+                        {% if material.last_viewed %}
+                            {{ material.last_viewed|timesince }} {% trans "ago" %}
+                        {% else %}
+                            {% trans "Never" %}
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="metadata-item">
+                    <span class="metadata-label">{% trans "Last Downloaded" %}</span>
+                    <span class="metadata-value">
+                        {% if material.last_downloaded %}
+                            {{ material.last_downloaded|timesince }} {% trans "ago" %}
+                        {% else %}
+                            {% trans "Never" %}
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Teacher Information -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-person"></i> {% trans "Created By" %}
+                    </h5>
+                </div>
+                
+                <div class="teacher-info">
+                    {% if material.teacher.photo %}
+                    <img src="{{ material.teacher.photo.url }}" alt="{{ material.teacher.user.get_full_name }}" class="teacher-avatar">
+                    {% else %}
+                    <div class="teacher-avatar bg-primary text-white d-flex align-items-center justify-content-center">
+                        {{ material.teacher.user.get_initials }}
+                    </div>
+                    {% endif %}
+                    <div>
+                        <h6 class="mb-1">{{ material.teacher.user.get_full_name }}</h6>
+                        <p class="text-muted mb-1 small">{{ material.teacher.teacher_id }}</p>
+                        <p class="text-muted mb-0 small">{{ material.teacher.department.name }}</p>
+                    </div>
+                </div>
+                
+                {% if material.teacher.bio %}
+                <p class="small text-muted mt-2">{{ material.teacher.bio|truncatewords:30 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Related Materials -->
+            {% if related_materials %}
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-collection"></i> {% trans "Related Materials" %}
+                    </h5>
+                </div>
+                
+                <div class="related-materials">
+                    {% for related in related_materials %}
+                    <a href="{% url 'academics:material_detail' related.pk %}" class="related-material-card">
+                        <div class="d-flex align-items-center">
+                            <div class="related-material-type type-{{ related.material_type }}">
+                                <i class="bi {{ related.get_icon_class }}"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ related.title|truncatewords:4 }}</h6>
+                                <small class="text-muted">{{ related.get_material_type_display }}</small>
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Download Modal -->
+<div class="modal fade" id="downloadModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">{% trans "Downloading..." %}</span>
+                </div>
+                <p class="mb-0">{% trans "Preparing your download..." %}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class MaterialDetailView {
+    constructor() {
+        this.materialId = {{ material.pk }};
+        this.init();
+    }
+
+    init() {
+        this.setupEventListeners();
+        this.trackView();
+    }
+
+    setupEventListeners() {
+        // Setup any additional event listeners if needed
+    }
+
+    trackView() {
+        // Track material view
+        fetch(`/academics/api/materials/${this.materialId}/increment-view/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': window.CSRF_TOKEN,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('View count incremented');
+            }
+        })
+        .catch(error => {
+            console.error('Error incrementing view count:', error);
+        });
+    }
+}
+
+// Global download function
+function downloadMaterial() {
+    const downloadModal = new bootstrap.Modal(document.getElementById('downloadModal'));
+    downloadModal.show();
+
+    // Increment download count
+    fetch(`/academics/api/materials/{{ material.pk }}/increment-download/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': window.CSRF_TOKEN,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Start actual download
+            setTimeout(() => {
+                {% if material.file %}
+                window.location.href = '{{ material.file.url }}?download=true';
+                {% endif %}
+                downloadModal.hide();
+            }, 1000);
+        }
+    })
+    .catch(error => {
+        console.error('Error downloading material:', error);
+        downloadModal.hide();
+        alert('{% trans "Error downloading material. Please try again." %}');
+    });
+}
+
+// Acknowledgment function
+function acknowledgeMaterial() {
+    fetch(`/academics/api/materials/{{ material.pk }}/acknowledge/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': window.CSRF_TOKEN,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('{% trans "Error acknowledging material. Please try again." %}');
+        }
+    })
+    .catch(error => {
+        console.error('Error acknowledging material:', error);
+        alert('{% trans "Error acknowledging material. Please try again." %}');
+    });
+}
+
+// Initialize when document is ready
+document.addEventListener('DOMContentLoaded', function() {
+    window.materialDetailView = new MaterialDetailView();
+});
+</script>
+{% endblock %}

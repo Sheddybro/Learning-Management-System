@@ -1,0 +1,698 @@
+<!-- templates/transport/incidentreports/incidentreport_detail.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Incident Report Details" %} - {{ incident.incident_type|title }}{% endblock %}
+
+{% block page_title %}{% trans "Incident Report Details" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:incidentreport_list' %}">{% trans "Incident Reports" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Incident Details" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Incident Detail Specific Styles */
+    .incident-detail-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .detail-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #6c757d;
+        overflow: hidden;
+    }
+    
+    .detail-card.critical { border-left-color: #dc3545; }
+    .detail-card.high { border-left-color: #fd7e14; }
+    .detail-card.medium { border-left-color: #ffc107; }
+    .detail-card.low { border-left-color: #28a745; }
+    
+    .detail-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .detail-body {
+        padding: 2rem;
+    }
+    
+    .detail-section {
+        margin-bottom: 2rem;
+    }
+    
+    .detail-section:last-child {
+        margin-bottom: 0;
+    }
+    
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .info-item {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .info-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+    }
+    
+    .info-value {
+        font-size: 1rem;
+        color: #2c3e50;
+        font-weight: 500;
+    }
+    
+    .info-value-lg {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    
+    .severity-badge {
+        font-size: 0.8rem;
+        font-weight: 700;
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .severity-critical { background-color: #dc3545; color: white; }
+    .severity-high { background-color: #fd7e14; color: white; }
+    .severity-medium { background-color: #ffc107; color: #212529; }
+    .severity-low { background-color: #28a745; color: white; }
+    
+    .type-badge {
+        background-color: #6f42c1;
+        color: white;
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .content-box {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.25rem;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .content-text {
+        line-height: 1.6;
+        color: #495057;
+        white-space: pre-wrap;
+    }
+    
+    .students-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .student-card {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .student-card:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    .student-name {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.25rem;
+    }
+    
+    .student-info {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+    
+    .timeline-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -2rem;
+        top: 0.25rem;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #0d6efd;
+        border: 2px solid white;
+        box-shadow: 0 0 0 2px #0d6efd;
+    }
+    
+    .timeline-date {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    
+    .timeline-content {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+    
+    .status-pending {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    
+    .status-in-progress {
+        background-color: #cce7ff;
+        color: #004085;
+        border: 1px solid #b3d7ff;
+    }
+    
+    .status-resolved {
+        background-color: #d1fae5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+    }
+    
+    .print-only {
+        display: none;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .detail-header {
+            padding: 1.25rem;
+        }
+        
+        .detail-body {
+            padding: 1.25rem;
+        }
+        
+        .info-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .action-buttons .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+    }
+    
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        
+        .print-only {
+            display: block;
+        }
+        
+        .detail-card {
+            box-shadow: none;
+            border: 1px solid #dee2e6;
+        }
+        
+        .btn {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="incident-detail-container">
+    <!-- Header Actions -->
+    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+        <div>
+            <a href="{% url 'transport:incidentreport_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> {% trans "Back to List" %}
+            </a>
+        </div>
+        <div class="action-buttons">
+            <button class="btn btn-outline-secondary" onclick="window.print()">
+                <i class="fas fa-print me-1"></i> {% trans "Print" %}
+            </button>
+            {% if perms.transport.change_incidentreport %}
+            <a href="{% url 'transport:incidentreport_update' incident.pk %}" class="btn btn-outline-primary">
+                <i class="fas fa-edit me-1"></i> {% trans "Edit" %}
+            </a>
+            {% endif %}
+            {% if perms.transport.delete_incidentreport %}
+            <a href="{% url 'transport:incidentreport_delete' incident.pk %}" class="btn btn-outline-danger">
+                <i class="fas fa-trash me-1"></i> {% trans "Delete" %}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Print Header -->
+    <div class="print-only mb-4">
+        <h1>{% trans "Incident Report" %}</h1>
+        <p class="text-muted">{% trans "Generated on" %} {% now "F d, Y H:i" %}</p>
+        <hr>
+    </div>
+
+    <!-- Main Incident Card -->
+    <div class="detail-card {{ incident.severity }}">
+        <div class="detail-header">
+            <div class="d-flex justify-content-between align-items-start flex-wrap">
+                <div>
+                    <h2 class="mb-2">{{ incident.incident_type|title }} - {{ incident.route_schedule.route.code }}</h2>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <span class="severity-badge severity-{{ incident.severity }}">
+                            {{ incident.get_severity_display }}
+                        </span>
+                        <span class="type-badge">
+                            {{ incident.get_incident_type_display }}
+                        </span>
+                        {% if incident.follow_up_required %}
+                        <span class="status-indicator status-pending">
+                            <i class="fas fa-exclamation-circle"></i>
+                            {% trans "Follow-up Required" %}
+                        </span>
+                        {% else %}
+                        <span class="status-indicator status-resolved">
+                            <i class="fas fa-check-circle"></i>
+                            {% trans "Resolved" %}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="text-md-end mt-2 mt-md-0">
+                    <div class="text-muted">{% trans "Report ID" %}: <strong>#{{ incident.id|stringformat:"06d" }}</strong></div>
+                    <div class="text-muted">{% trans "Created" %}: {{ incident.created_at|date:"M d, Y H:i" }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-body">
+            <!-- Basic Information Section -->
+            <div class="detail-section">
+                <h3 class="section-title">{% trans "Basic Information" %}</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Route Schedule" %}</span>
+                        <span class="info-value-lg">{{ incident.route_schedule.route.code }} - {{ incident.route_schedule.route.name }}</span>
+                        <small class="text-muted">
+                            {{ incident.route_schedule.vehicle.vehicle_number }} • 
+                            {{ incident.route_schedule.driver.user.get_full_name }}
+                        </small>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Date & Time" %}</span>
+                        <span class="info-value-lg">{{ incident.date|date:"F d, Y" }}</span>
+                        <span class="info-value">{{ incident.time|time:"H:i" }}</span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Location" %}</span>
+                        <span class="info-value-lg">{{ incident.location }}</span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Reported By" %}</span>
+                        <span class="info-value-lg">{{ incident.reported_by.get_full_name|default:incident.reported_by.username }}</span>
+                        <span class="text-muted">{{ incident.reported_by.email }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Incident Details Section -->
+            <div class="detail-section">
+                <h3 class="section-title">{% trans "Incident Details" %}</h3>
+                <div class="content-box">
+                    <div class="mb-3">
+                        <strong class="info-label">{% trans "Description" %}</strong>
+                        <div class="content-text mt-2">{{ incident.description|linebreaks }}</div>
+                    </div>
+                    
+                    <div>
+                        <strong class="info-label">{% trans "Immediate Action Taken" %}</strong>
+                        <div class="content-text mt-2">{{ incident.action_taken|linebreaks }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Affected Students Section -->
+            {% if incident.students_affected.exists %}
+            <div class="detail-section">
+                <h3 class="section-title">{% trans "Affected Students" %}</h3>
+                <div class="students-grid">
+                    {% for student in incident.students_affected.all %}
+                    <div class="student-card">
+                        <div class="student-name">
+                            {{ student.get_full_name }}
+                        </div>
+                        <div class="student-info">
+                            {% if student.grade_level %}
+                            Grade {{ student.grade_level }} • 
+                            {% endif %}
+                            ID: {{ student.student_id }}
+                        </div>
+                        {% if student.emergency_contact %}
+                        <div class="student-info">
+                            <small>Emergency: {{ student.emergency_contact }}</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Follow-up Information Section -->
+            <div class="detail-section">
+                <h3 class="section-title">{% trans "Follow-up Information" %}</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Follow-up Required" %}</span>
+                        <span class="info-value">
+                            {% if incident.follow_up_required %}
+                            <span class="badge bg-warning">{% trans "Yes" %}</span>
+                            {% else %}
+                            <span class="badge bg-success">{% trans "No" %}</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    
+                    {% if incident.follow_up_notes %}
+                    <div class="info-item" style="grid-column: 1 / -1;">
+                        <span class="info-label">{% trans "Follow-up Notes" %}</span>
+                        <div class="content-box mt-2">
+                            <div class="content-text">{{ incident.follow_up_notes|linebreaks }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- System Information Section -->
+            <div class="detail-section">
+                <h3 class="section-title">{% trans "System Information" %}</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Status" %}</span>
+                        <span class="info-value">{{ incident.get_status_display }}</span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Created" %}</span>
+                        <span class="info-value">{{ incident.created_at|date:"M d, Y H:i" }}</span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Last Updated" %}</span>
+                        <span class="info-value">{{ incident.updated_at|date:"M d, Y H:i" }}</span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Created By" %}</span>
+                        <span class="info-value">{{ incident.created_by.get_full_name|default:incident.created_by.username }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Related Information Card -->
+    <div class="detail-card no-print">
+        <div class="detail-body">
+            <h3 class="section-title">{% trans "Related Information" %}</h3>
+            
+            <!-- Route Information -->
+            <div class="mb-4">
+                <h5 class="mb-3">{% trans "Route Details" %}</h5>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Route" %}</span>
+                        <span class="info-value">{{ incident.route_schedule.route.code }} - {{ incident.route_schedule.route.name }}</span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Vehicle" %}</span>
+                        <span class="info-value">
+                            {{ incident.route_schedule.vehicle.vehicle_number }}
+                            ({{ incident.route_schedule.vehicle.make }} {{ incident.route_schedule.vehicle.model }})
+                        </span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Driver" %}</span>
+                        <span class="info-value">{{ incident.route_schedule.driver.user.get_full_name }}</span>
+                    </div>
+                    
+                    {% if incident.route_schedule.attendant %}
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Attendant" %}</span>
+                        <span class="info-value">{{ incident.route_schedule.attendant.user.get_full_name }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="mt-4 p-3 bg-light rounded">
+                <h6 class="mb-3">{% trans "Quick Actions" %}</h6>
+                <div class="action-buttons">
+                    <button class="btn btn-outline-info btn-sm" onclick="emailIncidentReport()">
+                        <i class="fas fa-envelope me-1"></i> {% trans "Email Report" %}
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="markAsResolved()">
+                        <i class="fas fa-check me-1"></i> {% trans "Mark as Resolved" %}
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="addFollowUpNote()">
+                        <i class="fas fa-sticky-note me-1"></i> {% trans "Add Note" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Timeline (Optional) -->
+    <div class="detail-card no-print">
+        <div class="detail-body">
+            <h3 class="section-title">{% trans "Activity Timeline" %}</h3>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-date">{% trans "Incident Occurred" %} • {{ incident.date|date:"M d, Y" }} {{ incident.time|time:"H:i" }}</div>
+                    <div class="timeline-content">
+                        <strong>{% trans "Incident Reported" %}</strong>
+                        <p class="mb-0">{% trans "Initial incident report created" %}</p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-date">{{ incident.created_at|date:"M d, Y H:i" }}</div>
+                    <div class="timeline-content">
+                        <strong>{% trans "Report Created" %}</strong>
+                        <p class="mb-0">{% trans "Incident report formally documented in the system" %}</p>
+                    </div>
+                </div>
+                
+                {% if incident.follow_up_required %}
+                <div class="timeline-item">
+                    <div class="timeline-date">{% trans "Pending" %}</div>
+                    <div class="timeline-content">
+                        <strong>{% trans "Follow-up Required" %}</strong>
+                        <p class="mb-0">{% trans "Additional action needed to resolve this incident" %}</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize any interactive elements
+        initializeDetailPage();
+        
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl + P for print
+            if (e.ctrlKey && e.key === 'p') {
+                e.preventDefault();
+                window.print();
+            }
+            
+            // Escape key to go back
+            if (e.key === 'Escape') {
+                window.history.back();
+            }
+        });
+    });
+
+    function initializeDetailPage() {
+        // Add copy ID functionality
+        const incidentId = '{{ incident.id }}';
+        const copyIdBtn = document.createElement('button');
+        copyIdBtn.className = 'btn btn-outline-secondary btn-sm ms-2';
+        copyIdBtn.innerHTML = '<i class="fas fa-copy"></i>';
+        copyIdBtn.title = '{% trans "Copy Incident ID" %}';
+        copyIdBtn.onclick = function() {
+            navigator.clipboard.writeText(incidentId).then(function() {
+                showNotification('{% trans "Incident ID copied to clipboard" %}', 'success');
+            });
+        };
+        
+        // Find the incident ID element and append copy button
+        const incidentIdElement = document.querySelector('.text-muted:contains("Report ID")');
+        if (incidentIdElement) {
+            incidentIdElement.appendChild(copyIdBtn);
+        }
+
+        // Initialize severity-based styling
+        const severity = '{{ incident.severity }}';
+        applySeverityStyling(severity);
+    }
+
+    function applySeverityStyling(severity) {
+        // You can add additional severity-based styling here
+        console.log('Applied styling for severity:', severity);
+    }
+
+    // Action Functions
+    function emailIncidentReport() {
+        const subject = encodeURIComponent('Incident Report: {{ incident.incident_type|title }} - {{ incident.route_schedule.route.code }}');
+        const body = encodeURIComponent(
+            `Incident Report Details:\n\n` +
+            `Type: {{ incident.get_incident_type_display }}\n` +
+            `Severity: {{ incident.get_severity_display }}\n` +
+            `Date: {{ incident.date|date:"F d, Y" }}\n` +
+            `Time: {{ incident.time|time:"H:i" }}\n` +
+            `Location: {{ incident.location }}\n` +
+            `Route: {{ incident.route_schedule.route.code }}\n\n` +
+            `View full details: ${window.location.href}`
+        );
+        
+        window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+    }
+
+    function markAsResolved() {
+        if (confirm('{% trans "Are you sure you want to mark this incident as resolved?" %}')) {
+            // In a real implementation, this would make an API call to update the incident
+            showNotification('{% trans "Incident marked as resolved" %}', 'success');
+            
+            // Simulate API call
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+    }
+
+    function addFollowUpNote() {
+        const note = prompt('{% trans "Enter follow-up note:" %}');
+        if (note) {
+            // In a real implementation, this would make an API call to add the note
+            showNotification('{% trans "Follow-up note added" %}', 'success');
+            
+            // Simulate API call and reload
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+    }
+
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 3000);
+    }
+
+    // Utility function to check if element contains text
+    jQuery.expr[':'].contains = function(a, i, m) {
+        return jQuery(a).text().toUpperCase().indexOf(m[3].toUpperCase()) >= 0;
+    };
+</script>
+{% endblock %}

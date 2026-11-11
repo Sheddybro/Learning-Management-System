@@ -1,0 +1,693 @@
+<!-- apps/assessment/templates/assessment/results/reportcard_list.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Report Cards{% endblock %}
+
+{% block page_title %}Report Cards{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'assessment:dashboard' %}">Assessment</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Report Cards</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        {% if user.teacher_profile %}
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+            <i class="bi bi-funnel me-1"></i> Filter
+        </button>
+        <a href="{% url 'assessment:analytics' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-graph-up me-1"></i> Analytics
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="reportcard-list-container">
+    <!-- Summary Cards -->
+    {% if user.teacher_profile %}
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-primary">
+                            <i class="bi bi-file-text"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">{{ total_report_cards }}</h4>
+                            <p class="text-muted mb-0">Total Report Cards</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-success">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">{{ approved_count }}</h4>
+                            <p class="text-muted mb-0">Approved</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-warning">
+                            <i class="bi bi-clock"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">{{ pending_approval }}</h4>
+                            <p class="text-muted mb-0">Pending Approval</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-info">
+                            <i class="bi bi-people"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">{{ report_cards.count }}</h4>
+                            <p class="text-muted mb-0">This Page</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Report Cards List -->
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-file-earmark-text me-2"></i>
+                    {% if user.student_profile %}
+                    My Report Cards
+                    {% else %}
+                    All Report Cards
+                    {% endif %}
+                </h5>
+                
+                <!-- Search and Filter Badges -->
+                <div class="d-flex align-items-center">
+                    {% if request.GET %}
+                    <div class="filter-badges me-3">
+                        {% for key, value in request.GET.items %}
+                            {% if key != 'page' and value %}
+                            <span class="badge bg-light text-dark me-1">
+                                {{ key }}: {{ value }}
+                                <a href="?{% for k, v in request.GET.items %}{% if k != key %}{{ k }}={{ v }}&{% endif %}{% endfor %}" class="text-decoration-none">
+                                    <i class="bi bi-x"></i>
+                                </a>
+                            </span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="input-group input-group-sm" style="width: 250px;">
+                        <input type="text" class="form-control" placeholder="Search..." id="searchInput">
+                        <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            {% if report_cards %}
+            <div class="table-responsive">
+                <table class="table table-hover" id="reportcardsTable">
+                    <thead>
+                        <tr>
+                            {% if user.teacher_profile %}
+                            <th>Student</th>
+                            {% endif %}
+                            <th>Class</th>
+                            <th>Exam Type</th>
+                            <th>Overall Grade</th>
+                            <th>Percentage</th>
+                            <th>Rank</th>
+                            <th>Status</th>
+                            <th>Generated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report_card in report_cards %}
+                        <tr class="reportcard-item {% if not report_card.is_approved %}table-warning{% endif %}">
+                            {% if user.teacher_profile %}
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm me-2">
+                                        {% if report_card.student.user.profile_picture %}
+                                        <img src="{{ report_card.student.user.profile_picture.url }}" 
+                                             alt="{{ report_card.student.user.get_full_name }}" 
+                                             class="rounded-circle" width="32" height="32">
+                                        {% else %}
+                                        <div class="avatar-placeholder rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" 
+                                             style="width: 32px; height: 32px;">
+                                            {{ report_card.student.user.get_full_name|make_list|first|upper }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">{{ report_card.student.user.get_full_name }}</h6>
+                                        <small class="text-muted">{{ report_card.student.roll_number }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            {% endif %}
+                            
+                            <td>
+                                <span class="fw-semibold">{{ report_card.academic_class.name }}</span>
+                            </td>
+                            
+                            <td>
+                                <span class="badge exam-type-badge exam-type-{{ report_card.exam_type.code|lower }}">
+                                    {{ report_card.exam_type.name }}
+                                </span>
+                            </td>
+                            
+                            <td>
+                                {% if report_card.result.grade %}
+                                <span class="grade-badge grade-{{ report_card.result.grade.grade|lower }}">
+                                    {{ report_card.result.grade.grade }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td>
+                                <div class="percentage-display">
+                                    <span class="fw-bold {% if report_card.result.percentage >= 75 %}text-success{% elif report_card.result.percentage >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                                        {{ report_card.result.percentage|floatformat:1 }}%
+                                    </span>
+                                </div>
+                            </td>
+                            
+                            <td>
+                                {% if report_card.result.rank %}
+                                <span class="badge bg-light text-dark">
+                                    #{{ report_card.result.rank }}/{{ report_card.result.total_students }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td>
+                                {% if report_card.is_approved %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle me-1"></i>Approved
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning">
+                                    <i class="bi bi-clock me-1"></i>Pending
+                                </span>
+                                {% endif %}
+                                
+                                {% if report_card.parent_signature %}
+                                <span class="badge bg-info ms-1" title="Parent Signature Received">
+                                    <i class="bi bi-pen"></i>
+                                </span>
+                                {% endif %}
+                            </td>
+                            
+                            <td>
+                                <small class="text-muted">
+                                    {{ report_card.generated_at|date:"M d, Y" }}<br>
+                                    <span class="text-muted">by {{ report_card.generated_by.user.get_full_name }}</span>
+                                </small>
+                            </td>
+                            
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{% url 'assessment:reportcard_detail' report_card.pk %}" 
+                                       class="btn btn-outline-primary" title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    
+                                    {% if user.teacher_profile and not report_card.is_approved %}
+                                    <button type="button" 
+                                            class="btn btn-outline-success approve-btn" 
+                                            title="Approve Report Card"
+                                            data-reportcard-id="{{ report_card.pk }}"
+                                            data-student-name="{{ report_card.student.user.get_full_name }}">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if user.teacher_profile %}
+                                    <a href="#" class="btn btn-outline-secondary" title="Print Report Card">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="Report cards pagination">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+            
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-file-earmark-x display-4 text-muted mb-3"></i>
+                <h4>No Report Cards Found</h4>
+                <p class="text-muted">
+                    {% if user.student_profile %}
+                    You don't have any report cards yet.
+                    {% else %}
+                    No report cards match your current filters.
+                    {% endif %}
+                </p>
+                {% if user.teacher_profile %}
+                <a href="{% url 'assessment:result_list' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i> Generate Report Cards
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal -->
+{% if user.teacher_profile %}
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterModalLabel">
+                    <i class="bi bi-funnel me-2"></i>Filter Report Cards
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="get" id="filterForm">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="classFilter" class="form-label">Class</label>
+                            <select class="form-select" id="classFilter" name="class_id">
+                                <option value="">All Classes</option>
+                                {% for class in classes %}
+                                <option value="{{ class.id }}" {% if request.GET.class_id == class.id|stringformat:"i" %}selected{% endif %}>
+                                    {{ class.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label for="examTypeFilter" class="form-label">Exam Type</label>
+                            <select class="form-select" id="examTypeFilter" name="exam_type_id">
+                                <option value="">All Exam Types</option>
+                                {% for exam_type in exam_types %}
+                                <option value="{{ exam_type.id }}" {% if request.GET.exam_type_id == exam_type.id|stringformat:"i" %}selected{% endif %}>
+                                    {{ exam_type.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label for="statusFilter" class="form-label">Status</label>
+                            <select class="form-select" id="statusFilter" name="status">
+                                <option value="">All Status</option>
+                                <option value="approved" {% if request.GET.status == 'approved' %}selected{% endif %}>Approved</option>
+                                <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending Approval</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Date Range</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="date" class="form-control" name="date_from" 
+                                           value="{{ request.GET.date_from }}" placeholder="From Date">
+                                </div>
+                                <div class="col-6">
+                                    <input type="date" class="form-control" name="date_to" 
+                                           value="{{ request.GET.date_to }}" placeholder="To Date">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="{% url 'assessment:reportcard_list' %}" class="btn btn-outline-danger">Clear Filters</a>
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Approval Confirmation Modal -->
+<div class="modal fade" id="approvalModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Approve Report Card</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to approve the report card for <strong id="studentName"></strong>?</p>
+                <p class="text-muted small">Once approved, the report card will be visible to the student and parents.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="approvalForm" method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success">Approve Report Card</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.reportcard-list-container {
+    max-width: 100%;
+}
+
+/* Stat Cards */
+.stat-card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: transform 0.2s ease-in-out;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+}
+
+/* Table Styles */
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.table td {
+    vertical-align: middle;
+    padding: 1rem 0.75rem;
+}
+
+.reportcard-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Avatar Styles */
+.avatar-placeholder {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+/* Badge Styles */
+.exam-type-badge {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.exam-type-final { background-color: #dc3545; color: white; }
+.exam-type-midterm { background-color: #fd7e14; color: white; }
+.exam-type-unit { background-color: #20c997; color: white; }
+.exam-type-quiz { background-color: #0dcaf0; color: white; }
+
+.grade-badge {
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+}
+
+.grade-a, .grade-a-plus { background-color: #198754; color: white; }
+.grade-b, .grade-b-plus { background-color: #20c997; color: white; }
+.grade-c, .grade-c-plus { background-color: #ffc107; color: #000; }
+.grade-d, .grade-f { background-color: #dc3545; color: white; }
+
+/* Filter Badges */
+.filter-badges .badge {
+    font-size: 0.75rem;
+}
+
+/* Percentage Display */
+.percentage-display {
+    font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .page-actions .btn-group {
+        flex-wrap: wrap;
+    }
+    
+    .stat-card .d-flex {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .stat-icon {
+        margin: 0 auto 0.5rem auto;
+    }
+}
+
+/* Loading Animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.reportcard-item {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Print Styles */
+@media print {
+    .page-actions, .btn-group, .pagination {
+        display: none !important;
+    }
+    
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize report cards list functionality
+    initializeReportCardsList();
+    
+    function initializeReportCardsList() {
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        
+        if (searchInput && searchButton) {
+            searchButton.addEventListener('click', performSearch);
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+        }
+        
+        // Approval functionality
+        const approveButtons = document.querySelectorAll('.approve-btn');
+        const approvalModal = new bootstrap.Modal(document.getElementById('approvalModal'));
+        const studentNameElement = document.getElementById('studentName');
+        const approvalForm = document.getElementById('approvalForm');
+        
+        approveButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const reportcardId = this.getAttribute('data-reportcard-id');
+                const studentName = this.getAttribute('data-student-name');
+                
+                studentNameElement.textContent = studentName;
+                approvalForm.action = "{% url 'assessment:approve_report_card' 0 %}".replace('0', reportcardId);
+                
+                approvalModal.show();
+            });
+        });
+        
+        // Filter form submission
+        const filterForm = document.getElementById('filterForm');
+        if (filterForm) {
+            filterForm.addEventListener('submit', function(e) {
+                // Remove empty fields from submission
+                const inputs = this.querySelectorAll('input, select');
+                inputs.forEach(input => {
+                    if (!input.value) {
+                        input.disabled = true;
+                    }
+                });
+            });
+        }
+        
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+    
+    function performSearch() {
+        const searchTerm = searchInput.value.trim();
+        if (searchTerm) {
+            // Add search parameter to current URL
+            const url = new URL(window.location.href);
+            url.searchParams.set('search', searchTerm);
+            window.location.href = url.toString();
+        }
+    }
+    
+    // Auto-refresh for teachers (every 2 minutes)
+    {% if user.teacher_profile %}
+    setInterval(function() {
+        // Check if there are any pending approvals
+        const pendingCount = {{ pending_approval }};
+        if (pendingCount > 0) {
+            // Show notification
+            showNotification('New report cards may need approval', 'info');
+        }
+    }, 120000);
+    {% endif %}
+    
+    function showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+    
+    // Export functionality
+    window.exportReportCards = function(format) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('export', format);
+        window.location.href = url.toString();
+    };
+});
+
+// Utility function to format dates
+function formatDate(dateString) {
+    const options = { year: 'numeric', month: 'short', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString(undefined, options);
+}
+</script>
+{% endblock %}

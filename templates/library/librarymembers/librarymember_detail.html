@@ -1,0 +1,757 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Member Details" %} - {{ member.user.get_full_name|default:member.user.username }}{% endblock %}
+
+{% block page_title %}{% trans "Member Details" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:librarymember_list' %}">{% trans "Library Members" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ member.user.get_full_name|default:member.user.username }}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Member Detail Specific Styles */
+    .member-profile-header {
+        background: linear-gradient(135deg, #65a0f9 0%, #4a7df6 100%);
+        color: white;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .member-avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        border: 4px solid rgba(255,255,255,0.3);
+        object-fit: cover;
+    }
+    
+    .member-stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+    }
+    
+    .member-stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .member-card-1 { border-left-color: #65a0f9; }
+    .member-card-2 { border-left-color: #28a745; }
+    .member-card-3 { border-left-color: #ffc107; }
+    .member-card-4 { border-left-color: #dc3545; }
+    
+    .member-stat-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    .member-stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .member-stat-icon {
+        font-size: 1.5rem;
+        opacity: 0.8;
+    }
+    
+    .book-item {
+        border-left: 3px solid transparent;
+        transition: all 0.2s ease;
+        padding: 1rem;
+    }
+    
+    .book-item:hover {
+        border-left-color: #65a0f9;
+        background-color: rgba(101, 160, 249, 0.05);
+    }
+    
+    .book-cover-small {
+        width: 50px;
+        height: 65px;
+        object-fit: cover;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .due-date-badge {
+        font-size: 0.75rem;
+    }
+    
+    .fine-alert {
+        border-left: 4px solid #dc3545;
+        background-color: rgba(220, 53, 69, 0.05);
+    }
+    
+    .reservation-item {
+        border-left: 3px solid #17a2b8;
+        background-color: rgba(23, 162, 184, 0.05);
+    }
+    
+    .action-buttons .btn {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .membership-status {
+        font-size: 0.9rem;
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+    }
+    
+    .membership-active {
+        background-color: rgba(40, 167, 69, 0.1);
+        border-left: 4px solid #28a745;
+    }
+    
+    .membership-expired {
+        background-color: rgba(220, 53, 69, 0.1);
+        border-left: 4px solid #dc3545;
+    }
+    
+    .info-card {
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    
+    .info-card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 1rem 1.25rem;
+        font-weight: 600;
+    }
+    
+    .info-item {
+        padding: 0.75rem 1.25rem;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+        min-width: 140px;
+    }
+    
+    .info-value {
+        color: #6c757d;
+    }
+    
+    .tab-content {
+        border-left: 1px solid #dee2e6;
+        border-right: 1px solid #dee2e6;
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 0 0 0.375rem 0.375rem;
+        padding: 1.5rem;
+    }
+    
+    @media (max-width: 768px) {
+        .member-stat-number {
+            font-size: 1.5rem;
+        }
+        
+        .action-buttons .btn {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+        }
+        
+        .book-cover-small {
+            width: 40px;
+            height: 52px;
+        }
+        
+        .member-profile-header {
+            padding: 1.5rem 1rem;
+            text-align: center;
+        }
+        
+        .member-avatar {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Member Profile Header -->
+    <div class="member-profile-header">
+        <div class="row align-items-center">
+            <div class="col-md-2 text-center text-md-start">
+                <div class="member-avatar-placeholder bg-white rounded-circle d-flex align-items-center justify-content-center mx-auto mx-md-0" style="width: 100px; height: 100px;">
+                    <i class="bi bi-person-fill text-primary" style="font-size: 3rem;"></i>
+                </div>
+            </div>
+            <div class="col-md-6 text-center text-md-start">
+                <h2 class="mb-1">{{ member.user.get_full_name|default:member.user.username }}</h2>
+                <p class="mb-2 opacity-75">{% trans "Member ID" %}: {{ member.member_id }}</p>
+                <div class="d-flex flex-wrap justify-content-center justify-content-md-start gap-2">
+                    <span class="badge bg-light text-dark">{{ member.get_member_type_display }}</span>
+                    {% if member.is_membership_active %}
+                    <span class="badge bg-success">{% trans "Active Membership" %}</span>
+                    {% else %}
+                    <span class="badge bg-danger">{% trans "Expired Membership" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-4 text-center text-md-end mt-3 mt-md-0">
+                <div class="d-flex flex-column flex-md-row justify-content-center justify-content-md-end gap-2">
+                    <a href="{% url 'library:librarymember_update' member.pk %}" class="btn btn-light">
+                        <i class="bi bi-pencil-square me-2"></i> {% trans "Edit Member" %}
+                    </a>
+                    <a href="{% url 'library:borrowrecord_create' %}" class="btn btn-outline-light">
+                        <i class="bi bi-journal-plus me-2"></i> {% trans "Issue Book" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Member Statistics -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card member-stats-card member-card-1 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="member-stat-number text-primary">{{ current_borrows.count }}</div>
+                            <div class="member-stat-label">{% trans "Currently Borrowed" %}</div>
+                        </div>
+                        <div class="member-stat-icon text-primary">
+                            <i class="bi bi-journal-arrow-up"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card member-stats-card member-card-2 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="member-stat-number text-success">{{ reservations.count }}</div>
+                            <div class="member-stat-label">{% trans "Active Reservations" %}</div>
+                        </div>
+                        <div class="member-stat-icon text-success">
+                            <i class="bi bi-bookmark-check"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card member-stats-card member-card-3 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="member-stat-number text-warning">{{ borrow_history.count }}</div>
+                            <div class="member-stat-label">{% trans "Total Borrows" %}</div>
+                        </div>
+                        <div class="member-stat-icon text-warning">
+                            <i class="bi bi-clock-history"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card member-stats-card member-card-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="member-stat-number text-danger">{{ fine_history.count }}</div>
+                            <div class="member-stat-label">{% trans "Fine Records" %}</div>
+                        </div>
+                        <div class="member-stat-icon text-danger">
+                            <i class="bi bi-cash-coin"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content Area -->
+    <div class="row">
+        <!-- Left Column: Member Information -->
+        <div class="col-lg-4">
+            <!-- Member Details Card -->
+            <div class="card info-card mb-4">
+                <div class="info-card-header">
+                    <i class="bi bi-person-vcard me-2"></i> {% trans "Member Information" %}
+                </div>
+                <div class="card-body p-0">
+                    <div class="info-item d-flex">
+                        <span class="info-label">{% trans "Full Name" %}:</span>
+                        <span class="info-value">{{ member.user.get_full_name|default:"-" }}</span>
+                    </div>
+                    <div class="info-item d-flex">
+                        <span class="info-label">{% trans "Username" %}:</span>
+                        <span class="info-value">{{ member.user.username }}</span>
+                    </div>
+                    <div class="info-item d-flex">
+                        <span class="info-label">{% trans "Email" %}:</span>
+                        <span class="info-value">{{ member.user.email|default:"-" }}</span>
+                    </div>
+                    <div class="info-item d-flex">
+                        <span class="info-label">{% trans "Member Type" %}:</span>
+                        <span class="info-value">{{ member.get_member_type_display }}</span>
+                    </div>
+                    <div class="info-item d-flex">
+                        <span class="info-label">{% trans "Member Since" %}:</span>
+                        <span class="info-value">{{ member.membership_date|date:"M d, Y" }}</span>
+                    </div>
+                    <div class="info-item d-flex">
+                        <span class="info-label">{% trans "Membership Expires" %}:</span>
+                        <span class="info-value {% if not member.is_membership_active %}text-danger{% endif %}">
+                            {{ member.expiry_date|date:"M d, Y" }}
+                        </span>
+                    </div>
+                    <div class="info-item d-flex">
+                        <span class="info-label">{% trans "Borrow Limit" %}:</span>
+                        <span class="info-value">{{ member.current_borrow_count }}/{{ member.max_borrow_limit }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Membership Status Card -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">{% trans "Membership Status" %}</h5>
+                    <div class="membership-status {% if member.is_membership_active %}membership-active{% else %}membership-expired{% endif %} mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="bi {% if member.is_membership_active %}bi-check-circle-fill text-success{% else %}bi-exclamation-circle-fill text-danger{% endif %} me-2"></i>
+                            <div>
+                                {% if member.is_membership_active %}
+                                <strong>{% trans "Active" %}</strong>
+                                <div class="small">{% trans "Expires" %} {{ member.expiry_date|date:"M d, Y" }}</div>
+                                {% else %}
+                                <strong>{% trans "Expired" %}</strong>
+                                <div class="small">{% trans "Renewal required" %}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Borrowing Progress" %}</label>
+                        <div class="progress mb-2" style="height: 10px;">
+                            <div class="progress-bar {% if member.can_borrow_more %}bg-success{% else %}bg-danger{% endif %}" 
+                                 role="progressbar" 
+                                 style="width: {% widthratio member.current_borrow_count member.max_borrow_limit 100 %}%"
+                                 aria-valuenow="{{ member.current_borrow_count }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="{{ member.max_borrow_limit }}">
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span>{{ member.current_borrow_count }} {% trans "borrowed" %}</span>
+                            <span>{{ member.max_borrow_limit }} {% trans "limit" %}</span>
+                        </div>
+                    </div>
+                    
+                    {% if member.can_borrow_more %}
+                    <div class="alert alert-success py-2 mb-0">
+                        <i class="bi bi-check-circle me-2"></i>
+                        {% trans "Member can borrow more books" %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning py-2 mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        {% trans "Member has reached borrowing limit" %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Academic Information -->
+            {% if member.student or member.teacher %}
+            <div class="card mb-4">
+                <div class="info-card-header">
+                    <i class="bi bi-mortarboard me-2"></i> {% trans "Academic Information" %}
+                </div>
+                <div class="card-body p-0">
+                    {% if member.student %}
+                    <div class="info-item">
+                        <div class="info-label">{% trans "Student" %}:</div>
+                        <div class="info-value">{{ member.student }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if member.teacher %}
+                    <div class="info-item">
+                        <div class="info-label">{% trans "Teacher" %}:</div>
+                        <div class="info-value">{{ member.teacher }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Right Column: Member Activity -->
+        <div class="col-lg-8">
+            <!-- Tabs for different activity views -->
+            <ul class="nav nav-tabs" id="memberTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="current-tab" data-bs-toggle="tab" data-bs-target="#current" type="button" role="tab" aria-controls="current" aria-selected="true">
+                        {% trans "Current Borrows" %} <span class="badge bg-primary rounded-pill ms-1">{{ current_borrows.count }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="reservations-tab" data-bs-toggle="tab" data-bs-target="#reservations" type="button" role="tab" aria-controls="reservations" aria-selected="false">
+                        {% trans "Reservations" %} <span class="badge bg-success rounded-pill ms-1">{{ reservations.count }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab" aria-controls="history" aria-selected="false">
+                        {% trans "Borrow History" %} <span class="badge bg-warning rounded-pill ms-1">{{ borrow_history.count }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="fines-tab" data-bs-toggle="tab" data-bs-target="#fines" type="button" role="tab" aria-controls="fines" aria-selected="false">
+                        {% trans "Fine History" %} <span class="badge bg-danger rounded-pill ms-1">{{ fine_history.count }}</span>
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="memberTabsContent">
+                <!-- Current Borrows Tab -->
+                <div class="tab-pane fade show active" id="current" role="tabpanel" aria-labelledby="current-tab">
+                    {% if current_borrows %}
+                    <div class="list-group list-group-flush">
+                        {% for borrow in current_borrows %}
+                        <div class="list-group-item book-item {% if borrow.is_overdue %}fine-alert{% endif %}">
+                            <div class="row align-items-center">
+                                <div class="col-md-1 d-none d-md-block">
+                                    {% if borrow.book_copy.book.cover_image %}
+                                    <img src="{{ borrow.book_copy.book.cover_image.url }}" alt="{{ borrow.book_copy.book.title }}" class="book-cover-small">
+                                    {% else %}
+                                    <div class="book-cover-small bg-light d-flex align-items-center justify-content-center">
+                                        <i class="bi bi-book text-muted"></i>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="mb-1">{{ borrow.book_copy.book.title }}</h6>
+                                    <p class="mb-1 small text-muted">
+                                        {% trans "Author" %}: {{ borrow.book_copy.book.author_names }}<br>
+                                        {% trans "Copy" %}: {{ borrow.book_copy.copy_number }} | {% trans "Barcode" %}: {{ borrow.book_copy.barcode }}
+                                    </p>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="mb-1">
+                                        <small class="text-muted">{% trans "Borrowed" %}:</small><br>
+                                        <strong>{{ borrow.borrow_date|date:"M d, Y" }}</strong>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted">{% trans "Due Date" %}:</small><br>
+                                        <strong class="{% if borrow.is_overdue %}text-danger{% endif %}">
+                                            {{ borrow.due_date|date:"M d, Y" }}
+                                        </strong>
+                                        {% if borrow.is_overdue %}
+                                        <span class="badge bg-danger due-date-badge ms-1">
+                                            {% trans "Overdue" %} ({{ borrow.days_overdue }} {% trans "days" %})
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-2 action-buttons">
+                                    {% if borrow.can_renew %}
+                                    <button class="btn btn-outline-primary btn-sm w-100 mb-1" onclick="renewBook('{{ borrow.id }}')">
+                                        <i class="bi bi-arrow-clockwise me-1"></i> {% trans "Renew" %}
+                                    </button>
+                                    {% endif %}
+                                    <button class="btn btn-outline-success btn-sm w-100" onclick="returnBook('{{ borrow.id }}')">
+                                        <i class="bi bi-arrow-return-left me-1"></i> {% trans "Return" %}
+                                    </button>
+                                </div>
+                            </div>
+                            {% if borrow.is_overdue %}
+                            <div class="row mt-2">
+                                <div class="col-12">
+                                    <div class="alert alert-warning py-2 mb-0">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        {% trans "This book is overdue. Current fine" %}: <strong>${{ borrow.calculated_fine }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                        <h5>{% trans "No books currently borrowed" %}</h5>
+                        <p class="mb-0">{% trans "This member has no active borrows" %}</p>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Reservations Tab -->
+                <div class="tab-pane fade" id="reservations" role="tabpanel" aria-labelledby="reservations-tab">
+                    {% if reservations %}
+                    <div class="list-group list-group-flush">
+                        {% for reservation in reservations %}
+                        <div class="list-group-item reservation-item">
+                            <div class="row align-items-center">
+                                <div class="col-md-1 d-none d-md-block">
+                                    {% if reservation.book.cover_image %}
+                                    <img src="{{ reservation.book.cover_image.url }}" alt="{{ reservation.book.title }}" class="book-cover-small">
+                                    {% else %}
+                                    <div class="book-cover-small bg-light d-flex align-items-center justify-content-center">
+                                        <i class="bi bi-book text-muted"></i>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-7">
+                                    <h6 class="mb-1">{{ reservation.book.title }}</h6>
+                                    <p class="mb-1 small text-muted">
+                                        {% trans "Author" %}: {{ reservation.book.author_names }}<br>
+                                        {% trans "Reserved on" %}: {{ reservation.reserve_date|date:"M d, Y" }}
+                                    </p>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="mb-1">
+                                        <small class="text-muted">{% trans "Expires" %}:</small><br>
+                                        <strong class="{% if reservation.is_expired %}text-danger{% endif %}">
+                                            {{ reservation.expiry_date|date:"M d, Y" }}
+                                        </strong>
+                                        {% if reservation.is_expired %}
+                                        <span class="badge bg-danger due-date-badge ms-1">{% trans "Expired" %}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-2 action-buttons">
+                                    {% if not reservation.is_expired %}
+                                    <button class="btn btn-outline-success btn-sm w-100 mb-1" onclick="fulfillReservation('{{ reservation.id }}')">
+                                        <i class="bi bi-check-circle me-1"></i> {% trans "Fulfill" %}
+                                    </button>
+                                    {% endif %}
+                                    <button class="btn btn-outline-danger btn-sm w-100" onclick="cancelReservation('{{ reservation.id }}')">
+                                        <i class="bi bi-x-circle me-1"></i> {% trans "Cancel" %}
+                                    </button>
+                                </div>
+                            </div>
+                            {% if reservation.is_expired %}
+                            <div class="row mt-2">
+                                <div class="col-12">
+                                    <div class="alert alert-warning py-2 mb-0">
+                                        <i class="bi bi-clock-history me-2"></i>
+                                        {% trans "This reservation has expired" %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-bookmark display-4 d-block mb-3"></i>
+                        <h5>{% trans "No active reservations" %}</h5>
+                        <p class="mb-0">{% trans "This member has no book reservations" %}</p>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Borrow History Tab -->
+                <div class="tab-pane fade" id="history" role="tabpanel" aria-labelledby="history-tab">
+                    {% if borrow_history %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Book" %}</th>
+                                    <th>{% trans "Borrow Date" %}</th>
+                                    <th>{% trans "Due Date" %}</th>
+                                    <th>{% trans "Return Date" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for history in borrow_history %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if history.book_copy.book.cover_image %}
+                                            <img src="{{ history.book_copy.book.cover_image.url }}" alt="{{ history.book_copy.book.title }}" class="book-cover-small me-2">
+                                            {% else %}
+                                            <div class="book-cover-small bg-light d-flex align-items-center justify-content-center me-2">
+                                                <i class="bi bi-book text-muted"></i>
+                                            </div>
+                                            {% endif %}
+                                            <div>
+                                                <div class="fw-bold">{{ history.book_copy.book.title }}</div>
+                                                <small class="text-muted">{{ history.book_copy.book.author_names }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ history.borrow_date|date:"M d, Y" }}</td>
+                                    <td>{{ history.due_date|date:"M d, Y" }}</td>
+                                    <td>
+                                        {% if history.return_date %}
+                                        {{ history.return_date|date:"M d, Y" }}
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if history.status == 'returned' %}
+                                        <span class="badge bg-success">{% trans "Returned" %}</span>
+                                        {% elif history.status == 'overdue' %}
+                                        <span class="badge bg-danger">{% trans "Overdue" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-primary">{% trans "Borrowed" %}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-journal display-4 d-block mb-3"></i>
+                        <h5>{% trans "No borrowing history" %}</h5>
+                        <p class="mb-0">{% trans "This member has no borrowing history" %}</p>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Fine History Tab -->
+                <div class="tab-pane fade" id="fines" role="tabpanel" aria-labelledby="fines-tab">
+                    {% if fine_history %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Book" %}</th>
+                                    <th>{% trans "Payment Date" %}</th>
+                                    <th>{% trans "Amount" %}</th>
+                                    <th>{% trans "Method" %}</th>
+                                    <th>{% trans "Receipt" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for fine in fine_history %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if fine.borrow_record.book_copy.book.cover_image %}
+                                            <img src="{{ fine.borrow_record.book_copy.book.cover_image.url }}" alt="{{ fine.borrow_record.book_copy.book.title }}" class="book-cover-small me-2">
+                                            {% else %}
+                                            <div class="book-cover-small bg-light d-flex align-items-center justify-content-center me-2">
+                                                <i class="bi bi-book text-muted"></i>
+                                            </div>
+                                            {% endif %}
+                                            <div>
+                                                <div class="fw-bold">{{ fine.borrow_record.book_copy.book.title }}</div>
+                                                <small class="text-muted">{{ fine.borrow_record.book_copy.book.author_names }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ fine.payment_date|date:"M d, Y" }}</td>
+                                    <td class="fw-bold text-danger">${{ fine.amount_paid }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ fine.get_payment_method_display }}</span>
+                                    </td>
+                                    <td>
+                                        <code>{{ fine.receipt_number }}</code>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-cash-coin display-4 d-block mb-3"></i>
+                        <h5>{% trans "No fine history" %}</h5>
+                        <p class="mb-0">{% trans "This member has no fine payment records" %}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Bootstrap tabs
+        const triggerTabList = [].slice.call(document.querySelectorAll('#memberTabs button'));
+        triggerTabList.forEach(function (triggerEl) {
+            const tabTrigger = new bootstrap.Tab(triggerEl);
+            
+            triggerEl.addEventListener('click', function (event) {
+                event.preventDefault();
+                tabTrigger.show();
+            });
+        });
+        
+        // Renew Book Function
+        window.renewBook = function(borrowId) {
+            if (confirm('{% trans "Are you sure you want to renew this book?" %}')) {
+                // Simulate AJAX call to renew book
+                console.log('Renewing book with ID:', borrowId);
+                
+                // Show success message
+                alert('{% trans "Book renewed successfully! New due date has been set." %}');
+                
+                // In a real app, you would refresh the page or update the UI
+                // location.reload();
+            }
+        };
+        
+        // Return Book Function
+        window.returnBook = function(borrowId) {
+            if (confirm('{% trans "Are you sure you want to return this book?" %}')) {
+                // Redirect to return book page
+                window.location.href = "{% url 'library:return_book' '00000000-0000-0000-0000-000000000000' %}".replace('00000000-0000-0000-0000-000000000000', borrowId);
+            }
+        };
+        
+        // Fulfill Reservation Function
+        window.fulfillReservation = function(reservationId) {
+            if (confirm('{% trans "Are you sure you want to fulfill this reservation?" %}')) {
+                // Redirect to fulfill reservation page
+                window.location.href = "{% url 'library:fulfill_reservation' '00000000-0000-0000-0000-000000000000' %}".replace('00000000-0000-0000-0000-000000000000', reservationId);
+            }
+        };
+        
+        // Cancel Reservation Function
+        window.cancelReservation = function(reservationId) {
+            if (confirm('{% trans "Are you sure you want to cancel this reservation?" %}')) {
+                // Simulate AJAX call to cancel reservation
+                console.log('Cancelling reservation with ID:', reservationId);
+                
+                // Show success message
+                alert('{% trans "Reservation cancelled successfully!" %}');
+                
+                // In a real app, you would refresh the page or update the UI
+                // location.reload();
+            }
+        };
+    });
+</script>
+{% endblock %}

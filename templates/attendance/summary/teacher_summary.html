@@ -1,0 +1,265 @@
+<!-- templates/attendance/summary/teacher_summary.html -->
+<div class="row">
+    <!-- Class Overview -->
+    <div class="col-lg-8 mb-4">
+        <div class="card shadow h-100">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">My Classes Overview</h6>
+            </div>
+            <div class="card-body">
+                <!-- Class Comparison Chart -->
+                <div class="mb-4">
+                    <h6 class="border-bottom pb-2">Class Attendance Comparison</h6>
+                    <div id="classComparisonChart" class="chart-container">
+                        <!-- Chart will be loaded by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Class Statistics -->
+                <div class="row">
+                    {% for class in teacher_classes %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card border-{% if class.attendance_percentage >= 90 %}success{% elif class.attendance_percentage >= 75 %}warning{% else %}danger{% endif %}">
+                            <div class="card-body">
+                                <h6 class="card-title">{{ class.name }}</h6>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-muted">Attendance</span>
+                                    <span class="fw-bold {% if class.attendance_percentage >= 90 %}text-success{% elif class.attendance_percentage >= 75 %}text-warning{% else %}text-danger{% endif %}">
+                                        {{ class.attendance_percentage }}%
+                                    </span>
+                                </div>
+                                <div class="progress progress-thin mb-2">
+                                    <div class="progress-bar 
+                                        {% if class.attendance_percentage >= 90 %}bg-success
+                                        {% elif class.attendance_percentage >= 75 %}bg-warning
+                                        {% else %}bg-danger{% endif %}" 
+                                         style="width: {{ class.attendance_percentage }}%">
+                                    </div>
+                                </div>
+                                <div class="row text-center small">
+                                    <div class="col-4">
+                                        <div class="fw-bold">{{ class.total_students }}</div>
+                                        <div class="text-muted">Students</div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="fw-bold">{{ class.present_today }}</div>
+                                        <div class="text-muted">Present</div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="fw-bold">{{ class.absent_today }}</div>
+                                        <div class="text-muted">Absent</div>
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <a href="{% url 'attendance:bulk_mark' class.id %}" class="btn btn-sm btn-outline-primary w-100">
+                                        Mark Attendance
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-12">
+                        <div class="text-center py-4">
+                            <i class="fas fa-chalkboard-teacher fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No classes assigned</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Teacher Dashboard -->
+    <div class="col-lg-4 mb-4">
+        <!-- Today's Summary -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Today's Summary</h6>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <div class="h2 text-primary mb-0">{{ today_stats.total_marked }}</div>
+                    <div class="text-muted">Students Marked Today</div>
+                </div>
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="h5 text-success mb-0">{{ today_stats.present }}</div>
+                        <small class="text-muted">Present</small>
+                    </div>
+                    <div class="col-6">
+                        <div class="h5 text-danger mb-0">{{ today_stats.absent }}</div>
+                        <small class="text-muted">Absent</small>
+                    </div>
+                </div>
+                <div class="progress mt-3 progress-thin">
+                    <div class="progress-bar bg-success" style="width: {{ today_stats.present_percentage }}%"></div>
+                    <div class="progress-bar bg-danger" style="width: {{ today_stats.absent_percentage }}%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Actions -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Pending Actions</h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'attendance:bulk_class_select' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-users me-2 text-primary"></i>
+                            Mark Attendance
+                        </div>
+                        <span class="badge bg-primary rounded-pill">{{ pending_attendance }} classes</span>
+                    </a>
+                    <a href="{% url 'attendance:leave_list' %}?status=pending" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-calendar-check me-2 text-warning"></i>
+                            Leave Applications
+                        </div>
+                        <span class="badge bg-warning rounded-pill">{{ pending_leaves }}</span>
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-exclamation-triangle me-2 text-danger"></i>
+                            Low Attendance Alerts
+                        </div>
+                        <span class="badge bg-danger rounded-pill">{{ low_attendance_alerts }}</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Reports -->
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Quick Reports</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-info" onclick="generateClassReport('weekly')">
+                        <i class="fas fa-chart-line me-1"></i> Weekly Report
+                    </button>
+                    <button type="button" class="btn btn-outline-success" onclick="generateClassReport('monthly')">
+                        <i class="fas fa-chart-bar me-1"></i> Monthly Report
+                    </button>
+                    <button type="button" class="btn btn-outline-warning" onclick="generateClassReport('absenteeism')">
+                        <i class="fas fa-user-times me-1"></i> Absenteeism Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Recent Attendance Activity</h6>
+                <a href="{% url 'attendance:daily_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_activity %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Class</th>
+                                <th>Date</th>
+                                <th>Session</th>
+                                <th>Status</th>
+                                <th>Marked By</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for activity in recent_activity %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <img src="{% if activity.student.user.profile_picture %}{{ activity.student.user.profile_picture.url }}{% else %}{% static 'img/default-avatar.png' %}{% endif %}" 
+                                             class="rounded-circle me-2" width="32" height="32">
+                                        {{ activity.student.user.get_full_name }}
+                                    </div>
+                                </td>
+                                <td>{{ activity.student.current_class.name|default:"-" }}</td>
+                                <td>{{ activity.date }}</td>
+                                <td>{{ activity.attendance_session.name }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if activity.status == 'present' %}bg-success
+                                        {% elif activity.status == 'absent' %}bg-danger
+                                        {% elif activity.status == 'late' %}bg-warning
+                                        {% else %}bg-info{% endif %}">
+                                        {{ activity.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ activity.marked_by.get_full_name|default:"System" }}</td>
+                                <td>{{ activity.created_at|time }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No recent activity</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function generateClassReport(type) {
+    let reportTitle = '';
+    switch(type) {
+        case 'weekly':
+            reportTitle = 'Weekly Class Attendance Report';
+            break;
+        case 'monthly':
+            reportTitle = 'Monthly Class Attendance Report';
+            break;
+        case 'absenteeism':
+            reportTitle = 'Student Absenteeism Report';
+            break;
+    }
+    
+    // Show report generation modal
+    document.getElementById('reportModalTitle').textContent = reportTitle;
+    document.getElementById('reportPreview').innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Generating ${reportTitle}...</span>
+            </div>
+            <p class="mt-2">Generating ${reportTitle}...</p>
+        </div>
+    `;
+    
+    // Simulate report generation
+    setTimeout(() => {
+        document.getElementById('reportPreview').innerHTML = `
+            <h6>${reportTitle}</h6>
+            <p class="text-muted">Generated on ${new Date().toLocaleDateString()}</p>
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                This is a preview of the ${type} report. The actual report would contain detailed class-wise attendance data.
+            </div>
+            <div class="text-center mt-4">
+                <i class="fas fa-file-pdf fa-3x text-danger mb-3"></i>
+                <p>Report would be generated as PDF with detailed analytics.</p>
+            </div>
+        `;
+    }, 1500);
+    
+    const modal = new bootstrap.Modal(document.getElementById('reportModal'));
+    modal.show();
+}
+</script>

@@ -1,0 +1,1129 @@
+<!-- templates/academics/enrollments/bulk_enrollment.html -->
+{% extends 'academics/base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Bulk Student Enrollment" %}{% endblock %}
+
+{% block page_title %}{% trans "Bulk Student Enrollment" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'academics:dashboard' %}">{% trans "Academics" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'academics:enrollment_list' %}">{% trans "Enrollments" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Bulk Enrollment" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'academics:enrollment_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> {% trans "Back to Enrollments" %}
+        </a>
+        <a href="{% url 'academics:enrollment_create' %}" class="btn btn-outline-primary">
+            <i class="bi bi-person-plus me-1"></i> {% trans "Single Enrollment" %}
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+.bulk-enrollment-container {
+    font-family: 'Inter', sans-serif;
+}
+
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.upload-area:hover {
+    border-color: #0d6efd;
+    background: #e7f1ff;
+}
+
+.upload-area.dragover {
+    border-color: #0d6efd;
+    background: #d1e7ff;
+}
+
+.upload-icon {
+    font-size: 3rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.upload-area:hover .upload-icon {
+    color: #0d6efd;
+}
+
+.file-input {
+    display: none;
+}
+
+.preview-table {
+    font-size: 0.875rem;
+}
+
+.preview-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.step-indicator {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    position: relative;
+}
+
+.step-indicator::before {
+    content: '';
+    position: absolute;
+    top: 15px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #e9ecef;
+    z-index: 1;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+    flex: 1;
+}
+
+.step-number {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #e9ecef;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    border: 2px solid #fff;
+}
+
+.step.active .step-number {
+    background: #0d6efd;
+    color: #fff;
+}
+
+.step.completed .step-number {
+    background: #198754;
+    color: #fff;
+}
+
+.step-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #6c757d;
+    text-align: center;
+}
+
+.step.active .step-label {
+    color: #0d6efd;
+}
+
+.step.completed .step-label {
+    color: #198754;
+}
+
+.progress-section {
+    display: none;
+}
+
+.import-summary {
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.summary-item:last-child {
+    border-bottom: none;
+}
+
+.summary-value {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.valid-row {
+    background-color: #d1e7dd !important;
+}
+
+.invalid-row {
+    background-color: #f8d7da !important;
+}
+
+.duplicate-row {
+    background-color: #fff3cd !important;
+}
+
+.validation-errors {
+    font-size: 0.8rem;
+    color: #dc3545;
+}
+
+.template-download {
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+    border: 1px solid #90caf9;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+}
+
+.template-features {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+}
+
+.template-features li {
+    padding: 0.25rem 0;
+    color: #1565c0;
+}
+
+.template-features li::before {
+    content: '✓';
+    margin-right: 0.5rem;
+    font-weight: bold;
+}
+
+.batch-actions {
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    border-radius: 0.5rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #0d6efd;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@media (max-width: 768px) {
+    .step-indicator {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .step-indicator::before {
+        display: none;
+    }
+    
+    .step {
+        flex-direction: row;
+        gap: 1rem;
+    }
+    
+    .upload-area {
+        padding: 1rem;
+    }
+    
+    .preview-table {
+        font-size: 0.8rem;
+    }
+}
+
+.required-field::after {
+    content: " *";
+    color: #dc3545;
+}
+</style>
+
+<div class="bulk-enrollment-container">
+    <!-- Step Indicator -->
+    <div class="step-indicator">
+        <div class="step active" id="step-upload">
+            <div class="step-number">1</div>
+            <div class="step-label">{% trans "Upload File" %}</div>
+        </div>
+        <div class="step" id="step-review">
+            <div class="step-number">2</div>
+            <div class="step-label">{% trans "Review & Validate" %}</div>
+        </div>
+        <div class="step" id="step-confirm">
+            <div class="step-number">3</div>
+            <div class="step-label">{% trans "Confirm & Enroll" %}</div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Step 1: Upload Section -->
+            <div class="card mb-4" id="upload-section">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-cloud-upload me-2"></i> {% trans "Upload Student Data" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- File Upload Area -->
+                    <div class="upload-area" id="upload-area">
+                        <div class="upload-icon">
+                            <i class="bi bi-cloud-arrow-up"></i>
+                        </div>
+                        <h5>{% trans "Upload Excel/CSV File" %}</h5>
+                        <p class="text-muted mb-3">
+                            {% trans "Drag & drop your file here or click to browse" %}
+                        </p>
+                        <button type="button" class="btn btn-primary" id="browse-btn">
+                            <i class="bi bi-folder2-open me-1"></i> {% trans "Browse Files" %}
+                        </button>
+                        <input type="file" id="file-input" class="file-input" accept=".xlsx,.xls,.csv">
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                {% trans "Supported formats: XLSX, XLS, CSV (Max 5MB)" %}
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Selected File Info -->
+                    <div id="file-info" class="mt-3" style="display: none;">
+                        <div class="alert alert-info d-flex align-items-center">
+                            <i class="bi bi-file-earmark-spreadsheet me-2 fs-4"></i>
+                            <div class="flex-grow-1">
+                                <strong id="file-name"></strong>
+                                <div class="text-muted small">
+                                    <span id="file-size"></span> • 
+                                    <span id="file-type"></span> • 
+                                    <span id="row-count"></span>
+                                </div>
+                            </div>
+                            <button type="button" class="btn-close" id="remove-file"></button>
+                        </div>
+                    </div>
+
+                    <!-- Template Download -->
+                    <div class="template-download mt-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="mb-2">{% trans "Need a template?" %}</h6>
+                                <p class="text-muted mb-2 small">
+                                    {% trans "Download our pre-formatted Excel template to ensure your data is properly structured." %}
+                                </p>
+                                <ul class="template-features small">
+                                    <li>{% trans "Pre-defined columns with validation" %}</li>
+                                    <li>{% trans "Sample data for reference" %}</li>
+                                    <li>{% trans "Automatic format validation" %}</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button type="button" class="btn btn-success" id="download-template">
+                                    <i class="bi bi-download me-1"></i> {% trans "Download Template" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Review Section -->
+            <div class="card mb-4" id="review-section" style="display: none;">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-eye me-2"></i> {% trans "Review & Validate Data" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="batch-actions">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <strong id="validation-summary">
+                                    {% trans "Processing uploaded data..." %}
+                                </strong>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="select-valid">
+                                        <i class="bi bi-check-all me-1"></i> {% trans "Select Valid" %}
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="deselect-all">
+                                        <i class="bi bi-x-circle me-1"></i> {% trans "Deselect All" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm preview-table" id="preview-table">
+                            <thead>
+                                <tr>
+                                    <th width="50">
+                                        <input type="checkbox" class="form-check-input" id="select-all-preview">
+                                    </th>
+                                    <th>{% trans "Student ID" %}</th>
+                                    <th>{% trans "Full Name" %}</th>
+                                    <th>{% trans "Class" %}</th>
+                                    <th>{% trans "Roll No" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody id="preview-tbody">
+                                <!-- Preview rows will be inserted here by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="alert alert-warning mt-3" id="validation-warnings" style="display: none;">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <span id="warning-text"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Confirm Section -->
+            <div class="card mb-4" id="confirm-section" style="display: none;">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-shield-check me-2"></i> {% trans "Confirm Enrollment" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="import-summary">
+                        <h6 class="mb-3">{% trans "Enrollment Summary" %}</h6>
+                        <div class="summary-item">
+                            <span>{% trans "Total Students to Enroll" %}</span>
+                            <span class="summary-value text-primary" id="summary-total">0</span>
+                        </div>
+                        <div class="summary-item">
+                            <span>{% trans "Valid Records" %}</span>
+                            <span class="summary-value text-success" id="summary-valid">0</span>
+                        </div>
+                        <div class="summary-item">
+                            <span>{% trans "Duplicate Records" %}</span>
+                            <span class="summary-value text-warning" id="summary-duplicates">0</span>
+                        </div>
+                        <div class="summary-item">
+                            <span>{% trans "Invalid Records" %}</span>
+                            <span class="summary-value text-danger" id="summary-invalid">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Enrollment Settings -->
+                    <div class="mt-4">
+                        <h6 class="mb-3">{% trans "Enrollment Settings" %}</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="enrollment-date" class="form-label required-field">{% trans "Enrollment Date" %}</label>
+                                    <input type="date" class="form-control" id="enrollment-date" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="academic-session" class="form-label required-field">{% trans "Academic Session" %}</label>
+                                    <select class="form-select" id="academic-session" required>
+                                        <option value="">{% trans "Select Session" %}</option>
+                                        {% for session in sessions %}
+                                        <option value="{{ session.id }}" {% if session.is_current %}selected{% endif %}>
+                                            {{ session.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="enrollment-notes" class="form-label">{% trans "Enrollment Notes" %}</label>
+                            <textarea class="form-control" id="enrollment-notes" rows="3" 
+                                      placeholder="{% trans 'Optional notes about this bulk enrollment...' %}"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Confirmation -->
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        {% trans "Review the summary above before proceeding. This action will enroll all selected students into the system." %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="navigation-buttons mt-4">
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary" id="prev-btn" style="display: none;">
+                        <i class="bi bi-arrow-left me-1"></i> {% trans "Previous" %}
+                    </button>
+                    <div>
+                        <button type="button" class="btn btn-outline-secondary me-2" id="cancel-btn">
+                            {% trans "Cancel" %}
+                        </button>
+                        <button type="button" class="btn btn-primary" id="next-btn">
+                            {% trans "Next" %} <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
+                        <button type="button" class="btn btn-success" id="confirm-btn" style="display: none;">
+                            <i class="bi bi-check-circle me-1"></i> {% trans "Confirm Enrollment" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Progress Section -->
+            <div class="card progress-section" id="progress-section">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-graph-up me-2"></i> {% trans "Enrollment Progress" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="progress mb-3" style="height: 20px;">
+                        <div class="progress-bar" role="progressbar" style="width: 0%" 
+                             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="progress-bar">
+                            0%
+                        </div>
+                    </div>
+                    <div class="progress-details">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>{% trans "Processed" %}</span>
+                            <span id="processed-count">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>{% trans "Successful" %}</span>
+                            <span class="text-success" id="success-count">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>{% trans "Failed" %}</span>
+                            <span class="text-danger" id="failed-count">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>{% trans "Remaining" %}</span>
+                            <span id="remaining-count">0</span>
+                        </div>
+                    </div>
+                    <div class="mt-3" id="progress-messages">
+                        <!-- Progress messages will appear here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Help Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-question-circle me-2"></i> {% trans "Bulk Enrollment Guide" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <h6>{% trans "Supported File Format" %}</h6>
+                    <ul class="small text-muted mb-3">
+                        <li>{% trans "Excel files (.xlsx, .xls)" %}</li>
+                        <li>{% trans "CSV files (.csv)" %}</li>
+                        <li>{% trans "Maximum file size: 5MB" %}</li>
+                    </ul>
+
+                    <h6>{% trans "Required Columns" %}</h6>
+                    <ul class="small text-muted mb-3">
+                        <li><strong>student_id</strong> - {% trans "Unique student identifier" %}</li>
+                        <li><strong>full_name</strong> - {% trans "Student's full name" %}</li>
+                        <li><strong>class_code</strong> - {% trans "Target class code" %}</li>
+                        <li><strong>roll_number</strong> - {% trans "Class roll number" %}</li>
+                    </ul>
+
+                    <h6>{% trans "Optional Columns" %}</h6>
+                    <ul class="small text-muted">
+                        <li><strong>email</strong> - {% trans "Student email address" %}</li>
+                        <li><strong>phone</strong> - {% trans "Contact number" %}</li>
+                        <li><strong>enrollment_date</strong> - {% trans "YYYY-MM-DD format" %}</li>
+                        <li><strong>notes</strong> - {% trans "Additional notes" %}</li>
+                    </ul>
+
+                    <div class="alert alert-warning mt-3 small">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        {% trans "Duplicate student IDs and roll numbers will be automatically detected and flagged." %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">{% trans "Loading..." %}</span>
+                </div>
+                <p class="mb-0" id="loading-message">{% trans "Processing..." %}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Details Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="errorModalLabel">{% trans "Validation Errors" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="error-list">
+                    <!-- Error details will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class BulkEnrollment {
+    constructor() {
+        this.currentStep = 1;
+        this.uploadedData = null;
+        this.selectedStudents = new Set();
+        this.init();
+    }
+
+    init() {
+        this.setupEventListeners();
+        this.setupFileUpload();
+    }
+
+    setupEventListeners() {
+        // Navigation
+        document.getElementById('next-btn').addEventListener('click', () => this.nextStep());
+        document.getElementById('prev-btn').addEventListener('click', () => this.prevStep());
+        document.getElementById('cancel-btn').addEventListener('click', () => this.cancel());
+        document.getElementById('confirm-btn').addEventListener('click', () => this.confirmEnrollment());
+
+        // File actions
+        document.getElementById('browse-btn').addEventListener('click', () => {
+            document.getElementById('file-input').click();
+        });
+        document.getElementById('remove-file').addEventListener('click', () => this.removeFile());
+
+        // Template download
+        document.getElementById('download-template').addEventListener('click', () => this.downloadTemplate());
+
+        // Selection actions
+        document.getElementById('select-all-preview').addEventListener('change', (e) => {
+            this.toggleSelectAll(e.target.checked);
+        });
+        document.getElementById('select-valid').addEventListener('click', () => this.selectValid());
+        document.getElementById('deselect-all').addEventListener('click', () => this.deselectAll());
+    }
+
+    setupFileUpload() {
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+
+        // Click to upload
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                this.handleFileSelect(files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.handleFileSelect(e.target.files[0]);
+            }
+        });
+    }
+
+    async handleFileSelect(file) {
+        if (!this.validateFile(file)) return;
+
+        this.showLoading('{% trans "Reading file..." %}');
+
+        try {
+            const data = await this.readFile(file);
+            this.uploadedData = this.processData(data);
+            this.displayFileInfo(file);
+            this.showPreview();
+            this.hideLoading();
+        } catch (error) {
+            this.hideLoading();
+            this.showError('{% trans "Error reading file: " %}' + error.message);
+        }
+    }
+
+    validateFile(file) {
+        const validTypes = [
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'text/csv'
+        ];
+        const validExtensions = ['.xls', '.xlsx', '.csv'];
+        const maxSize = 5 * 1024 * 1024; // 5MB
+
+        if (!validTypes.includes(file.type) && !validExtensions.some(ext => file.name.toLowerCase().endsWith(ext))) {
+            this.showError('{% trans "Please upload a valid Excel or CSV file" %}');
+            return false;
+        }
+
+        if (file.size > maxSize) {
+            this.showError('{% trans "File size must be less than 5MB" %}');
+            return false;
+        }
+
+        return true;
+    }
+
+    readFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                try {
+                    // For demo purposes, we'll simulate data processing
+                    // In a real implementation, you'd use a library like SheetJS
+                    const simulatedData = this.simulateFileProcessing(file);
+                    resolve(simulatedData);
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            
+            if (file.name.toLowerCase().endsWith('.csv')) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+        });
+    }
+
+    simulateFileProcessing(file) {
+        // Simulate processing 20 sample records
+        const sampleData = [];
+        for (let i = 1; i <= 20; i++) {
+            sampleData.push({
+                student_id: `STU${1000 + i}`,
+                full_name: `Student ${i}`,
+                class_code: `CLASS${Math.ceil(i / 5)}`,
+                roll_number: i,
+                email: `student${i}@school.edu`,
+                phone: `+123456789${i.toString().padStart(2, '0')}`,
+                status: i % 10 === 0 ? 'invalid' : i % 5 === 0 ? 'duplicate' : 'valid',
+                errors: i % 10 === 0 ? ['Invalid class code'] : []
+            });
+        }
+        return sampleData;
+    }
+
+    processData(data) {
+        // Process and validate the data
+        return data.map((record, index) => ({
+            ...record,
+            id: index + 1,
+            selected: record.status === 'valid'
+        }));
+    }
+
+    displayFileInfo(file) {
+        document.getElementById('file-name').textContent = file.name;
+        document.getElementById('file-size').textContent = this.formatFileSize(file.size);
+        document.getElementById('file-type').textContent = file.type || 'Unknown';
+        document.getElementById('file-info').style.display = 'block';
+    }
+
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    removeFile() {
+        document.getElementById('file-input').value = '';
+        document.getElementById('file-info').style.display = 'none';
+        this.uploadedData = null;
+        this.hidePreview();
+    }
+
+    showPreview() {
+        const previewTbody = document.getElementById('preview-tbody');
+        previewTbody.innerHTML = '';
+
+        let validCount = 0;
+        let invalidCount = 0;
+        let duplicateCount = 0;
+
+        this.uploadedData.forEach(record => {
+            const row = document.createElement('tr');
+            row.className = record.status === 'valid' ? 'valid-row' : 
+                           record.status === 'duplicate' ? 'duplicate-row' : 'invalid-row';
+            
+            if (record.status === 'valid') validCount++;
+            if (record.status === 'invalid') invalidCount++;
+            if (record.status === 'duplicate') duplicateCount++;
+
+            row.innerHTML = `
+                <td>
+                    <input type="checkbox" class="form-check-input row-checkbox" 
+                           data-id="${record.id}" ${record.selected ? 'checked' : ''}
+                           ${record.status !== 'valid' ? 'disabled' : ''}>
+                </td>
+                <td>${record.student_id}</td>
+                <td>${record.full_name}</td>
+                <td>${record.class_code}</td>
+                <td>${record.roll_number}</td>
+                <td>
+                    <span class="status-badge badge ${this.getStatusClass(record.status)}">
+                        ${this.getStatusText(record.status)}
+                    </span>
+                </td>
+                <td>
+                    ${record.errors && record.errors.length > 0 ? `
+                    <button type="button" class="btn btn-sm btn-outline-danger view-errors" 
+                            data-errors='${JSON.stringify(record.errors)}'>
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </button>
+                    ` : ''}
+                </td>
+            `;
+
+            previewTbody.appendChild(row);
+        });
+
+        // Update validation summary
+        document.getElementById('validation-summary').innerHTML = `
+            ${validCount} {% trans "valid" %}, 
+            ${duplicateCount} {% trans "duplicates" %}, 
+            ${invalidCount} {% trans "invalid records" %}
+        `;
+
+        // Show warnings if needed
+        if (invalidCount > 0) {
+            document.getElementById('warning-text').textContent = 
+                `${invalidCount} {% trans "records have validation errors and cannot be enrolled." %}`;
+            document.getElementById('validation-warnings').style.display = 'block';
+        }
+
+        // Set up event listeners for new rows
+        this.setupPreviewEventListeners();
+        
+        // Update selection
+        this.updateSelection();
+    }
+
+    setupPreviewEventListeners() {
+        // Checkbox events
+        document.querySelectorAll('.row-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const id = parseInt(e.target.dataset.id);
+                this.toggleStudentSelection(id, e.target.checked);
+            });
+        });
+
+        // Error view events
+        document.querySelectorAll('.view-errors').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const errors = JSON.parse(e.target.closest('.view-errors').dataset.errors);
+                this.showErrors(errors);
+            });
+        });
+    }
+
+    getStatusClass(status) {
+        switch(status) {
+            case 'valid': return 'bg-success';
+            case 'duplicate': return 'bg-warning';
+            case 'invalid': return 'bg-danger';
+            default: return 'bg-secondary';
+        }
+    }
+
+    getStatusText(status) {
+        switch(status) {
+            case 'valid': return '{% trans "Valid" %}';
+            case 'duplicate': return '{% trans "Duplicate" %}';
+            case 'invalid': return '{% trans "Invalid" %}';
+            default: return '{% trans "Unknown" %}';
+        }
+    }
+
+    toggleStudentSelection(id, selected) {
+        if (selected) {
+            this.selectedStudents.add(id);
+        } else {
+            this.selectedStudents.delete(id);
+        }
+        this.updateSelectionSummary();
+    }
+
+    toggleSelectAll(selected) {
+        document.querySelectorAll('.row-checkbox:not(:disabled)').forEach(checkbox => {
+            checkbox.checked = selected;
+            const id = parseInt(checkbox.dataset.id);
+            if (selected) {
+                this.selectedStudents.add(id);
+            } else {
+                this.selectedStudents.delete(id);
+            }
+        });
+        this.updateSelectionSummary();
+    }
+
+    selectValid() {
+        document.querySelectorAll('.row-checkbox:not(:disabled)').forEach(checkbox => {
+            checkbox.checked = true;
+            const id = parseInt(checkbox.dataset.id);
+            this.selectedStudents.add(id);
+        });
+        this.updateSelectionSummary();
+    }
+
+    deselectAll() {
+        document.querySelectorAll('.row-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        this.selectedStudents.clear();
+        this.updateSelectionSummary();
+    }
+
+    updateSelectionSummary() {
+        const validStudents = this.uploadedData.filter(r => r.status === 'valid').length;
+        const selectedCount = this.selectedStudents.size;
+        
+        document.getElementById('summary-total').textContent = selectedCount;
+        document.getElementById('summary-valid').textContent = selectedCount;
+        document.getElementById('summary-duplicates').textContent = 
+            this.uploadedData.filter(r => r.status === 'duplicate' && r.selected).length;
+        document.getElementById('summary-invalid').textContent = 
+            this.uploadedData.filter(r => r.status === 'invalid' && r.selected).length;
+    }
+
+    nextStep() {
+        if (this.currentStep === 1 && !this.uploadedData) {
+            this.showError('{% trans "Please upload a file first" %}');
+            return;
+        }
+
+        if (this.currentStep === 2 && this.selectedStudents.size === 0) {
+            this.showError('{% trans "Please select at least one student to enroll" %}');
+            return;
+        }
+
+        this.currentStep++;
+        this.updateUI();
+    }
+
+    prevStep() {
+        this.currentStep--;
+        this.updateUI();
+    }
+
+    updateUI() {
+        // Hide all sections
+        document.getElementById('upload-section').style.display = 'none';
+        document.getElementById('review-section').style.display = 'none';
+        document.getElementById('confirm-section').style.display = 'none';
+        document.getElementById('progress-section').style.display = 'none';
+
+        // Show current section
+        if (this.currentStep === 1) {
+            document.getElementById('upload-section').style.display = 'block';
+            document.getElementById('prev-btn').style.display = 'none';
+            document.getElementById('next-btn').style.display = 'inline-block';
+            document.getElementById('confirm-btn').style.display = 'none';
+        } else if (this.currentStep === 2) {
+            document.getElementById('review-section').style.display = 'block';
+            document.getElementById('prev-btn').style.display = 'inline-block';
+            document.getElementById('next-btn').style.display = 'inline-block';
+            document.getElementById('confirm-btn').style.display = 'none';
+            this.showPreview();
+        } else if (this.currentStep === 3) {
+            document.getElementById('confirm-section').style.display = 'block';
+            document.getElementById('prev-btn').style.display = 'inline-block';
+            document.getElementById('next-btn').style.display = 'none';
+            document.getElementById('confirm-btn').style.display = 'inline-block';
+            this.updateSelectionSummary();
+        }
+
+        // Update step indicator
+        this.updateStepIndicator();
+    }
+
+    updateStepIndicator() {
+        document.querySelectorAll('.step').forEach((step, index) => {
+            step.classList.remove('active', 'completed');
+            if (index + 1 < this.currentStep) {
+                step.classList.add('completed');
+            } else if (index + 1 === this.currentStep) {
+                step.classList.add('active');
+            }
+        });
+    }
+
+    hidePreview() {
+        document.getElementById('review-section').style.display = 'none';
+        this.currentStep = 1;
+        this.updateUI();
+    }
+
+    async confirmEnrollment() {
+        const enrollmentDate = document.getElementById('enrollment-date').value;
+        const sessionId = document.getElementById('academic-session').value;
+
+        if (!enrollmentDate || !sessionId) {
+            this.showError('{% trans "Please fill all required fields" %}');
+            return;
+        }
+
+        this.showLoading('{% trans "Enrolling students..." %}');
+
+        // Simulate enrollment process
+        try {
+            await this.simulateEnrollment();
+            this.hideLoading();
+            this.showSuccess('{% trans "Bulk enrollment completed successfully!" %}');
+            
+            // Redirect to enrollments list after success
+            setTimeout(() => {
+                window.location.href = '{% url "academics:enrollment_list" %}';
+            }, 2000);
+        } catch (error) {
+            this.hideLoading();
+            this.showError('{% trans "Enrollment failed: " %}' + error.message);
+        }
+    }
+
+    simulateEnrollment() {
+        return new Promise((resolve) => {
+            // Simulate API call delay
+            setTimeout(() => {
+                resolve({ success: true, enrolled: this.selectedStudents.size });
+            }, 3000);
+        });
+    }
+
+    downloadTemplate() {
+        // Create and download a sample template
+        const templateData = [
+            ['student_id', 'full_name', 'class_code', 'roll_number', 'email', 'phone', 'enrollment_date', 'notes'],
+            ['STU1001', 'John Doe', 'CLASS10A', '1', 'john.doe@school.edu', '+1234567890', '2024-09-01', 'New student'],
+            ['STU1002', 'Jane Smith', 'CLASS10A', '2', 'jane.smith@school.edu', '+1234567891', '2024-09-01', 'Transfer student'],
+            ['STU1003', 'Bob Johnson', 'CLASS10B', '1', 'bob.johnson@school.edu', '+1234567892', '2024-09-01', ''],
+        ];
+
+        let csvContent = templateData.map(row => row.join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'bulk_enrollment_template.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }
+
+    showErrors(errors) {
+        const errorList = document.getElementById('error-list');
+        errorList.innerHTML = errors.map(error => `
+            <div class="alert alert-danger">
+                <i class="bi bi-x-circle me-2"></i>${error}
+            </div>
+        `).join('');
+        
+        new bootstrap.Modal(document.getElementById('errorModal')).show();
+    }
+
+    cancel() {
+        if (confirm('{% trans "Are you sure you want to cancel? Any unsaved changes will be lost." %}')) {
+            window.location.href = '{% url "academics:enrollment_list" %}';
+        }
+    }
+
+    showLoading(message) {
+        document.getElementById('loading-message').textContent = message;
+        new bootstrap.Modal(document.getElementById('loadingModal')).show();
+    }
+
+    hideLoading() {
+        bootstrap.Modal.getInstance(document.getElementById('loadingModal'))?.hide();
+    }
+
+    showError(message) {
+        alert('{% trans "Error" %}: ' + message);
+    }
+
+    showSuccess(message) {
+        alert('{% trans "Success" %}: ' + message);
+    }
+}
+
+// Initialize when document is ready
+document.addEventListener('DOMContentLoaded', function() {
+    new BulkEnrollment();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,572 @@
+{% extends 'base/base.html' %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "Make Payment" %}{% endblock %}
+
+{% block page_title %}{% trans "Make Payment" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'finance:dashboard' %}">{% trans "Finance" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'finance:invoice_list' %}">{% trans "Invoices" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'finance:invoice_detail' invoice.pk %}">{% trans "Invoice" %} {{ invoice.invoice_number }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Make Payment" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .payment-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .invoice-summary-card {
+        background: linear-gradient(135deg, #007bff, #65a0f9);
+        color: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .payment-methods-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .payment-method-card {
+        border: 2px solid var(--bs-border-color);
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    
+    .payment-method-card:hover {
+        border-color: var(--bs-primary);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .payment-method-card.selected {
+        border-color: var(--bs-primary);
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+    
+    .payment-method-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        color: var(--bs-primary);
+    }
+    
+    .payment-form-section {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        margin-bottom: 2rem;
+    }
+    
+    .amount-input-group {
+        max-width: 300px;
+    }
+    
+    .amount-options {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 0.5rem;
+    }
+    
+    .amount-option {
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--bs-border-color);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 0.875rem;
+    }
+    
+    .amount-option:hover {
+        border-color: var(--bs-primary);
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+    
+    .amount-option.selected {
+        border-color: var(--bs-primary);
+        background-color: var(--bs-primary);
+        color: white;
+    }
+    
+    .payment-details {
+        background: var(--bs-light);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-top: 1.5rem;
+    }
+    
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+    
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+    
+    .gateway-logos {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 1rem;
+    }
+    
+    .gateway-logo {
+        height: 40px;
+        opacity: 0.7;
+        transition: opacity 0.2s ease;
+    }
+    
+    .gateway-logo:hover {
+        opacity: 1;
+    }
+    
+    .security-badges {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 1rem;
+    }
+    
+    .security-badge {
+        font-size: 0.75rem;
+        padding: 0.5rem 1rem;
+        background: var(--bs-success);
+        color: white;
+        border-radius: 20px;
+    }
+    
+    .payment-processing {
+        text-align: center;
+        padding: 2rem;
+    }
+    
+    .processing-spinner {
+        font-size: 3rem;
+        color: var(--bs-primary);
+        margin-bottom: 1rem;
+    }
+    
+    @media (max-width: 768px) {
+        .payment-methods-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .payment-form-section {
+            padding: 1rem;
+        }
+        
+        .amount-options {
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="payment-container">
+    <div class="row">
+        <div class="col-12">
+            <!-- Invoice Summary -->
+            <div class="invoice-summary-card">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h3 class="mb-2">{% trans "Invoice" %} {{ invoice.invoice_number }}</h3>
+                        <p class="mb-1">
+                            <strong>{% trans "Student:" %}</strong> {{ invoice.student.user.get_full_name|default:invoice.student.user.username }}
+                        </p>
+                        <p class="mb-1">
+                            <strong>{% trans "Billing Period:" %}</strong> {{ invoice.billing_period }}
+                        </p>
+                        <p class="mb-0">
+                            <strong>{% trans "Due Date:" %}</strong> {{ invoice.due_date|date:"M d, Y" }}
+                            {% if invoice.is_overdue %}
+                            <span class="badge bg-danger ms-2">
+                                {% trans "Overdue" %} {{ invoice.days_overdue }} {% trans "days" %}
+                            </span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <div class="balance-due">
+                            <h4 class="mb-1">{% trans "Balance Due" %}</h4>
+                            <h2 class="mb-0">₦{{ invoice.balance_due|intcomma }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Methods -->
+            <div class="payment-form-section">
+                <h4 class="mb-4">{% trans "Select Payment Method" %}</h4>
+                
+                <div class="payment-methods-grid">
+                    <!-- Online Payment -->
+                    <div class="payment-method-card" data-method="online">
+                        <div class="payment-method-icon">
+                            <i class="fas fa-globe"></i>
+                        </div>
+                        <h5>{% trans "Online Payment" %}</h5>
+                        <p class="text-muted small mb-3">
+                            {% trans "Pay securely with card or bank transfer" %}
+                        </p>
+                        <div class="gateway-logos">
+                            <img src="{% static 'images/paystack-logo.png' %}" alt="Paystack" class="gateway-logo" onerror="this.style.display='none'">
+                            <img src="{% static 'images/flutterwave-logo.png' %}" alt="Flutterwave" class="gateway-logo" onerror="this.style.display='none'">
+                        </div>
+                    </div>
+
+                    <!-- Bank Transfer -->
+                    <div class="payment-method-card" data-method="bank_transfer">
+                        <div class="payment-method-icon">
+                            <i class="fas fa-university"></i>
+                        </div>
+                        <h5>{% trans "Bank Transfer" %}</h5>
+                        <p class="text-muted small mb-3">
+                            {% trans "Transfer directly to our bank account" %}
+                        </p>
+                        <span class="badge bg-info">{% trans "Manual Verification" %}</span>
+                    </div>
+
+                    <!-- Cash -->
+                    <div class="payment-method-card" data-method="cash">
+                        <div class="payment-method-icon">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <h5>{% trans "Cash" %}</h5>
+                        <p class="text-muted small mb-3">
+                            {% trans "Pay at the school accounts office" %}
+                        </p>
+                        <span class="badge bg-warning text-dark">{% trans "In-Person" %}</span>
+                    </div>
+
+                    <!-- Mobile Money -->
+                    <div class="payment-method-card" data-method="mobile">
+                        <div class="payment-method-icon">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <h5>{% trans "Mobile Money" %}</h5>
+                        <p class="text-muted small mb-3">
+                            {% trans "Pay using mobile money services" %}
+                        </p>
+                        <span class="badge bg-success">{% trans "Instant" %}</span>
+                    </div>
+                </div>
+
+                <!-- Payment Form -->
+                <form id="paymentForm" method="post" class="mt-4">
+                    {% csrf_token %}
+                    
+                    <input type="hidden" name="payment_method" id="paymentMethodInput">
+                    
+                    <!-- Amount Selection -->
+                    <div class="mb-4">
+                        <label for="amount" class="form-label">
+                            <strong>{% trans "Payment Amount" %}</strong>
+                        </label>
+                        <div class="amount-input-group">
+                            <div class="input-group">
+                                <span class="input-group-text">₦</span>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="amount" 
+                                       name="amount"
+                                       step="0.01"
+                                       min="0.01"
+                                       max="{{ invoice.balance_due }}"
+                                       value="{{ invoice.balance_due }}"
+                                       required>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Amount Options -->
+                        <div class="amount-options">
+                            <div class="amount-option" data-amount="{{ invoice.balance_due }}">
+                                {% trans "Pay Full Amount" %}
+                            </div>
+                            <div class="amount-option" data-amount="{{ invoice.balance_due|divisibleby:2|yesno:invoice.balance_due|div:2 }}">
+                                {% trans "Half Payment" %}
+                            </div>
+                            <div class="amount-option" data-amount="custom">
+                                {% trans "Custom Amount" %}
+                            </div>
+                        </div>
+                        <div class="form-text">
+                            {% trans "Maximum amount:" %} ₦{{ invoice.balance_due|intcomma }}
+                        </div>
+                    </div>
+
+                    <!-- Payment Method Specific Fields -->
+                    <div id="paymentDetails">
+                        <!-- Online Payment Details -->
+                        <div class="payment-details" id="onlineDetails" style="display: none;">
+                            <h6 class="mb-3">{% trans "Online Payment Details" %}</h6>
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Select Gateway" %}</label>
+                                <select class="form-select" name="nigerian_gateway">
+                                    <option value="paystack">Paystack</option>
+                                    <option value="flutterwave">Flutterwave</option>
+                                </select>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-lock me-2"></i>
+                                {% trans "Your payment will be processed securely through our payment partner." %}
+                            </div>
+                        </div>
+
+                        <!-- Bank Transfer Details -->
+                        <div class="payment-details" id="bankTransferDetails" style="display: none;">
+                            <h6 class="mb-3">{% trans "Bank Transfer Instructions" %}</h6>
+                            <div class="mb-3">
+                                <strong>{% trans "Bank Name:" %}</strong> Zenith Bank<br>
+                                <strong>{% trans "Account Name:" %}</strong> Nexus Intelligence School<br>
+                                <strong>{% trans "Account Number:" %}</strong> 1234567890<br>
+                                <strong>{% trans "Reference:" %}</strong> {{ invoice.invoice_number }}
+                            </div>
+                            <div class="alert alert-warning">
+                                <i class="fas fa-info-circle me-2"></i>
+                                {% trans "Please use the invoice number as reference. Payment may take 24 hours to verify." %}
+                            </div>
+                        </div>
+
+                        <!-- Cash Payment Details -->
+                        <div class="payment-details" id="cashDetails" style="display: none;">
+                            <h6 class="mb-3">{% trans "Cash Payment Instructions" %}</h6>
+                            <div class="mb-3">
+                                <p>{% trans "Visit the school accounts office during working hours:" %}</p>
+                                <ul>
+                                    <li>{% trans "Monday - Friday: 8:00 AM - 4:00 PM" %}</li>
+                                    <li>{% trans "Saturday: 9:00 AM - 1:00 PM" %}</li>
+                                </ul>
+                                <p class="mb-0">
+                                    <strong>{% trans "Location:" %}</strong> {% trans "Main Administration Building, Room 101" %}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Mobile Money Details -->
+                        <div class="payment-details" id="mobileDetails" style="display: none;">
+                            <h6 class="mb-3">{% trans "Mobile Money Instructions" %}</h6>
+                            <div class="mb-3">
+                                <strong>{% trans "Service Provider:" %}</strong> MTN Mobile Money<br>
+                                <strong>{% trans "Phone Number:" %}</strong> 08031234567<br>
+                                <strong>{% trans "Reference:" %}</strong> {{ invoice.invoice_number }}
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-mobile-alt me-2"></i>
+                                {% trans "Send payment to the number above and use the invoice number as reference." %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Notes -->
+                    <div class="mb-4">
+                        <label for="notes" class="form-label">{% trans "Payment Notes (Optional)" %}</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3" 
+                                  placeholder="{% trans 'Any additional information about this payment...' %}"></textarea>
+                    </div>
+
+                    <!-- Security Badges -->
+                    <div class="security-badges">
+                        <span class="security-badge">
+                            <i class="fas fa-lock me-1"></i>
+                            {% trans "SSL Secure" %}
+                        </span>
+                        <span class="security-badge">
+                            <i class="fas fa-shield-alt me-1"></i>
+                            {% trans "PCI Compliant" %}
+                        </span>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{% url 'finance:invoice_detail' invoice.pk %}" class="btn btn-outline-secondary me-md-2">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            {% trans "Back to Invoice" %}
+                        </a>
+                        <button type="submit" class="btn btn-success btn-lg" id="submitPayment" disabled>
+                            <i class="fas fa-credit-card me-2"></i>
+                            {% trans "Proceed to Payment" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Payment Processing (Hidden by default) -->
+            <div class="payment-form-section" id="processingSection" style="display: none;">
+                <div class="payment-processing">
+                    <div class="processing-spinner">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                    <h4>{% trans "Processing Your Payment" %}</h4>
+                    <p class="text-muted">
+                        {% trans "Please wait while we process your payment. Do not refresh or close this page." %}
+                    </p>
+                    <div class="progress mt-4">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const paymentMethodCards = document.querySelectorAll('.payment-method-card');
+        const paymentMethodInput = document.getElementById('paymentMethodInput');
+        const amountInput = document.getElementById('amount');
+        const amountOptions = document.querySelectorAll('.amount-option');
+        const submitButton = document.getElementById('submitPayment');
+        const paymentForm = document.getElementById('paymentForm');
+        const processingSection = document.getElementById('processingSection');
+        
+        let selectedMethod = null;
+        
+        // Payment Method Selection
+        paymentMethodCards.forEach(card => {
+            card.addEventListener('click', function() {
+                // Remove selected class from all cards
+                paymentMethodCards.forEach(c => c.classList.remove('selected'));
+                
+                // Add selected class to clicked card
+                this.classList.add('selected');
+                
+                // Update hidden input
+                selectedMethod = this.dataset.method;
+                paymentMethodInput.value = selectedMethod;
+                
+                // Show relevant payment details
+                document.querySelectorAll('.payment-details').forEach(detail => {
+                    detail.style.display = 'none';
+                });
+                
+                const detailsId = selectedMethod + 'Details';
+                const detailsElement = document.getElementById(detailsId);
+                if (detailsElement) {
+                    detailsElement.style.display = 'block';
+                }
+                
+                // Enable submit button
+                submitButton.disabled = false;
+                
+                // Update button text based on method
+                updateSubmitButtonText();
+            });
+        });
+        
+        // Amount Options Selection
+        amountOptions.forEach(option => {
+            option.addEventListener('click', function() {
+                // Remove selected class from all options
+                amountOptions.forEach(opt => opt.classList.remove('selected'));
+                
+                // Add selected class to clicked option
+                this.classList.add('selected');
+                
+                const amount = this.dataset.amount;
+                if (amount !== 'custom') {
+                    amountInput.value = amount;
+                    amountInput.disabled = true;
+                } else {
+                    amountInput.disabled = false;
+                    amountInput.focus();
+                }
+            });
+        });
+        
+        // Amount input validation
+        amountInput.addEventListener('input', function() {
+            const maxAmount = parseFloat(this.max);
+            const currentAmount = parseFloat(this.value);
+            
+            if (currentAmount > maxAmount) {
+                this.value = maxAmount;
+            }
+            
+            if (currentAmount <= 0) {
+                this.value = 0.01;
+            }
+        });
+        
+        // Update submit button text based on payment method
+        function updateSubmitButtonText() {
+            const buttonIcon = '<i class="fas fa-credit-card me-2"></i>';
+            let buttonText = '{% trans "Proceed to Payment" %}';
+            
+            switch(selectedMethod) {
+                case 'online':
+                    buttonText = '{% trans "Proceed to Payment" %}';
+                    break;
+                case 'bank_transfer':
+                    buttonText = '{% trans "Confirm Bank Transfer" %}';
+                    break;
+                case 'cash':
+                    buttonText = '{% trans "Confirm Cash Payment" %}';
+                    break;
+                case 'mobile':
+                    buttonText = '{% trans "Proceed to Mobile Payment" %}';
+                    break;
+            }
+            
+            submitButton.innerHTML = buttonIcon + buttonText;
+        }
+        
+        // Form submission
+        paymentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!selectedMethod) {
+                alert('{% trans "Please select a payment method" %}');
+                return;
+            }
+            
+            const amount = parseFloat(amountInput.value);
+            if (amount <= 0 || amount > {{ invoice.balance_due }}) {
+                alert('{% trans "Please enter a valid payment amount" %}');
+                return;
+            }
+            
+            // Show processing section
+            paymentForm.style.display = 'none';
+            processingSection.style.display = 'block';
+            
+            // For online payments, redirect to gateway
+            if (selectedMethod === 'online') {
+                setTimeout(() => {
+                    // In a real implementation, this would redirect to the payment gateway
+                    // For now, we'll simulate a successful payment
+                    window.location.href = "{% url 'finance:payment_success' '00000000-0000-0000-0000-000000000000' %}".replace('00000000-0000-0000-0000-000000000000', '{{ invoice.pk }}');
+                }, 3000);
+            } else {
+                // For other methods, submit the form normally
+                this.submit();
+            }
+        });
+        
+        // Initialize first amount option as selected
+        if (amountOptions.length > 0) {
+            amountOptions[0].click();
+        }
+    });
+</script>
+{% endblock %}

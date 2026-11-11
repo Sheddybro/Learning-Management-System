@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}System Configurations{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-cogs"></i> System Configurations
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'core:config_dashboard' %}" class="btn btn-info btn-sm">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                        {% if user.is_superuser %}
+                        <a href="{% url 'core:ui_config_management' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-palette"></i> UI Management
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'core:config_create' %}" class="btn btn-success btn-sm">
+                            <i class="fas fa-plus"></i> Add Configuration
+                        </a>
+                        <button type="button" class="btn btn-warning btn-sm" id="bulkUpdateBtn" disabled>
+                            <i class="fas fa-edit"></i> Bulk Update
+                        </button>
+                        <a href="{% url 'core:export_configs' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-download"></i> Export
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="card-header border-0">
+                    <form method="get" class="form-inline">
+                        <div class="row w-100">
+                            <div class="col-md-3">
+                                <select name="config_type" class="form-control form-control-sm">
+                                    <option value="all">All Types</option>
+                                    {% for value, display in config_types %}
+                                    <option value="{{ value }}" {% if current_filters.config_type == value %}selected{% endif %}>
+                                        {{ display }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select name="status" class="form-control form-control-sm">
+                                    <option value="all">All Status</option>
+                                    {% for value, display in status_choices %}
+                                    <option value="{{ value }}" {% if current_filters.status == value %}selected{% endif %}>
+                                        {{ display }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select name="is_public" class="form-control form-control-sm">
+                                    <option value="all">All Visibility</option>
+                                    <option value="true" {% if current_filters.is_public == 'true' %}selected{% endif %}>Public</option>
+                                    <option value="false" {% if current_filters.is_public == 'false' %}selected{% endif %}>Private</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="text" name="search" class="form-control form-control-sm"
+                                       placeholder="Search keys, descriptions..." value="{{ current_filters.search }}">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary btn-sm btn-block">
+                                    <i class="fas fa-search"></i> Filter
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card-body table-responsive p-0">
+                    <form id="bulkForm" method="get" action="{% url 'core:config_bulk_update' %}">
+                        <table class="table table-hover text-nowrap">
+                            <thead>
+                                <tr>
+                                    <th width="30">
+                                        <input type="checkbox" id="selectAll">
+                                    </th>
+                                    <th>Key</th>
+                                    <th>Type</th>
+                                    <th>Value Preview</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Visibility</th>
+                                    <th>Updated</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for config in configs %}
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" name="config_ids" value="{{ config.id }}" class="config-checkbox">
+                                    </td>
+                                    <td>
+                                        <code>{{ config.key }}</code>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-info">{{ config.get_config_type_display }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ config.value }}">
+                                            {% if config.value|length > 50 %}
+                                                {{ config.value|truncatechars:50 }}
+                                            {% else %}
+                                                {{ config.value }}
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span title="{{ config.description }}">
+                                            {% if config.description|length > 30 %}
+                                                {{ config.description|truncatechars:30 }}
+                                            {% else %}
+                                                {{ config.description|default:"No description" }}
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if config.status == 'active' %}
+                                            <span class="badge badge-success">Active</span>
+                                        {% elif config.status == 'inactive' %}
+                                            <span class="badge badge-warning">Inactive</span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">{{ config.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if config.is_public %}
+                                            <i class="fas fa-globe text-success" title="Public"></i>
+                                        {% else %}
+                                            <i class="fas fa-lock text-warning" title="Private"></i>
+                                        {% endif %}
+                                        {% if config.is_encrypted %}
+                                            <i class="fas fa-shield-alt text-danger ml-1" title="Encrypted"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ config.updated_at|date:"M d, H:i" }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'core:config_detail' config.pk %}" class="btn btn-info btn-sm" title="View">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'core:config_update' config.pk %}" class="btn btn-warning btn-sm" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'core:config_delete' config.pk %}" class="btn btn-danger btn-sm" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">
+                                        <i class="fas fa-cogs fa-3x text-muted mb-3"></i>
+                                        <h5 class="text-muted">No configurations found</h5>
+                                        <p class="text-muted">Try adjusting your filters or create a new configuration.</p>
+                                        <a href="{% url 'core:config_create' %}" class="btn btn-primary">
+                                            <i class="fas fa-plus"></i> Add Configuration
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="card-footer">
+                    <nav aria-label="Configuration pagination">
+                        <ul class="pagination pagination-sm m-0 float-right">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo;</a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <a class="page-link" href="#">{{ num }}</a>
+                            </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&raquo;</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Select all checkbox functionality
+    $('#selectAll').on('change', function() {
+        $('.config-checkbox').prop('checked', $(this).prop('checked'));
+        updateBulkButton();
+    });
+
+    // Individual checkbox change
+    $('.config-checkbox').on('change', function() {
+        updateBulkButton();
+        // Update select all checkbox
+        var allChecked = $('.config-checkbox:checked').length === $('.config-checkbox').length;
+        var someChecked = $('.config-checkbox:checked').length > 0;
+        $('#selectAll').prop('checked', allChecked);
+        $('#selectAll').prop('indeterminate', someChecked && !allChecked);
+    });
+
+    // Update bulk update button state
+    function updateBulkButton() {
+        var checkedCount = $('.config-checkbox:checked').length;
+        $('#bulkUpdateBtn').prop('disabled', checkedCount === 0);
+        $('#bulkUpdateBtn').html('<i class="fas fa-edit"></i> Bulk Update (' + checkedCount + ')');
+    }
+
+    // Bulk update button click
+    $('#bulkUpdateBtn').on('click', function() {
+        if ($('.config-checkbox:checked').length > 0) {
+            $('#bulkForm').submit();
+        }
+    });
+
+    // Initialize
+    updateBulkButton();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1048 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Trend Analysis" %}{% endblock %}
+
+{% block page_title %}{% trans "Trend Analysis" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'analytics:dashboard' %}">{% trans "Analytics" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Trend Analysis" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createAnalysisModal">
+            <i class="bi bi-plus-circle me-1"></i> {% trans "New Analysis" %}
+        </button>
+        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" onclick="generateQuickAnalysis()">
+                <i class="bi bi-lightning me-2"></i> {% trans "Quick Analysis" %}
+            </a></li>
+            <li><a class="dropdown-item" href="#" onclick="exportAllAnalyses()">
+                <i class="bi bi-download me-2"></i> {% trans "Export All" %}
+            </a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'analytics:settings' %}">
+                <i class="bi bi-sliders me-2"></i> {% trans "Analysis Settings" %}
+            </a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .trends-list-card {
+        background: var(--bs-card-bg);
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .list-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        background: var(--bs-light);
+        border-radius: 0.5rem 0.5rem 0 0;
+    }
+    
+    .list-body {
+        padding: 1.5rem;
+    }
+    
+    .list-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--bs-border-color);
+        background: var(--bs-light-bg-subtle);
+        border-radius: 0 0 0.5rem 0.5rem;
+    }
+    
+    .analysis-card {
+        background: var(--bs-card-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .analysis-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        border-color: var(--bs-primary);
+    }
+    
+    .analysis-card:last-child {
+        margin-bottom: 0;
+    }
+    
+    .analysis-header {
+        display: flex;
+        justify-content: between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    
+    .analysis-icon {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1.25rem;
+        flex-shrink: 0;
+        font-size: 1.5rem;
+    }
+    
+    .analysis-content {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .analysis-title {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--bs-body-color);
+    }
+    
+    .analysis-description {
+        font-size: 0.875rem;
+        color: var(--bs-secondary);
+        margin-bottom: 0.75rem;
+        line-height: 1.4;
+    }
+    
+    .analysis-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    
+    .analysis-badge {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.375rem;
+        background: var(--bs-light);
+        color: var(--bs-secondary);
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .trend-indicator {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.875rem;
+        font-weight: 600;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.5rem;
+    }
+    
+    .trend-upward {
+        background: rgba(25, 135, 84, 0.1);
+        color: var(--bs-success);
+        border: 1px solid rgba(25, 135, 84, 0.2);
+    }
+    
+    .trend-downward {
+        background: rgba(220, 53, 69, 0.1);
+        color: var(--bs-danger);
+        border: 1px solid rgba(220, 53, 69, 0.2);
+    }
+    
+    .trend-stable {
+        background: rgba(108, 117, 125, 0.1);
+        color: var(--bs-secondary);
+        border: 1px solid rgba(108, 117, 125, 0.2);
+    }
+    
+    .trend-volatile {
+        background: rgba(255, 193, 7, 0.1);
+        color: var(--bs-warning);
+        border: 1px solid rgba(255, 193, 7, 0.2);
+    }
+    
+    .confidence-meter {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .confidence-label {
+        font-size: 0.875rem;
+        color: var(--bs-secondary);
+        min-width: 80px;
+    }
+    
+    .confidence-bar {
+        flex: 1;
+        height: 6px;
+        background: var(--bs-light);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    
+    .confidence-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+    
+    .confidence-high {
+        background: linear-gradient(90deg, var(--bs-success), var(--bs-teal));
+    }
+    
+    .confidence-medium {
+        background: linear-gradient(90deg, var(--bs-warning), var(--bs-orange));
+    }
+    
+    .confidence-low {
+        background: linear-gradient(90deg, var(--bs-danger), var(--bs-pink));
+    }
+    
+    .confidence-value {
+        font-size: 0.875rem;
+        font-weight: 600;
+        min-width: 40px;
+        text-align: right;
+    }
+    
+    .key-findings {
+        background: var(--bs-light-bg-subtle);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .findings-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--bs-primary);
+    }
+    
+    .finding-item {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        line-height: 1.4;
+    }
+    
+    .finding-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .finding-bullet {
+        color: var(--bs-primary);
+        margin-right: 0.5rem;
+        flex-shrink: 0;
+        margin-top: 0.125rem;
+    }
+    
+    .analysis-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .btn-analysis-action {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+    
+    .filters-card {
+        background: var(--bs-card-bg);
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .filter-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        background: var(--bs-light);
+        border-radius: 0.5rem 0.5rem 0 0;
+    }
+    
+    .filter-body {
+        padding: 1.25rem;
+    }
+    
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-overview-card {
+        background: var(--bs-card-bg);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .overview-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+    
+    .overview-label {
+        font-size: 0.875rem;
+        color: var(--bs-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .period-badge {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.375rem;
+        font-weight: 600;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: var(--bs-secondary);
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        opacity: 0.5;
+    }
+    
+    .quick-filters {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+    
+    .quick-filter-btn {
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.375rem;
+        background: var(--bs-card-bg);
+        color: var(--bs-body-color);
+        text-decoration: none;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+    }
+    
+    .quick-filter-btn:hover,
+    .quick-filter-btn.active {
+        background: var(--bs-primary);
+        color: white;
+        border-color: var(--bs-primary);
+    }
+    
+    .pagination-container {
+        background: var(--bs-card-bg);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-top: 1.5rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .insight-highlight {
+        border-left: 4px solid var(--bs-warning);
+        background: rgba(255, 193, 7, 0.05);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 0 0.375rem 0.375rem 0;
+    }
+    
+    .insight-title {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--bs-warning);
+    }
+    
+    .sparkline-chart {
+        width: 100px;
+        height: 40px;
+        background: var(--bs-light);
+        border-radius: 0.25rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .sparkline-line {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--bs-primary);
+    }
+    
+    .trend-visual {
+        display: flex;
+        align-items: flex-end;
+        height: 40px;
+        gap: 2px;
+        margin-top: 0.5rem;
+    }
+    
+    .trend-bar {
+        flex: 1;
+        background: var(--bs-primary);
+        border-radius: 1px 1px 0 0;
+        min-height: 2px;
+    }
+    
+    .view-toggle {
+        display: flex;
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.375rem;
+        overflow: hidden;
+        margin-left: 1rem;
+    }
+    
+    .view-option {
+        padding: 0.5rem 0.75rem;
+        background: var(--bs-card-bg);
+        border: none;
+        color: var(--bs-secondary);
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .view-option.active {
+        background: var(--bs-primary);
+        color: white;
+    }
+    
+    .view-option:not(:last-child) {
+        border-right: 1px solid var(--bs-border-color);
+    }
+    
+    .analysis-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .analysis-grid-view .analysis-card {
+        margin-bottom: 0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .analysis-grid-view .analysis-content {
+        flex: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Statistics Overview -->
+    <div class="col-12">
+        <div class="stats-overview">
+            <div class="stat-overview-card">
+                <div class="overview-value text-primary">{{ page_obj.paginator.count }}</div>
+                <div class="overview-label">{% trans "Total Analyses" %}</div>
+            </div>
+            <div class="stat-overview-card">
+                <div class="overview-value text-success">{{ upward_trends_count|default:"0" }}</div>
+                <div class="overview-label">{% trans "Upward Trends" %}</div>
+            </div>
+            <div class="stat-overview-card">
+                <div class="overview-value text-warning">{{ high_confidence_count|default:"0" }}</div>
+                <div class="overview-label">{% trans "High Confidence" %}</div>
+            </div>
+            <div class="stat-overview-card">
+                <div class="overview-value text-info">{{ recent_analyses_count|default:"0" }}</div>
+                <div class="overview-label">{% trans "Recent (7 days)" %}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Insight Highlight -->
+    <div class="col-12">
+        <div class="insight-highlight">
+            <div class="insight-title">
+                <i class="bi bi-lightbulb me-2"></i> {% trans "Key Insight" %}
+            </div>
+            <p class="mb-0">
+                {% trans "Student performance shows a 15% improvement in mathematics scores over the last academic year, with the most significant gains occurring in the second semester." %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Quick Filters -->
+    <div class="col-12">
+        <div class="quick-filters">
+            <a href="{% url 'analytics:trend_list' %}" class="quick-filter-btn {% if not request.GET.trend %}active{% endif %}">
+                {% trans "All Trends" %}
+            </a>
+            <a href="?trend=upward" class="quick-filter-btn {% if request.GET.trend == 'upward' %}active{% endif %}">
+                <i class="bi bi-arrow-up me-1"></i> {% trans "Upward" %}
+            </a>
+            <a href="?trend=downward" class="quick-filter-btn {% if request.GET.trend == 'downward' %}active{% endif %}">
+                <i class="bi bi-arrow-down me-1"></i> {% trans "Downward" %}
+            </a>
+            <a href="?trend=stable" class="quick-filter-btn {% if request.GET.trend == 'stable' %}active{% endif %}">
+                <i class="bi bi-dash me-1"></i> {% trans "Stable" %}
+            </a>
+            <a href="?trend=volatile" class="quick-filter-btn {% if request.GET.trend == 'volatile' %}active{% endif %}">
+                <i class="bi bi-graph-up-arrow me-1"></i> {% trans "Volatile" %}
+            </a>
+            <a href="?confidence=high" class="quick-filter-btn {% if request.GET.confidence == 'high' %}active{% endif %}">
+                <i class="bi bi-check-circle me-1"></i> {% trans "High Confidence" %}
+            </a>
+            <a href="?period=recent" class="quick-filter-btn {% if request.GET.period == 'recent' %}active{% endif %}">
+                <i class="bi bi-clock me-1"></i> {% trans "Recent" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Trends List Header -->
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">
+                {% trans "Trend Analyses" %}
+                <span class="text-muted fs-6">({{ page_obj.paginator.count }})</span>
+            </h5>
+            
+            <div class="d-flex align-items-center">
+                <div class="view-toggle">
+                    <button class="view-option active" data-view="list" onclick="toggleView('list')">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <button class="view-option" data-view="grid" onclick="toggleView('grid')">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trends List -->
+    <div class="col-12">
+        <div class="trends-list-card" id="trends-list-container">
+            <div class="list-body">
+                {% if page_obj %}
+                    <div id="trends-list-view">
+                        {% for analysis in page_obj %}
+                        <div class="analysis-card">
+                            <div class="analysis-header">
+                                <div class="analysis-icon 
+                                    {% if analysis.trend_direction == 'upward' %}bg-success bg-opacity-10 text-success
+                                    {% elif analysis.trend_direction == 'downward' %}bg-danger bg-opacity-10 text-danger
+                                    {% elif analysis.trend_direction == 'volatile' %}bg-warning bg-opacity-10 text-warning
+                                    {% else %}bg-secondary bg-opacity-10 text-secondary{% endif %}">
+                                    <i class="bi 
+                                        {% if analysis.trend_direction == 'upward' %}bi-arrow-up
+                                        {% elif analysis.trend_direction == 'downward' %}bi-arrow-down
+                                        {% elif analysis.trend_direction == 'volatile' %}bi-graph-up-arrow
+                                        {% else %}bi-dash{% endif %}">
+                                    </i>
+                                </div>
+                                
+                                <div class="analysis-content">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h4 class="analysis-title">
+                                                <a href="{% url 'analytics:trend_detail' analysis.id %}" class="text-decoration-none">
+                                                    {{ analysis.name }}
+                                                </a>
+                                            </h4>
+                                            <p class="analysis-description">{{ analysis.description }}</p>
+                                        </div>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                                <i class="bi bi-three-dots"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="{% url 'analytics:trend_detail' analysis.id %}">
+                                                    <i class="bi bi-eye me-2"></i> {% trans "View Details" %}
+                                                </a></li>
+                                                <li><a class="dropdown-item" href="#" onclick="regenerateAnalysis('{{ analysis.id }}')">
+                                                    <i class="bi bi-arrow-clockwise me-2"></i> {% trans "Regenerate" %}
+                                                </a></li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li><a class="dropdown-item" href="#" onclick="exportAnalysis('{{ analysis.id }}')">
+                                                    <i class="bi bi-download me-2"></i> {% trans "Export" %}
+                                                </a></li>
+                                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteAnalysis('{{ analysis.id }}')">
+                                                    <i class="bi bi-trash me-2"></i> {% trans "Delete" %}
+                                                </a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="analysis-meta">
+                                        <span class="analysis-badge">
+                                            <i class="bi bi-database"></i>
+                                            {{ analysis.data_source }}
+                                        </span>
+                                        <span class="period-badge 
+                                            {% if analysis.analysis_period == 'daily' %}bg-info
+                                            {% elif analysis.analysis_period == 'weekly' %}bg-primary
+                                            {% elif analysis.analysis_period == 'monthly' %}bg-success
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ analysis.get_analysis_period_display }}
+                                        </span>
+                                        <span class="analysis-badge">
+                                            <i class="bi bi-calendar"></i>
+                                            {{ analysis.start_date|date:"M Y" }} - {{ analysis.end_date|date:"M Y" }}
+                                        </span>
+                                        <span class="analysis-badge">
+                                            <i class="bi bi-person"></i>
+                                            {{ analysis.generated_by.get_full_name|default:analysis.generated_by.username }}
+                                        </span>
+                                    </div>
+
+                                    <!-- Trend Indicator -->
+                                    <div class="mb-3">
+                                        <span class="trend-indicator 
+                                            {% if analysis.trend_direction == 'upward' %}trend-upward
+                                            {% elif analysis.trend_direction == 'downward' %}trend-downward
+                                            {% elif analysis.trend_direction == 'volatile' %}trend-volatile
+                                            {% else %}trend-stable{% endif %}">
+                                            <i class="bi 
+                                                {% if analysis.trend_direction == 'upward' %}bi-arrow-up
+                                                {% elif analysis.trend_direction == 'downward' %}bi-arrow-down
+                                                {% elif analysis.trend_direction == 'volatile' %}bi-graph-up-arrow
+                                                {% else %}bi-dash{% endif %} me-1">
+                                            </i>
+                                            {{ analysis.get_trend_direction_display }}
+                                        </span>
+                                    </div>
+
+                                    <!-- Confidence Meter -->
+                                    <div class="confidence-meter">
+                                        <span class="confidence-label">{% trans "Confidence" %}</span>
+                                        <div class="confidence-bar">
+                                            <div class="confidence-fill 
+                                                {% if analysis.confidence_score >= 80 %}confidence-high
+                                                {% elif analysis.confidence_score >= 60 %}confidence-medium
+                                                {% else %}confidence-low{% endif %}" 
+                                                style="width: {{ analysis.confidence_score }}%">
+                                            </div>
+                                        </div>
+                                        <span class="confidence-value">{{ analysis.confidence_score }}%</span>
+                                    </div>
+
+                                    <!-- Key Findings -->
+                                    {% if analysis.key_findings %}
+                                    <div class="key-findings">
+                                        <div class="findings-title">{% trans "Key Findings" %}</div>
+                                        {% for finding in analysis.key_findings|slice:":3" %}
+                                        <div class="finding-item">
+                                            <span class="finding-bullet">•</span>
+                                            <span>{{ finding }}</span>
+                                        </div>
+                                        {% endfor %}
+                                        {% if analysis.key_findings|length > 3 %}
+                                        <div class="finding-item">
+                                            <span class="finding-bullet">...</span>
+                                            <span class="text-muted">{% trans "and" %} {{ analysis.key_findings|length|add:"-3" }} {% trans "more findings" %}</span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Simple Trend Visualization -->
+                                    <div class="trend-visual">
+                                        {% for i in "123456789"|make_list %}
+                                        <div class="trend-bar" style="height: {% widthratio forloop.counter 10 40 %}px; 
+                                            background: {% if analysis.trend_direction == 'upward' %}var(--bs-success)
+                                            {% elif analysis.trend_direction == 'downward' %}var(--bs-danger)
+                                            {% elif analysis.trend_direction == 'volatile' %}var(--bs-warning)
+                                            {% else %}var(--bs-secondary){% endif %};">
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="analysis-actions">
+                                <a href="{% url 'analytics:trend_detail' analysis.id %}" class="btn btn-primary btn-analysis-action">
+                                    <i class="bi bi-bar-chart me-1"></i> {% trans "View Analysis" %}
+                                </a>
+                                <button class="btn btn-outline-success btn-analysis-action" onclick="exportAnalysis('{{ analysis.id }}')">
+                                    <i class="bi bi-download me-1"></i> {% trans "Export" %}
+                                </button>
+                                <button class="btn btn-outline-warning btn-analysis-action" onclick="regenerateAnalysis('{{ analysis.id }}')">
+                                    <i class="bi bi-arrow-clockwise me-1"></i> {% trans "Regenerate" %}
+                                </button>
+                                <span class="text-muted small ms-auto align-self-center">
+                                    {{ analysis.generated_at|timesince }} {% trans "ago" %}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Grid View (Hidden by default) -->
+                    <div id="trends-grid-view" class="analysis-grid-view" style="display: none;">
+                        <div class="analysis-grid">
+                            {% for analysis in page_obj %}
+                            <div class="analysis-card">
+                                <div class="analysis-header">
+                                    <div class="analysis-icon 
+                                        {% if analysis.trend_direction == 'upward' %}bg-success bg-opacity-10 text-success
+                                        {% elif analysis.trend_direction == 'downward' %}bg-danger bg-opacity-10 text-danger
+                                        {% elif analysis.trend_direction == 'volatile' %}bg-warning bg-opacity-10 text-warning
+                                        {% else %}bg-secondary bg-opacity-10 text-secondary{% endif %}">
+                                        <i class="bi 
+                                            {% if analysis.trend_direction == 'upward' %}bi-arrow-up
+                                            {% elif analysis.trend_direction == 'downward' %}bi-arrow-down
+                                            {% elif analysis.trend_direction == 'volatile' %}bi-graph-up-arrow
+                                            {% else %}bi-dash{% endif %}">
+                                        </i>
+                                    </div>
+                                </div>
+                                
+                                <div class="analysis-content">
+                                    <h5 class="analysis-title mb-2">
+                                        <a href="{% url 'analytics:trend_detail' analysis.id %}" class="text-decoration-none">
+                                            {{ analysis.name }}
+                                        </a>
+                                    </h5>
+                                    
+                                    <div class="mb-3">
+                                        <span class="trend-indicator 
+                                            {% if analysis.trend_direction == 'upward' %}trend-upward
+                                            {% elif analysis.trend_direction == 'downward' %}trend-downward
+                                            {% elif analysis.trend_direction == 'volatile' %}trend-volatile
+                                            {% else %}trend-stable{% endif %}">
+                                            {{ analysis.get_trend_direction_display }}
+                                        </span>
+                                    </div>
+                                    
+                                    <!-- Confidence -->
+                                    <div class="confidence-meter mb-3">
+                                        <span class="confidence-label">{% trans "Confidence" %}</span>
+                                        <div class="confidence-bar">
+                                            <div class="confidence-fill 
+                                                {% if analysis.confidence_score >= 80 %}confidence-high
+                                                {% elif analysis.confidence_score >= 60 %}confidence-medium
+                                                {% else %}confidence-low{% endif %}" 
+                                                style="width: {{ analysis.confidence_score }}%">
+                                            </div>
+                                        </div>
+                                        <span class="confidence-value">{{ analysis.confidence_score }}%</span>
+                                    </div>
+                                    
+                                    <!-- Period -->
+                                    <div class="mb-3">
+                                        <span class="analysis-badge">
+                                            <i class="bi bi-calendar"></i>
+                                            {{ analysis.start_date|date:"M Y" }} - {{ analysis.end_date|date:"M Y" }}
+                                        </span>
+                                    </div>
+                                    
+                                    <!-- Key Finding Preview -->
+                                    {% if analysis.key_findings %}
+                                    <div class="key-findings">
+                                        <div class="finding-item">
+                                            <span class="finding-bullet">•</span>
+                                            <span class="small">{{ analysis.key_findings.0|truncatewords:10 }}</span>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="analysis-actions mt-auto">
+                                    <a href="{% url 'analytics:trend_detail' analysis.id %}" class="btn btn-outline-primary btn-sm w-100">
+                                        <i class="bi bi-bar-chart me-1"></i> {% trans "View Details" %}
+                                    </a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    {% if page_obj.has_other_pages %}
+                    <div class="pagination-container">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="text-muted">
+                                    {% blocktrans with start=page_obj.start_index end=page_obj.end_index total=page_obj.paginator.count %}
+                                    Showing {{ start }} to {{ end }} of {{ total }} analyses
+                                    {% endblocktrans %}
+                                </small>
+                            </div>
+                            
+                            <nav aria-label="{% trans 'Analysis pagination' %}">
+                                <ul class="pagination mb-0">
+                                    {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-double-left"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% for num in page_obj.paginator.page_range %}
+                                        {% if page_obj.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                                        </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-double-right"></i>
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                {% else %}
+                    <!-- Empty State -->
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="bi bi-graph-up-arrow"></i>
+                        </div>
+                        <h4>{% trans "No Trend Analyses" %}</h4>
+                        <p class="mb-4">{% trans "No trend analyses match your current filters. Try adjusting your search criteria or create a new analysis." %}</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createAnalysisModal">
+                            <i class="bi bi-plus-circle me-1"></i> {% trans "Create First Analysis" %}
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Analysis Modal -->
+<div class="modal fade" id="createAnalysisModal" tabindex="-1" aria-labelledby="createAnalysisModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createAnalysisModalLabel">{% trans "Create Trend Analysis" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-4">{% trans "Create a new trend analysis to identify patterns and insights in your data." %}</p>
+                <!-- Form would be loaded here via AJAX or included directly -->
+                <div class="text-center py-4">
+                    <div class="text-muted">
+                        <i class="bi bi-graph-up-arrow" style="font-size: 3rem;"></i>
+                        <p class="mt-2">{% trans "Trend analysis creation form would be implemented here" %}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#quickAnalysisModal">
+                    <i class="bi bi-lightning me-1"></i> {% trans "Quick Analysis" %}
+                </button>
+                <button type="button" class="btn btn-primary">{% trans "Create Analysis" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Analysis Modal -->
+<div class="modal fade" id="quickAnalysisModal" tabindex="-1" aria-labelledby="quickAnalysisModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickAnalysisModalLabel">{% trans "Quick Analysis" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">{% trans "Generate a quick trend analysis with default settings:" %}</p>
+                <div class="list-group">
+                    <a href="#" class="list-group-item list-group-item-action" onclick="generateQuickAnalysis('student_performance')">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{% trans "Student Performance" %}</h6>
+                            <small class="text-muted">5 min</small>
+                        </div>
+                        <p class="mb-1">{% trans "Analyze academic performance trends over time" %}</p>
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" onclick="generateQuickAnalysis('attendance')">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{% trans "Attendance Trends" %}</h6>
+                            <small class="text-muted">3 min</small>
+                        </div>
+                        <p class="mb-1">{% trans "Identify attendance patterns and anomalies" %}</p>
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" onclick="generateQuickAnalysis('financial')">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{% trans "Financial Metrics" %}</h6>
+                            <small class="text-muted">7 min</small>
+                        </div>
+                        <p class="mb-1">{% trans "Track revenue, expenses, and financial health" %}</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize view toggle
+        const savedView = localStorage.getItem('trendsView') || 'list';
+        toggleView(savedView);
+        
+        // Initialize tooltips
+        initializeTooltips();
+    });
+    
+    function toggleView(view) {
+        const listView = document.getElementById('trends-list-view');
+        const gridView = document.getElementById('trends-grid-view');
+        const viewOptions = document.querySelectorAll('.view-option');
+        
+        // Update active state
+        viewOptions.forEach(option => {
+            option.classList.toggle('active', option.dataset.view === view);
+        });
+        
+        // Show/hide views
+        if (view === 'list') {
+            listView.style.display = 'block';
+            gridView.style.display = 'none';
+        } else {
+            listView.style.display = 'none';
+            gridView.style.display = 'block';
+        }
+        
+        // Save preference
+        localStorage.setItem('trendsView', view);
+    }
+    
+    function initializeTooltips() {
+        // Initialize Bootstrap tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+    
+    function generateQuickAnalysis(type) {
+        BaseApp.showToast('{% trans "Generating quick analysis..." %}', 'info');
+        
+        // Close modals
+        const modals = ['createAnalysisModal', 'quickAnalysisModal'];
+        modals.forEach(modalId => {
+            const modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
+            if (modal) modal.hide();
+        });
+        
+        // In real implementation, this would trigger analysis generation
+        setTimeout(function() {
+            BaseApp.showToast('{% trans "Quick analysis completed!" %}', 'success');
+            setTimeout(function() {
+                window.location.reload();
+            }, 2000);
+        }, 3000);
+    }
+    
+    function regenerateAnalysis(analysisId) {
+        if (confirm('{% trans "Are you sure you want to regenerate this analysis? This will create a new analysis with updated data." %}')) {
+            BaseApp.showLoading();
+            
+            // In real implementation, this would be an API call
+            setTimeout(function() {
+                BaseApp.hideLoading();
+                BaseApp.showToast('{% trans "Analysis regeneration initiated" %}', 'success');
+                
+                setTimeout(function() {
+                    window.location.reload();
+                }, 2000);
+            }, 1500);
+        }
+    }
+    
+    function exportAnalysis(analysisId) {
+        BaseApp.showToast('{% trans "Preparing analysis export..." %}', 'info');
+        
+        // In real implementation, this would trigger an export
+        setTimeout(function() {
+            const exportUrl = `{% url "analytics:trend_list" %}?export=${analysisId}`;
+            window.open(exportUrl, '_blank');
+        }, 1000);
+    }
+    
+    function exportAllAnalyses() {
+        BaseApp.showToast('{% trans "Preparing all analyses for export..." %}', 'info');
+        
+        // In real implementation, this would trigger a bulk export
+        setTimeout(function() {
+            const exportUrl = '{% url "analytics:trend_list" %}?export_all=true';
+            window.open(exportUrl, '_blank');
+        }, 1000);
+    }
+    
+    function deleteAnalysis(analysisId) {
+        if (confirm('{% trans "Are you sure you want to delete this trend analysis? This action cannot be undone." %}')) {
+            BaseApp.showLoading();
+            
+            // In real implementation, this would be an API call
+            setTimeout(function() {
+                BaseApp.hideLoading();
+                BaseApp.showToast('{% trans "Analysis deleted successfully" %}', 'success');
+                
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1000);
+            }, 1500);
+        }
+    }
+    
+    // Quick filter functions
+    function filterByTrend(trend) {
+        const url = new URL(window.location);
+        url.searchParams.set('trend', trend);
+        window.location.href = url.toString();
+    }
+    
+    function filterByConfidence(confidence) {
+        const url = new URL(window.location);
+        url.searchParams.set('confidence', confidence);
+        window.location.href = url.toString();
+    }
+</script>
+{% endblock %}

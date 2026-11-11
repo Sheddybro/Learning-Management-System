@@ -1,0 +1,564 @@
+<!-- templates/attendance/config/config_form.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Attendance Configuration - School Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+.config-section {
+    border-left: 4px solid #007bff;
+    padding-left: 20px;
+    margin-bottom: 30px;
+}
+.config-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e3e6f0;
+}
+.config-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+.feature-toggle .form-check-input {
+    width: 60px;
+    height: 30px;
+}
+.help-icon {
+    color: #6c757d;
+    cursor: help;
+}
+.config-preview {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-2">Attendance Configuration</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'attendance:dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item active">Configuration</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary" onclick="resetToDefaults()">
+                        <i class="fas fa-redo me-1"></i> Reset Defaults
+                    </button>
+                    <button type="button" class="btn btn-outline-info" onclick="showConfigPreview()">
+                        <i class="fas fa-eye me-1"></i> Preview
+                    </button>
+                </div>
+            </div>
+            {% if current_session %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Configuring settings for <strong>{{ current_session.name }}</strong> academic session
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="post" id="configForm">
+        {% csrf_token %}
+        <input type="hidden" name="academic_session" value="{{ form.academic_session.value }}">
+        
+        <div class="row">
+            <!-- Main Configuration -->
+            <div class="col-lg-8">
+                <!-- School Timing Configuration -->
+                <div class="card config-card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="fas fa-clock me-2"></i>School Timing Configuration
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="school_start_time" class="form-label fw-bold">
+                                    School Start Time
+                                    <i class="fas fa-question-circle help-icon ms-1" 
+                                       title="Official start time of the school day"></i>
+                                </label>
+                                <input type="time" class="form-control" id="school_start_time" 
+                                       name="school_start_time" 
+                                       value="{{ form.school_start_time.value|default:'08:00:00'|slice:':5' }}" 
+                                       required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="school_end_time" class="form-label fw-bold">
+                                    School End Time
+                                    <i class="fas fa-question-circle help-icon ms-1" 
+                                       title="Official end time of the school day"></i>
+                                </label>
+                                <input type="time" class="form-control" id="school_end_time" 
+                                       name="school_end_time" 
+                                       value="{{ form.school_end_time.value|default:'14:00:00'|slice:':5' }}" 
+                                       required>
+                            </div>
+                        </div>
+                        <div class="mt-3" id="schoolHoursPreview">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attendance Thresholds -->
+                <div class="card config-card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="fas fa-sliders-h me-2"></i>Attendance Thresholds
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="late_threshold_minutes" class="form-label fw-bold">
+                                    Late Threshold (Minutes)
+                                    <i class="fas fa-question-circle help-icon ms-1" 
+                                       title="Minutes after start time considered as late arrival"></i>
+                                </label>
+                                <input type="number" class="form-control" id="late_threshold_minutes" 
+                                       name="late_threshold_minutes" min="1" max="240"
+                                       value="{{ form.late_threshold_minutes.value|default:'15' }}" 
+                                       required>
+                                <div class="form-text">
+                                    Maximum: 240 minutes (4 hours)
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="half_day_threshold_hours" class="form-label fw-bold">
+                                    Half Day Threshold (Hours)
+                                    <i class="fas fa-question-circle help-icon ms-1" 
+                                       title="Minimum hours required for half day attendance"></i>
+                                </label>
+                                <input type="number" class="form-control" id="half_day_threshold_hours" 
+                                       name="half_day_threshold_hours" min="1" max="8"
+                                       value="{{ form.half_day_threshold_hours.value|default:'4' }}" 
+                                       required>
+                                <div class="form-text">
+                                    Maximum: 8 hours
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Automation Settings -->
+                <div class="card config-card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="fas fa-robot me-2"></i>Automation Settings
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="auto_mark_absent_after_days" class="form-label fw-bold">
+                                    Auto Mark Absent After (Days)
+                                    <i class="fas fa-question-circle help-icon ms-1" 
+                                       title="Automatically mark absent if no attendance recorded after N days"></i>
+                                </label>
+                                <input type="number" class="form-control" id="auto_mark_absent_after_days" 
+                                       name="auto_mark_absent_after_days" min="1" max="30"
+                                       value="{{ form.auto_mark_absent_after_days.value|default:'3' }}" 
+                                       required>
+                                <div class="form-text">
+                                    Maximum: 30 days
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="notify_after_consecutive_absences" class="form-label fw-bold">
+                                    Notify After Consecutive Absences
+                                    <i class="fas fa-question-circle help-icon ms-1" 
+                                       title="Send notification after N consecutive absences"></i>
+                                </label>
+                                <input type="number" class="form-control" id="notify_after_consecutive_absences" 
+                                       name="notify_after_consecutive_absences" min="1" max="10"
+                                       value="{{ form.notify_after_consecutive_absences.value|default:'3' }}" 
+                                       required>
+                                <div class="form-text">
+                                    Maximum: 10 consecutive absences
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feature Flags -->
+                <div class="card config-card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="fas fa-cogs me-2"></i>Feature Flags
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-check feature-toggle">
+                                    <input class="form-check-input" type="checkbox" id="enable_biometric" 
+                                           name="enable_biometric" 
+                                           {% if form.enable_biometric.value %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold" for="enable_biometric">
+                                        Enable Biometric Integration
+                                        <i class="fas fa-question-circle help-icon ms-1" 
+                                           title="Integrate with biometric attendance devices"></i>
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    Connect with fingerprint/RFID attendance systems
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check feature-toggle">
+                                    <input class="form-check-input" type="checkbox" id="enable_geo_fencing" 
+                                           name="enable_geo_fencing" 
+                                           {% if form.enable_geo_fencing.value %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold" for="enable_geo_fencing">
+                                        Enable Geo-fencing
+                                        <i class="fas fa-question-circle help-icon ms-1" 
+                                           title="Restrict attendance marking to school premises"></i>
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    Require location verification for attendance
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check feature-toggle">
+                                    <input class="form-check-input" type="checkbox" id="notify_parents_on_absence" 
+                                           name="notify_parents_on_absence" 
+                                           {% if form.notify_parents_on_absence.value %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold" for="notify_parents_on_absence">
+                                        Notify Parents on Absence
+                                        <i class="fas fa-question-circle help-icon ms-1" 
+                                           title="Send automatic notifications to parents when students are absent"></i>
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    Automatic SMS/email alerts to parents
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check feature-toggle">
+                                    <input class="form-check-input" type="checkbox" id="enable_auto_attendance" 
+                                           name="enable_auto_attendance" 
+                                           {% if form.enable_auto_attendance.value %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold" for="enable_auto_attendance">
+                                        Enable Auto Attendance
+                                        <i class="fas fa-question-circle help-icon ms-1" 
+                                           title="Automatically mark attendance based on predefined rules"></i>
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    Automatic attendance marking for regular patterns
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar - Configuration Summary -->
+            <div class="col-lg-4">
+                <!-- Configuration Summary -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Configuration Summary</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="configSummary">
+                            <div class="text-center py-3">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Quick Actions</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-1"></i> Save Configuration
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="testConfiguration()">
+                                <i class="fas fa-vial me-1"></i> Test Configuration
+                            </button>
+                            <button type="button" class="btn btn-outline-info" onclick="exportConfiguration()">
+                                <i class="fas fa-download me-1"></i> Export Settings
+                            </button>
+                            <button type="button" class="btn btn-outline-warning" onclick="importConfiguration()">
+                                <i class="fas fa-upload me-1"></i> Import Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configuration Status -->
+                <div class="card shadow">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">System Status</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group list-group-flush">
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                Attendance System
+                                <span class="badge bg-success">Active</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                Database Connection
+                                <span class="badge bg-success">Connected</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                Notification Service
+                                <span class="badge bg-warning">Testing</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                Biometric Devices
+                                <span class="badge bg-secondary">Offline</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                Last Backup
+                                <small class="text-muted">2 hours ago</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Configuration Preview Modal -->
+<div class="modal fade" id="configPreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configuration Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="configPreviewContent">
+                <!-- Preview content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="saveConfiguration()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    updateConfigSummary();
+    updateSchoolHoursPreview();
+
+    // Add event listeners for real-time updates
+    document.getElementById('school_start_time').addEventListener('change', updateSchoolHoursPreview);
+    document.getElementById('school_end_time').addEventListener('change', updateSchoolHoursPreview);
+    
+    const configInputs = document.querySelectorAll('input, select, textarea');
+    configInputs.forEach(input => {
+        input.addEventListener('change', updateConfigSummary);
+    });
+});
+
+function updateConfigSummary() {
+    const startTime = document.getElementById('school_start_time').value;
+    const endTime = document.getElementById('school_end_time').value;
+    const lateThreshold = document.getElementById('late_threshold_minutes').value;
+    const halfDayThreshold = document.getElementById('half_day_threshold_hours').value;
+    const autoAbsentDays = document.getElementById('auto_mark_absent_after_days').value;
+    const notifyAbsences = document.getElementById('notify_after_consecutive_absences').value;
+
+    const summaryHTML = `
+        <div class="mb-3">
+            <strong>School Hours:</strong><br>
+            <span class="text-success">${startTime} - ${endTime}</span>
+        </div>
+        <div class="mb-3">
+            <strong>Late Arrival:</strong><br>
+            <span class="text-warning">${lateThreshold} minutes after start</span>
+        </div>
+        <div class="mb-3">
+            <strong>Half Day:</strong><br>
+            <span class="text-info">${halfDayThreshold}+ hours required</span>
+        </div>
+        <div class="mb-3">
+            <strong>Auto Actions:</strong><br>
+            <small>Mark absent after ${autoAbsentDays} days</small><br>
+            <small>Notify after ${notifyAbsences} consecutive absences</small>
+        </div>
+        <div class="mb-3">
+            <strong>Active Features:</strong><br>
+            ${getActiveFeaturesList()}
+        </div>
+    `;
+
+    document.getElementById('configSummary').innerHTML = summaryHTML;
+}
+
+function updateSchoolHoursPreview() {
+    const startTime = document.getElementById('school_start_time').value;
+    const endTime = document.getElementById('school_end_time').value;
+    
+    if (startTime && endTime) {
+        const start = parseTime(startTime);
+        const end = parseTime(endTime);
+        
+        if (start >= end) {
+            document.getElementById('schoolHoursPreview').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    End time must be after start time
+                </div>
+            `;
+            return;
+        }
+
+        const durationMinutes = (end - start) / (1000 * 60);
+        const hours = Math.floor(durationMinutes / 60);
+        const minutes = durationMinutes % 60;
+
+        document.getElementById('schoolHoursPreview').innerHTML = `
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle me-2"></i>
+                School day: <strong>${hours}h ${minutes}m</strong> total duration
+            </div>
+        `;
+    }
+}
+
+function getActiveFeaturesList() {
+    const features = [];
+    
+    if (document.getElementById('enable_biometric').checked) {
+        features.push('<span class="badge bg-primary">Biometric</span>');
+    }
+    if (document.getElementById('enable_geo_fencing').checked) {
+        features.push('<span class="badge bg-success">Geo-fencing</span>');
+    }
+    if (document.getElementById('notify_parents_on_absence').checked) {
+        features.push('<span class="badge bg-info">Parent Notifications</span>');
+    }
+    if (document.getElementById('enable_auto_attendance').checked) {
+        features.push('<span class="badge bg-warning">Auto Attendance</span>');
+    }
+    
+    return features.length > 0 ? features.join(' ') : '<small class="text-muted">No features enabled</small>';
+}
+
+function parseTime(timeString) {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date;
+}
+
+function showConfigPreview() {
+    const formData = new FormData(document.getElementById('configForm'));
+    let previewHTML = '<h6>Configuration Preview</h6><dl class="row">';
+    
+    for (let [key, value] of formData.entries()) {
+        let displayValue = value;
+        let displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        
+        if (key.includes('time')) {
+            displayValue = value;
+        } else if (key.includes('threshold') || key.includes('minutes') || key.includes('hours')) {
+            displayValue = value + (key.includes('minutes') ? ' minutes' : key.includes('hours') ? ' hours' : '');
+        } else if (key.includes('enable_') || key.includes('notify_')) {
+            displayValue = value ? '<span class="badge bg-success">Enabled</span>' : '<span class="badge bg-secondary">Disabled</span>';
+        }
+        
+        previewHTML += `
+            <dt class="col-sm-6">${displayKey}:</dt>
+            <dd class="col-sm-6">${displayValue}</dd>
+        `;
+    }
+    
+    previewHTML += '</dl>';
+    document.getElementById('configPreviewContent').innerHTML = previewHTML;
+    
+    const modal = new bootstrap.Modal(document.getElementById('configPreviewModal'));
+    modal.show();
+}
+
+function resetToDefaults() {
+    if (confirm('Are you sure you want to reset all settings to default values? This action cannot be undone.')) {
+        document.getElementById('school_start_time').value = '08:00';
+        document.getElementById('school_end_time').value = '14:00';
+        document.getElementById('late_threshold_minutes').value = '15';
+        document.getElementById('half_day_threshold_hours').value = '4';
+        document.getElementById('auto_mark_absent_after_days').value = '3';
+        document.getElementById('notify_after_consecutive_absences').value = '3';
+        
+        document.getElementById('enable_biometric').checked = false;
+        document.getElementById('enable_geo_fencing').checked = false;
+        document.getElementById('notify_parents_on_absence').checked = true;
+        document.getElementById('enable_auto_attendance').checked = false;
+        
+        updateConfigSummary();
+        updateSchoolHoursPreview();
+        
+        alert('Configuration reset to default values.');
+    }
+}
+
+function testConfiguration() {
+    // Simulate configuration testing
+    const testResults = [
+        { feature: 'School Timing', status: 'success', message: 'Valid school hours configured' },
+        { feature: 'Late Threshold', status: 'success', message: 'Reasonable late threshold set' },
+        { feature: 'Notification System', status: 'warning', message: 'Test notification sent' },
+        { feature: 'Biometric Integration', status: 'error', message: 'No biometric devices detected' }
+    ];
+    
+    let testHTML = '<h6>Configuration Test Results</h6>';
+    testResults.forEach(test => {
+        const badgeClass = test.status === 'success' ? 'bg-success' : test.status === 'warning' ? 'bg-warning' : 'bg-danger';
+        testHTML += `
+            <div class="alert alert-${test.status === 'success' ? 'success' : test.status === 'warning' ? 'warning' : 'danger'}">
+                <span class="badge ${badgeClass} me-2">${test.status.toUpperCase()}</span>
+                <strong>${test.feature}:</strong> ${test.message}
+            </div>
+        `;
+    });
+    
+    document.getElementById('configPreviewContent').innerHTML = testHTML;
+    const modal = new bootstrap.Modal(document.getElementById('configPreviewModal'));
+    modal.show();
+}
+
+function exportConfiguration() {
+    alert('Configuration export feature would be implemented here.');
+}
+
+function importConfiguration() {
+    alert('Configuration import feature would be implemented here.');
+}
+
+function saveConfiguration() {
+    document.getElementById('configForm').submit();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,822 @@
+<!-- templates/transport/routeschedules/routeschedule_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Schedule Details" %} - {{ schedule.route.code }}{% endblock %}
+
+{% block page_title %}{% trans "Schedule Details" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:routeschedule_list' %}">{% trans "Route Schedules" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ schedule.route.code }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'transport:routeschedule_update' schedule.pk %}" class="btn btn-primary">
+            <i class="fas fa-edit me-2"></i>{% trans "Edit Schedule" %}
+        </a>
+        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'transport:transportallocation_create' %}?schedule={{ schedule.pk }}">
+                <i class="fas fa-user-plus me-2"></i>{% trans "Allocate Student" %}
+            </a></li>
+            <li><a class="dropdown-item" href="#" id="clone-schedule">
+                <i class="fas fa-copy me-2"></i>{% trans "Clone Schedule" %}
+            </a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'transport:incidentreport_create' %}?schedule={{ schedule.pk }}">
+                <i class="fas fa-exclamation-triangle me-2"></i>{% trans "Report Incident" %}
+            </a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item text-danger" href="{% url 'transport:routeschedule_delete' schedule.pk %}">
+                <i class="fas fa-trash me-2"></i>{% trans "Delete Schedule" %}
+            </a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        transition: transform 0.3s ease;
+    }
+    
+    .detail-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .schedule-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+        padding: 2rem;
+    }
+    
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .resource-card {
+        border-left: 4px solid;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .route-card { border-left-color: #0d6efd; }
+    .vehicle-card { border-left-color: #198754; }
+    .driver-card { border-left-color: #fd7e14; }
+    .attendant-card { border-left-color: #6f42c1; }
+    
+    .resource-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-right: 1rem;
+    }
+    
+    .route-icon { background-color: #e7f1ff; color: #0d6efd; }
+    .vehicle-icon { background-color: #e8f5e8; color: #198754; }
+    .driver-icon { background-color: #fef7e6; color: #fd7e14; }
+    .attendant-icon { background-color: #f0e6ff; color: #6f42c1; }
+    
+    .timeline {
+        position: relative;
+        padding-left: 2rem;
+        margin: 1.5rem 0;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background-color: #e9ecef;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -2rem;
+        top: 0.5rem;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: #0d6efd;
+        border: 2px solid white;
+        box-shadow: 0 0 0 2px #0d6efd;
+    }
+    
+    .time-slot {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .time-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    
+    .time-value {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    .days-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+    
+    .day-cell {
+        text-align: center;
+        padding: 0.75rem 0.5rem;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    
+    .day-cell.active {
+        background-color: #0d6efd;
+        color: white;
+        transform: scale(1.05);
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .student-table {
+        margin-top: 1rem;
+    }
+    
+    .student-row {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        transition: background-color 0.2s ease;
+    }
+    
+    .student-row:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .student-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #0d6efd;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        margin-right: 1rem;
+    }
+    
+    .incident-item {
+        border-left: 4px solid;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .incident-low { border-left-color: #20c997; }
+    .incident-medium { border-left-color: #fd7e14; }
+    .incident-high { border-left-color: #dc3545; }
+    
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .operational-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-left: 1rem;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .days-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+        
+        .resource-card {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .resource-icon {
+            margin-right: 0;
+            margin-bottom: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="route-schedule-detail">
+    <!-- Schedule Header -->
+    <div class="card detail-card">
+        <div class="schedule-header">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="h2 mb-2">{{ schedule.route.code }} - {{ schedule.route.name }}</h1>
+                    <p class="mb-3 opacity-75">{{ schedule.route.start_point }} → {{ schedule.route.end_point }}</p>
+                    <div class="d-flex align-items-center flex-wrap gap-2">
+                        <span class="status-badge {% if schedule.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">
+                            {{ schedule.get_status_display }}
+                        </span>
+                        {% if schedule.is_operational_today %}
+                        <span class="operational-indicator bg-success text-white">
+                            <i class="fas fa-play-circle me-2"></i>{% trans "Operational Today" %}
+                        </span>
+                        {% endif %}
+                        <span class="operational-indicator bg-light text-dark">
+                            <i class="fas fa-calendar me-2"></i>{{ schedule.academic_session.name }}
+                        </span>
+                    </div>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <div class="text-white-50 mb-2">{% trans "Schedule ID" %}</div>
+                    <div class="h5 mb-0">{{ schedule.id|slice:":8"|upper }}</div>
+                    <small class="opacity-75">{% trans "Created" %} {{ schedule.created_at|date:"M d, Y" }}</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            <!-- Quick Stats -->
+            <div class="row mb-4">
+                <div class="col-md-3 col-6">
+                    <div class="stat-card">
+                        <div class="stat-value text-primary">{{ total_students }}</div>
+                        <div class="stat-label">{% trans "Students" %}</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="stat-card">
+                        <div class="stat-value text-success">{{ schedule.vehicle.available_seats }}</div>
+                        <div class="stat-label">{% trans "Available Seats" %}</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="stat-card">
+                        <div class="stat-value text-info">{{ schedule.route.total_distance }} km</div>
+                        <div class="stat-label">{% trans "Route Distance" %}</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="stat-card">
+                        <div class="stat-value text-warning">{{ schedule.days_of_week|split:","|length }}</div>
+                        <div class="stat-label">{% trans "Days/Week" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column - Schedule Details -->
+        <div class="col-lg-8">
+            <!-- Resources Information -->
+            <div class="card detail-card">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-users me-2 text-primary"></i>{% trans "Assigned Resources" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Route Information -->
+                        <div class="col-md-6 mb-3">
+                            <div class="resource-card route-card">
+                                <div class="d-flex align-items-center">
+                                    <div class="resource-icon route-icon">
+                                        <i class="fas fa-route"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">{{ schedule.route.code }}</h6>
+                                        <p class="text-muted small mb-1">{{ schedule.route.name }}</p>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <span class="badge bg-primary">{{ schedule.route.total_distance }} km</span>
+                                            <span class="badge bg-info">{{ schedule.route.estimated_duration }} min</span>
+                                            {% if schedule.route.is_active %}
+                                            <span class="badge bg-success">{% trans "Active" %}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Vehicle Information -->
+                        <div class="col-md-6 mb-3">
+                            <div class="resource-card vehicle-card">
+                                <div class="d-flex align-items-center">
+                                    <div class="resource-icon vehicle-icon">
+                                        <i class="fas fa-bus"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">{{ schedule.vehicle.vehicle_number }}</h6>
+                                        <p class="text-muted small mb-1">
+                                            {{ schedule.vehicle.make }} {{ schedule.vehicle.model }} ({{ schedule.vehicle.year }})
+                                        </p>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <span class="badge bg-success">{{ schedule.vehicle.seating_capacity }} {% trans "seats" %}</span>
+                                            <span class="badge bg-secondary">{{ schedule.vehicle.get_vehicle_type_display }}</span>
+                                            {% if schedule.vehicle.is_insurance_expired %}
+                                            <span class="badge bg-danger">{% trans "Insurance Expired" %}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Driver Information -->
+                        <div class="col-md-6 mb-3">
+                            <div class="resource-card driver-card">
+                                <div class="d-flex align-items-center">
+                                    <div class="resource-icon driver-icon">
+                                        <i class="fas fa-id-card"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">{{ schedule.driver.user.get_full_name }}</h6>
+                                        <p class="text-muted small mb-1">
+                                            {{ schedule.driver.employee_id }} • {{ schedule.driver.get_license_type_display }}
+                                        </p>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <span class="badge bg-success">{{ schedule.driver.get_status_display }}</span>
+                                            <span class="badge bg-info">{% trans "License" %} {{ schedule.driver.license_expiry }}</span>
+                                            {% if schedule.driver.is_license_expired %}
+                                            <span class="badge bg-danger">{% trans "Expired" %}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Attendant Information -->
+                        <div class="col-md-6 mb-3">
+                            <div class="resource-card attendant-card">
+                                <div class="d-flex align-items-center">
+                                    <div class="resource-icon attendant-icon">
+                                        <i class="fas fa-user-friends"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        {% if schedule.attendant %}
+                                        <h6 class="mb-1">{{ schedule.attendant.user.get_full_name }}</h6>
+                                        <p class="text-muted small mb-1">
+                                            {{ schedule.attendant.employee_id }}
+                                        </p>
+                                        <span class="badge bg-success">{{ schedule.attendant.get_status_display }}</span>
+                                        {% else %}
+                                        <h6 class="mb-1 text-muted">{% trans "No Attendant Assigned" %}</h6>
+                                        <p class="text-muted small mb-1">{% trans "This schedule operates without an attendant" %}</p>
+                                        <span class="badge bg-secondary">{% trans "Unassigned" %}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedule Timings -->
+            <div class="card detail-card">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock me-2 text-primary"></i>{% trans "Schedule Timings" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <!-- Morning Schedule -->
+                        <div class="timeline-item">
+                            <div class="time-slot">
+                                <div class="time-label">{% trans "Morning Pickup Schedule" %}</div>
+                                <div class="time-value">
+                                    {{ schedule.morning_start_time|time:"H:i" }} - {{ schedule.morning_end_time|time:"H:i" }}
+                                </div>
+                                <small class="text-muted">{% trans "Total duration:  hours" %}</small>
+                            </div>
+                        </div>
+
+                        <!-- Evening Schedule -->
+                        {% if schedule.evening_start_time and schedule.evening_end_time %}
+                        <div class="timeline-item">
+                            <div class="time-slot">
+                                <div class="time-label">{% trans "Evening Dropoff Schedule" %}</div>
+                                <div class="time-value">
+                                    {{ schedule.evening_start_time|time:"H:i" }} - {{ schedule.evening_end_time|time:"H:i" }}
+                                </div>
+                                <small class="text-muted">{% trans "Total duration:  hours" %}</small>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Operating Days -->
+                    <div class="mt-4">
+                        <h6 class="mb-3">{% trans "Operating Days" %}</h6>
+                        <div class="days-grid">
+                            {% for day_num, day_name in day_names %}
+                            <div class="day-cell {% if day_num in schedule.days_of_week %}active{% endif %}">
+                                <div class="fw-bold">{{ day_name|slice:":3" }}</div>
+                                <small>{{ day_num }}</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Allocations -->
+            <div class="card detail-card">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user-graduate me-2 text-primary"></i>{% trans "Student Allocations" %}
+                    </h5>
+                    <span class="badge bg-primary">{{ allocations.count }}</span>
+                </div>
+                <div class="card-body">
+                    {% if allocations %}
+                    <div class="student-table">
+                        {% for allocation in allocations %}
+                        <div class="student-row">
+                            <div class="student-avatar">
+                                {{ allocation.student.first_name|first }}{{ allocation.student.last_name|first }}
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ allocation.student.get_full_name }}</h6>
+                                <p class="text-muted small mb-1">
+                                    {{ allocation.student.grade_level.name }} • 
+                                    {{ allocation.pickup_stop.name }} → {{ allocation.drop_stop.name }}
+                                </p>
+                                <div class="d-flex flex-wrap gap-1">
+                                    <span class="badge bg-info">{{ allocation.get_allocation_type_display }}</span>
+                                    <span class="badge bg-secondary">{% trans "Since" %} {{ allocation.start_date|date:"M d, Y" }}</span>
+                                    {% if allocation.is_active_allocation %}
+                                    <span class="badge bg-success">{% trans "Active" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-warning">{% trans "Inactive" %}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="action-buttons">
+                                <a href="#" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="#" class="btn btn-sm btn-outline-warning">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-user-graduate fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">{% trans "No Students Allocated" %}</h5>
+                        <p class="text-muted mb-3">{% trans "This schedule doesn't have any students allocated yet." %}</p>
+                        <a href="{% url 'transport:transportallocation_create' %}?schedule={{ schedule.pk }}" class="btn btn-primary">
+                            <i class="fas fa-user-plus me-2"></i>{% trans "Allocate Students" %}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Additional Information -->
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="card detail-card">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bolt me-2 text-warning"></i>{% trans "Quick Actions" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'transport:routeschedule_update' schedule.pk %}" class="btn btn-outline-primary">
+                            <i class="fas fa-edit me-2"></i>{% trans "Edit Schedule" %}
+                        </a>
+                        <a href="{% url 'transport:transportallocation_create' %}?schedule={{ schedule.pk }}" class="btn btn-outline-success">
+                            <i class="fas fa-user-plus me-2"></i>{% trans "Allocate Student" %}
+                        </a>
+                        <a href="{% url 'transport:incidentreport_create' %}?schedule={{ schedule.pk }}" class="btn btn-outline-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>{% trans "Report Incident" %}
+                        </a>
+                        <button class="btn btn-outline-info" id="clone-schedule-btn">
+                            <i class="fas fa-copy me-2"></i>{% trans "Clone Schedule" %}
+                        </button>
+                        <a href="{% url 'transport:routeschedule_delete' schedule.pk %}" class="btn btn-outline-danger">
+                            <i class="fas fa-trash me-2"></i>{% trans "Delete Schedule" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Incidents -->
+            <div class="card detail-card">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle me-2 text-danger"></i>{% trans "Recent Incidents" %}
+                    </h5>
+                    <span class="badge bg-danger">{{ incidents.count }}</span>
+                </div>
+                <div class="card-body">
+                    {% if incidents %}
+                        {% for incident in incidents %}
+                        <div class="incident-item incident-{{ incident.severity }}">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-0">{{ incident.get_incident_type_display }}</h6>
+                                <span class="badge bg-{% if incident.severity == 'low' %}success{% elif incident.severity == 'medium' %}warning{% else %}danger{% endif %}">
+                                    {{ incident.get_severity_display }}
+                                </span>
+                            </div>
+                            <p class="small mb-2">{{ incident.description|truncatewords:15 }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">{{ incident.date }} {{ incident.time|time:"H:i" }}</small>
+                                <a href="{% url 'transport:incidentreport_detail' incident.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                        <p class="text-muted mb-0">{% trans "No incidents reported" %}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if incidents.count > 3 %}
+                    <div class="text-center mt-3">
+                        <a href="{% url 'transport:incidentreport_list' %}?schedule={{ schedule.pk }}" class="btn btn-sm btn-outline-primary">
+                            {% trans "View All Incidents" %}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Schedule Statistics -->
+            <div class="card detail-card">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2 text-info"></i>{% trans "Schedule Statistics" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value text-primary">{{ total_students }}</div>
+                            <div class="stat-label">{% trans "Students" %}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value text-success">{{ schedule.vehicle.available_seats }}</div>
+                            <div class="stat-label">{% trans "Available" %}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value text-info">{{ utilization_rate }}%</div>
+                            <div class="stat-label">{% trans "Utilization" %}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value text-warning">{{ incidents.count }}</div>
+                            <div class="stat-label">{% trans "Incidents" %}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Capacity Progress -->
+                    <div class="mt-3">
+                        <label class="form-label small">{% trans "Capacity Utilization" %}</label>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-{% if utilization_rate < 60 %}success{% elif utilization_rate < 85 %}warning{% else %}danger{% endif %}" 
+                                 role="progressbar" 
+                                 style="width: {{ utilization_rate }}%"
+                                 aria-valuenow="{{ utilization_rate }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between small text-muted mt-1">
+                            <span>0%</span>
+                            <span>{{ utilization_rate }}%</span>
+                            <span>100%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Route Information -->
+            <div class="card detail-card">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2 text-secondary"></i>{% trans "Route Information" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <strong>{% trans "Start Point:" %}</strong>
+                        <p class="text-muted small mb-1">{{ schedule.route.start_point }}</p>
+                    </div>
+                    <div class="mb-2">
+                        <strong>{% trans "End Point:" %}</strong>
+                        <p class="text-muted small mb-1">{{ schedule.route.end_point }}</p>
+                    </div>
+                    <div class="mb-2">
+                        <strong>{% trans "Distance:" %}</strong>
+                        <p class="text-muted small mb-1">{{ schedule.route.total_distance }} km</p>
+                    </div>
+                    <div class="mb-2">
+                        <strong>{% trans "Estimated Duration:" %}</strong>
+                        <p class="text-muted small mb-1">{{ schedule.route.estimated_duration }} minutes</p>
+                    </div>
+                    <div class="mb-2">
+                        <strong>{% trans "Stops:" %}</strong>
+                        <p class="text-muted small mb-1">{{ schedule.route.stops.count }} stops</p>
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <a href="{% url 'transport:route_detail' schedule.route.pk %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-external-link-alt me-1"></i>{% trans "View Route Details" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Clone schedule functionality
+        const cloneScheduleBtn = document.getElementById('clone-schedule-btn');
+        const cloneScheduleDropdown = document.getElementById('clone-schedule');
+        
+        function cloneSchedule() {
+            if (confirm('{% trans "Create a copy of this schedule? You can modify the details after cloning." %}')) {
+                // In a real implementation, this would make an API call
+                // For now, redirect to create form with clone parameters
+                window.location.href = '{% url "transport:routeschedule_create" %}?clone={{ schedule.pk }}';
+            }
+        }
+        
+        if (cloneScheduleBtn) {
+            cloneScheduleBtn.addEventListener('click', cloneSchedule);
+        }
+        if (cloneScheduleDropdown) {
+            cloneScheduleDropdown.addEventListener('click', function(e) {
+                e.preventDefault();
+                cloneSchedule();
+            });
+        }
+        
+        // Real-time operational status
+        function updateOperationalStatus() {
+            const now = new Date();
+            const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            const adjustedDay = currentDay === 0 ? 7 : currentDay; // Adjust to match our day numbering
+            const daysOfWeek = '{{ schedule.days_of_week }}'.split(',');
+            const isOperational = daysOfWeek.includes(adjustedDay.toString());
+            const operationalIndicator = document.querySelector('.operational-indicator.bg-success');
+            
+            if (operationalIndicator) {
+                if (isOperational) {
+                    operationalIndicator.style.display = 'inline-flex';
+                } else {
+                    operationalIndicator.style.display = 'none';
+                }
+            }
+        }
+        
+        // Update operational status every minute
+        updateOperationalStatus();
+        setInterval(updateOperationalStatus, 60000);
+        
+        // Add animation to resource cards
+        const resourceCards = document.querySelectorAll('.resource-card');
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateX(0)';
+                }
+            });
+        }, { threshold: 0.1 });
+        
+        resourceCards.forEach(card => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateX(-20px)';
+            card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            observer.observe(card);
+        });
+        
+        // Student row click functionality
+        document.querySelectorAll('.student-row').forEach(row => {
+            row.style.cursor = 'pointer';
+            row.addEventListener('click', function() {
+                const viewBtn = this.querySelector('.btn-outline-primary');
+                if (viewBtn && viewBtn.href) {
+                    window.location.href = viewBtn.href;
+                }
+            });
+        });
+        
+        // Capacity warning
+        const utilizationRate = {{ utilization_rate }};
+        if (utilizationRate > 85) {
+            const capacitySection = document.querySelector('.stats-grid').parentElement;
+            const warningDiv = document.createElement('div');
+            warningDiv.className = 'alert alert-warning mt-3';
+            warningDiv.innerHTML = `
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>{% trans "High Capacity Warning" %}</strong>
+                <p class="mb-0 small">{% trans "This schedule is nearing full capacity. Consider adding another vehicle or adjusting allocations." %}</p>
+            `;
+            capacitySection.appendChild(warningDiv);
+        }
+        
+        // Auto-refresh data every 5 minutes
+        setInterval(() => {
+            // In a real implementation, this would fetch updated data
+            console.log('Auto-refreshing schedule data...');
+        }, 300000);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,972 @@
+<!-- templates/transport/maintenancerecords/maintenancerecord_list.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Maintenance Records" %}{% endblock %}
+
+{% block page_title %}{% trans "Maintenance Records" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Maintenance Records" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Maintenance List Specific Styles */
+    .maintenance-container {
+        margin-top: 1rem;
+    }
+    
+    .filter-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .maintenance-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #6c757d;
+        transition: all 0.3s ease;
+        margin-bottom: 1rem;
+        overflow: hidden;
+    }
+    
+    .maintenance-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .maintenance-card.overdue {
+        border-left-color: #dc3545;
+        background: linear-gradient(135deg, #fff 0%, #fff5f5 100%);
+    }
+    
+    .maintenance-card.due-soon {
+        border-left-color: #fd7e14;
+        background: linear-gradient(135deg, #fff 0%, #fff4e6 100%);
+    }
+    
+    .maintenance-card.upcoming {
+        border-left-color: #ffc107;
+        background: linear-gradient(135deg, #fff 0%, #fffdf6 100%);
+    }
+    
+    .maintenance-card.completed {
+        border-left-color: #28a745;
+        background: linear-gradient(135deg, #fff 0%, #f8fff9 100%);
+    }
+    
+    .maintenance-header {
+        padding: 1.25rem 1.5rem 0.75rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .maintenance-body {
+        padding: 1rem 1.5rem;
+    }
+    
+    .maintenance-footer {
+        padding: 0.75rem 1.5rem;
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        border-radius: 0 0 12px 12px;
+    }
+    
+    .maintenance-type-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .type-routine { background-color: #28a745; color: white; }
+    .type-repair { background-color: #fd7e14; color: white; }
+    .type-breakdown { background-color: #dc3545; color: white; }
+    .type-accident { background-color: #6f42c1; color: white; }
+    .type-upgrade { background-color: #20c997; color: white; }
+    
+    .status-badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.3rem 0.6rem;
+        border-radius: 15px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .status-overdue { background-color: #dc3545; color: white; }
+    .status-due-soon { background-color: #fd7e14; color: white; }
+    .status-upcoming { background-color: #ffc107; color: #212529; }
+    .status-completed { background-color: #28a745; color: white; }
+    
+    .maintenance-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+    
+    .maintenance-meta {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .maintenance-description {
+        color: #495057;
+        line-height: 1.5;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .cost-badge {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+    
+    .action-buttons .btn {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.75rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        color: #dee2e6;
+        margin-bottom: 1rem;
+    }
+    
+    .stats-card {
+        text-align: center;
+        padding: 1rem;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stats-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stats-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .quick-actions {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .maintenance-summary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .summary-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .summary-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    
+    .summary-label {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+    
+    .progress-container {
+        margin-top: 1rem;
+    }
+    
+    .progress-label {
+        display: flex;
+        justify-content: between;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .progress-thin {
+        height: 6px;
+        border-radius: 3px;
+    }
+    
+    .due-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+    }
+    
+    .due-overdue { background-color: #dc3545; }
+    .due-soon { background-color: #fd7e14; }
+    .due-upcoming { background-color: #ffc107; }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .maintenance-header,
+        .maintenance-body,
+        .maintenance-footer {
+            padding: 1rem;
+        }
+        
+        .action-buttons .btn {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+        }
+        
+        .stats-card {
+            padding: 0.75rem;
+        }
+        
+        .stats-value {
+            font-size: 1.5rem;
+        }
+        
+        .summary-stats {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    
+    /* Animation for status changes */
+    @keyframes pulseWarning {
+        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    }
+    
+    .pulse-warning {
+        animation: pulseWarning 2s infinite;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="maintenance-container">
+    <!-- Maintenance Summary -->
+    <div class="maintenance-summary">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0 text-white">{% trans "Maintenance Overview" %}</h5>
+            <small class="opacity-75">{% trans "Last updated:" %} {% now "F d, Y H:i" %}</small>
+        </div>
+        <div class="summary-stats">
+            <div>
+                <div class="summary-value">{{ total_records }}</div>
+                <div class="summary-label">{% trans "Total Records" %}</div>
+            </div>
+            <div>
+                <div class="summary-value">{{ overdue_count }}</div>
+                <div class="summary-label">{% trans "Overdue" %}</div>
+            </div>
+            <div>
+                <div class="summary-value">{{ due_soon_count }}</div>
+                <div class="summary-label">{% trans "Due Soon" %}</div>
+            </div>
+            <div>
+                <div class="summary-value">₹{{ total_cost|floatformat:0 }}</div>
+                <div class="summary-label">{% trans "Total Cost" %}</div>
+            </div>
+        </div>
+        <div class="progress-container">
+            <div class="progress-label">
+                <span>{% trans "Maintenance Status" %}</span>
+                <span>{{ completed_count }}/{{ total_records }} {% trans "Completed" %}</span>
+            </div>
+            <div class="progress progress-thin">
+                <div class="progress-bar bg-success" 
+                     style="width: {% widthratio completed_count total_records 100 %}%">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-value text-primary">{{ routine_count }}</div>
+                <div class="stats-label">{% trans "Routine Maintenance" %}</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-value text-warning">{{ repair_count }}</div>
+                <div class="stats-label">{% trans "Repairs" %}</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-value text-danger">{{ breakdown_count }}</div>
+                <div class="stats-label">{% trans "Breakdowns" %}</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-value text-info">{{ upcoming_count }}</div>
+                <div class="stats-label">{% trans "Upcoming" %}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <a href="{% url 'transport:maintenancerecord_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> {% trans "New Maintenance Record" %}
+                </a>
+                <button class="btn btn-outline-secondary ms-2" id="exportBtn">
+                    <i class="fas fa-download me-1"></i> {% trans "Export" %}
+                </button>
+                <a href="{% url 'transport:vehicle_maintenance_schedule' %}" class="btn btn-outline-info ms-2">
+                    <i class="fas fa-calendar me-1"></i> {% trans "Maintenance Schedule" %}
+                </a>
+            </div>
+            <div>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="viewMode" id="viewModeCards" autocomplete="off" checked>
+                    <label class="btn btn-outline-secondary" for="viewModeCards" title="{% trans 'Card View' %}">
+                        <i class="fas fa-grip"></i>
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="viewMode" id="viewModeTable" autocomplete="off">
+                    <label class="btn btn-outline-secondary" for="viewModeTable" title="{% trans 'Table View' %}">
+                        <i class="fas fa-list"></i>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-card">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="vehicleFilter" class="form-label">{% trans "Vehicle" %}</label>
+                <select class="form-select" id="vehicleFilter">
+                    <option value="">{% trans "All Vehicles" %}</option>
+                    {% for vehicle in vehicles %}
+                    <option value="{{ vehicle.id }}">{{ vehicle.vehicle_number }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="typeFilter" class="form-label">{% trans "Maintenance Type" %}</label>
+                <select class="form-select" id="typeFilter">
+                    <option value="">{% trans "All Types" %}</option>
+                    <option value="routine">{% trans "Routine Maintenance" %}</option>
+                    <option value="repair">{% trans "Repair" %}</option>
+                    <option value="breakdown">{% trans "Breakdown Repair" %}</option>
+                    <option value="accident">{% trans "Accident Repair" %}</option>
+                    <option value="upgrade">{% trans "Upgrade" %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="statusFilter" class="form-label">{% trans "Status" %}</label>
+                <select class="form-select" id="statusFilter">
+                    <option value="">{% trans "All Status" %}</option>
+                    <option value="overdue">{% trans "Overdue" %}</option>
+                    <option value="due-soon">{% trans "Due Soon" %}</option>
+                    <option value="upcoming">{% trans "Upcoming" %}</option>
+                    <option value="completed">{% trans "Completed" %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="dateFilter" class="form-label">{% trans "Date Range" %}</label>
+                <select class="form-select" id="dateFilter">
+                    <option value="">{% trans "All Time" %}</option>
+                    <option value="week">{% trans "This Week" %}</option>
+                    <option value="month">{% trans "This Month" %}</option>
+                    <option value="quarter">{% trans "This Quarter" %}</option>
+                    <option value="year">{% trans "This Year" %}</option>
+                    <option value="custom">{% trans "Custom Range" %}</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="showCostly" value="5000">
+                        <label class="form-check-label" for="showCostly">
+                            {% trans "Show records above ₹5,000" %}
+                        </label>
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-secondary me-2" id="resetFilters">
+                            <i class="fas fa-refresh me-1"></i> {% trans "Reset" %}
+                        </button>
+                        <button class="btn btn-primary" id="applyFilters">
+                            <i class="fas fa-filter me-1"></i> {% trans "Apply Filters" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Due Soon Alert -->
+    {% if due_soon_count > 0 %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <div>
+                <strong>{% trans "Maintenance Alert!" %}</strong>
+                {% trans "You have" %} {{ due_soon_count }} {% trans "maintenance tasks due soon." %}
+                <a href="#" class="alert-link" id="showDueSoon">{% trans "View due soon tasks" %}</a>
+            </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <!-- Maintenance Records List -->
+    <div id="maintenanceList">
+        {% if maintenance_records %}
+            <!-- Card View -->
+            <div id="cardView">
+                {% for record in maintenance_records %}
+                <div class="maintenance-card {{ record.status_class }}" 
+                     data-vehicle="{{ record.vehicle.id }}" 
+                     data-type="{{ record.maintenance_type }}"
+                     data-status="{{ record.status_class }}"
+                     data-cost="{{ record.cost }}">
+                    <div class="maintenance-header">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h4 class="maintenance-title">
+                                    {{ record.vehicle.vehicle_number }} - {{ record.get_maintenance_type_display }}
+                                </h4>
+                                <div class="maintenance-meta">
+                                    <i class="fas fa-calendar me-1"></i> {{ record.date|date:"M d, Y" }}
+                                    <i class="fas fa-tachometer-alt ms-2 me-1"></i> {{ record.odometer_reading|floatformat:0 }} km
+                                    {% if record.next_due_date %}
+                                    <span class="ms-2">
+                                        <span class="due-indicator due-{{ record.due_status }}"></span>
+                                        {% trans "Due:" %} {{ record.next_due_date|date:"M d, Y" }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <span class="maintenance-type-badge type-{{ record.maintenance_type }}">
+                                    {{ record.get_maintenance_type_display }}
+                                </span>
+                                {% if record.status_badge %}
+                                <span class="status-badge status-{{ record.status_class }} ms-1">
+                                    {{ record.status_badge }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="maintenance-body">
+                        <p class="maintenance-description">{{ record.description|truncatewords:30 }}</p>
+                        <div class="row g-2 mt-2">
+                            <div class="col-md-6">
+                                <strong>{% trans "Work Done:" %}</strong> 
+                                <span class="text-muted">{{ record.work_done|truncatewords:15 }}</span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>{% trans "Service Center:" %}</strong> 
+                                <span class="text-muted">{{ record.service_center|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        {% if record.parts_replaced %}
+                        <div class="mt-2">
+                            <strong>{% trans "Parts Replaced:" %}</strong> 
+                            <span class="text-muted">{{ record.parts_replaced|truncatewords:10 }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="maintenance-footer">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <span class="cost-badge me-3">
+                                    <i class="fas fa-rupee-sign me-1"></i> {{ record.cost|floatformat:0 }}
+                                </span>
+                                <div class="maintenance-meta">
+                                    <small>
+                                        <i class="fas fa-receipt me-1"></i> 
+                                        {{ record.invoice_number|default:"No invoice" }}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="action-buttons">
+                                <a href="{% url 'transport:maintenancerecord_update' record.pk %}" 
+                                   class="btn btn-sm btn-outline-secondary" title="{% trans 'Edit' %}">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'transport:maintenancerecord_delete' record.pk %}" 
+                                   class="btn btn-sm btn-outline-danger" title="{% trans 'Delete' %}">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                                {% if record.next_due_date %}
+                                <button class="btn btn-sm btn-outline-warning" 
+                                        onclick="scheduleNextMaintenance('{{ record.pk }}')"
+                                        title="{% trans 'Schedule Next' %}">
+                                    <i class="fas fa-calendar-plus"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Table View (Hidden by default) -->
+            <div id="tableView" style="display: none;">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Vehicle" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Description" %}</th>
+                                <th>{% trans "Odometer" %}</th>
+                                <th>{% trans "Cost" %}</th>
+                                <th>{% trans "Next Due" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in maintenance_records %}
+                            <tr data-vehicle="{{ record.vehicle.id }}" 
+                                data-type="{{ record.maintenance_type }}"
+                                data-status="{{ record.status_class }}"
+                                data-cost="{{ record.cost }}">
+                                <td>{{ record.date|date:"M d, Y" }}</td>
+                                <td>
+                                    <strong>{{ record.vehicle.vehicle_number }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ record.vehicle.make }} {{ record.vehicle.model }}</small>
+                                </td>
+                                <td>
+                                    <span class="maintenance-type-badge type-{{ record.maintenance_type }}">
+                                        {{ record.get_maintenance_type_display }}
+                                    </span>
+                                </td>
+                                <td>{{ record.description|truncatewords:8 }}</td>
+                                <td>{{ record.odometer_reading|floatformat:0 }} km</td>
+                                <td>
+                                    <strong>₹{{ record.cost|floatformat:0 }}</strong>
+                                </td>
+                                <td>
+                                    {% if record.next_due_date %}
+                                    <span class="due-indicator due-{{ record.due_status }}"></span>
+                                    {{ record.next_due_date|date:"M d, Y" }}
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if record.status_badge %}
+                                    <span class="status-badge status-{{ record.status_class }}">
+                                        {{ record.status_badge }}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'transport:maintenancerecord_update' record.pk %}" 
+                                           class="btn btn-outline-secondary" title="{% trans 'Edit' %}">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'transport:maintenancerecord_delete' record.pk %}" 
+                                           class="btn btn-outline-danger" title="{% trans 'Delete' %}">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="{% trans 'Maintenance records pagination' %}" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">{% trans "First" %}</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">{% trans "Last" %}</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+        {% else %}
+            <!-- Empty State -->
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="fas fa-tools"></i>
+                </div>
+                <h4>{% trans "No Maintenance Records Found" %}</h4>
+                <p class="text-muted mb-4">{% trans "There are no maintenance records to display. Create your first maintenance record to get started." %}</p>
+                <a href="{% url 'transport:maintenancerecord_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> {% trans "Create Maintenance Record" %}
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Mode Toggle
+        const viewModeCards = document.getElementById('viewModeCards');
+        const viewModeTable = document.getElementById('viewModeTable');
+        const cardView = document.getElementById('cardView');
+        const tableView = document.getElementById('tableView');
+
+        viewModeCards.addEventListener('change', function() {
+            if (this.checked) {
+                cardView.style.display = 'block';
+                tableView.style.display = 'none';
+            }
+        });
+
+        viewModeTable.addEventListener('change', function() {
+            if (this.checked) {
+                cardView.style.display = 'none';
+                tableView.style.display = 'block';
+            }
+        });
+
+        // Filter Functionality
+        const vehicleFilter = document.getElementById('vehicleFilter');
+        const typeFilter = document.getElementById('typeFilter');
+        const statusFilter = document.getElementById('statusFilter');
+        const dateFilter = document.getElementById('dateFilter');
+        const showCostly = document.getElementById('showCostly');
+        const applyFiltersBtn = document.getElementById('applyFilters');
+        const resetFiltersBtn = document.getElementById('resetFilters');
+
+        function applyFilters() {
+            const vehicle = vehicleFilter.value;
+            const type = typeFilter.value;
+            const status = statusFilter.value;
+            const costly = showCostly.checked;
+            const minCost = showCostly.value;
+
+            // Get all maintenance elements
+            const records = document.querySelectorAll('.maintenance-card, tbody tr');
+            
+            let visibleCount = 0;
+            
+            records.forEach(record => {
+                let show = true;
+
+                // Vehicle filter
+                if (vehicle && record.dataset.vehicle !== vehicle) {
+                    show = false;
+                }
+
+                // Type filter
+                if (type && record.dataset.type !== type) {
+                    show = false;
+                }
+
+                // Status filter
+                if (status && record.dataset.status !== status) {
+                    show = false;
+                }
+
+                // Cost filter
+                if (costly && parseFloat(record.dataset.cost) < parseFloat(minCost)) {
+                    show = false;
+                }
+
+                // Show/hide based on filters
+                if (show) {
+                    record.style.display = '';
+                    visibleCount++;
+                } else {
+                    record.style.display = 'none';
+                }
+            });
+
+            // Update results count
+            updateResultsCount(visibleCount);
+            showNotification(`{% trans "Filters applied" %} - ${visibleCount} {% trans "records found" %}`, 'success');
+        }
+
+        function resetFilters() {
+            vehicleFilter.value = '';
+            typeFilter.value = '';
+            statusFilter.value = '';
+            dateFilter.value = '';
+            showCostly.checked = false;
+
+            // Show all records
+            const records = document.querySelectorAll('.maintenance-card, tbody tr');
+            records.forEach(record => {
+                record.style.display = '';
+            });
+
+            updateResultsCount(records.length);
+            showNotification('{% trans "Filters reset" %}', 'info');
+        }
+
+        function updateResultsCount(count) {
+            // Update a results counter if needed
+            console.log(`Visible records: ${count}`);
+        }
+
+        applyFiltersBtn.addEventListener('click', applyFilters);
+        resetFiltersBtn.addEventListener('click', resetFilters);
+
+        // Export Functionality
+        const exportBtn = document.getElementById('exportBtn');
+        
+        exportBtn.addEventListener('click', function() {
+            showExportOptions();
+        });
+
+        function showExportOptions() {
+            const exportOptions = `
+                <div class="dropdown-menu dropdown-menu-end show" style="position: absolute; transform: translate(-120px, 40px);">
+                    <a class="dropdown-item" href="#" onclick="exportData('pdf')">
+                        <i class="fas fa-file-pdf me-2 text-danger"></i> PDF Report
+                    </a>
+                    <a class="dropdown-item" href="#" onclick="exportData('excel')">
+                        <i class="fas fa-file-excel me-2 text-success"></i> Excel Export
+                    </a>
+                    <a class="dropdown-item" href="#" onclick="exportData('csv')">
+                        <i class="fas fa-file-csv me-2 text-primary"></i> CSV Data
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" href="#" onclick="exportMaintenanceSchedule()">
+                        <i class="fas fa-calendar me-2 text-info"></i> Maintenance Schedule
+                    </a>
+                </div>
+            `;
+            
+            // Create and show dropdown
+            const dropdown = document.createElement('div');
+            dropdown.className = 'dropdown';
+            dropdown.innerHTML = exportOptions;
+            document.body.appendChild(dropdown);
+            
+            // Remove dropdown when clicking elsewhere
+            setTimeout(() => {
+                document.addEventListener('click', function closeDropdown() {
+                    dropdown.remove();
+                    document.removeEventListener('click', closeDropdown);
+                });
+            }, 100);
+        }
+
+        // Due Soon Alert Click Handler
+        document.getElementById('showDueSoon')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            statusFilter.value = 'due-soon';
+            applyFilters();
+        });
+
+        // Quick Status Filters
+        function createQuickFilters() {
+            const quickFilters = `
+                <div class="d-flex gap-2 mb-3 flex-wrap">
+                    <span class="filter-toggle" data-status="overdue">
+                        <span class="due-indicator due-overdue me-1"></span>
+                        {% trans "Overdue" %}
+                    </span>
+                    <span class="filter-toggle" data-status="due-soon">
+                        <span class="due-indicator due-soon me-1"></span>
+                        {% trans "Due Soon" %}
+                    </span>
+                    <span class="filter-toggle" data-status="upcoming">
+                        <span class="due-indicator due-upcoming me-1"></span>
+                        {% trans "Upcoming" %}
+                    </span>
+                    <span class="filter-toggle" data-status="completed">
+                        <i class="fas fa-check text-success me-1"></i>
+                        {% trans "Completed" %}
+                    </span>
+                </div>
+            `;
+            
+            document.querySelector('.quick-actions').insertAdjacentHTML('afterend', quickFilters);
+
+            // Add click handlers for quick filters
+            document.querySelectorAll('.filter-toggle').forEach(toggle => {
+                toggle.addEventListener('click', function() {
+                    const status = this.dataset.status;
+                    statusFilter.value = status;
+                    applyFilters();
+                    
+                    // Update active state
+                    document.querySelectorAll('.filter-toggle').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+        }
+
+        createQuickFilters();
+
+        // Notification function
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+
+        // Search functionality
+        function initializeSearch() {
+            const searchInput = document.createElement('input');
+            searchInput.type = 'text';
+            searchInput.className = 'form-control';
+            searchInput.placeholder = '{% trans "Search maintenance records..." %}';
+            searchInput.style.maxWidth = '300px';
+            
+            document.querySelector('.quick-actions .d-flex').prepend(searchInput);
+            
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const records = document.querySelectorAll('.maintenance-card, tbody tr');
+                
+                records.forEach(record => {
+                    const text = record.textContent.toLowerCase();
+                    if (text.includes(searchTerm)) {
+                        record.style.display = '';
+                    } else {
+                        record.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        // Initialize search (uncomment to enable)
+        // initializeSearch();
+    });
+
+    // Global functions for external calls
+    window.exportData = function(format) {
+        showNotification(`{% trans "Exporting maintenance records as" %} ${format.toUpperCase()}...`, 'info');
+        
+        // Simulate export process
+        setTimeout(() => {
+            showNotification(`{% trans "Maintenance records exported successfully as" %} ${format.toUpperCase()}`, 'success');
+        }, 1500);
+    };
+
+    window.exportMaintenanceSchedule = function() {
+        showNotification('{% trans "Generating maintenance schedule report..." %}', 'info');
+        
+        setTimeout(() => {
+            showNotification('{% trans "Maintenance schedule exported successfully" %}', 'success');
+        }, 1500);
+    };
+
+    window.scheduleNextMaintenance = function(recordId) {
+        showNotification('{% trans "Opening next maintenance scheduler..." %}', 'info');
+        
+        // In real implementation, this would open a scheduling modal
+        setTimeout(() => {
+            showNotification('{% trans "Next maintenance scheduled successfully" %}', 'success');
+        }, 1000);
+    };
+
+    // Helper function for notifications (duplicate definition for global scope)
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 3000);
+    }
+</script>
+{% endblock %}

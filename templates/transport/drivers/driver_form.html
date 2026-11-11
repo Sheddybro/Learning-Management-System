@@ -1,0 +1,1213 @@
+<!-- templates/transport/drivers/driver_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Driver" %} - {{ form.instance.user.get_full_name }}
+    {% else %}
+        {% trans "Add New Driver" %}
+    {% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Driver" %} - {{ form.instance.user.get_full_name }}
+    {% else %}
+        {% trans "Add New Driver" %}
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:driver_list' %}">{% trans "Drivers" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if form.instance.pk %}
+        {% trans "Edit Driver" %}
+    {% else %}
+        {% trans "Add Driver" %}
+    {% endif %}
+</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <a href="{% url 'transport:driver_list' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> {% trans "Back to List" %}
+    </a>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .driver-form-container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    
+    .form-section {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .form-section-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .form-section-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: #0d6efd;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        font-size: 1.1rem;
+    }
+    
+    .form-section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0;
+        color: #2c3e50;
+    }
+    
+    .form-section-subtitle {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin: 0;
+    }
+    
+    .form-group-enhanced {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label-required::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .form-helper-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .form-alert {
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        border-left: 4px solid;
+    }
+    
+    .form-alert-info {
+        background-color: #e7f3ff;
+        border-left-color: #0d6efd;
+        color: #0c4da2;
+    }
+    
+    .form-alert-warning {
+        background-color: #fff3cd;
+        border-left-color: #ffc107;
+        color: #856404;
+    }
+    
+    .preview-card {
+        border: 2px dashed #dee2e6;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        background: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    
+    .preview-card:hover {
+        border-color: #0d6efd;
+        background: #f0f8ff;
+    }
+    
+    .preview-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: 600;
+        margin: 0 auto 1rem;
+    }
+    
+    .preview-details {
+        text-align: left;
+    }
+    
+    .preview-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .preview-label {
+        font-weight: 600;
+        color: #495057;
+        min-width: 120px;
+    }
+    
+    .preview-value {
+        color: #6c757d;
+        text-align: right;
+    }
+    
+    .form-actions {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .license-status {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin-top: 0.5rem;
+    }
+    
+    .license-valid {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .license-expired {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .license-expiring {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    /* Stepper for multi-step forms */
+    .form-stepper {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+        position: relative;
+    }
+    
+    .form-stepper::before {
+        content: '';
+        position: absolute;
+        top: 20px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #e9ecef;
+        z-index: 1;
+    }
+    
+    .stepper-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .stepper-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e9ecef;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .stepper-step.active .stepper-icon {
+        background: #0d6efd;
+        color: white;
+    }
+    
+    .stepper-step.completed .stepper-icon {
+        background: #198754;
+        color: white;
+    }
+    
+    .stepper-label {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #6c757d;
+    }
+    
+    .stepper-step.active .stepper-label {
+        color: #0d6efd;
+    }
+    
+    .stepper-step.completed .stepper-label {
+        color: #198754;
+    }
+    
+    .age-calculator {
+        background: #e7f3ff;
+        border-radius: 6px;
+        padding: 0.75rem;
+        margin-top: 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .experience-calculator {
+        background: #f0f9ff;
+        border-radius: 6px;
+        padding: 0.75rem;
+        margin-top: 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .form-section {
+            padding: 1rem;
+        }
+        
+        .form-section-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .form-section-icon {
+            margin-bottom: 0.5rem;
+        }
+        
+        .preview-item {
+            flex-direction: column;
+        }
+        
+        .preview-label {
+            min-width: auto;
+            margin-bottom: 0.25rem;
+        }
+        
+        .preview-value {
+            text-align: left;
+        }
+        
+        .form-stepper {
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .form-stepper::before {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="driver-form-container">
+    <!-- Form Stepper -->
+    <div class="form-stepper">
+        <div class="stepper-step active" data-step="1">
+            <div class="stepper-icon">
+                <i class="fas fa-user"></i>
+            </div>
+            <span class="stepper-label">{% trans "Personal Info" %}</span>
+        </div>
+        <div class="stepper-step" data-step="2">
+            <div class="stepper-icon">
+                <i class="fas fa-id-card"></i>
+            </div>
+            <span class="stepper-label">{% trans "License Details" %}</span>
+        </div>
+        <div class="stepper-step" data-step="3">
+            <div class="stepper-icon">
+                <i class="fas fa-briefcase"></i>
+            </div>
+            <span class="stepper-label">{% trans "Employment" %}</span>
+        </div>
+        <div class="stepper-step" data-step="4">
+            <div class="stepper-icon">
+                <i class="fas fa-address-book"></i>
+            </div>
+            <span class="stepper-label">{% trans "Contact Info" %}</span>
+        </div>
+        <div class="stepper-step" data-step="5">
+            <div class="stepper-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <span class="stepper-label">{% trans "Review" %}</span>
+        </div>
+    </div>
+
+    <form method="post" id="driverForm" novalidate>
+        {% csrf_token %}
+        
+        <!-- Error Display -->
+        {% if form.errors %}
+        <div class="alert alert-danger">
+            <h6 class="alert-heading">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                {% trans "Please correct the errors below" %}
+            </h6>
+            <ul class="mb-0">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                    <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+                {% for error in form.non_field_errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- Step 1: Personal Information -->
+        <div class="form-section step-content" data-step="1">
+            <div class="form-section-header">
+                <div class="form-section-icon">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div>
+                    <h3 class="form-section-title">{% trans "Personal Information" %}</h3>
+                    <p class="form-section-subtitle">{% trans "Basic personal details and identification" %}</p>
+                </div>
+            </div>
+
+            <div class="form-alert form-alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                {% trans "All personal information is kept confidential and used only for official purposes." %}
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.user.id_for_label }}" class="form-label form-label-required">
+                            {{ form.user.label }}
+                        </label>
+                        {{ form.user }}
+                        <div class="form-helper-text">
+                            {% trans "Select the user account associated with this driver" %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.employee_id.id_for_label }}" class="form-label form-label-required">
+                            {{ form.employee_id.label }}
+                        </label>
+                        {{ form.employee_id }}
+                        {% if form.employee_id.help_text %}
+                        <div class="form-helper-text">{{ form.employee_id.help_text }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.date_of_birth.id_for_label }}" class="form-label form-label-required">
+                            {{ form.date_of_birth.label }}
+                        </label>
+                        {{ form.date_of_birth }}
+                        <div class="age-calculator" id="ageCalculator" style="display: none;">
+                            <i class="fas fa-calculator me-1"></i>
+                            <span id="ageDisplay"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.date_of_joining.id_for_label }}" class="form-label form-label-required">
+                            {{ form.date_of_joining.label }}
+                        </label>
+                        {{ form.date_of_joining }}
+                        <div class="experience-calculator" id="experienceCalculator" style="display: none;">
+                            <i class="fas fa-briefcase me-1"></i>
+                            <span id="experienceDisplay"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: License Details -->
+        <div class="form-section step-content" data-step="2" style="display: none;">
+            <div class="form-section-header">
+                <div class="form-section-icon">
+                    <i class="fas fa-id-card"></i>
+                </div>
+                <div>
+                    <h3 class="form-section-title">{% trans "Driver's License Information" %}</h3>
+                    <p class="form-section-subtitle">{% trans "License details and validity information" %}</p>
+                </div>
+            </div>
+
+            <div class="form-alert form-alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                {% trans "Ensure all license information is accurate and up-to-date to maintain compliance." %}
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.license_number.id_for_label }}" class="form-label form-label-required">
+                            {{ form.license_number.label }}
+                        </label>
+                        {{ form.license_number }}
+                        {% if form.license_number.help_text %}
+                        <div class="form-helper-text">{{ form.license_number.help_text }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.license_type.id_for_label }}" class="form-label form-label-required">
+                            {{ form.license_type.label }}
+                        </label>
+                        {{ form.license_type }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.license_expiry.id_for_label }}" class="form-label form-label-required">
+                            {{ form.license_expiry.label }}
+                        </label>
+                        {{ form.license_expiry }}
+                        <div id="licenseStatus" class="mt-1">
+                            {% if form.instance.license_expiry %}
+                                {% if form.instance.is_license_expired %}
+                                <span class="license-status license-expired">
+                                    <i class="fas fa-exclamation-triangle me-1"></i> {% trans "License Expired" %}
+                                </span>
+                                {% else %}
+                                <span class="license-status license-valid">
+                                    <i class="fas fa-check-circle me-1"></i> {% trans "License Valid" %}
+                                </span>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="license_front" class="form-label">
+                            {% trans "License Front Image" %}
+                        </label>
+                        <input type="file" class="form-control" id="license_front" accept="image/*">
+                        <div class="form-helper-text">
+                            {% trans "Upload a clear image of the front side of the driver's license" %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="license_back" class="form-label">
+                            {% trans "License Back Image" %}
+                        </label>
+                        <input type="file" class="form-control" id="license_back" accept="image/*">
+                        <div class="form-helper-text">
+                            {% trans "Upload a clear image of the back side of the driver's license" %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Employment Details -->
+        <div class="form-section step-content" data-step="3" style="display: none;">
+            <div class="form-section-header">
+                <div class="form-section-icon">
+                    <i class="fas fa-briefcase"></i>
+                </div>
+                <div>
+                    <h3 class="form-section-title">{% trans "Employment Details" %}</h3>
+                    <p class="form-section-subtitle">{% trans "Salary, status, and employment information" %}</p>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.salary.id_for_label }}" class="form-label">
+                            {{ form.salary.label }}
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">₹</span>
+                            {{ form.salary }}
+                        </div>
+                        <div class="form-helper-text">
+                            {% trans "Monthly salary in Indian Rupees" %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.status.id_for_label }}" class="form-label form-label-required">
+                            {{ form.status.label }}
+                        </label>
+                        {{ form.status }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="form-group-enhanced">
+                        <label for="employment_notes" class="form-label">
+                            {% trans "Employment Notes" %}
+                        </label>
+                        <textarea class="form-control" id="employment_notes" rows="3" 
+                                  placeholder="{% trans 'Any additional employment-related notes...' %}"></textarea>
+                        <div class="form-helper-text">
+                            {% trans "Optional notes about employment terms, special assignments, etc." %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Contact Information -->
+        <div class="form-section step-content" data-step="4" style="display: none;">
+            <div class="form-section-header">
+                <div class="form-section-icon">
+                    <i class="fas fa-address-book"></i>
+                </div>
+                <div>
+                    <h3 class="form-section-title">{% trans "Contact & Emergency Information" %}</h3>
+                    <p class="form-section-subtitle">{% trans "Contact details and emergency contact information" %}</p>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.phone.id_for_label }}" class="form-label form-label-required">
+                            {{ form.phone.label }}
+                        </label>
+                        {{ form.phone }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.email.id_for_label }}" class="form-label">
+                            {{ form.email.label }}
+                        </label>
+                        {{ form.email }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.address.id_for_label }}" class="form-label">
+                            {{ form.address.label }}
+                        </label>
+                        {{ form.address }}
+                        <div class="form-helper-text">
+                            {% trans "Current residential address" %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.emergency_contact_name.id_for_label }}" class="form-label">
+                            {{ form.emergency_contact_name.label }}
+                        </label>
+                        {{ form.emergency_contact_name }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="{{ form.emergency_contact_relation.id_for_label }}" class="form-label">
+                            {{ form.emergency_contact_relation.label }}
+                        </label>
+                        {{ form.emergency_contact_relation }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group-enhanced">
+                        <label for="emergency_contact_phone" class="form-label">
+                            {% trans "Emergency Contact Phone" %}
+                        </label>
+                        <input type="tel" class="form-control" id="emergency_contact_phone" 
+                               placeholder="{% trans 'Emergency contact phone number' %}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 5: Review & Submit -->
+        <div class="form-section step-content" data-step="5" style="display: none;">
+            <div class="form-section-header">
+                <div class="form-section-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div>
+                    <h3 class="form-section-title">{% trans "Review & Submit" %}</h3>
+                    <p class="form-section-subtitle">{% trans "Final review of driver information before submission" %}</p>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="form-group-enhanced">
+                        <label for="final_notes" class="form-label">
+                            {% trans "Additional Notes" %}
+                        </label>
+                        <textarea class="form-control" id="final_notes" name="final_notes" rows="4"
+                                  placeholder="{% trans 'Any final notes or comments about this driver...' %}"></textarea>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="termsAgreement" required>
+                        <label class="form-check-label" for="termsAgreement">
+                            {% trans "I confirm that all information provided is accurate and complete" %}
+                        </label>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="privacyAgreement" required>
+                        <label class="form-check-label" for="privacyAgreement">
+                            {% trans "I agree to the privacy policy and data handling procedures" %}
+                        </label>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="preview-card">
+                        <div class="preview-avatar" id="previewAvatar">
+                            {% if form.instance.user.get_full_name %}
+                                {{ form.instance.user.get_full_name|make_list|first|upper }}
+                            {% else %}
+                                <i class="fas fa-user"></i>
+                            {% endif %}
+                        </div>
+                        <h5 id="previewName">{% trans "Driver Preview" %}</h5>
+                        <div class="preview-details mt-3">
+                            <div class="preview-item">
+                                <span class="preview-label">{% trans "Employee ID:" %}</span>
+                                <span class="preview-value" id="previewEmployeeId">-</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">{% trans "License Number:" %}</span>
+                                <span class="preview-value" id="previewLicenseNumber">-</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">{% trans "License Type:" %}</span>
+                                <span class="preview-value" id="previewLicenseType">-</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">{% trans "License Expiry:" %}</span>
+                                <span class="preview-value" id="previewLicenseExpiry">-</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">{% trans "Status:" %}</span>
+                                <span class="preview-value" id="previewStatus">-</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">{% trans "Phone:" %}</span>
+                                <span class="preview-value" id="previewPhone">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <div class="step-navigation">
+                        <button type="button" class="btn btn-outline-secondary" id="prevStep" style="display: none;">
+                            <i class="fas fa-arrow-left me-1"></i> {% trans "Previous" %}
+                        </button>
+                        <button type="button" class="btn btn-primary" id="nextStep">
+                            {% trans "Next" %} <i class="fas fa-arrow-right ms-1"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <button type="submit" class="btn btn-success" id="submitForm" style="display: none;">
+                        <i class="fas fa-save me-1"></i>
+                        {% if form.instance.pk %}
+                            {% trans "Update Driver" %}
+                        {% else %}
+                            {% trans "Create Driver" %}
+                        {% endif %}
+                    </button>
+                    <a href="{% url 'transport:driver_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times me-1"></i> {% trans "Cancel" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- License Upload Preview Modal -->
+<div class="modal fade" id="licensePreviewModal" tabindex="-1" aria-labelledby="licensePreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="licensePreviewModalLabel">{% trans "License Image Preview" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="licensePreviewImage" src="" alt="License Preview" class="img-fluid rounded" style="max-height: 500px;">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-primary" id="confirmLicenseImage">{% trans "Use This Image" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let currentStep = 1;
+        const totalSteps = 5;
+        
+        // Step Navigation
+        const prevBtn = document.getElementById('prevStep');
+        const nextBtn = document.getElementById('nextStep');
+        const submitBtn = document.getElementById('submitForm');
+        
+        function showStep(step) {
+            // Hide all steps
+            document.querySelectorAll('.step-content').forEach(el => {
+                el.style.display = 'none';
+            });
+            
+            // Show current step
+            const currentStepEl = document.querySelector(`.step-content[data-step="${step}"]`);
+            if (currentStepEl) {
+                currentStepEl.style.display = 'block';
+            }
+            
+            // Update stepper UI
+            document.querySelectorAll('.stepper-step').forEach((el, index) => {
+                const stepNumber = index + 1;
+                if (stepNumber < step) {
+                    el.classList.add('completed');
+                    el.classList.remove('active');
+                } else if (stepNumber === step) {
+                    el.classList.add('active');
+                    el.classList.remove('completed');
+                } else {
+                    el.classList.remove('active', 'completed');
+                }
+            });
+            
+            // Update navigation buttons
+            prevBtn.style.display = step > 1 ? 'inline-block' : 'none';
+            
+            if (step === totalSteps) {
+                nextBtn.style.display = 'none';
+                submitBtn.style.display = 'inline-block';
+                updatePreview();
+            } else {
+                nextBtn.style.display = 'inline-block';
+                submitBtn.style.display = 'none';
+            }
+        }
+        
+        // Navigation event handlers
+        nextBtn.addEventListener('click', function() {
+            if (validateStep(currentStep)) {
+                currentStep++;
+                showStep(currentStep);
+            }
+        });
+        
+        prevBtn.addEventListener('click', function() {
+            currentStep--;
+            showStep(currentStep);
+        });
+        
+        // Step validation
+        function validateStep(step) {
+            let isValid = true;
+            const currentStepEl = document.querySelector(`.step-content[data-step="${step}"]`);
+            
+            // Get all required fields in current step
+            const requiredFields = currentStepEl.querySelectorAll('[required]');
+            
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    isValid = false;
+                    field.classList.add('is-invalid');
+                    
+                    // Add error message if not exists
+                    if (!field.nextElementSibling || !field.nextElementSibling.classList.contains('invalid-feedback')) {
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'invalid-feedback';
+                        errorDiv.textContent = '{% trans "This field is required" %}';
+                        field.parentNode.appendChild(errorDiv);
+                    }
+                } else {
+                    field.classList.remove('is-invalid');
+                    field.classList.add('is-valid');
+                }
+            });
+            
+            // Specific validations for each step
+            if (step === 1) {
+                // Date of birth validation
+                const dobField = document.getElementById('{{ form.date_of_birth.id_for_label }}');
+                if (dobField && dobField.value) {
+                    const dob = new Date(dobField.value);
+                    const today = new Date();
+                    const age = today.getFullYear() - dob.getFullYear();
+                    
+                    if (age < 18) {
+                        isValid = false;
+                        dobField.classList.add('is-invalid');
+                        showFieldError(dobField, '{% trans "Driver must be at least 18 years old" %}');
+                    } else if (age > 70) {
+                        isValid = false;
+                        dobField.classList.add('is-invalid');
+                        showFieldError(dobField, '{% trans "Driver cannot be older than 70 years" %}');
+                    }
+                }
+                
+                // Date of joining validation
+                const dojField = document.getElementById('{{ form.date_of_joining.id_for_label }}');
+                if (dojField && dojField.value) {
+                    const doj = new Date(dojField.value);
+                    const today = new Date();
+                    
+                    if (doj > today) {
+                        isValid = false;
+                        dojField.classList.add('is-invalid');
+                        showFieldError(dojField, '{% trans "Joining date cannot be in the future" %}');
+                    }
+                }
+            }
+            
+            if (step === 2) {
+                // License expiry validation
+                const licenseExpiryField = document.getElementById('{{ form.license_expiry.id_for_label }}');
+                if (licenseExpiryField && licenseExpiryField.value) {
+                    const expiry = new Date(licenseExpiryField.value);
+                    const today = new Date();
+                    
+                    if (expiry < today) {
+                        // Warn but don't prevent progression
+                        showNotification('{% trans "Warning: License has already expired" %}', 'warning');
+                    }
+                }
+            }
+            
+            if (!isValid) {
+                // Scroll to first error
+                const firstError = currentStepEl.querySelector('.is-invalid');
+                if (firstError) {
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstError.focus();
+                }
+                
+                showNotification('{% trans "Please fix the errors before proceeding" %}', 'error');
+            }
+            
+            return isValid;
+        }
+        
+        function showFieldError(field, message) {
+            // Remove existing error messages
+            const existingError = field.parentNode.querySelector('.invalid-feedback');
+            if (existingError) {
+                existingError.remove();
+            }
+            
+            // Add new error message
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'invalid-feedback';
+            errorDiv.textContent = message;
+            field.parentNode.appendChild(errorDiv);
+        }
+        
+        // Real-time form validation and calculations
+        document.querySelectorAll('input, select, textarea').forEach(field => {
+            field.addEventListener('blur', function() {
+                if (this.hasAttribute('required') && !this.value.trim()) {
+                    this.classList.add('is-invalid');
+                } else {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                }
+            });
+            
+            field.addEventListener('input', function() {
+                if (this.value.trim()) {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                }
+            });
+        });
+        
+        // Age calculator
+        const dobField = document.getElementById('{{ form.date_of_birth.id_for_label }}');
+        if (dobField) {
+            dobField.addEventListener('change', function() {
+                if (this.value) {
+                    const dob = new Date(this.value);
+                    const today = new Date();
+                    const age = today.getFullYear() - dob.getFullYear();
+                    
+                    const ageCalculator = document.getElementById('ageCalculator');
+                    const ageDisplay = document.getElementById('ageDisplay');
+                    
+                    ageDisplay.textContent = `{% trans "Age" %}: ${age} {% trans "years" %}`;
+                    ageCalculator.style.display = 'block';
+                    
+                    // Update preview avatar with first letter of name
+                    const userField = document.getElementById('{{ form.user.id_for_label }}');
+                    if (userField && userField.selectedOptions[0]) {
+                        const userName = userField.selectedOptions[0].text;
+                        const firstLetter = userName.charAt(0).toUpperCase();
+                        document.getElementById('previewAvatar').textContent = firstLetter;
+                    }
+                }
+            });
+        }
+        
+        // Experience calculator
+        const dojField = document.getElementById('{{ form.date_of_joining.id_for_label }}');
+        if (dojField) {
+            dojField.addEventListener('change', function() {
+                if (this.value) {
+                    const doj = new Date(this.value);
+                    const today = new Date();
+                    const experienceMs = today - doj;
+                    const experienceYears = Math.floor(experienceMs / (1000 * 60 * 60 * 24 * 365));
+                    const experienceMonths = Math.floor((experienceMs % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30));
+                    
+                    const experienceCalculator = document.getElementById('experienceCalculator');
+                    const experienceDisplay = document.getElementById('experienceDisplay');
+                    
+                    experienceDisplay.textContent = `{% trans "Experience" %}: ${experienceYears} {% trans "years" %}, ${experienceMonths} {% trans "months" %}`;
+                    experienceCalculator.style.display = 'block';
+                }
+            });
+        }
+        
+        // License expiry tracking
+        const licenseExpiryField = document.getElementById('{{ form.license_expiry.id_for_label }}');
+        if (licenseExpiryField) {
+            licenseExpiryField.addEventListener('change', function() {
+                updateLicenseStatus();
+            });
+        }
+        
+        function updateLicenseStatus() {
+            const licenseExpiryField = document.getElementById('{{ form.license_expiry.id_for_label }}');
+            const licenseStatus = document.getElementById('licenseStatus');
+            
+            if (licenseExpiryField && licenseExpiryField.value) {
+                const expiry = new Date(licenseExpiryField.value);
+                const today = new Date();
+                const thirtyDaysFromNow = new Date();
+                thirtyDaysFromNow.setDate(today.getDate() + 30);
+                
+                let statusHtml = '';
+                
+                if (expiry < today) {
+                    statusHtml = `<span class="license-status license-expired">
+                        <i class="fas fa-exclamation-triangle me-1"></i> {% trans "License Expired" %}
+                    </span>`;
+                } else if (expiry <= thirtyDaysFromNow) {
+                    statusHtml = `<span class="license-status license-expiring">
+                        <i class="fas fa-clock me-1"></i> {% trans "Expiring Soon" %}
+                    </span>`;
+                } else {
+                    statusHtml = `<span class="license-status license-valid">
+                        <i class="fas fa-check-circle me-1"></i> {% trans "License Valid" %}
+                    </span>`;
+                }
+                
+                licenseStatus.innerHTML = statusHtml;
+            }
+        }
+        
+        // License image preview
+        const licenseFrontInput = document.getElementById('license_front');
+        const licenseBackInput = document.getElementById('license_back');
+        
+        [licenseFrontInput, licenseBackInput].forEach(input => {
+            if (input) {
+                input.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            document.getElementById('licensePreviewImage').src = e.target.result;
+                            const modal = new bootstrap.Modal(document.getElementById('licensePreviewModal'));
+                            modal.show();
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+        });
+        
+        // Update preview function
+        function updatePreview() {
+            // Employee ID
+            const employeeId = document.getElementById('{{ form.employee_id.id_for_label }}').value;
+            document.getElementById('previewEmployeeId').textContent = employeeId || '-';
+            
+            // License Number
+            const licenseNumber = document.getElementById('{{ form.license_number.id_for_label }}').value;
+            document.getElementById('previewLicenseNumber').textContent = licenseNumber || '-';
+            
+            // License Type
+            const licenseTypeSelect = document.getElementById('{{ form.license_type.id_for_label }}');
+            document.getElementById('previewLicenseType').textContent = 
+                licenseTypeSelect.options[licenseTypeSelect.selectedIndex]?.text || '-';
+            
+            // License Expiry
+            const licenseExpiry = document.getElementById('{{ form.license_expiry.id_for_label }}').value;
+            document.getElementById('previewLicenseExpiry').textContent = licenseExpiry || '-';
+            
+            // Status
+            const statusSelect = document.getElementById('{{ form.status.id_for_label }}');
+            document.getElementById('previewStatus').textContent = 
+                statusSelect.options[statusSelect.selectedIndex]?.text || '-';
+            
+            // Phone
+            const phone = document.getElementById('{{ form.phone.id_for_label }}').value;
+            document.getElementById('previewPhone').textContent = phone || '-';
+            
+            // Name from user selection
+            const userField = document.getElementById('{{ form.user.id_for_label }}');
+            if (userField && userField.selectedOptions[0]) {
+                const userName = userField.selectedOptions[0].text;
+                document.getElementById('previewName').textContent = userName;
+            }
+        }
+        
+        // Form submission handling
+        const driverForm = document.getElementById('driverForm');
+        driverForm.addEventListener('submit', function(e) {
+            // Validate final step requirements
+            const termsAgreement = document.getElementById('termsAgreement');
+            const privacyAgreement = document.getElementById('privacyAgreement');
+            
+            if (!termsAgreement.checked || !privacyAgreement.checked) {
+                e.preventDefault();
+                showNotification('{% trans "Please agree to the terms and privacy policy" %}', 'error');
+                return;
+            }
+            
+            // Show loading state
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> {% trans "Saving..." %}';
+            submitBtn.disabled = true;
+        });
+        
+        // Notification function
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                    <span>${message}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+        
+        // Auto-save draft (optional feature)
+        let autoSaveTimeout;
+        driverForm.addEventListener('input', function() {
+            clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = setTimeout(() => {
+                // In a real implementation, this would save form data to localStorage or send to server
+                console.log('Auto-save triggered');
+            }, 2000);
+        });
+        
+        // Initialize form
+        showStep(currentStep);
+        updateLicenseStatus();
+        
+        // Load existing data for edit mode
+        {% if form.instance.pk %}
+        // Populate form with existing data for editing
+        setTimeout(() => {
+            updatePreview();
+            if (dobField && dobField.value) {
+                dobField.dispatchEvent(new Event('change'));
+            }
+            if (dojField && dojField.value) {
+                dojField.dispatchEvent(new Event('change'));
+            }
+        }, 100);
+        {% endif %}
+    });
+</script>
+
+<style>
+    .is-valid {
+        border-color: #198754 !important;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+    }
+    
+    .is-invalid {
+        border-color: #dc3545 !important;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 3.6 .4.4 .4-.4'/%3e%3cpath d='M6 7v1.5'/%3e%3c/svg%3e");
+    }
+</style>
+{% endblock %}

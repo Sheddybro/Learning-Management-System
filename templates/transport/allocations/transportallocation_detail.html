@@ -1,0 +1,590 @@
+<!-- templates/transport/allocations/transportallocation_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Transport Allocation Details" %}{% endblock %}
+
+{% block page_title %}{% trans "Transport Allocation Details" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:transportallocation_list' %}">{% trans "Allocations" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ allocation.student }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <a href="{% url 'transport:transportallocation_update' allocation.pk %}" class="btn btn-primary">
+        <i class="fas fa-edit me-1"></i> {% trans "Edit Allocation" %}
+    </a>
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="fas fa-ellipsis-v"></i>
+        </button>
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="#" onclick="sendParentNotification()">
+                    <i class="fas fa-envelope me-2"></i> {% trans "Notify Parents" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="#" onclick="printAllocation()">
+                    <i class="fas fa-print me-2"></i> {% trans "Print Details" %}
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item text-danger" href="{% url 'transport:transportallocation_delete' allocation.pk %}">
+                    <i class="fas fa-trash me-2"></i> {% trans "Delete Allocation" %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .allocation-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+    }
+
+    .allocation-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .status-active {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .status-inactive {
+        background-color: #f3f4f6;
+        color: #6b7280;
+    }
+
+    .info-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.25rem;
+    }
+
+    .info-value {
+        color: #212529;
+        margin-bottom: 1rem;
+    }
+
+    .route-timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+
+    .route-timeline::before {
+        content: '';
+        position: absolute;
+        left: 1rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -2rem;
+        top: 0.5rem;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 50%;
+        background: #007bff;
+        border: 3px solid #fff;
+        box-shadow: 0 0 0 2px #007bff;
+    }
+
+    .timeline-item.pickup::before {
+        background: #28a745;
+    }
+
+    .timeline-item.drop::before {
+        background: #dc3545;
+    }
+
+    .timeline-content {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .parent-contact {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .contact-action {
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+
+    .contact-action:hover {
+        background: rgba(255, 255, 255, 0.3);
+        color: white;
+        text-decoration: none;
+    }
+
+    .fee-breakdown {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+
+    .fee-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .fee-item:last-child {
+        border-bottom: none;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+
+    .other-allocations {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .allocation-item {
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .allocation-item:hover {
+        border-color: #007bff;
+        background-color: #f8f9ff;
+    }
+
+    @media (max-width: 768px) {
+        .route-timeline {
+            padding-left: 1.5rem;
+        }
+
+        .timeline-item::before {
+            left: -1.5rem;
+            width: 0.75rem;
+            height: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="transport-allocation-detail">
+    <!-- Status Overview -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card allocation-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="card-title mb-2">{{ allocation.student.get_full_name }}</h4>
+                            <p class="card-text text-muted mb-2">
+                                <i class="fas fa-route me-1"></i>{{ route.name }} ({{ route.code }})
+                                <span class="ms-3">
+                                    <i class="fas fa-bus me-1"></i>{{ vehicle.vehicle_number }} - {{ vehicle.make }} {{ vehicle.model }}
+                                </span>
+                            </p>
+                            <div class="d-flex align-items-center">
+                                <span class="status-badge {% if is_active %}status-active{% else %}status-inactive{% endif %}">
+                                    {% if is_active %}
+                                        <i class="fas fa-check-circle me-1"></i>{% trans "Active" %}
+                                    {% else %}
+                                        <i class="fas fa-pause-circle me-1"></i>{% trans "Inactive" %}
+                                    {% endif %}
+                                </span>
+                                <small class="text-muted ms-3">
+                                    {% trans "Allocated on" %} {{ allocation.created_at|date:"M d, Y" }}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="fee-breakdown">
+                                <div class="fee-item">
+                                    <span>{% trans "Monthly Fee" %}</span>
+                                    <strong>${{ monthly_fee }}</strong>
+                                </div>
+                                <div class="fee-item">
+                                    <span>{% trans "Allocation Type" %}</span>
+                                    <span>{{ allocation.get_allocation_type_display }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Details -->
+        <div class="col-lg-8">
+            <!-- Route Information -->
+            <div class="card allocation-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-route me-2"></i>{% trans "Route & Schedule Information" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-section">
+                                <div class="info-label">{% trans "Route" %}</div>
+                                <div class="info-value">{{ route.name }} ({{ route.code }})</div>
+
+                                <div class="info-label">{% trans "Vehicle" %}</div>
+                                <div class="info-value">{{ vehicle.vehicle_number }} - {{ vehicle.make }} {{ vehicle.model }}</div>
+
+                                <div class="info-label">{% trans "Driver" %}</div>
+                                <div class="info-value">
+                                    {% if driver %}
+                                        {{ driver.user.get_full_name }}
+                                        <br><small class="text-muted">{{ driver.employee_id }}</small>
+                                    {% else %}
+                                        <em>{% trans "Not assigned" %}</em>
+                                    {% endif %}
+                                </div>
+
+                                {% if attendant %}
+                                <div class="info-label">{% trans "Attendant" %}</div>
+                                <div class="info-value">
+                                    {{ attendant.user.get_full_name }}
+                                    <br><small class="text-muted">{{ attendant.employee_id }}</small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-section">
+                                <div class="info-label">{% trans "Schedule" %}</div>
+                                <div class="info-value">
+                                    {% trans "Morning" %}: {{ route_schedule.morning_start_time }} - {{ route_schedule.morning_end_time }}
+                                    {% if route_schedule.evening_start_time %}
+                                    <br>{% trans "Evening" %}: {{ route_schedule.evening_start_time }} - {{ route_schedule.evening_end_time }}
+                                    {% endif %}
+                                </div>
+
+                                <div class="info-label">{% trans "Days of Operation" %}</div>
+                                <div class="info-value">
+                                    {% for day in route_schedule.days_of_week.split %}
+                                        {% if day == '1' %}Mon{% elif day == '2' %}Tue{% elif day == '3' %}Wed{% elif day == '4' %}Thu{% elif day == '5' %}Fri{% elif day == '6' %}Sat{% elif day == '7' %}Sun{% endif %}{% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                </div>
+
+                                <div class="info-label">{% trans "Total Distance" %}</div>
+                                <div class="info-value">{{ route.total_distance }} km</div>
+
+                                <div class="info-label">{% trans "Estimated Duration" %}</div>
+                                <div class="info-value">{{ route.estimated_duration }} {% trans "minutes" %}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Route Stops -->
+            <div class="card allocation-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-map-marker-alt me-2"></i>{% trans "Pickup & Drop-off Stops" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="route-timeline">
+                        <div class="timeline-item pickup">
+                            <div class="timeline-content">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <i class="fas fa-arrow-up text-success me-2"></i>
+                                            {% trans "Pickup Stop" %}: {{ pickup_stop.name }}
+                                        </h6>
+                                        <p class="mb-1 text-muted">{{ pickup_stop.address }}</p>
+                                        <small class="text-muted">
+                                            <i class="fas fa-clock me-1"></i>
+                                            {% trans "Pickup Time" %}: {{ pickup_stop.pickup_time|default:pickup_stop.estimated_arrival_time }}
+                                            | {% trans "Sequence" %}: {{ pickup_stop.sequence }}
+                                        </small>
+                                    </div>
+                                    <span class="badge bg-success">{% trans "Pickup" %}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="timeline-item drop">
+                            <div class="timeline-content">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <i class="fas fa-arrow-down text-danger me-2"></i>
+                                            {% trans "Drop-off Stop" %}: {{ drop_stop.name }}
+                                        </h6>
+                                        <p class="mb-1 text-muted">{{ drop_stop.address }}</p>
+                                        <small class="text-muted">
+                                            <i class="fas fa-clock me-1"></i>
+                                            {% trans "Drop Time" %}: {{ drop_stop.drop_time|default:drop_stop.estimated_arrival_time }}
+                                            | {% trans "Sequence" %}: {{ drop_stop.sequence }}
+                                        </small>
+                                    </div>
+                                    <span class="badge bg-danger">{% trans "Drop-off" %}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Information -->
+            <div class="card allocation-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-graduate me-2"></i>{% trans "Student Information" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-label">{% trans "Student Name" %}</div>
+                            <div class="info-value">{{ student.get_full_name }}</div>
+
+                            <div class="info-label">{% trans "Student ID" %}</div>
+                            <div class="info-value">{{ student.student_id }}</div>
+
+                            <div class="info-label">{% trans "Grade/Class" %}</div>
+                            <div class="info-value">
+                                {% if student.current_class %}
+                                    {{ student.current_class.name }}
+                                {% else %}
+                                    <em>{% trans "Not assigned" %}</em>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">{% trans "Date of Birth" %}</div>
+                            <div class="info-value">{{ student.date_of_birth|date:"M d, Y" }}</div>
+
+                            <div class="info-label">{% trans "Allocation Period" %}</div>
+                            <div class="info-value">
+                                {{ allocation.start_date|date:"M d, Y" }}
+                                {% if allocation.end_date %}
+                                    - {{ allocation.end_date|date:"M d, Y" }}
+                                {% else %}
+                                    - {% trans "Ongoing" %}
+                                {% endif %}
+                            </div>
+
+                            {% if allocation.notes %}
+                            <div class="info-label">{% trans "Notes" %}</div>
+                            <div class="info-value">{{ allocation.notes }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Parent Contacts -->
+            <div class="card allocation-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-users me-2"></i>{% trans "Parent/Guardian Contacts" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for parent in parent_guardians %}
+                    <div class="parent-contact mb-3">
+                        <h6 class="mb-2">{{ parent.get_full_name }}</h6>
+                        <p class="mb-2 small">{{ parent.get_relationship_display }}</p>
+                        <div class="d-flex gap-2">
+                            {% if parent.phone %}
+                            <a href="tel:{{ parent.phone }}" class="contact-action">
+                                <i class="fas fa-phone me-1"></i>{{ parent.phone }}
+                            </a>
+                            {% endif %}
+                            {% if parent.email %}
+                            <a href="mailto:{{ parent.email }}" class="contact-action">
+                                <i class="fas fa-envelope me-1"></i>{% trans "Email" %}
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-users text-muted fa-2x mb-2"></i>
+                        <p class="text-muted mb-0">{% trans "No parent/guardian contacts found" %}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Other Allocations -->
+            {% if other_allocations %}
+            <div class="card allocation-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>{% trans "Other Allocations" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="other-allocations">
+                        {% for other_allocation in other_allocations %}
+                        <div class="allocation-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ other_allocation.route_schedule.route.name }}</h6>
+                                    <small class="text-muted">
+                                        {{ other_allocation.route_schedule.vehicle.vehicle_number }}
+                                        <br>
+                                        {{ other_allocation.start_date|date:"M d, Y" }}
+                                        {% if other_allocation.end_date %} - {{ other_allocation.end_date|date:"M d, Y" }}{% endif %}
+                                    </small>
+                                </div>
+                                <a href="{% url 'transport:transportallocation_detail' other_allocation.pk %}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Quick Actions -->
+            <div class="card allocation-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt me-2"></i>{% trans "Quick Actions" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="sendParentNotification()">
+                            <i class="fas fa-envelope me-2"></i>{% trans "Send Notification" %}
+                        </button>
+                        <button class="btn btn-outline-info" onclick="printAllocation()">
+                            <i class="fas fa-print me-2"></i>{% trans "Print Details" %}
+                        </button>
+                        <a href="{% url 'transport:transportallocation_update' allocation.pk %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-edit me-2"></i>{% trans "Edit Allocation" %}
+                        </a>
+                        <button class="btn btn-outline-warning" onclick="reportIssue()">
+                            <i class="fas fa-exclamation-triangle me-2"></i>{% trans "Report Issue" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Send parent notification
+    window.sendParentNotification = function() {
+        if (confirm('{% trans "Send transport allocation notification to parents?" %}')) {
+            // Show loading
+            const btn = event.target.closest('button');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>{% trans "Sending..." %}';
+            btn.disabled = true;
+
+            // Simulate API call
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                showNotification('{% trans "Notification sent successfully!" %}', 'success');
+            }, 2000);
+        }
+    };
+
+    // Print allocation details
+    window.printAllocation = function() {
+        window.print();
+    };
+
+    // Report issue
+    window.reportIssue = function() {
+        window.location.href = '{% url "transport:incidentreport_create" %}';
+    };
+
+    // Utility function for notifications
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+        notification.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                <span>${message}</span>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

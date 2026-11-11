@@ -1,0 +1,907 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{{ book.title }}{% endblock %}
+
+{% block page_title %}{{ book.title }}{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        {% if perms.library.change_book %}
+        <a href="{% url 'library:book_update' book.id %}" class="btn btn-outline-primary">
+            <i class="bi bi-pencil me-2"></i> {% trans "Edit Book" %}
+        </a>
+        {% endif %}
+        
+        {% if book.is_available and user.is_authenticated and hasattr user 'library_member' and user.library_member.can_borrow_more %}
+        <button type="button" class="btn btn-primary" onclick="borrowBook()">
+            <i class="bi bi-journal-plus me-2"></i> {% trans "Borrow Book" %}
+        </button>
+        {% elif user.is_authenticated and hasattr user 'library_member' and not user.library_member.can_borrow_more %}
+        <button type="button" class="btn btn-secondary" disabled title="{% trans 'Borrowing limit reached' %}">
+            <i class="bi bi-journal-plus me-2"></i> {% trans "Borrow Book" %}
+        </button>
+        {% endif %}
+        
+        {% if user.is_authenticated and hasattr user 'library_member' %}
+        <button type="button" class="btn btn-outline-success" onclick="reserveBook('{{ book.id }}')">
+            <i class="bi bi-bookmark-plus me-2"></i> {% trans "Reserve" %}
+        </button>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:book_list' %}">{% trans "Books" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ book.title|truncatewords:3 }}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Book Detail Specific Styles */
+    .book-cover-large {
+        width: 100%;
+        max-width: 300px;
+        height: 400px;
+        object-fit: cover;
+        border-radius: 8px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .book-cover-placeholder-large {
+        width: 100%;
+        max-width: 300px;
+        height: 400px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .book-meta-item {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .book-meta-item:last-child {
+        border-bottom: none;
+    }
+    
+    .availability-badge-large {
+        font-size: 1rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    .copy-item {
+        border-left: 4px solid transparent;
+        transition: all 0.2s ease;
+    }
+    
+    .copy-item:hover {
+        border-left-color: #65a0f9;
+        background-color: rgba(101, 160, 249, 0.05);
+    }
+    
+    .copy-available {
+        border-left-color: #28a745;
+    }
+    
+    .copy-borrowed {
+        border-left-color: #ffc107;
+    }
+    
+    .copy-reserved {
+        border-left-color: #17a2b8;
+    }
+    
+    .copy-unavailable {
+        border-left-color: #6c757d;
+    }
+    
+    .action-buttons .btn {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .nav-tabs .nav-link {
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: #65a0f9;
+        border-bottom: 3px solid #65a0f9;
+    }
+    
+    .history-item {
+        border-left: 3px solid transparent;
+        transition: all 0.2s ease;
+    }
+    
+    .history-item:hover {
+        border-left-color: #65a0f9;
+        background-color: rgba(101, 160, 249, 0.05);
+    }
+    
+    .reservation-item {
+        border-left: 3px solid #17a2b8;
+        background-color: rgba(23, 162, 184, 0.05);
+    }
+    
+    .stat-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stat-card-1 { border-left-color: #65a0f9; }
+    .stat-card-2 { border-left-color: #28a745; }
+    .stat-card-3 { border-left-color: #ffc107; }
+    .stat-card-4 { border-left-color: #17a2b8; }
+    
+    @media (max-width: 768px) {
+        .book-cover-large,
+        .book-cover-placeholder-large {
+            max-width: 200px;
+            height: 280px;
+        }
+        
+        .action-buttons .btn {
+            font-size: 0.8rem;
+            padding: 0.3rem 0.6rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Book Header Section -->
+    <div class="row mb-4">
+        <div class="col-lg-3">
+            <!-- Book Cover -->
+            <div class="text-center">
+                {% if book.cover_image %}
+                <img src="{{ book.cover_image.url }}" class="book-cover-large mb-3" alt="{{ book.title }}">
+                {% else %}
+                <div class="book-cover-placeholder-large mb-3">
+                    <i class="bi bi-book text-muted" style="font-size: 4rem;"></i>
+                </div>
+                {% endif %}
+                
+                <!-- Availability Status -->
+                <div class="mb-3">
+                    {% if book.is_available %}
+                    <span class="badge bg-success availability-badge-large">
+                        <i class="bi bi-check-circle-fill me-2"></i> {% trans "Available" %}
+                    </span>
+                    {% else %}
+                    <span class="badge bg-secondary availability-badge-large">
+                        <i class="bi bi-x-circle-fill me-2"></i> {% trans "Unavailable" %}
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <!-- Quick Stats -->
+                <div class="card stat-card stat-card-1 mb-2">
+                    <div class="card-body text-center py-2">
+                        <div class="h5 mb-0">{{ book.total_copies }}</div>
+                        <small class="text-muted">{% trans "Total Copies" %}</small>
+                    </div>
+                </div>
+                
+                <div class="card stat-card stat-card-2 mb-2">
+                    <div class="card-body text-center py-2">
+                        <div class="h5 mb-0">{{ book.available_copies }}</div>
+                        <small class="text-muted">{% trans "Available Now" %}</small>
+                    </div>
+                </div>
+                
+                <div class="card stat-card stat-card-3">
+                    <div class="card-body text-center py-2">
+                        <div class="h5 mb-0">{{ reservations.count }}</div>
+                        <small class="text-muted">{% trans "Active Reservations" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-9">
+            <!-- Book Information -->
+            <div class="card">
+                <div class="card-body">
+                    <h1 class="card-title h2 mb-2">{{ book.title }}</h1>
+                    
+                    {% if book.edition %}
+                    <p class="text-muted mb-3">{{ book.edition }} {% trans "Edition" %}</p>
+                    {% endif %}
+                    
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-2">
+                            <i class="bi bi-person-badge me-2"></i> {% trans "Authors" %}
+                        </h5>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for author in book.authors.all %}
+                            <a href="{% url 'library:author_detail' author.id %}" class="badge bg-light text-dark p-2 text-decoration-none">
+                                <i class="bi bi-person me-1"></i> {{ author.full_name }}
+                            </a>
+                            {% empty %}
+                            <span class="text-muted">{% trans "No authors listed" %}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="book-meta-item">
+                                <strong><i class="bi bi-upc-scan me-2 text-muted"></i> {% trans "ISBN" %}:</strong>
+                                <span class="ms-2">{{ book.isbn|default:"-" }}</span>
+                            </div>
+                            
+                            <div class="book-meta-item">
+                                <strong><i class="bi bi-journal me-2 text-muted"></i> {% trans "Book Type" %}:</strong>
+                                <span class="badge bg-info text-dark ms-2">{{ book.get_book_type_display }}</span>
+                            </div>
+                            
+                            <div class="book-meta-item">
+                                <strong><i class="bi bi-building me-2 text-muted"></i> {% trans "Publisher" %}:</strong>
+                                <span class="ms-2">
+                                    {% if book.publisher %}
+                                    <a href="{% url 'library:publisher_detail' book.publisher.id %}" class="text-decoration-none">
+                                        {{ book.publisher.name }}
+                                    </a>
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </span>
+                            </div>
+                            
+                            <div class="book-meta-item">
+                                <strong><i class="bi bi-tags me-2 text-muted"></i> {% trans "Category" %}:</strong>
+                                <span class="ms-2">
+                                    {% if book.category %}
+                                    <a href="{% url 'library:bookcategory_detail' book.category.id %}" class="text-decoration-none">
+                                        {{ book.category.name }}
+                                    </a>
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="book-meta-item">
+                                <strong><i class="bi bi-calendar me-2 text-muted"></i> {% trans "Publication Year" %}:</strong>
+                                <span class="ms-2">{{ book.publication_year|default:"-" }}</span>
+                            </div>
+                            
+                            <div class="book-meta-item">
+                                <strong><i class="bi bi-file-text me-2 text-muted"></i> {% trans "Pages" %}:</strong>
+                                <span class="ms-2">{{ book.pages|default:"-" }}</span>
+                            </div>
+                            
+                            <div class="book-meta-item">
+                                <strong><i class="bi bi-translate me-2 text-muted"></i> {% trans "Language" %}:</strong>
+                                <span class="ms-2">{{ book.language|default:"English" }}</span>
+                            </div>
+                            
+                            <div class="book-meta-item">
+                                <strong><i class="bi bi-geo-alt me-2 text-muted"></i> {% trans "Location" %}:</strong>
+                                <span class="ms-2">{{ book.location|default:"-" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if book.keywords %}
+                    <div class="book-meta-item">
+                        <strong><i class="bi bi-search me-2 text-muted"></i> {% trans "Keywords" %}:</strong>
+                        <div class="mt-2">
+                            {% for keyword in book.keywords.split %}
+                            <span class="badge bg-light text-dark me-1 mb-1">{{ keyword }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if book.description %}
+                    <div class="book-meta-item">
+                        <h5 class="text-primary mb-2">
+                            <i class="bi bi-card-text me-2"></i> {% trans "Description" %}
+                        </h5>
+                        <p class="mb-0" style="line-height: 1.6;">{{ book.description|linebreaks }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Acquisition Details -->
+                    <div class="book-meta-item">
+                        <h5 class="text-primary mb-2">
+                            <i class="bi bi-info-circle me-2"></i> {% trans "Acquisition Details" %}
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <strong>{% trans "Acquisition Date" %}:</strong><br>
+                                {{ book.acquisition_date|date:"M d, Y" }}
+                            </div>
+                            <div class="col-md-4">
+                                <strong>{% trans "Acquisition Price" %}:</strong><br>
+                                {% if book.acquisition_price %}
+                                ${{ book.acquisition_price }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <strong>{% trans "Source" %}:</strong><br>
+                                {{ book.source|default:"-" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabbed Navigation -->
+    <div class="row">
+        <div class="col-12">
+            <ul class="nav nav-tabs mb-4" id="bookTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="copies-tab" data-bs-toggle="tab" data-bs-target="#copies" type="button" role="tab">
+                        <i class="bi bi-journals me-2"></i> {% trans "Book Copies" %}
+                        <span class="badge bg-primary ms-1">{{ book.copies.count }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="reservations-tab" data-bs-toggle="tab" data-bs-target="#reservations" type="button" role="tab">
+                        <i class="bi bi-bookmark me-2"></i> {% trans "Reservations" %}
+                        <span class="badge bg-info ms-1">{{ reservations.count }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">
+                        <i class="bi bi-clock-history me-2"></i> {% trans "Borrowing History" %}
+                        <span class="badge bg-secondary ms-1">{{ borrow_history.count }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="related-tab" data-bs-toggle="tab" data-bs-target="#related" type="button" role="tab">
+                        <i class="bi bi-link-45deg me-2"></i> {% trans "Related Books" %}
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="bookTabsContent">
+                <!-- Book Copies Tab -->
+                <div class="tab-pane fade show active" id="copies" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">{% trans "Book Copies" %}</h5>
+                            {% if perms.library.add_bookcopy %}
+                            <a href="{% url 'library:bookcopy_create' %}?book={{ book.id }}" class="btn btn-primary btn-sm">
+                                <i class="bi bi-plus-circle me-2"></i> {% trans "Add Copy" %}
+                            </a>
+                            {% endif %}
+                        </div>
+                        <div class="card-body p-0">
+                            {% if available_copies or book.copies.all %}
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>{% trans "Copy #" %}</th>
+                                            <th>{% trans "Barcode" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                            <th>{% trans "Acquisition Date" %}</th>
+                                            <th>{% trans "Condition" %}</th>
+                                            <th>{% trans "Last Maintenance" %}</th>
+                                            <th width="100">{% trans "Actions" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for copy in book.copies.all %}
+                                        <tr class="copy-item 
+                                            {% if copy.copy_status == 'available' %}copy-available
+                                            {% elif copy.copy_status == 'borrowed' %}copy-borrowed
+                                            {% elif copy.copy_status == 'reserved' %}copy-reserved
+                                            {% else %}copy-unavailable{% endif %}">
+                                            <td>
+                                                <strong>#{{ copy.copy_number }}</strong>
+                                            </td>
+                                            <td>
+                                                <code>{{ copy.barcode }}</code>
+                                            </td>
+                                            <td>
+                                                {% if copy.copy_status == 'available' %}
+                                                <span class="badge bg-success">{% trans "Available" %}</span>
+                                                {% elif copy.copy_status == 'borrowed' %}
+                                                <span class="badge bg-warning">{% trans "Borrowed" %}</span>
+                                                {% elif copy.copy_status == 'reserved' %}
+                                                <span class="badge bg-info">{% trans "Reserved" %}</span>
+                                                {% else %}
+                                                <span class="badge bg-secondary">{{ copy.get_copy_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ copy.acquisition_date|date:"M d, Y" }}</td>
+                                            <td>
+                                                {% if copy.condition_notes %}
+                                                <span class="badge bg-light text-dark" data-bs-toggle="tooltip" 
+                                                      title="{{ copy.condition_notes }}">
+                                                    {% trans "See Notes" %}
+                                                </span>
+                                                {% else %}
+                                                <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if copy.last_maintenance_date %}
+                                                {{ copy.last_maintenance_date|date:"M d, Y" }}
+                                                {% else %}
+                                                <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="d-flex gap-1 action-buttons">
+                                                    {% if perms.library.change_bookcopy %}
+                                                    <a href="{% url 'library:bookcopy_update' copy.id %}" 
+                                                       class="btn btn-outline-secondary btn-sm"
+                                                       title="{% trans 'Edit Copy' %}">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    
+                                                    {% if copy.is_available_for_borrow and user.is_authenticated and hasattr user 'library_member' and user.library_member.can_borrow_more %}
+                                                    <button class="btn btn-outline-primary btn-sm"
+                                                            onclick="borrowSpecificCopy('{{ copy.id }}')"
+                                                            title="{% trans 'Borrow This Copy' %}">
+                                                        <i class="bi bi-journal-plus"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <i class="bi bi-journals display-1 text-muted mb-3"></i>
+                                <h5>{% trans "No copies available" %}</h5>
+                                <p class="text-muted">{% trans "No physical copies of this book have been added to the library yet." %}</p>
+                                {% if perms.library.add_bookcopy %}
+                                <a href="{% url 'library:bookcopy_create' %}?book={{ book.id }}" class="btn btn-primary">
+                                    <i class="bi bi-plus-circle me-2"></i> {% trans "Add First Copy" %}
+                                </a>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Reservations Tab -->
+                <div class="tab-pane fade" id="reservations" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">{% trans "Active Reservations" %}</h5>
+                            <span class="badge bg-info">{{ reservations.count }} {% trans "active" %}</span>
+                        </div>
+                        <div class="card-body p-0">
+                            {% if reservations %}
+                            <div class="list-group list-group-flush">
+                                {% for reservation in reservations %}
+                                <div class="list-group-item reservation-item">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-3">
+                                            <strong>{{ reservation.member.member_id }}</strong>
+                                            <div class="small text-muted">
+                                                {{ reservation.member.user.get_full_name|default:reservation.member.user.username }}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="small">
+                                                <strong>{% trans "Reserved" %}:</strong><br>
+                                                {{ reservation.reserve_date|date:"M d, Y" }}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="small">
+                                                <strong>{% trans "Expires" %}:</strong><br>
+                                                <span class="{% if reservation.is_expired %}text-danger{% endif %}">
+                                                    {{ reservation.expiry_date|date:"M d, Y" }}
+                                                </span>
+                                                {% if reservation.is_expired %}
+                                                <span class="badge bg-danger ms-1">{% trans "Expired" %}</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="d-flex gap-2 action-buttons">
+                                                {% if perms.library.change_reservation and not reservation.is_expired %}
+                                                <button class="btn btn-outline-success btn-sm"
+                                                        onclick="fulfillReservation('{{ reservation.id }}')"
+                                                        title="{% trans 'Fulfill Reservation' %}">
+                                                    <i class="bi bi-check-lg"></i> {% trans "Fulfill" %}
+                                                </button>
+                                                {% endif %}
+                                                <a href="{% url 'library:librarymember_detail' reservation.member.id %}" 
+                                                   class="btn btn-outline-primary btn-sm"
+                                                   title="{% trans 'View Member' %}">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <i class="bi bi-bookmark display-1 text-muted mb-3"></i>
+                                <h5>{% trans "No active reservations" %}</h5>
+                                <p class="text-muted">{% trans "This book has no pending reservations at the moment." %}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Borrowing History Tab -->
+                <div class="tab-pane fade" id="history" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">{% trans "Borrowing History" %}</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            {% if borrow_history %}
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>{% trans "Member" %}</th>
+                                            <th>{% trans "Copy" %}</th>
+                                            <th>{% trans "Borrow Date" %}</th>
+                                            <th>{% trans "Due Date" %}</th>
+                                            <th>{% trans "Return Date" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                            <th>{% trans "Fine" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for record in borrow_history %}
+                                        <tr class="history-item">
+                                            <td>
+                                                <strong>{{ record.member.member_id }}</strong>
+                                                <div class="small text-muted">
+                                                    {{ record.member.user.get_full_name|default:record.member.user.username }}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <code>#{{ record.book_copy.copy_number }}</code>
+                                            </td>
+                                            <td>{{ record.borrow_date|date:"M d, Y" }}</td>
+                                            <td>
+                                                <span class="{% if record.is_overdue %}text-danger{% endif %}">
+                                                    {{ record.due_date|date:"M d, Y" }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% if record.return_date %}
+                                                {{ record.return_date|date:"M d, Y" }}
+                                                {% else %}
+                                                <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if record.status == 'returned' %}
+                                                <span class="badge bg-success">{% trans "Returned" %}</span>
+                                                {% elif record.status == 'overdue' %}
+                                                <span class="badge bg-danger">{% trans "Overdue" %}</span>
+                                                {% elif record.status == 'borrowed' %}
+                                                <span class="badge bg-primary">{% trans "Borrowed" %}</span>
+                                                {% else %}
+                                                <span class="badge bg-secondary">{{ record.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if record.fine_amount > 0 %}
+                                                <span class="text-danger">${{ record.fine_amount }}</span>
+                                                {% if record.fine_paid %}
+                                                <span class="badge bg-success ms-1">{% trans "Paid" %}</span>
+                                                {% endif %}
+                                                {% else %}
+                                                <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <i class="bi bi-clock-history display-1 text-muted mb-3"></i>
+                                <h5>{% trans "No borrowing history" %}</h5>
+                                <p class="text-muted">{% trans "This book has not been borrowed yet." %}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Related Books Tab -->
+                <div class="tab-pane fade" id="related" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">{% trans "Related Books" %}</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <!-- Books by same authors -->
+                                <div class="col-md-6 mb-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="bi bi-person me-2"></i> {% trans "By the same authors" %}
+                                    </h6>
+                                    {% for author in book.authors.all %}
+                                        {% for related_book in author.books.all %}
+                                            {% if related_book.id != book.id %}
+                                            <div class="card mb-2">
+                                                <div class="card-body py-2">
+                                                    <h6 class="card-title mb-1">
+                                                        <a href="{% url 'library:book_detail' related_book.id %}" class="text-decoration-none">
+                                                            {{ related_book.title }}
+                                                        </a>
+                                                    </h6>
+                                                    <p class="card-text small text-muted mb-0">
+                                                        {{ related_book.publication_year|default:"" }}
+                                                        {% if related_book.is_available %}
+                                                        <span class="badge bg-success ms-2">{% trans "Available" %}</span>
+                                                        {% endif %}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% empty %}
+                                    <p class="text-muted">{% trans "No other books by these authors" %}</p>
+                                    {% endfor %}
+                                </div>
+                                
+                                <!-- Books in same category -->
+                                <div class="col-md-6">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="bi bi-tags me-2"></i> {% trans "In the same category" %}
+                                    </h6>
+                                    {% if book.category %}
+                                        {% for related_book in book.category.books.all %}
+                                            {% if related_book.id != book.id %}
+                                            <div class="card mb-2">
+                                                <div class="card-body py-2">
+                                                    <h6 class="card-title mb-1">
+                                                        <a href="{% url 'library:book_detail' related_book.id %}" class="text-decoration-none">
+                                                            {{ related_book.title }}
+                                                        </a>
+                                                    </h6>
+                                                    <p class="card-text small text-muted mb-0">
+                                                        {{ related_book.author_names }}
+                                                        {% if related_book.is_available %}
+                                                        <span class="badge bg-success ms-2">{% trans "Available" %}</span>
+                                                        {% endif %}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        {% empty %}
+                                        <p class="text-muted">{% trans "No other books in this category" %}</p>
+                                        {% endfor %}
+                                    {% else %}
+                                    <p class="text-muted">{% trans "This book is not categorized" %}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Borrow Book Modal -->
+<div class="modal fade" id="borrowBookModal" tabindex="-1" aria-labelledby="borrowBookModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="borrowBookModalLabel">{% trans "Borrow Book" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "You are about to borrow:" %}</p>
+                <div class="alert alert-info">
+                    <strong>{{ book.title }}</strong><br>
+                    <small class="text-muted">{{ book.author_names }}</small>
+                </div>
+                
+                <form id="borrowBookForm">
+                    <div class="mb-3">
+                        <label for="selectCopy" class="form-label">{% trans "Select Copy" %}</label>
+                        <select class="form-select" id="selectCopy" required>
+                            <option value="">{% trans "Choose a copy..." %}</option>
+                            {% for copy in available_copies %}
+                            <option value="{{ copy.id }}">{% trans "Copy" %} #{{ copy.copy_number }} ({{ copy.barcode }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="dueDate" class="form-label">{% trans "Due Date" %}</label>
+                        <input type="date" class="form-control" id="dueDate" 
+                               value="{{ default_due_date|date:'Y-m-d' }}" required>
+                        <div class="form-text">
+                            {% trans "Default borrowing period:" %} {{ book.library.max_borrow_days }} {% trans "days" %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" onclick="confirmBorrow()">{% trans "Confirm Borrow" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Tab persistence
+        const bookTabs = document.getElementById('bookTabs');
+        if (bookTabs) {
+            bookTabs.addEventListener('shown.bs.tab', function(event) {
+                const activeTab = event.target.getAttribute('id');
+                localStorage.setItem('activeBookTab', activeTab);
+            });
+            
+            // Restore active tab
+            const savedTab = localStorage.getItem('activeBookTab');
+            if (savedTab) {
+                const tab = document.querySelector(`#${savedTab}`);
+                if (tab) {
+                    new bootstrap.Tab(tab).show();
+                }
+            }
+        }
+    });
+    
+    // Borrow Book Functions
+    window.borrowBook = function() {
+        const modal = new bootstrap.Modal(document.getElementById('borrowBookModal'));
+        modal.show();
+    };
+    
+    window.borrowSpecificCopy = function(copyId) {
+        document.getElementById('selectCopy').value = copyId;
+        const modal = new bootstrap.Modal(document.getElementById('borrowBookModal'));
+        modal.show();
+    };
+    
+    window.confirmBorrow = function() {
+        const copyId = document.getElementById('selectCopy').value;
+        const dueDate = document.getElementById('dueDate').value;
+        
+        if (!copyId) {
+            alert('{% trans "Please select a copy to borrow" %}');
+            return;
+        }
+        
+        if (!dueDate) {
+            alert('{% trans "Please select a due date" %}');
+            return;
+        }
+        
+        // Simulate borrow process
+        console.log('Borrowing copy:', copyId, 'Due:', dueDate);
+        
+        // In a real app, this would be an AJAX call
+        fetch('{% url "library:borrowrecord_create" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                book_copy: copyId,
+                due_date: dueDate,
+                member: '{{ user.library_member.id }}'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('{% trans "Book borrowed successfully!" %}');
+                bootstrap.Modal.getInstance(document.getElementById('borrowBookModal')).hide();
+                // Refresh page or update UI
+                location.reload();
+            } else {
+                alert('{% trans "Failed to borrow book: " %}' + (data.error || '{% trans "Unknown error" %}'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('{% trans "An error occurred while borrowing the book." %}');
+        });
+    };
+    
+    // Reserve Book Function
+    window.reserveBook = function(bookId) {
+        if (!confirm('{% trans "Are you sure you want to reserve this book?" %}')) {
+            return;
+        }
+        
+        // Simulate reservation process
+        fetch(`/library/ajax/reserve-book/${bookId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('{% trans "Book reserved successfully! You will be notified when it becomes available." %}');
+            } else {
+                alert('{% trans "Failed to reserve book: " %}' + (data.error || '{% trans "Unknown error" %}'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('{% trans "An error occurred while reserving the book." %}');
+        });
+    };
+    
+    // Fulfill Reservation Function
+    window.fulfillReservation = function(reservationId) {
+        if (!confirm('{% trans "Are you sure you want to mark this reservation as fulfilled?" %}')) {
+            return;
+        }
+        
+        // Simulate fulfillment process
+        fetch(`/library/reservations/${reservationId}/fulfill/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+        })
+        .then(response => {
+            if (response.ok) {
+                alert('{% trans "Reservation fulfilled successfully!" %}');
+                location.reload();
+            } else {
+                alert('{% trans "Failed to fulfill reservation." %}');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('{% trans "An error occurred while fulfilling the reservation." %}');
+        });
+    };
+</script>
+{% endblock %}

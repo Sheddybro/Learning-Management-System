@@ -1,0 +1,458 @@
+<!-- templates/hostels/dashboard/dashboard.html -->
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}Hostel Management Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+    }
+    
+    .dashboard-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .stat-card-secondary {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+    
+    .stat-card-success {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+    }
+    
+    .stat-card-warning {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        color: white;
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        font-weight: 500;
+    }
+    
+    .stat-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+    }
+    
+    .quick-action-btn {
+        border: none;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        color: #333;
+        text-decoration: none;
+        display: block;
+    }
+    
+    .quick-action-btn:hover {
+        background: #f8f9fa;
+        color: #007bff;
+        transform: translateY(-2px);
+        text-decoration: none;
+    }
+    
+    .quick-action-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        color: #007bff;
+    }
+    
+    .recent-activity-item {
+        border-left: 3px solid #007bff;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .activity-time {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .occupancy-progress {
+        height: 8px;
+        border-radius: 4px;
+    }
+    
+    .hostel-card {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .hostel-card:hover {
+        border-color: #007bff;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+    }
+    
+    .hostel-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}Hostel Management Dashboard{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">Hostel Dashboard</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card dashboard-card stat-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-8">
+                            <div class="stat-number">{{ total_hostels }}</div>
+                            <div class="stat-label">Total Hostels</div>
+                        </div>
+                        <div class="col-4 text-end">
+                            <i class="bi bi-building stat-icon"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card dashboard-card stat-card-secondary">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-8">
+                            <div class="stat-number">{{ total_allocations }}</div>
+                            <div class="stat-label">Active Allocations</div>
+                        </div>
+                        <div class="col-4 text-end">
+                            <i class="bi bi-people-fill stat-icon"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card dashboard-card stat-card-success">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-8">
+                            <div class="stat-number">{{ total_beds }}</div>
+                            <div class="stat-label">Total Beds</div>
+                        </div>
+                        <div class="col-4 text-end">
+                            <i class="bi bi-layout-text-sidebar-reverse stat-icon"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card dashboard-card stat-card-warning">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-8">
+                            <div class="stat-number">{{ overall_occupancy_rate|floatformat:1 }}%</div>
+                            <div class="stat-label">Overall Occupancy</div>
+                        </div>
+                        <div class="col-4 text-end">
+                            <i class="bi bi-graph-up stat-icon"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Quick Actions -->
+        <div class="col-lg-3 mb-4">
+            <div class="card dashboard-card">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <a href="{% url 'hostels:allocation_create' %}" class="quick-action-btn">
+                                <i class="bi bi-person-plus quick-action-icon"></i>
+                                <div class="fw-semibold">Allocate Student</div>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{% url 'hostels:visitor_create' %}" class="quick-action-btn">
+                                <i class="bi bi-person-badge quick-action-icon"></i>
+                                <div class="fw-semibold">Log Visitor</div>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{% url 'hostels:maintenance_create' %}" class="quick-action-btn">
+                                <i class="bi bi-tools quick-action-icon"></i>
+                                <div class="fw-semibold">Maintenance Request</div>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{% url 'hostels:inventory_create' %}" class="quick-action-btn">
+                                <i class="bi bi-box-seam quick-action-icon"></i>
+                                <div class="fw-semibold">Add Inventory</div>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{% url 'hostels:occupancy_report' %}" class="quick-action-btn">
+                                <i class="bi bi-bar-chart-line quick-action-icon"></i>
+                                <div class="fw-semibold">Occupancy Report</div>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{% url 'hostels:fee_collection_report' %}" class="quick-action-btn">
+                                <i class="bi bi-cash-coin quick-action-icon"></i>
+                                <div class="fw-semibold">Fee Report</div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts Summary -->
+            <div class="card dashboard-card mt-4">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Alerts</h5>
+                </div>
+                <div class="card-body">
+                    {% if overdue_fees > 0 %}
+                    <div class="alert alert-warning d-flex align-items-center mb-2">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <div>
+                            <strong>{{ overdue_fees }}</strong> overdue fees
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if pending_maintenance > 0 %}
+                    <div class="alert alert-info d-flex align-items-center mb-2">
+                        <i class="bi bi-tools me-2"></i>
+                        <div>
+                            <strong>{{ pending_maintenance }}</strong> pending maintenance
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if not overdue_fees and not pending_maintenance %}
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-check-circle-fill text-success mb-2" style="font-size: 2rem;"></i>
+                        <div>All clear! No alerts</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="col-lg-9">
+            <!-- Recent Activities -->
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card dashboard-card h-100">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">Recent Allocations</h5>
+                            <a href="{% url 'hostels:allocation_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_allocations %}
+                                {% for allocation in recent_allocations %}
+                                <div class="recent-activity-item">
+                                    <div class="fw-semibold">
+                                        {{ allocation.student.user.get_full_name|default:allocation.student.user.username }}
+                                    </div>
+                                    <div class="small text-muted">
+                                        Allocated to {{ allocation.bed.room.hostel.name }} - Room {{ allocation.bed.room.room_number }}
+                                    </div>
+                                    <div class="activity-time">
+                                        {{ allocation.allocation_date|date:"M d, Y" }}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center text-muted py-3">
+                                    <i class="bi bi-info-circle mb-2" style="font-size: 2rem;"></i>
+                                    <div>No recent allocations</div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-4">
+                    <div class="card dashboard-card h-100">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">Recent Visitors</h5>
+                            <a href="{% url 'hostels:visitor_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_visitors %}
+                                {% for visitor in recent_visitors %}
+                                <div class="recent-activity-item">
+                                    <div class="fw-semibold">{{ visitor.visitor_name }}</div>
+                                    <div class="small text-muted">
+                                        Visiting {{ visitor.visiting_student.user.get_full_name|default:visitor.visiting_student.user.username }}
+                                        {% if visitor.is_parent_guardian %}
+                                        <span class="badge bg-info hostel-badge">Parent</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="activity-time">
+                                        {{ visitor.check_in_time|date:"M d, Y g:i A" }}
+                                        {% if not visitor.is_checked_out %}
+                                        <span class="badge bg-success hostel-badge">Active</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center text-muted py-3">
+                                    <i class="bi bi-info-circle mb-2" style="font-size: 2rem;"></i>
+                                    <div>No recent visitors</div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hostels Overview -->
+            <div class="card dashboard-card">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Hostels Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for hostel in hostels %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card hostel-card">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="card-title mb-0">{{ hostel.name }}</h6>
+                                        <span class="badge {% if hostel.is_full %}bg-danger{% else %}bg-success{% endif %} hostel-badge">
+                                            {{ hostel.is_full|yesno:"Full,Available" }}
+                                        </span>
+                                    </div>
+                                    <p class="card-text small text-muted mb-2">{{ hostel.code }} • {{ hostel.get_hostel_type_display }}</p>
+                                    
+                                    <div class="mb-2">
+                                        <div class="d-flex justify-content-between small mb-1">
+                                            <span>Occupancy</span>
+                                            <span>{{ hostel.current_occupancy }}/{{ hostel.capacity }} ({{ hostel.occupancy_percentage }}%)</span>
+                                        </div>
+                                        <div class="progress occupancy-progress">
+                                            <div class="progress-bar {% if hostel.occupancy_percentage > 90 %}bg-danger{% elif hostel.occupancy_percentage > 70 %}bg-warning{% else %}bg-success{% endif %}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ hostel.occupancy_percentage }}%"
+                                                 aria-valuenow="{{ hostel.occupancy_percentage }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-flex justify-content-between small text-muted">
+                                        <span>Available: {{ hostel.available_beds }}</span>
+                                        <span>Rooms: {{ hostel.total_rooms }}</span>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <a href="{% url 'hostels:hostel_detail' pk=hostel.pk %}" class="btn btn-sm btn-outline-primary w-100">View Details</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12 text-center py-4">
+                            <i class="bi bi-building text-muted mb-3" style="font-size: 3rem;"></i>
+                            <h5 class="text-muted">No hostels available</h5>
+                            <p class="text-muted">Get started by creating your first hostel.</p>
+                            <a href="{% url 'hostels:hostel_create' %}" class="btn btn-primary">Create Hostel</a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Auto-dismiss alerts after 5 seconds
+        setTimeout(function() {
+            var alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                var bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+
+        // Add loading state to quick action buttons
+        var quickActionButtons = document.querySelectorAll('.quick-action-btn');
+        quickActionButtons.forEach(function(button) {
+            button.addEventListener('click', function(e) {
+                var originalText = this.innerHTML;
+                this.innerHTML = '<div class="spinner-border spinner-border-sm me-2" role="status"></div>Loading...';
+                
+                setTimeout(function() {
+                    button.innerHTML = originalText;
+                }, 2000);
+            });
+        });
+    });
+
+    // Refresh dashboard data every 30 seconds
+    function refreshDashboardData() {
+        fetch(window.BASE_URL + '/hostels/api/dashboard-stats/')
+            .then(response => response.json())
+            .then(data => {
+                // Update statistics cards
+                document.querySelectorAll('.stat-number')[0].textContent = data.total_hostels;
+                document.querySelectorAll('.stat-number')[1].textContent = data.total_allocations;
+                document.querySelectorAll('.stat-number')[2].textContent = data.total_beds;
+                document.querySelectorAll('.stat-number')[3].textContent = data.overall_occupancy_rate + '%';
+            })
+            .catch(error => console.error('Error refreshing dashboard data:', error));
+    }
+
+    // Uncomment to enable auto-refresh
+    // setInterval(refreshDashboardData, 30000);
+</script>
+{% endblock %}

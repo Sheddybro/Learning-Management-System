@@ -1,0 +1,1288 @@
+<!-- templates/library/books/book_form.html -->
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Book" %} - {{ form.instance.title }}
+    {% else %}
+        {% trans "Add New Book" %}
+    {% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Book" %}
+    {% else %}
+        {% trans "Add New Book" %}
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:book_list' %}">{% trans "Books" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if form.instance.pk %}
+        {% trans "Edit" %} {{ form.instance.title }}
+    {% else %}
+        {% trans "Add New Book" %}
+    {% endif %}
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Book Form Specific Styles */
+    .form-card {
+        border-left: 4px solid #6f42c1;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .form-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .preview-card {
+        border-left: 4px solid #28a745;
+        background-color: #f8f9fa;
+    }
+    
+    .copies-card {
+        border-left: 4px solid #17a2b8;
+    }
+    
+    .book-cover-preview {
+        width: 120px;
+        height: 160px;
+        object-fit: cover;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border: 3px solid white;
+    }
+    
+    .cover-placeholder {
+        width: 120px;
+        height: 160px;
+        background: linear-gradient(135deg, #6f42c1, #e83e8c);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 3rem;
+        border-radius: 8px;
+        border: 3px solid white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .form-section {
+        border-bottom: 1px solid #e9ecef;
+        padding-bottom: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    
+    .section-title {
+        color: #495057;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #6f42c1;
+        display: inline-block;
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .help-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .character-count {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-align: right;
+        margin-top: 0.25rem;
+    }
+    
+    .isbn-preview {
+        font-family: 'Courier New', monospace;
+        background-color: #f8f9fa;
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+        border: 1px solid #dee2e6;
+        font-size: 0.9rem;
+    }
+    
+    .author-tag {
+        background-color: #e9ecef;
+        border: 1px solid #dee2e6;
+        border-radius: 1rem;
+        padding: 0.25rem 0.75rem;
+        margin: 0.25rem;
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.875rem;
+    }
+    
+    .author-tag .remove-author {
+        margin-left: 0.5rem;
+        cursor: pointer;
+        color: #6c757d;
+    }
+    
+    .author-tag .remove-author:hover {
+        color: #dc3545;
+    }
+    
+    .copies-summary {
+        background-color: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+    }
+    
+    .copy-status-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    .action-buttons {
+        position: sticky;
+        bottom: 0;
+        background: white;
+        padding: 1rem 0;
+        border-top: 1px solid #dee2e6;
+        margin-top: 2rem;
+    }
+    
+    .tab-pane {
+        padding: 1.5rem 0;
+    }
+    
+    .nav-tabs .nav-link.active {
+        border-bottom: 3px solid #6f42c1;
+        font-weight: 600;
+    }
+    
+    .image-upload-area {
+        border: 2px dashed #dee2e6;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .image-upload-area:hover {
+        border-color: #6f42c1;
+        background-color: rgba(111, 66, 193, 0.05);
+    }
+    
+    .image-upload-area.dragover {
+        border-color: #6f42c1;
+        background-color: rgba(111, 66, 193, 0.1);
+    }
+    
+    @media (max-width: 768px) {
+        .book-cover-preview,
+        .cover-placeholder {
+            width: 100px;
+            height: 133px;
+            font-size: 2rem;
+        }
+        
+        .action-buttons .btn {
+            margin-bottom: 0.5rem;
+        }
+        
+        .image-upload-area {
+            padding: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <form method="post" novalidate enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div class="row">
+            <!-- Left Column: Form Fields -->
+            <div class="col-lg-8">
+                <div class="card form-card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-book text-primary me-2"></i>
+                            {% if form.instance.pk %}
+                                {% trans "Edit Book Information" %}
+                            {% else %}
+                                {% trans "Book Information" %}
+                            {% endif %}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Navigation Tabs -->
+                        <ul class="nav nav-tabs mb-4" id="bookFormTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic" type="button" role="tab">
+                                    <i class="bi bi-info-circle me-1"></i> {% trans "Basic Info" %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="details-tab" data-bs-toggle="tab" data-bs-target="#details" type="button" role="tab">
+                                    <i class="bi bi-journal-text me-1"></i> {% trans "Details" %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="acquisition-tab" data-bs-toggle="tab" data-bs-target="#acquisition" type="button" role="tab">
+                                    <i class="bi bi-cart-plus me-1"></i> {% trans "Acquisition" %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="inventory-tab" data-bs-toggle="tab" data-bs-target="#inventory" type="button" role="tab">
+                                    <i class="bi bi-box-seam me-1"></i> {% trans "Inventory" %}
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content" id="bookFormTabsContent">
+                            <!-- Basic Information Tab -->
+                            <div class="tab-pane fade show active" id="basic" role="tabpanel">
+                                <div class="form-section">
+                                    <h6 class="section-title">{% trans "Basic Information" %}</h6>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-8 mb-3">
+                                            <label for="{{ form.title.id_for_label }}" class="form-label required-field">
+                                                {{ form.title.label }}
+                                            </label>
+                                            {{ form.title }}
+                                            {% if form.title.help_text %}
+                                            <div class="help-text">{{ form.title.help_text }}</div>
+                                            {% endif %}
+                                            {% if form.title.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.title.errors }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="col-md-4 mb-3">
+                                            <label for="{{ form.book_type.id_for_label }}" class="form-label required-field">
+                                                {{ form.book_type.label }}
+                                            </label>
+                                            {{ form.book_type }}
+                                            {% if form.book_type.help_text %}
+                                            <div class="help-text">{{ form.book_type.help_text }}</div>
+                                            {% endif %}
+                                            {% if form.book_type.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.book_type.errors }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="{{ form.isbn.id_for_label }}" class="form-label">
+                                                {{ form.isbn.label }}
+                                            </label>
+                                            {{ form.isbn }}
+                                            {% if form.isbn.help_text %}
+                                            <div class="help-text">{{ form.isbn.help_text }}</div>
+                                            {% endif %}
+                                            {% if form.isbn.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.isbn.errors }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="col-md-6 mb-3">
+                                            <label for="{{ form.edition.id_for_label }}" class="form-label">
+                                                {{ form.edition.label }}
+                                            </label>
+                                            {{ form.edition }}
+                                            {% if form.edition.help_text %}
+                                            <div class="help-text">{{ form.edition.help_text }}</div>
+                                            {% endif %}
+                                            {% if form.edition.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.edition.errors }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label required-field">{% trans "Authors" %}</label>
+                                        <select class="form-select" id="author-select" multiple>
+                                            {% for author in all_authors %}
+                                            <option value="{{ author.id }}" {% if author in form.instance.authors.all %}selected{% endif %}>
+                                                {{ author.full_name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <input type="hidden" name="authors" id="selected-authors" value="{{ form.instance.authors.all|join:',' }}">
+                                        <div id="author-tags-container" class="mt-2">
+                                            {% for author in form.instance.authors.all %}
+                                            <span class="author-tag">
+                                                {{ author.full_name }}
+                                                <span class="remove-author" data-author-id="{{ author.id }}">×</span>
+                                            </span>
+                                            {% endfor %}
+                                        </div>
+                                        {% if form.authors.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.authors.errors }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="form-section">
+                                    <h6 class="section-title">{% trans "Cover Image" %}</h6>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="image-upload-area" id="image-upload-area">
+                                                <i class="bi bi-cloud-arrow-up display-4 text-muted d-block mb-3"></i>
+                                                <h6>{% trans "Upload Cover Image" %}</h6>
+                                                <p class="text-muted small mb-3">
+                                                    {% trans "Drag & drop or click to browse" %}<br>
+                                                    {% trans "Recommended: 300x400px, JPG/PNG" %}
+                                                </p>
+                                                <button type="button" class="btn btn-outline-primary btn-sm">
+                                                    <i class="bi bi-folder2-open me-1"></i> {% trans "Browse Files" %}
+                                                </button>
+                                                {{ form.cover_image }}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="text-center">
+                                                {% if form.instance.cover_image %}
+                                                <img src="{{ form.instance.cover_image.url }}" alt="{% trans 'Current cover' %}" class="book-cover-preview mb-3" id="cover-preview">
+                                                {% else %}
+                                                <div class="cover-placeholder mb-3" id="cover-preview">
+                                                    <i class="bi bi-book"></i>
+                                                </div>
+                                                {% endif %}
+                                                <div>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" id="remove-cover">
+                                                        <i class="bi bi-trash me-1"></i> {% trans "Remove Cover" %}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% if form.cover_image.errors %}
+                                    <div class="invalid-feedback d-block mt-2">
+                                        {{ form.cover_image.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Details Tab -->
+                            <div class="tab-pane fade" id="details" role="tabpanel">
+                                <div class="form-section">
+                                    <h6 class="section-title">{% trans "Publication Details" %}</h6>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="{{ form.publisher.id_for_label }}" class="form-label">
+                                                {{ form.publisher.label }}
+                                            </label>
+                                            {{ form.publisher }}
+                                            {% if form.publisher.help_text %}
+                                            <div class="help-text">{{ form.publisher.help_text }}</div>
+                                            {% endif %}
+                                            {% if form.publisher.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.publisher.errors }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="col-md-6 mb-3">
+                                            <label for="{{ form.category.id_for_label }}" class="form-label">
+                                                {{ form.category.label }}
+                                            </label>
+                                            {{ form.category }}
+                                            {% if form.category.help_text %}
+                                            <div class="help-text">{{ form.category.help_text }}</div>
+                                            {% endif %}
+                                            {% if form.category.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.category.errors }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-4 mb-3">
+                                            <label for="{{ form.publication_year.id_for_label }}" class="form-label">
+                                                {{ form.publication_year.label }}
+                                            </label>
+                                            {{ form.publication_year }}
+                                            {% if form.publication_year.help_text %}
+                                            <div class="help-text">{{ form.publication_year.help_text }}</div>
+                                            {% endif %}
+                                            {% if form.publication_year.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.publication_year.errors }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="col-md-4 mb-3">
+                                            <label for="{{ form.pages.id_for_label }}" class="form-label">
+                                                {{ form.pages.label }}
+                                            </label>
+                                            {{ form.pages }}
+                                            {% if form.pages.help_text %}
+                                            <div class="help-text">{{ form.pages.help_text }}</div>
+                                            {% endif %}
+                                            {% if form.pages.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.pages.errors }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="col-md-4 mb-3">
+                                            <label for="{{ form.language.id_for_label }}" class="form-label">
+                                                {{ form.language.label }}
+                                            </label>
+                                            {{ form.language }}
+                                            {% if form.language.help_text %}
+                                            <div class="help-text">{{ form.language.help_text }}</div>
+                                            {% endif %}
+                                            {% if form.language.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.language.errors }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-section">
+                                    <h6 class="section-title">{% trans "Description & Metadata" %}</h6>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.description.id_for_label }}" class="form-label">
+                                            {{ form.description.label }}
+                                        </label>
+                                        {{ form.description }}
+                                        <div class="character-count">
+                                            <span id="description-char-count">0</span> {% trans "characters" %}
+                                        </div>
+                                        {% if form.description.help_text %}
+                                        <div class="help-text">{{ form.description.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.description.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.description.errors }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.keywords.id_for_label }}" class="form-label">
+                                            {{ form.keywords.label }}
+                                        </label>
+                                        {{ form.keywords }}
+                                        {% if form.keywords.help_text %}
+                                        <div class="help-text">{{ form.keywords.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.keywords.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.keywords.errors }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Acquisition Tab -->
+                            <div class="tab-pane fade" id="acquisition" role="tabpanel">
+                                <div class="form-section">
+                                    <h6 class="section-title">{% trans "Acquisition Information" %}</h6>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="{{ form.acquisition_date.id_for_label }}" class="form-label">
+                                                {{ form.acquisition_date.label }}
+                                            </label>
+                                            {{ form.acquisition_date }}
+                                            {% if form.acquisition_date.help_text %}
+                                            <div class="help-text">{{ form.acquisition_date.help_text }}</div>
+                                            {% endif %}
+                                            {% if form.acquisition_date.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.acquisition_date.errors }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="col-md-6 mb-3">
+                                            <label for="{{ form.acquisition_price.id_for_label }}" class="form-label">
+                                                {{ form.acquisition_price.label }}
+                                            </label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">$</span>
+                                                {{ form.acquisition_price }}
+                                            </div>
+                                            {% if form.acquisition_price.help_text %}
+                                            <div class="help-text">{{ form.acquisition_price.help_text }}</div>
+                                            {% endif %}
+                                            {% if form.acquisition_price.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.acquisition_price.errors }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.source.id_for_label }}" class="form-label">
+                                            {{ form.source.label }}
+                                        </label>
+                                        {{ form.source }}
+                                        {% if form.source.help_text %}
+                                        <div class="help-text">{{ form.source.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.source.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.source.errors }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="form-section">
+                                    <h6 class="section-title">{% trans "Library Assignment" %}</h6>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.library.id_for_label }}" class="form-label required-field">
+                                            {{ form.library.label }}
+                                        </label>
+                                        {{ form.library }}
+                                        {% if form.library.help_text %}
+                                        <div class="help-text">{{ form.library.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.library.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.library.errors }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.location.id_for_label }}" class="form-label">
+                                            {{ form.location.label }}
+                                        </label>
+                                        {{ form.location }}
+                                        {% if form.location.help_text %}
+                                        <div class="help-text">{{ form.location.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.location.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.location.errors }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Inventory Tab -->
+                            <div class="tab-pane fade" id="inventory" role="tabpanel">
+                                <div class="form-section">
+                                    <h6 class="section-title">{% trans "Inventory Management" %}</h6>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="{{ form.total_copies.id_for_label }}" class="form-label required-field">
+                                                {{ form.total_copies.label }}
+                                            </label>
+                                            {{ form.total_copies }}
+                                            {% if form.total_copies.help_text %}
+                                            <div class="help-text">{{ form.total_copies.help_text }}</div>
+                                            {% endif %}
+                                            {% if form.total_copies.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.total_copies.errors }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="col-md-6 mb-3">
+                                            <label for="{{ form.available_copies.id_for_label }}" class="form-label required-field">
+                                                {{ form.available_copies.label }}
+                                            </label>
+                                            {{ form.available_copies }}
+                                            {% if form.available_copies.help_text %}
+                                            <div class="help-text">{{ form.available_copies.help_text }}</div>
+                                            {% endif %}
+                                            {% if form.available_copies.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.available_copies.errors }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.book_status.id_for_label }}" class="form-label required-field">
+                                            {{ form.book_status.label }}
+                                        </label>
+                                        {{ form.book_status }}
+                                        {% if form.book_status.help_text %}
+                                        <div class="help-text">{{ form.book_status.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.book_status.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.book_status.errors }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="form-section">
+                                    <h6 class="section-title">{% trans "Status" %}</h6>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.status.id_for_label }}" class="form-label required-field">
+                                            {{ form.status.label }}
+                                        </label>
+                                        {{ form.status }}
+                                        {% if form.status.help_text %}
+                                        <div class="help-text">{{ form.status.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.status.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.status.errors }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Form Errors Display -->
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger mt-4">
+                            <h6 class="alert-heading">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                {% trans "Please correct the following errors:" %}
+                            </h6>
+                            <ul class="mb-0">
+                                {% for error in form.non_field_errors %}
+                                <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column: Preview and Actions -->
+            <div class="col-lg-4">
+                <!-- Book Preview -->
+                <div class="card preview-card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-eye text-success me-2"></i>
+                            {% trans "Book Preview" %}
+                        </h5>
+                    </div>
+                    <div class="card-body text-center">
+                        <div id="live-cover-preview" class="cover-placeholder mx-auto mb-3">
+                            <i class="bi bi-book"></i>
+                        </div>
+                        
+                        <h4 id="preview-title" class="mb-2">{% trans "Book Title" %}</h4>
+                        
+                        <div class="mb-3">
+                            <div id="preview-authors" class="text-muted small mb-2">{% trans "Authors will appear here" %}</div>
+                            <div id="preview-isbn" class="isbn-preview">ISBN: {% trans "Not set" %}</div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-center gap-2 mb-3">
+                            <span id="preview-type" class="badge bg-primary">{% trans "Type" %}</span>
+                            <span id="preview-status" class="badge bg-success">{% trans "Status" %}</span>
+                            <span id="preview-copies" class="badge bg-info">0/0 {% trans "copies" %}</span>
+                        </div>
+                        
+                        <!-- Quick Details -->
+                        <div class="text-start small">
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">{% trans "Publisher:" %}</small>
+                                    <div id="preview-publisher">{% trans "Not set" %}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">{% trans "Category:" %}</small>
+                                    <div id="preview-category">{% trans "Not set" %}</div>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-6">
+                                    <small class="text-muted">{% trans "Year:" %}</small>
+                                    <div id="preview-year">{% trans "Not set" %}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">{% trans "Pages:" %}</small>
+                                    <div id="preview-pages">{% trans "Not set" %}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Copies Summary -->
+                {% if form.instance.pk %}
+                <div class="card copies-card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-journals text-info me-2"></i>
+                            {% trans "Copies Summary" %}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="copies-summary">
+                            <div class="row text-center mb-3">
+                                <div class="col-4">
+                                    <div class="h4 text-success mb-1">{{ form.instance.available_copies }}</div>
+                                    <small class="text-muted">{% trans "Available" %}</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="h4 text-warning mb-1">{{ form.instance.borrowed_copies_count }}</div>
+                                    <small class="text-muted">{% trans "Borrowed" %}</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="h4 text-info mb-1">{{ form.instance.copies.count }}</div>
+                                    <small class="text-muted">{% trans "Total" %}</small>
+                                </div>
+                            </div>
+                            
+                            {% if form.instance.copies.exists %}
+                            <h6 class="small text-muted mb-2">{% trans "Recent Copies:" %}</h6>
+                            <div class="list-group list-group-flush">
+                                {% for copy in form.instance.copies.all|slice:":3" %}
+                                <div class="list-group-item px-0 py-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>{% trans "Copy" %} {{ copy.copy_number }}</strong>
+                                            <div class="small text-muted">{{ copy.barcode }}</div>
+                                        </div>
+                                        <span class="copy-status-badge status-{{ copy.copy_status }}">
+                                            {{ copy.get_copy_status_display }}
+                                        </span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="text-center mt-2">
+                                <a href="{% url 'library:bookcopy_create' %}?book={{ form.instance.id }}" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-plus-circle me-1"></i> {% trans "Add Copy" %}
+                                </a>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-3">
+                                <i class="bi bi-journal-plus display-6 text-muted d-block mb-2"></i>
+                                <p class="text-muted small mb-3">{% trans "No copies added yet" %}</p>
+                                <a href="{% url 'library:bookcopy_create' %}?book={{ form.instance.id }}" class="btn btn-sm btn-info">
+                                    <i class="bi bi-plus-circle me-1"></i> {% trans "Add First Copy" %}
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Quick Actions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-lightning-charge text-warning me-2"></i>
+                            {% trans "Quick Actions" %}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            {% if form.instance.pk %}
+                            <a href="{% url 'library:book_detail' form.instance.pk %}" class="btn btn-outline-primary">
+                                <i class="bi bi-eye me-2"></i> {% trans "View Book" %}
+                            </a>
+                            <a href="{% url 'library:bookcopy_create' %}?book={{ form.instance.id }}" class="btn btn-outline-info">
+                                <i class="bi bi-journal-plus me-2"></i> {% trans "Add Copy" %}
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'library:book_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i> {% trans "Back to List" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="{% url 'library:book_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-2"></i> {% trans "Cancel" %}
+                        </a>
+                        <button type="submit" name="save" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>
+                            {% if form.instance.pk %}
+                                {% trans "Update Book" %}
+                            {% else %}
+                                {% trans "Create Book" %}
+                            {% endif %}
+                        </button>
+                        {% if form.instance.pk %}
+                        <button type="submit" name="save_and_continue" class="btn btn-outline-primary">
+                            <i class="bi bi-check2-all me-2"></i> {% trans "Save & Continue Editing" %}
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get form elements
+        const titleInput = document.getElementById('{{ form.title.id_for_label }}');
+        const bookTypeInput = document.getElementById('{{ form.book_type.id_for_label }}');
+        const isbnInput = document.getElementById('{{ form.isbn.id_for_label }}');
+        const editionInput = document.getElementById('{{ form.edition.id_for_label }}');
+        const publisherInput = document.getElementById('{{ form.publisher.id_for_label }}');
+        const categoryInput = document.getElementById('{{ form.category.id_for_label }}');
+        const publicationYearInput = document.getElementById('{{ form.publication_year.id_for_label }}');
+        const pagesInput = document.getElementById('{{ form.pages.id_for_label }}');
+        const languageInput = document.getElementById('{{ form.language.id_for_label }}');
+        const descriptionInput = document.getElementById('{{ form.description.id_for_label }}');
+        const totalCopiesInput = document.getElementById('{{ form.total_copies.id_for_label }}');
+        const availableCopiesInput = document.getElementById('{{ form.available_copies.id_for_label }}');
+        const bookStatusInput = document.getElementById('{{ form.book_status.id_for_label }}');
+        const statusInput = document.getElementById('{{ form.status.id_for_label }}');
+        const coverImageInput = document.getElementById('{{ form.cover_image.id_for_label }}');
+        
+        // Preview elements
+        const previewTitle = document.getElementById('preview-title');
+        const previewType = document.getElementById('preview-type');
+        const previewStatus = document.getElementById('preview-status');
+        const previewCopies = document.getElementById('preview-copies');
+        const previewAuthors = document.getElementById('preview-authors');
+        const previewIsbn = document.getElementById('preview-isbn');
+        const previewPublisher = document.getElementById('preview-publisher');
+        const previewCategory = document.getElementById('preview-category');
+        const previewYear = document.getElementById('preview-year');
+        const previewPages = document.getElementById('preview-pages');
+        const liveCoverPreview = document.getElementById('live-cover-preview');
+        const descriptionCharCount = document.getElementById('description-char-count');
+        
+        // Author management
+        const authorSelect = document.getElementById('author-select');
+        const selectedAuthorsInput = document.getElementById('selected-authors');
+        const authorTagsContainer = document.getElementById('author-tags-container');
+        let selectedAuthors = new Set({{ form.instance.authors.all.values_list|join:',' }});
+        
+        // Update character count for description
+        function updateDescriptionCharCount() {
+            if (descriptionInput && descriptionCharCount) {
+                const count = descriptionInput.value.length;
+                descriptionCharCount.textContent = count;
+                
+                if (count > 0) {
+                    descriptionCharCount.classList.remove('text-muted');
+                    descriptionCharCount.classList.add(count > 2000 ? 'text-danger' : 'text-success');
+                } else {
+                    descriptionCharCount.classList.add('text-muted');
+                    descriptionCharCount.classList.remove('text-success', 'text-danger');
+                }
+            }
+        }
+        
+        // Update title preview
+        function updateTitlePreview() {
+            const title = titleInput ? titleInput.value.trim() : '';
+            
+            if (title) {
+                previewTitle.textContent = title;
+            } else {
+                previewTitle.textContent = '{% trans "Book Title" %}';
+            }
+        }
+        
+        // Update type preview
+        function updateTypePreview() {
+            const type = bookTypeInput ? bookTypeInput.value : '';
+            
+            if (type) {
+                const typeText = bookTypeInput.options[bookTypeInput.selectedIndex].text;
+                previewType.textContent = typeText;
+                previewType.style.display = 'inline-block';
+            } else {
+                previewType.style.display = 'none';
+            }
+        }
+        
+        // Update status preview
+        function updateStatusPreview() {
+            const status = bookStatusInput ? bookStatusInput.value : '';
+            
+            if (status) {
+                const statusText = bookStatusInput.options[bookStatusInput.selectedIndex].text;
+                previewStatus.textContent = statusText;
+                
+                // Update status badge color
+                const statusClasses = {
+                    'available': 'bg-success',
+                    'borrowed': 'bg-warning',
+                    'reserved': 'bg-info',
+                    'lost': 'bg-danger',
+                    'damaged': 'bg-orange',
+                    'under_maintenance': 'bg-secondary'
+                };
+                
+                previewStatus.className = `badge ${statusClasses[status] || 'bg-secondary'}`;
+                previewStatus.style.display = 'inline-block';
+            } else {
+                previewStatus.style.display = 'none';
+            }
+        }
+        
+        // Update copies preview
+        function updateCopiesPreview() {
+            const total = totalCopiesInput ? totalCopiesInput.value : '0';
+            const available = availableCopiesInput ? availableCopiesInput.value : '0';
+            
+            previewCopies.textContent = `${available}/${total} {% trans "copies" %}`;
+        }
+        
+        // Update authors preview
+        function updateAuthorsPreview() {
+            const authorNames = Array.from(selectedAuthors).map(id => {
+                const option = authorSelect.querySelector(`option[value="${id}"]`);
+                return option ? option.text : '';
+            }).filter(name => name);
+            
+            if (authorNames.length > 0) {
+                previewAuthors.textContent = authorNames.join(', ');
+            } else {
+                previewAuthors.textContent = '{% trans "Authors will appear here" %}';
+            }
+        }
+        
+        // Update ISBN preview
+        function updateIsbnPreview() {
+            const isbn = isbnInput ? isbnInput.value.trim() : '';
+            
+            if (isbn) {
+                previewIsbn.textContent = `ISBN: ${isbn}`;
+            } else {
+                previewIsbn.textContent = 'ISBN: {% trans "Not set" %}';
+            }
+        }
+        
+        // Update publisher preview
+        function updatePublisherPreview() {
+            const publisher = publisherInput ? publisherInput.value : '';
+            
+            if (publisher) {
+                const publisherText = publisherInput.options[publisherInput.selectedIndex].text;
+                previewPublisher.textContent = publisherText;
+            } else {
+                previewPublisher.textContent = '{% trans "Not set" %}';
+            }
+        }
+        
+        // Update category preview
+        function updateCategoryPreview() {
+            const category = categoryInput ? categoryInput.value : '';
+            
+            if (category) {
+                const categoryText = categoryInput.options[categoryInput.selectedIndex].text;
+                previewCategory.textContent = categoryText;
+            } else {
+                previewCategory.textContent = '{% trans "Not set" %}';
+            }
+        }
+        
+        // Update year preview
+        function updateYearPreview() {
+            const year = publicationYearInput ? publicationYearInput.value : '';
+            
+            if (year) {
+                previewYear.textContent = year;
+            } else {
+                previewYear.textContent = '{% trans "Not set" %}';
+            }
+        }
+        
+        // Update pages preview
+        function updatePagesPreview() {
+            const pages = pagesInput ? pagesInput.value : '';
+            
+            if (pages) {
+                previewPages.textContent = pages;
+            } else {
+                previewPages.textContent = '{% trans "Not set" %}';
+            }
+        }
+        
+        // Update cover preview
+        function updateCoverPreview() {
+            if (coverImageInput && coverImageInput.files && coverImageInput.files[0]) {
+                const file = coverImageInput.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    liveCoverPreview.innerHTML = `<img src="${e.target.result}" alt="Cover preview" class="book-cover-preview">`;
+                };
+                
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        // Author management functions
+        function updateAuthorTags() {
+            authorTagsContainer.innerHTML = '';
+            selectedAuthors.forEach(authorId => {
+                const option = authorSelect.querySelector(`option[value="${authorId}"]`);
+                if (option) {
+                    const tag = document.createElement('span');
+                    tag.className = 'author-tag';
+                    tag.innerHTML = `
+                        ${option.text}
+                        <span class="remove-author" data-author-id="${authorId}">×</span>
+                    `;
+                    authorTagsContainer.appendChild(tag);
+                }
+            });
+            
+            // Update hidden input
+            selectedAuthorsInput.value = Array.from(selectedAuthors).join(',');
+            
+            // Update preview
+            updateAuthorsPreview();
+        }
+        
+        function addAuthor(authorId) {
+            selectedAuthors.add(authorId);
+            updateAuthorTags();
+        }
+        
+        function removeAuthor(authorId) {
+            selectedAuthors.delete(authorId);
+            updateAuthorTags();
+        }
+        
+        // Initialize all previews
+        function initializePreviews() {
+            updateTitlePreview();
+            updateTypePreview();
+            updateStatusPreview();
+            updateCopiesPreview();
+            updateAuthorsPreview();
+            updateIsbnPreview();
+            updatePublisherPreview();
+            updateCategoryPreview();
+            updateYearPreview();
+            updatePagesPreview();
+            updateDescriptionCharCount();
+            updateAuthorTags();
+        }
+        
+        // Add event listeners
+        if (titleInput) {
+            titleInput.addEventListener('input', updateTitlePreview);
+        }
+        
+        if (bookTypeInput) {
+            bookTypeInput.addEventListener('change', updateTypePreview);
+        }
+        
+        if (bookStatusInput) {
+            bookStatusInput.addEventListener('change', updateStatusPreview);
+        }
+        
+        if (totalCopiesInput) {
+            totalCopiesInput.addEventListener('input', updateCopiesPreview);
+        }
+        
+        if (availableCopiesInput) {
+            availableCopiesInput.addEventListener('input', updateCopiesPreview);
+        }
+        
+        if (isbnInput) {
+            isbnInput.addEventListener('input', updateIsbnPreview);
+        }
+        
+        if (publisherInput) {
+            publisherInput.addEventListener('change', updatePublisherPreview);
+        }
+        
+        if (categoryInput) {
+            categoryInput.addEventListener('change', updateCategoryPreview);
+        }
+        
+        if (publicationYearInput) {
+            publicationYearInput.addEventListener('input', updateYearPreview);
+        }
+        
+        if (pagesInput) {
+            pagesInput.addEventListener('input', updatePagesPreview);
+        }
+        
+        if (descriptionInput) {
+            descriptionInput.addEventListener('input', updateDescriptionCharCount);
+        }
+        
+        if (coverImageInput) {
+            coverImageInput.addEventListener('change', updateCoverPreview);
+        }
+        
+        // Author select event listener
+        if (authorSelect) {
+            authorSelect.addEventListener('change', function() {
+                Array.from(this.selectedOptions).forEach(option => {
+                    addAuthor(option.value);
+                });
+                this.selectedIndex = -1;
+            });
+        }
+        
+        // Remove author event delegation
+        authorTagsContainer.addEventListener('click', function(e) {
+            if (e.target.classList.contains('remove-author')) {
+                const authorId = e.target.getAttribute('data-author-id');
+                removeAuthor(authorId);
+            }
+        });
+        
+        // Image upload area functionality
+        const imageUploadArea = document.getElementById('image-upload-area');
+        if (imageUploadArea) {
+            imageUploadArea.addEventListener('click', function() {
+                coverImageInput.click();
+            });
+            
+            imageUploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+            
+            imageUploadArea.addEventListener('dragleave', function() {
+                this.classList.remove('dragover');
+            });
+            
+            imageUploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+                
+                if (e.dataTransfer.files.length > 0) {
+                    coverImageInput.files = e.dataTransfer.files;
+                    updateCoverPreview();
+                }
+            });
+        }
+        
+        // Remove cover button
+        const removeCoverBtn = document.getElementById('remove-cover');
+        if (removeCoverBtn) {
+            removeCoverBtn.addEventListener('click', function() {
+                coverImageInput.value = '';
+                liveCoverPreview.innerHTML = '<i class="bi bi-book"></i>';
+            });
+        }
+        
+        // Initialize on page load
+        initializePreviews();
+        
+        // Form validation enhancement
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function(event) {
+                let isValid = true;
+                const requiredFields = form.querySelectorAll('.required-field');
+                
+                requiredFields.forEach(function(label) {
+                    const field = label.closest('.mb-3').querySelector('input, select, textarea');
+                    if (field && !field.value.trim()) {
+                        isValid = false;
+                        field.classList.add('is-invalid');
+                    } else if (field) {
+                        field.classList.remove('is-invalid');
+                    }
+                });
+                
+                // Validate authors
+                if (selectedAuthors.size === 0) {
+                    isValid = false;
+                    authorSelect.classList.add('is-invalid');
+                } else {
+                    authorSelect.classList.remove('is-invalid');
+                }
+                
+                // Validate available copies don't exceed total copies
+                const total = parseInt(totalCopiesInput.value) || 0;
+                const available = parseInt(availableCopiesInput.value) || 0;
+                if (available > total) {
+                    isValid = false;
+                    availableCopiesInput.classList.add('is-invalid');
+                    const errorDiv = availableCopiesInput.parentNode.querySelector('.invalid-feedback') || document.createElement('div');
+                    errorDiv.className = 'invalid-feedback d-block';
+                    errorDiv.textContent = '{% trans "Available copies cannot exceed total copies." %}';
+                    if (!availableCopiesInput.parentNode.contains(errorDiv)) {
+                        availableCopiesInput.parentNode.appendChild(errorDiv);
+                    }
+                }
+                
+                if (!isValid) {
+                    event.preventDefault();
+                    // Scroll to first error
+                    const firstError = form.querySelector('.is-invalid');
+                    if (firstError) {
+                        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        firstError.focus();
+                    }
+                }
+            });
+        }
+        
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+</script>
+{% endblock %}

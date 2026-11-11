@@ -1,0 +1,1181 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Request Data Export" %}{% endblock %}
+
+{% block page_title %}{% trans "Request Data Export" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'analytics:dashboard' %}">{% trans "Analytics" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'analytics:export_list' %}">{% trans "Data Exports" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Request Export" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <a href="{% url 'analytics:export_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i> {% trans "Back to Exports" %}
+    </a>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .export-request-card {
+        background: var(--bs-card-bg);
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .request-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        background: var(--bs-light);
+        border-radius: 0.5rem 0.5rem 0 0;
+    }
+    
+    .request-body {
+        padding: 1.5rem;
+    }
+    
+    .request-footer {
+        padding: 1.25rem 1.5rem;
+        border-top: 1px solid var(--bs-border-color);
+        background: var(--bs-light-bg-subtle);
+        border-radius: 0 0 0.5rem 0.5rem;
+    }
+    
+    .wizard-steps {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+        position: relative;
+    }
+    
+    .wizard-steps::before {
+        content: '';
+        position: absolute;
+        top: 1rem;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--bs-border-color);
+        z-index: 1;
+    }
+    
+    .wizard-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .step-icon {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0.5rem;
+        background: var(--bs-light);
+        border: 2px solid var(--bs-border-color);
+        color: var(--bs-secondary);
+        transition: all 0.3s ease;
+    }
+    
+    .wizard-step.active .step-icon {
+        background: var(--bs-primary);
+        border-color: var(--bs-primary);
+        color: white;
+    }
+    
+    .wizard-step.completed .step-icon {
+        background: var(--bs-success);
+        border-color: var(--bs-success);
+        color: white;
+    }
+    
+    .step-label {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--bs-secondary);
+        text-align: center;
+    }
+    
+    .wizard-step.active .step-label {
+        color: var(--bs-primary);
+        font-weight: 600;
+    }
+    
+    .wizard-step.completed .step-label {
+        color: var(--bs-success);
+    }
+    
+    .step-content {
+        display: none;
+    }
+    
+    .step-content.active {
+        display: block;
+    }
+    
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--bs-primary);
+        color: var(--bs-primary);
+    }
+    
+    .data-source-card {
+        background: var(--bs-card-bg);
+        border: 2px solid var(--bs-border-color);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .data-source-card:hover {
+        border-color: var(--bs-primary);
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .data-source-card.selected {
+        border-color: var(--bs-primary);
+        background: var(--bs-primary-bg-subtle);
+    }
+    
+    .source-icon {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        flex-shrink: 0;
+        font-size: 1.25rem;
+    }
+    
+    .format-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .format-option {
+        border: 2px solid var(--bs-border-color);
+        border-radius: 0.5rem;
+        padding: 1.5rem 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: var(--bs-card-bg);
+    }
+    
+    .format-option:hover {
+        border-color: var(--bs-primary);
+        transform: translateY(-2px);
+    }
+    
+    .format-option.selected {
+        border-color: var(--bs-primary);
+        background: var(--bs-primary-bg-subtle);
+    }
+    
+    .format-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    
+    .format-name {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    
+    .format-description {
+        font-size: 0.75rem;
+        color: var(--bs-secondary);
+    }
+    
+    .filter-section {
+        background: var(--bs-light-bg-subtle);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .filter-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .filter-group:last-child {
+        margin-bottom: 0;
+    }
+    
+    .filter-header {
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        color: var(--bs-primary);
+    }
+    
+    .column-selector {
+        background: var(--bs-light);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .columns-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.75rem;
+        max-height: 300px;
+        overflow-y: auto;
+        padding: 1rem;
+        background: var(--bs-card-bg);
+        border-radius: 0.375rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .column-item {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+        background: var(--bs-light-bg-subtle);
+        transition: all 0.2s ease;
+    }
+    
+    .column-item:hover {
+        background: var(--bs-primary-bg-subtle);
+    }
+    
+    .column-item.selected {
+        background: var(--bs-primary);
+        color: white;
+    }
+    
+    .preview-sidebar {
+        background: var(--bs-light-bg-subtle);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        position: sticky;
+        top: 2rem;
+    }
+    
+    .preview-card {
+        background: var(--bs-card-bg);
+        border-radius: 0.5rem;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .preview-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: var(--bs-primary);
+    }
+    
+    .preview-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--bs-border-color-translucent);
+    }
+    
+    .preview-item:last-child {
+        border-bottom: none;
+    }
+    
+    .preview-label {
+        font-weight: 500;
+        color: var(--bs-body-color);
+    }
+    
+    .preview-value {
+        color: var(--bs-secondary);
+        text-align: right;
+        max-width: 60%;
+        word-break: break-word;
+    }
+    
+    .estimated-size {
+        text-align: center;
+        padding: 1.5rem;
+        background: linear-gradient(135deg, var(--bs-primary), var(--bs-info));
+        color: white;
+        border-radius: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .size-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+    
+    .size-label {
+        font-size: 1rem;
+        opacity: 0.9;
+    }
+    
+    .advanced-toggle {
+        background: none;
+        border: none;
+        color: var(--bs-primary);
+        padding: 0;
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        margin-top: 0.5rem;
+    }
+    
+    .advanced-section {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--bs-border-color);
+    }
+    
+    .validation-error {
+        color: var(--bs-danger);
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .validation-error i {
+        margin-right: 0.25rem;
+    }
+    
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.5rem;
+        z-index: 10;
+    }
+    
+    .spinner {
+        width: 2rem;
+        height: 2rem;
+        border: 3px solid transparent;
+        border-top: 3px solid var(--bs-primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .sample-data {
+        background: var(--bs-light);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-top: 1rem;
+        font-family: monospace;
+        font-size: 0.875rem;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .navigation-buttons {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 2rem;
+    }
+    
+    .help-text {
+        font-size: 0.875rem;
+        color: var(--bs-secondary);
+        margin-top: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Main Form -->
+    <div class="col-lg-8">
+        <div class="export-request-card">
+            <div class="request-header">
+                <h4 class="mb-2">{% trans "Create Data Export" %}</h4>
+                <p class="text-muted mb-0">
+                    {% trans "Configure your data export by following these steps" %}
+                </p>
+            </div>
+            
+            <div class="request-body">
+                <!-- Wizard Steps -->
+                <div class="wizard-steps">
+                    <div class="wizard-step active" data-step="1">
+                        <div class="step-icon">
+                            <i class="bi bi-database"></i>
+                        </div>
+                        <div class="step-label">{% trans "Data Source" %}</div>
+                    </div>
+                    <div class="wizard-step" data-step="2">
+                        <div class="step-icon">
+                            <i class="bi bi-sliders"></i>
+                        </div>
+                        <div class="step-label">{% trans "Filters" %}</div>
+                    </div>
+                    <div class="wizard-step" data-step="3">
+                        <div class="step-icon">
+                            <i class="bi bi-gear"></i>
+                        </div>
+                        <div class="step-label">{% trans "Settings" %}</div>
+                    </div>
+                    <div class="wizard-step" data-step="4">
+                        <div class="step-icon">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                        <div class="step-label">{% trans "Review" %}</div>
+                    </div>
+                </div>
+                
+                <form method="post" id="export-request-form" novalidate>
+                    {% csrf_token %}
+                    
+                    <!-- Step 1: Data Source -->
+                    <div class="step-content active" data-step="1">
+                        <h5 class="section-title">{% trans "Select Data Source" %}</h5>
+                        
+                        <div class="row">
+                            {% for source_value, source_label in form.data_source.field.choices %}
+                            {% if source_value %}
+                            <div class="col-md-6 mb-3">
+                                <div class="data-source-card" data-source="{{ source_value }}">
+                                    <div class="d-flex align-items-start">
+                                        <div class="source-icon bg-primary bg-opacity-10 text-primary">
+                                            <i class="bi 
+                                                {% if source_value == 'students' %}bi-people
+                                                {% elif source_value == 'teachers' %}bi-person-badge
+                                                {% elif source_value == 'attendance' %}bi-calendar-check
+                                                {% elif source_value == 'grades' %}bi-journal-text
+                                                {% elif source_value == 'financial' %}bi-currency-dollar
+                                                {% else %}bi-book{% endif %}">
+                                            </i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">{{ source_label }}</h6>
+                                            <p class="text-muted small mb-0">
+                                                {% if source_value == 'students' %}
+                                                    {% trans "Student demographics, enrollment, and academic records" %}
+                                                {% elif source_value == 'teachers' %}
+                                                    {% trans "Teacher information, assignments, and performance data" %}
+                                                {% elif source_value == 'attendance' %}
+                                                    {% trans "Student and staff attendance records" %}
+                                                {% elif source_value == 'grades' %}
+                                                    {% trans "Academic performance and grade records" %}
+                                                {% elif source_value == 'financial' %}
+                                                    {% trans "Financial transactions, fees, and budget data" %}
+                                                {% else %}
+                                                    {% trans "Library books, borrowing records, and inventory" %}
+                                                {% endif %}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                        
+                        <input type="hidden" name="data_source" id="data_source" required>
+                        
+                        <!-- Sample Data Preview -->
+                        <div class="sample-data" id="sample-data-preview" style="display: none;">
+                            <div class="text-center text-muted py-3">
+                                <i class="bi bi-info-circle me-2"></i>
+                                {% trans "Sample data preview will appear here after selecting a data source" %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 2: Filters -->
+                    <div class="step-content" data-step="2">
+                        <h5 class="section-title">{% trans "Configure Filters" %}</h5>
+                        
+                        <div class="filter-section">
+                            <!-- Date Range -->
+                            <div class="filter-group">
+                                <h6 class="filter-header">{% trans "Date Range" %}</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="date_range" class="form-label">{% trans "Time Period" %}</label>
+                                        <select class="form-select" id="date_range" name="date_range" onchange="toggleCustomDateRange()">
+                                            {% for value, label in form.date_range.field.choices %}
+                                            <option value="{{ value }}" {% if value == form.date_range.field.initial %}selected{% endif %}>
+                                                {{ label }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- Custom Date Range -->
+                                <div class="row g-3 mt-2" id="custom-date-range" style="display: none;">
+                                    <div class="col-md-6">
+                                        <label for="start_date" class="form-label">{% trans "Start Date" %}</label>
+                                        {{ form.start_date }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="end_date" class="form-label">{% trans "End Date" %}</label>
+                                        {{ form.end_date }}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Additional Filters -->
+                            <div class="filter-group">
+                                <h6 class="filter-header">{% trans "Additional Filters" %}</h6>
+                                
+                                <!-- Academic Session -->
+                                <div class="mb-3">
+                                    <label for="academic_session" class="form-label">{% trans "Academic Session" %}</label>
+                                    <select class="form-select" id="academic_session" name="academic_session">
+                                        <option value="">{% trans "All Sessions" %}</option>
+                                        {% for session in academic_sessions %}
+                                        <option value="{{ session.id }}">{{ session.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <!-- Include Sensitive Data -->
+                                <div class="form-check form-switch mb-3">
+                                    {{ form.include_sensitive_data }}
+                                    <label class="form-check-label" for="{{ form.include_sensitive_data.id_for_label }}">
+                                        {{ form.include_sensitive_data.label }}
+                                    </label>
+                                    <div class="help-text">
+                                        {% trans "Include personally identifiable information and sensitive records" %}
+                                    </div>
+                                </div>
+                                
+                                <!-- Data Quality Filters -->
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Data Quality" %}</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="include_incomplete" name="include_incomplete" checked>
+                                        <label class="form-check-label" for="include_incomplete">
+                                            {% trans "Include incomplete records" %}
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="include_archived" name="include_archived">
+                                        <label class="form-check-label" for="include_archived">
+                                            {% trans "Include archived records" %}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Column Selection -->
+                        <div class="column-selector">
+                            <h6 class="filter-header">{% trans "Select Columns" %}</h6>
+                            <p class="text-muted mb-3">{% trans "Choose which columns to include in your export" %}</p>
+                            
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="selectAllColumns()">
+                                    {% trans "Select All" %}
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllColumns()">
+                                    {% trans "Deselect All" %}
+                                </button>
+                            </div>
+                            
+                            <div class="columns-grid" id="columns-container">
+                                <!-- Columns will be populated dynamically based on data source -->
+                                <div class="text-center text-muted py-4">
+                                    <i class="bi bi-database me-2"></i>
+                                    {% trans "Select a data source to see available columns" %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 3: Settings -->
+                    <div class="step-content" data-step="3">
+                        <h5 class="section-title">{% trans "Export Settings" %}</h5>
+                        
+                        <!-- Export Name -->
+                        <div class="mb-4">
+                            <label for="export_name" class="form-label">
+                                {% trans "Export Name" %} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.export_name }}
+                            <div class="help-text">
+                                {% trans "Give your export a descriptive name to easily identify it later" %}
+                            </div>
+                        </div>
+                        
+                        <!-- Export Format -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                {% trans "Export Format" %} <span class="text-danger">*</span>
+                            </label>
+                            <div class="format-options">
+                                <div class="format-option selected" data-format="excel" onclick="selectFormat('excel')">
+                                    <span class="format-icon text-success">
+                                        <i class="bi bi-file-earmark-spreadsheet"></i>
+                                    </span>
+                                    <div class="format-name">Excel</div>
+                                    <div class="format-description">.xlsx</div>
+                                </div>
+                                <div class="format-option" data-format="csv" onclick="selectFormat('csv')">
+                                    <span class="format-icon text-primary">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                    </span>
+                                    <div class="format-name">CSV</div>
+                                    <div class="format-description">.csv</div>
+                                </div>
+                                <div class="format-option" data-format="json" onclick="selectFormat('json')">
+                                    <span class="format-icon text-warning">
+                                        <i class="bi bi-file-earmark-code"></i>
+                                    </span>
+                                    <div class="format-name">JSON</div>
+                                    <div class="format-description">.json</div>
+                                </div>
+                            </div>
+                            <input type="hidden" name="export_format" id="export_format" value="excel" required>
+                        </div>
+                        
+                        <!-- Advanced Options -->
+                        <button type="button" class="advanced-toggle" onclick="toggleAdvancedOptions()">
+                            <i class="bi bi-gear me-1"></i>
+                            {% trans "Advanced Options" %}
+                            <i class="bi bi-chevron-down ms-1" id="advanced-chevron"></i>
+                        </button>
+                        
+                        <div class="advanced-section" id="advanced-options" style="display: none;">
+                            <!-- File Compression -->
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="enable_compression" name="enable_compression" checked>
+                                    <label class="form-check-label" for="enable_compression">
+                                        {% trans "Enable file compression" %}
+                                    </label>
+                                </div>
+                                <div class="help-text">
+                                    {% trans "Reduce file size by compressing the export (ZIP format)" %}
+                                </div>
+                            </div>
+                            
+                            <!-- Data Chunking -->
+                            <div class="mb-3">
+                                <label for="chunk_size" class="form-label">{% trans "Records per File" %}</label>
+                                <select class="form-select" id="chunk_size" name="chunk_size">
+                                    <option value="0">{% trans "Single file" %}</option>
+                                    <option value="1000">1,000 {% trans "records per file" %}</option>
+                                    <option value="5000">5,000 {% trans "records per file" %}</option>
+                                    <option value="10000">10,000 {% trans "records per file" %}</option>
+                                </select>
+                                <div class="help-text">
+                                    {% trans "Split large exports into multiple files for easier handling" %}
+                                </div>
+                            </div>
+                            
+                            <!-- Export Expiration -->
+                            <div class="mb-3">
+                                <label for="expiration_days" class="form-label">{% trans "Export Expiration" %}</label>
+                                <select class="form-select" id="expiration_days" name="expiration_days">
+                                    <option value="7">{% trans "1 Week" %}</option>
+                                    <option value="30" selected>{% trans "1 Month" %}</option>
+                                    <option value="90">{% trans "3 Months" %}</option>
+                                    <option value="0">{% trans "Never Expire" %}</option>
+                                </select>
+                                <div class="help-text">
+                                    {% trans "Automatically delete the export after this period" %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 4: Review -->
+                    <div class="step-content" data-step="4">
+                        <h5 class="section-title">{% trans "Review Export" %}</h5>
+                        
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            {% trans "Please review your export configuration before submitting" %}
+                        </div>
+                        
+                        <div class="preview-card">
+                            <div class="preview-item">
+                                <span class="preview-label">{% trans "Export Name" %}</span>
+                                <span class="preview-value" id="review-name">--</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">{% trans "Data Source" %}</span>
+                                <span class="preview-value" id="review-source">--</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">{% trans "Export Format" %}</span>
+                                <span class="preview-value" id="review-format">--</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">{% trans "Date Range" %}</span>
+                                <span class="preview-value" id="review-date-range">--</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">{% trans "Selected Columns" %}</span>
+                                <span class="preview-value" id="review-columns">--</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">{% trans "Estimated Records" %}</span>
+                                <span class="preview-value" id="review-records">--</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">{% trans "Sensitive Data" %}</span>
+                                <span class="preview-value" id="review-sensitive">--</span>
+                            </div>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="confirm_export" name="confirm_export" required>
+                            <label class="form-check-label" for="confirm_export">
+                                {% trans "I confirm that this export complies with data privacy policies" %}
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Navigation Buttons -->
+                    <div class="navigation-buttons">
+                        <button type="button" class="btn btn-outline-secondary" id="prev-btn" style="display: none;" onclick="previousStep()">
+                            <i class="bi bi-arrow-left me-1"></i> {% trans "Previous" %}
+                        </button>
+                        <button type="button" class="btn btn-primary" id="next-btn" onclick="nextStep()">
+                            {% trans "Next" %} <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
+                        <button type="submit" class="btn btn-success" id="submit-btn" style="display: none;">
+                            <i class="bi bi-lightning me-1"></i> {% trans "Create Export" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Preview Sidebar -->
+    <div class="col-lg-4">
+        <div class="preview-sidebar">
+            <h5 class="preview-title">{% trans "Export Summary" %}</h5>
+            
+            <div class="estimated-size">
+                <div class="size-value" id="estimated-size">--</div>
+                <div class="size-label">{% trans "Estimated Size" %}</div>
+            </div>
+            
+            <div class="preview-card">
+                <div class="preview-item">
+                    <span class="preview-label">{% trans "Data Source" %}</span>
+                    <span class="preview-value" id="preview-source">{% trans "Not selected" %}</span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">{% trans "Format" %}</span>
+                    <span class="preview-value" id="preview-format">Excel</span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">{% trans "Date Range" %}</span>
+                    <span class="preview-value" id="preview-date-range">{% trans "Current session" %}</span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">{% trans "Columns" %}</span>
+                    <span class="preview-value" id="preview-columns">0</span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">{% trans "Sensitive Data" %}</span>
+                    <span class="preview-value" id="preview-sensitive">{% trans "No" %}</span>
+                </div>
+            </div>
+            
+            <div class="preview-card">
+                <h6 class="preview-title">{% trans "Export Tips" %}</h6>
+                <ul class="list-unstyled small">
+                    <li class="mb-2">
+                        <i class="bi bi-lightbulb text-warning me-2"></i>
+                        {% trans "Use filters to reduce export size and improve performance" %}
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-lightbulb text-warning me-2"></i>
+                        {% trans "Excel format is recommended for data analysis" %}
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-lightbulb text-warning me-2"></i>
+                        {% trans "Large exports may take several minutes to process" %}
+                    </li>
+                    <li class="mb-0">
+                        <i class="bi bi-lightbulb text-warning me-2"></i>
+                        {% trans "Exports are automatically deleted after expiration" %}
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="preview-card">
+                <h6 class="preview-title">{% trans "Recent Exports" %}</h6>
+                {% if recent_exports %}
+                <div class="list-group list-group-flush">
+                    {% for export in recent_exports|slice:":3" %}
+                    <a href="{% url 'analytics:export_list' %}" class="list-group-item list-group-item-action py-2">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ export.name|truncatewords:3 }}</h6>
+                            <small>{{ export.created_at|timesince }}</small>
+                        </div>
+                        <p class="mb-1 text-muted small">{{ export.get_format_display }} • {{ export.data_source }}</p>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted small mb-0">{% trans "No recent exports" %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentStep = 1;
+    const totalSteps = 4;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize form
+        initializeForm();
+        
+        // Set up event listeners
+        setupEventListeners();
+        
+        // Update preview
+        updatePreview();
+    });
+    
+    function initializeForm() {
+        // Set default export name
+        const exportName = document.getElementById('{{ form.export_name.id_for_label }}');
+        exportName.value = '{{ form.export_name.field.initial }}';
+        
+        // Initialize data source selection
+        initializeDataSourceSelection();
+        
+        // Initialize column selection
+        initializeColumnSelection();
+    }
+    
+    function setupEventListeners() {
+        // Real-time preview updates
+        document.getElementById('{{ form.export_name.id_for_label }}').addEventListener('input', updatePreview);
+        document.getElementById('date_range').addEventListener('change', updatePreview);
+        document.getElementById('{{ form.include_sensitive_data.id_for_label }}').addEventListener('change', updatePreview);
+    }
+    
+    function initializeDataSourceSelection() {
+        const dataSourceCards = document.querySelectorAll('.data-source-card');
+        
+        dataSourceCards.forEach(card => {
+            card.addEventListener('click', function() {
+                // Remove selection from all cards
+                dataSourceCards.forEach(c => c.classList.remove('selected'));
+                
+                // Add selection to clicked card
+                this.classList.add('selected');
+                
+                // Update hidden input
+                const dataSource = this.dataset.source;
+                document.getElementById('data_source').value = dataSource;
+                
+                // Update sample data preview
+                updateSampleDataPreview(dataSource);
+                
+                // Update available columns
+                updateAvailableColumns(dataSource);
+                
+                // Update preview
+                updatePreview();
+                
+                // Enable next button if this is step 1
+                if (currentStep === 1) {
+                    document.getElementById('next-btn').disabled = false;
+                }
+            });
+        });
+    }
+    
+    function initializeColumnSelection() {
+        // This would be populated based on the selected data source
+        // For now, we'll create some sample columns
+        const sampleColumns = [
+            'id', 'name', 'email', 'created_date', 'status', 
+            'academic_session', 'grade_level', 'attendance_rate'
+        ];
+        
+        const columnsContainer = document.getElementById('columns-container');
+        
+        sampleColumns.forEach(column => {
+            const columnItem = document.createElement('div');
+            columnItem.className = 'column-item';
+            columnItem.innerHTML = `
+                <input type="checkbox" class="form-check-input me-2 column-checkbox" value="${column}" checked>
+                <span>${column.replace(/_/g, ' ').toUpperCase()}</span>
+            `;
+            columnsContainer.appendChild(columnItem);
+        });
+        
+        // Add event listeners to column checkboxes
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('column-checkbox')) {
+                updatePreview();
+            }
+        });
+    }
+    
+    function updateSampleDataPreview(dataSource) {
+        const preview = document.getElementById('sample-data-preview');
+        preview.style.display = 'block';
+        
+        // Sample data based on data source
+        const sampleData = {
+            'students': `ID,Name,Email,Grade Level,Status\n1,John Doe,john@school.com,10,Active\n2,Jane Smith,jane@school.com,11,Active`,
+            'teachers': `ID,Name,Email,Department,Subjects\n1,Dr. Brown,brown@school.com,Science,"Biology, Chemistry"\n2,Ms. Davis,davis@school.com,Mathematics,"Algebra, Calculus"`,
+            'attendance': `Date,Student ID,Status,Session\n2024-01-15,1,Present,Morning\n2024-01-15,2,Absent,Morning`,
+            'grades': `Student ID,Subject,Grade,Term,Year\n1,Mathematics,A,1,2024\n2,Science,B+,1,2024`,
+            'financial': `Transaction ID,Type,Amount,Date,Description\n001,Tuition,500.00,2024-01-15,Spring Semester\n002,Library Fee,25.00,2024-01-16,Late Return`,
+            'library': `Book ID,Title,Author,Status,Borrower\nB001,Mathematics Basics,John Smith,Available,\nB002,Chemistry Guide,Alice Johnson,Borrowed,Student_001`
+        };
+        
+        preview.innerHTML = `<pre>${sampleData[dataSource] || 'No sample data available'}</pre>`;
+    }
+    
+    function updateAvailableColumns(dataSource) {
+        // This would fetch available columns from the server based on data source
+        // For now, we'll just update the preview
+        console.log('Updating columns for data source:', dataSource);
+    }
+    
+    function nextStep() {
+        if (validateStep(currentStep)) {
+            if (currentStep < totalSteps) {
+                // Hide current step
+                document.querySelector(`.step-content[data-step="${currentStep}"]`).classList.remove('active');
+                document.querySelector(`.wizard-step[data-step="${currentStep}"]`).classList.remove('active');
+                
+                // Show next step
+                currentStep++;
+                document.querySelector(`.step-content[data-step="${currentStep}"]`).classList.add('active');
+                document.querySelector(`.wizard-step[data-step="${currentStep}"]`).classList.add('active');
+                
+                // Update navigation buttons
+                updateNavigationButtons();
+                
+                // Update review step if we're on the last step
+                if (currentStep === 4) {
+                    updateReviewStep();
+                }
+            }
+        }
+    }
+    
+    function previousStep() {
+        if (currentStep > 1) {
+            // Hide current step
+            document.querySelector(`.step-content[data-step="${currentStep}"]`).classList.remove('active');
+            document.querySelector(`.wizard-step[data-step="${currentStep}"]`).classList.remove('active');
+            
+            // Show previous step
+            currentStep--;
+            document.querySelector(`.step-content[data-step="${currentStep}"]`).classList.add('active');
+            document.querySelector(`.wizard-step[data-step="${currentStep}"]`).classList.add('active');
+            
+            // Update navigation buttons
+            updateNavigationButtons();
+        }
+    }
+    
+    function updateNavigationButtons() {
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const submitBtn = document.getElementById('submit-btn');
+        
+        // Show/hide previous button
+        prevBtn.style.display = currentStep > 1 ? 'inline-block' : 'none';
+        
+        // Show/hide next and submit buttons
+        if (currentStep === totalSteps) {
+            nextBtn.style.display = 'none';
+            submitBtn.style.display = 'inline-block';
+        } else {
+            nextBtn.style.display = 'inline-block';
+            submitBtn.style.display = 'none';
+        }
+        
+        // Enable/disable next button based on step validation
+        nextBtn.disabled = !validateStep(currentStep);
+    }
+    
+    function validateStep(step) {
+        switch (step) {
+            case 1:
+                return document.getElementById('data_source').value !== '';
+            case 2:
+                return document.querySelectorAll('.column-checkbox:checked').length > 0;
+            case 3:
+                const exportName = document.getElementById('{{ form.export_name.id_for_label }}').value.trim();
+                return exportName !== '';
+            case 4:
+                return document.getElementById('confirm_export').checked;
+            default:
+                return true;
+        }
+    }
+    
+    function updatePreview() {
+        // Update preview sidebar
+        const dataSource = document.getElementById('data_source').value;
+        const exportFormat = document.getElementById('export_format').value;
+        const dateRange = document.getElementById('date_range');
+        const includeSensitive = document.getElementById('{{ form.include_sensitive_data.id_for_label }}').checked;
+        const selectedColumns = document.querySelectorAll('.column-checkbox:checked').length;
+        
+        document.getElementById('preview-source').textContent = dataSource ? 
+            document.querySelector(`[data-source="${dataSource}"] h6`).textContent : '{% trans "Not selected" %}';
+        document.getElementById('preview-format').textContent = exportFormat.toUpperCase();
+        document.getElementById('preview-date-range').textContent = dateRange.options[dateRange.selectedIndex].text;
+        document.getElementById('preview-columns').textContent = selectedColumns;
+        document.getElementById('preview-sensitive').textContent = includeSensitive ? '{% trans "Yes" %}' : '{% trans "No" %}';
+        
+        // Update estimated size
+        updateEstimatedSize();
+    }
+    
+    function updateReviewStep() {
+        const exportName = document.getElementById('{{ form.export_name.id_for_label }}').value;
+        const dataSource = document.getElementById('data_source').value;
+        const exportFormat = document.getElementById('export_format').value;
+        const dateRange = document.getElementById('date_range');
+        const includeSensitive = document.getElementById('{{ form.include_sensitive_data.id_for_label }}').checked;
+        const selectedColumns = document.querySelectorAll('.column-checkbox:checked').length;
+        
+        document.getElementById('review-name').textContent = exportName || '--';
+        document.getElementById('review-source').textContent = dataSource ? 
+            document.querySelector(`[data-source="${dataSource}"] h6`).textContent : '--';
+        document.getElementById('review-format').textContent = exportFormat.toUpperCase();
+        document.getElementById('review-date-range').textContent = dateRange.options[dateRange.selectedIndex].text;
+        document.getElementById('review-columns').textContent = `${selectedColumns} {% trans "columns" %}`;
+        document.getElementById('review-records').textContent = '~1,250'; // This would be calculated
+        document.getElementById('review-sensitive').textContent = includeSensitive ? '{% trans "Included" %}' : '{% trans "Excluded" %}';
+    }
+    
+    function updateEstimatedSize() {
+        const selectedColumns = document.querySelectorAll('.column-checkbox:checked').length;
+        const includeSensitive = document.getElementById('{{ form.include_sensitive_data.id_for_label }}').checked;
+        
+        // Simple size estimation based on columns and data sensitivity
+        let baseSize = selectedColumns * 50; // 50KB per column
+        if (includeSensitive) baseSize *= 1.5;
+        
+        const sizeElement = document.getElementById('estimated-size');
+        if (baseSize < 1024) {
+            sizeElement.textContent = `${baseSize} KB`;
+        } else {
+            sizeElement.textContent = `${(baseSize / 1024).toFixed(1)} MB`;
+        }
+    }
+    
+    function selectFormat(format) {
+        // Update format selection
+        document.querySelectorAll('.format-option').forEach(option => {
+            option.classList.remove('selected');
+        });
+        document.querySelector(`[data-format="${format}"]`).classList.add('selected');
+        document.getElementById('export_format').value = format;
+        
+        // Update preview
+        updatePreview();
+    }
+    
+    function toggleCustomDateRange() {
+        const dateRange = document.getElementById('date_range');
+        const customRange = document.getElementById('custom-date-range');
+        
+        if (dateRange.value === 'custom') {
+            customRange.style.display = 'flex';
+        } else {
+            customRange.style.display = 'none';
+        }
+        
+        updatePreview();
+    }
+    
+    function toggleAdvancedOptions() {
+        const advancedSection = document.getElementById('advanced-options');
+        const chevron = document.getElementById('advanced-chevron');
+        
+        if (advancedSection.style.display === 'none') {
+            advancedSection.style.display = 'block';
+            chevron.className = 'bi bi-chevron-up ms-1';
+        } else {
+            advancedSection.style.display = 'none';
+            chevron.className = 'bi bi-chevron-down ms-1';
+        }
+    }
+    
+    function selectAllColumns() {
+        document.querySelectorAll('.column-checkbox').forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        updatePreview();
+    }
+    
+    function deselectAllColumns() {
+        document.querySelectorAll('.column-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        updatePreview();
+    }
+    
+    // Form submission
+    document.getElementById('export-request-form').addEventListener('submit', function(e) {
+        if (!validateStep(4)) {
+            e.preventDefault();
+            BaseApp.showToast('{% trans "Please complete all required fields" %}', 'error');
+            return;
+        }
+        
+        // Show loading state
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> {% trans "Creating Export..." %}';
+        
+        // Add loading overlay
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.className = 'loading-overlay';
+        loadingOverlay.innerHTML = '<div class="spinner"></div>';
+        document.querySelector('.export-request-card').style.position = 'relative';
+        document.querySelector('.export-request-card').appendChild(loadingOverlay);
+    });
+</script>
+{% endblock %}

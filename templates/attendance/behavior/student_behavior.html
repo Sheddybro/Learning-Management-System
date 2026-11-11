@@ -1,0 +1,387 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Behavior Records{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title mb-0">Total Records</h6>
+                                    <h3 class="mb-0">{{ total_records }}</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-clipboard-list fa-2x opacity-75"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title mb-0">Resolved</h6>
+                                    <h3 class="mb-0">{{ resolved_records }}</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title mb-0">Unresolved</h6>
+                                    <h3 class="mb-0">{{ unresolved_records }}</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title mb-0">Positive Records</h6>
+                                    <h3 class="mb-0">{{ positive_records }}</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-star fa-2x opacity-75"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Behavior Records -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">My Behavior Records</h3>
+                    <div class="card-tools">
+                        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#behaviorChartModal">
+                            <i class="fas fa-chart-bar"></i> View Chart
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card-body table-responsive p-0">
+                    <table class="table table-hover text-nowrap">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Severity</th>
+                                <th>Category</th>
+                                <th>Title</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in behavior_records %}
+                            <tr>
+                                <td>
+                                    <span class="badge {% if record.behavior_type == 'positive' %}bg-success{% elif record.behavior_type == 'negative' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                        {{ record.get_behavior_type_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if record.severity == 'critical' %}bg-danger{% elif record.severity == 'high' %}bg-warning{% elif record.severity == 'medium' %}bg-info{% else %}bg-light text-dark{% endif %}">
+                                        {{ record.get_severity_display }}
+                                    </span>
+                                </td>
+                                <td>{{ record.get_incident_category_display }}</td>
+                                <td>
+                                    <strong>{{ record.title }}</strong>
+                                    {% if record.description %}
+                                    <br><small class="text-muted">{{ record.description|truncatechars:50 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ record.incident_date|date:"M d, Y" }}</td>
+                                <td>
+                                    {% if record.is_resolved %}
+                                    <span class="badge bg-success">Resolved</span>
+                                    {% else %}
+                                    <span class="badge bg-warning">Open</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#recordModal{{ record.id }}">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <!-- Modal for record details -->
+                            <div class="modal fade" id="recordModal{{ record.id }}" tabindex="-1">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">{{ record.title }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <h6>Incident Details</h6>
+                                                    <p><strong>Date:</strong> {{ record.incident_date|date:"M d, Y" }}</p>
+                                                    <p><strong>Time:</strong> {{ record.incident_time|time:"H:i" }}</p>
+                                                    <p><strong>Location:</strong> {{ record.location }}</p>
+                                                    <p><strong>Reported by:</strong> {{ record.reported_by.get_full_name }}</p>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h6>Classification</h6>
+                                                    <p><strong>Type:</strong> {{ record.get_behavior_type_display }}</p>
+                                                    <p><strong>Severity:</strong> {{ record.get_severity_display }}</p>
+                                                    <p><strong>Category:</strong> {{ record.get_incident_category_display }}</p>
+                                                    <p><strong>Status:</strong> {% if record.is_resolved %}Resolved{% else %}Open{% endif %}</p>
+                                                </div>
+                                            </div>
+                                            <div class="row mt-3">
+                                                <div class="col-12">
+                                                    <h6>Description</h6>
+                                                    <p>{{ record.description }}</p>
+                                                </div>
+                                            </div>
+                                            {% if record.action_taken %}
+                                            <div class="row mt-3">
+                                                <div class="col-12">
+                                                    <h6>Action Taken</h6>
+                                                    <p>{{ record.action_taken }}</p>
+                                                    {% if record.consequence_type %}
+                                                    <p><strong>Consequence:</strong> {{ record.get_consequence_type_display }}</p>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                            {% if record.resolution %}
+                                            <div class="row mt-3">
+                                                <div class="col-12">
+                                                    <h6>Resolution</h6>
+                                                    <p>{{ record.resolution }}</p>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted">
+                                    <div class="py-4">
+                                        <i class="fas fa-clipboard-check fa-3x text-muted mb-3"></i>
+                                        <h5>No behavior records found</h5>
+                                        <p>You have a clean record! Keep up the good work.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="card-footer">
+                    <nav aria-label="Behavior records pagination">
+                        <ul class="pagination pagination-sm m-0">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <a class="page-link" href="#">{{ num }}</a>
+                            </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart Modal -->
+<div class="modal fade" id="behaviorChartModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Behavior Records Overview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <canvas id="behaviorTypeChart" width="400" height="300"></canvas>
+                    </div>
+                    <div class="col-md-6">
+                        <canvas id="severityChart" width="400" height="300"></canvas>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <canvas id="monthlyChart" width="800" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Prepare data for charts
+const behaviorData = {
+    positive: {{ positive_records }},
+    negative: {{ total_records|add:0 }} - {{ positive_records }},
+    neutral: 0
+};
+
+const severityData = {
+    low: 0,
+    medium: 0,
+    high: 0,
+    critical: 0
+};
+
+// Count severity from records
+{% for record in behavior_records %}
+    {% if record.severity == 'low' %}
+        severityData.low++;
+    {% elif record.severity == 'medium' %}
+        severityData.medium++;
+    {% elif record.severity == 'high' %}
+        severityData.high++;
+    {% else %}
+        severityData.critical++;
+    {% endif %}
+{% endfor %}
+
+const monthlyData = {};
+{% for record in behavior_records %}
+    const month = new Date('{{ record.incident_date|date:"Y-m-d" }}').toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    if (!monthlyData[month]) monthlyData[month] = 0;
+    monthlyData[month]++;
+{% endfor %}
+
+// Create charts when modal is shown
+document.getElementById('behaviorChartModal').addEventListener('shown.bs.modal', function () {
+    // Behavior Type Chart
+    const behaviorTypeCtx = document.getElementById('behaviorTypeChart').getContext('2d');
+    new Chart(behaviorTypeCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Positive', 'Negative', 'Neutral'],
+            datasets: [{
+                data: [behaviorData.positive, behaviorData.negative, behaviorData.neutral],
+                backgroundColor: ['#28a745', '#dc3545', '#6c757d']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Behavior Types'
+                }
+            }
+        }
+    });
+
+    // Severity Chart
+    const severityCtx = document.getElementById('severityChart').getContext('2d');
+    new Chart(severityCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Low', 'Medium', 'High', 'Critical'],
+            datasets: [{
+                data: [severityData.low, severityData.medium, severityData.high, severityData.critical],
+                backgroundColor: ['#17a2b8', '#ffc107', '#fd7e14', '#dc3545']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Severity Levels'
+                }
+            }
+        }
+    });
+
+    // Monthly Chart
+    const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+    new Chart(monthlyCtx, {
+        type: 'line',
+        data: {
+            labels: Object.keys(monthlyData),
+            datasets: [{
+                label: 'Incidents',
+                data: Object.values(monthlyData),
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Monthly Trend'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,849 @@
+<!-- templates/hostels/fees/fee_list.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Fee Management - Hostel Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .list-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .list-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stats-card {
+        color: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        font-weight: 500;
+    }
+    
+    .stat-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+    }
+    
+    .fee-card {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .fee-card:hover {
+        border-color: #007bff;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+    
+    .badge-paid {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+    }
+    
+    .badge-pending {
+        background: linear-gradient(135deg, #ffc107, #fd7e14);
+        color: white;
+    }
+    
+    .badge-overdue {
+        background: linear-gradient(135deg, #dc3545, #e83e8c);
+        color: white;
+    }
+    
+    .badge-partial {
+        background: linear-gradient(135deg, #17a2b8, #6f42c1);
+        color: white;
+    }
+    
+    .amount-highlight {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    
+    .amount-paid {
+        color: #28a745;
+    }
+    
+    .amount-pending {
+        color: #dc3545;
+    }
+    
+    .amount-balance {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .search-box {
+        position: relative;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    .search-input {
+        padding-left: 40px;
+    }
+    
+    .pagination-container {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .table-responsive {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .table th {
+        border-top: none;
+        font-weight: 600;
+        color: #495057;
+        background: #f8f9fa;
+    }
+    
+    .due-date-warning {
+        border-left: 4px solid #dc3545;
+        background: #f8d7da;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-size: 0.875rem;
+    }
+    
+    .due-date-normal {
+        border-left: 4px solid #28a745;
+        background: #d4edda;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-size: 0.875rem;
+    }
+    
+    .quick-actions {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .progress-thin {
+        height: 6px;
+        margin-top: 0.25rem;
+    }
+    
+    .student-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .bulk-actions {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}
+<i class="bi bi-cash-coin me-2"></i>Fee Management
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:dashboard' %}">Hostel Dashboard</a></li>
+<li class="breadcrumb-item active" aria-current="page">Fees</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">₹{{ total_fees|default:0 }}</div>
+                        <div class="stat-label">Total Fees</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-cash-coin stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">₹{{ total_paid|default:0 }}</div>
+                        <div class="stat-label">Total Paid</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-check-circle stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">₹{{ total_pending|default:0 }}</div>
+                        <div class="stat-label">Total Pending</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-clock-history stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">{{ overdue_count|default:0 }}</div>
+                        <div class="stat-label">Overdue Fees</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-exclamation-triangle stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Actions -->
+    <div class="bulk-actions">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h6 class="text-white mb-2">Bulk Fee Actions</h6>
+                <p class="text-white-50 mb-0">Process multiple fee payments quickly</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-light btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="bi bi-lightning me-2"></i>Quick Actions
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="markSelectedPaid()"><i class="bi bi-check-circle me-2"></i>Mark Selected as Paid</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="sendReminders()"><i class="bi bi-bell me-2"></i>Send Reminders</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="generateReports()"><i class="bi bi-file-earmark-text me-2"></i>Generate Reports</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Filters and Quick Actions -->
+        <div class="col-lg-3 mb-4">
+            <!-- Quick Actions -->
+            <div class="quick-actions mb-4">
+                <h6 class="text-white mb-3">Quick Actions</h6>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'hostels:allocation_list' %}" class="btn btn-light btn-sm">
+                        <i class="bi bi-people me-2"></i>View Allocations
+                    </a>
+                    <a href="{% url 'hostels:fee_collection_report' %}" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-graph-up me-2"></i>Fee Reports
+                    </a>
+                    <button class="btn btn-outline-light btn-sm" onclick="bulkPayment()">
+                        <i class="bi bi-cash-stack me-2"></i>Bulk Payment
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card list-card">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">Filters</h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" id="filterForm">
+                        <!-- Status Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Fee Status</label>
+                            <select name="status" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Status</option>
+                                <option value="paid" {% if request.GET.status == 'paid' %}selected{% endif %}>Paid</option>
+                                <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending</option>
+                                <option value="overdue" {% if request.GET.status == 'overdue' %}selected{% endif %}>Overdue</option>
+                                <option value="partial" {% if request.GET.status == 'partial' %}selected{% endif %}>Partial</option>
+                            </select>
+                        </div>
+
+                        <!-- Month Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Month</label>
+                            <select name="month" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Months</option>
+                                {% for month in months %}
+                                <option value="{{ month.0 }}" {% if request.GET.month == month.0|stringformat:"s" %}selected{% endif %}>
+                                    {{ month.1 }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Year Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Year</label>
+                            <select name="year" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Years</option>
+                                {% for year in years %}
+                                <option value="{{ year }}" {% if request.GET.year == year|stringformat:"s" %}selected{% endif %}>
+                                    {{ year }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Hostel Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Hostel</label>
+                            <select name="hostel" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Hostels</option>
+                                {% for hostel in hostels %}
+                                <option value="{{ hostel.id }}" {% if request.GET.hostel == hostel.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ hostel.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Overdue Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Overdue Status</label>
+                            <select name="is_overdue" class="form-select" onchange="this.form.submit()">
+                                <option value="">All</option>
+                                <option value="overdue" {% if request.GET.is_overdue == 'overdue' %}selected{% endif %}>Overdue Only</option>
+                                <option value="not_overdue" {% if request.GET.is_overdue == 'not_overdue' %}selected{% endif %}>Not Overdue</option>
+                            </select>
+                        </div>
+
+                        <!-- Reset Filters -->
+                        <div class="d-grid">
+                            <a href="{% url 'hostels:fee_list' %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Reset Filters
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="card list-card mt-4">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">Fee Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted">Collection Rate:</span>
+                        <span class="fw-semibold">{{ collection_rate|default:0 }}%</span>
+                    </div>
+                    <div class="progress progress-thin">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: {{ collection_rate|default:0 }}%"
+                             aria-valuenow="{{ collection_rate|default:0 }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="small text-muted mb-1">Current Month</div>
+                    <div class="d-flex justify-content-between">
+                        <span>Paid:</span>
+                        <span class="text-success">₹{{ current_month_paid|default:0 }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Pending:</span>
+                        <span class="text-danger">₹{{ current_month_pending|default:0 }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <!-- Search and Actions Bar -->
+            <div class="card list-card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <div class="search-box">
+                                <i class="bi bi-search search-icon"></i>
+                                <input type="text" class="form-control search-input" placeholder="Search by student name, receipt number..." id="searchInput">
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <div class="btn-group">
+                                <button class="btn btn-outline-primary btn-sm" onclick="exportFees()">
+                                    <i class="bi bi-download me-2"></i>Export
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="bi bi-printer me-2"></i>Print
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" onclick="printReceipts()">Print Receipts</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="printReport()">Print Report</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fees Table -->
+            <div class="card list-card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        Fee Records 
+                        <span class="badge bg-primary ms-2">{{ fees.paginator.count }}</span>
+                    </h5>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAll">
+                        <label class="form-check-label small text-muted" for="selectAll">
+                            Select All
+                        </label>
+                    </div>
+                </div>
+
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="feesTable">
+                            <thead>
+                                <tr>
+                                    <th width="30">
+                                        <input type="checkbox" class="form-check-input" id="headerCheckbox">
+                                    </th>
+                                    <th>Student & Allocation</th>
+                                    <th>Period</th>
+                                    <th>Amount Details</th>
+                                    <th>Due Date</th>
+                                    <th>Payment Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for fee in fees %}
+                                <tr class="fee-row {% if fee.is_overdue %}table-warning{% endif %}" data-fee-id="{{ fee.id }}">
+                                    <td>
+                                        <input type="checkbox" class="form-check-input fee-checkbox" value="{{ fee.id }}">
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="student-avatar me-3">
+                                                {{ fee.allocation.student.user.first_name|first }}{{ fee.allocation.student.user.last_name|first }}
+                                            </div>
+                                            <div>
+                                                <div class="fw-semibold">
+                                                    {{ fee.allocation.student.user.get_full_name }}
+                                                </div>
+                                                <div class="text-muted small">
+                                                    {{ fee.allocation.bed.room.hostel.name }} • Room {{ fee.allocation.bed.room.room_number }}
+                                                </div>
+                                                <div class="text-muted small">
+                                                    {{ fee.allocation.student.admission_number }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold">{{ fee.get_month_display }} {{ fee.year }}</div>
+                                        <div class="text-muted small">
+                                            {% if fee.paid_date %}
+                                                Paid: {{ fee.paid_date|date:"M d, Y" }}
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="amount-highlight {% if fee.status == 'paid' %}amount-paid{% else %}amount-pending{% endif %}">
+                                            ₹{{ fee.amount }}
+                                        </div>
+                                        <div class="amount-balance">
+                                            Paid: ₹{{ fee.paid_amount }} 
+                                            {% if fee.balance_amount > 0 %}
+                                            • Balance: ₹{{ fee.balance_amount }}
+                                            {% endif %}
+                                        </div>
+                                        {% if fee.late_fee > 0 %}
+                                        <div class="text-danger small">
+                                            +₹{{ fee.late_fee }} late fee
+                                        </div>
+                                        {% endif %}
+                                        {% if fee.discount > 0 %}
+                                        <div class="text-success small">
+                                            -₹{{ fee.discount }} discount
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="{% if fee.is_overdue %}due-date-warning{% else %}due-date-normal{% endif %}">
+                                            {{ fee.due_date|date:"M d, Y" }}
+                                            {% if fee.is_overdue %}
+                                            <div class="text-danger small mt-1">
+                                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                                Overdue
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if fee.status == 'paid' %}
+                                        <span class="status-badge badge-paid">
+                                            <i class="bi bi-check-circle me-1"></i>Paid
+                                        </span>
+                                        {% elif fee.status == 'pending' %}
+                                        <span class="status-badge badge-pending">
+                                            <i class="bi bi-clock me-1"></i>Pending
+                                        </span>
+                                        {% elif fee.status == 'overdue' %}
+                                        <span class="status-badge badge-overdue">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>Overdue
+                                        </span>
+                                        {% elif fee.status == 'partial' %}
+                                        <span class="status-badge badge-partial">
+                                            <i class="bi bi-arrow-clockwise me-1"></i>Partial
+                                        </span>
+                                        {% endif %}
+                                        
+                                        {% if fee.receipt_number %}
+                                        <div class="text-muted small mt-1">
+                                            Receipt: {{ fee.receipt_number }}
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            {% if fee.status != 'paid' %}
+                                            <a href="{% url 'hostels:fee_mark_paid' pk=fee.pk %}" class="btn btn-outline-success" title="Mark Paid">
+                                                <i class="bi bi-cash"></i>
+                                            </a>
+                                            {% endif %}
+                                            <button class="btn btn-outline-primary" title="View Details" onclick="viewFeeDetails('{{ fee.id }}')">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-info" title="Send Reminder" onclick="sendReminder('{{ fee.id }}')">
+                                                <i class="bi bi-bell"></i>
+                                            </button>
+                                            {% if fee.receipt_number %}
+                                            <button class="btn btn-outline-secondary" title="Print Receipt" onclick="printReceipt('{{ fee.id }}')">
+                                                <i class="bi bi-receipt"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7">
+                                        <div class="empty-state">
+                                            <i class="bi bi-cash-coin empty-state-icon"></i>
+                                            <h5>No Fees Found</h5>
+                                            <p class="text-muted">No fee records match your current filters.</p>
+                                            <a href="{% url 'hostels:allocation_list' %}" class="btn btn-primary">
+                                                <i class="bi bi-people me-2"></i>View Allocations
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if fees.has_other_pages %}
+                    <div class="pagination-container">
+                        <nav aria-label="Fees pagination">
+                            <ul class="pagination justify-content-center mb-0">
+                                {% if fees.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ fees.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </a>
+                                </li>
+                                {% endif %}
+
+                                {% for num in fees.paginator.page_range %}
+                                    {% if fees.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                    {% elif num > fees.number|add:'-3' and num < fees.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if fees.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ fees.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const feesTable = document.getElementById('feesTable');
+        const headerCheckbox = document.getElementById('headerCheckbox');
+        const feeCheckboxes = document.querySelectorAll('.fee-checkbox');
+
+        // Search functionality
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = feesTable.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+            
+            for (let row of rows) {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            }
+        });
+
+        // Select all functionality
+        headerCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            feeCheckboxes.forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+        });
+
+        // Individual checkbox logic
+        feeCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateHeaderCheckbox();
+            });
+        });
+
+        function updateHeaderCheckbox() {
+            const allChecked = Array.from(feeCheckboxes).every(checkbox => checkbox.checked);
+            const someChecked = Array.from(feeCheckboxes).some(checkbox => checkbox.checked);
+            
+            headerCheckbox.checked = allChecked;
+            headerCheckbox.indeterminate = someChecked && !allChecked;
+        }
+
+        // Bulk actions
+        window.markSelectedPaid = function() {
+            const selectedFees = getSelectedFees();
+            if (selectedFees.length === 0) {
+                alert('Please select at least one fee to mark as paid.');
+                return;
+            }
+            
+            if (confirm(`Mark ${selectedFees.length} fee(s) as paid?`)) {
+                // In real implementation, this would be an AJAX call
+                console.log('Marking fees as paid:', selectedFees);
+                showNotification(`${selectedFees.length} fees marked as paid successfully.`, 'success');
+            }
+        };
+
+        window.sendReminders = function() {
+            const selectedFees = getSelectedFees();
+            if (selectedFees.length === 0) {
+                alert('Please select at least one fee to send reminders for.');
+                return;
+            }
+            
+            if (confirm(`Send payment reminders for ${selectedFees.length} fee(s)?`)) {
+                // In real implementation, this would be an AJAX call
+                console.log('Sending reminders for:', selectedFees);
+                showNotification(`Reminders sent for ${selectedFees.length} fees.`, 'info');
+            }
+        };
+
+        window.bulkPayment = function() {
+            alert('Bulk payment feature would open a modal for processing multiple payments.');
+        };
+
+        window.exportFees = function() {
+            const table = document.getElementById('feesTable');
+            let csv = [];
+            const rows = table.querySelectorAll('tr');
+            
+            for (let row of rows) {
+                let rowData = [];
+                const cells = row.querySelectorAll('th, td');
+                
+                for (let cell of cells) {
+                    // Skip checkbox and action cells
+                    if (!cell.querySelector('.form-check-input') && !cell.querySelector('.btn-group')) {
+                        rowData.push(cell.innerText.replace(/,/g, ''));
+                    }
+                }
+                
+                if (rowData.length > 0) {
+                    csv.push(rowData.join(','));
+                }
+            }
+            
+            const csvContent = "data:text/csv;charset=utf-8," + csv.join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `fees_export_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        // Individual fee actions
+        window.viewFeeDetails = function(feeId) {
+            // In real implementation, this would open a modal with fee details
+            alert(`Viewing details for fee ${feeId}. This would open a modal with complete fee information.`);
+        };
+
+        window.sendReminder = function(feeId) {
+            if (confirm('Send payment reminder to student?')) {
+                // In real implementation, this would be an AJAX call
+                console.log('Sending reminder for fee:', feeId);
+                showNotification('Payment reminder sent successfully.', 'info');
+            }
+        };
+
+        window.printReceipt = function(feeId) {
+            // In real implementation, this would open print dialog for receipt
+            alert(`Printing receipt for fee ${feeId}. This would generate a printable receipt.`);
+        };
+
+        // Utility functions
+        function getSelectedFees() {
+            const selectedFees = [];
+            feeCheckboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    selectedFees.push(checkbox.value);
+                }
+            });
+            return selectedFees;
+        }
+
+        function showNotification(message, type) {
+            // Simple notification - in real app, use a proper notification library
+            const alertClass = type === 'success' ? 'alert-success' : 'alert-info';
+            const notification = document.createElement('div');
+            notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        // Auto-refresh data every 60 seconds
+        function refreshFeesData() {
+            // In real implementation, this would fetch updated data via AJAX
+            console.log('Refreshing fees data...');
+        }
+
+        // Uncomment to enable auto-refresh
+        // setInterval(refreshFeesData, 60000);
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 'f':
+                        e.preventDefault();
+                        searchInput.focus();
+                        break;
+                    case 'e':
+                        e.preventDefault();
+                        exportFees();
+                        break;
+                    case 'a':
+                        e.preventDefault();
+                        headerCheckbox.click();
+                        break;
+                }
+            }
+        });
+
+        // Initialize header checkbox state
+        updateHeaderCheckbox();
+    });
+</script>
+{% endblock %}

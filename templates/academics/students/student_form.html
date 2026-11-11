@@ -1,0 +1,787 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Student" %}
+    {% else %}
+        {% trans "Create Student" %}
+    {% endif %}
+{% endblock %}
+
+{% block body_class %}academics-students-form{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'academics:student_list' %}">{% trans "Students" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if form.instance.pk %}
+        {% trans "Edit Student" %}
+    {% else %}
+        {% trans "New Student" %}
+    {% endif %}
+</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'academics:student_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>{% trans "Back to List" %}
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/academics/forms.css' %}">
+<style>
+    .photo-preview { width: 150px; height: 150px; border-radius: 8px; object-fit: cover; border: 2px dashed var(--bs-border-color); }
+    .photo-placeholder { width: 150px; height: 150px; border-radius: 8px; background: var(--bs-light); display: flex; align-items: center; justify-content: center; border: 2px dashed var(--bs-border-color); }
+    .photo-upload-area { cursor: pointer; transition: all 0.3s ease; }
+    .photo-upload-area:hover { border-color: var(--bs-primary); background: var(--bs-light); }
+    .age-calculator { background: var(--bs-light); border-radius: 8px; padding: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="student-form-container">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card form-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi {% if form.instance.pk %}bi-pencil-square{% else %}bi-plus-circle{% endif %} me-2"></i>
+                        {% if form.instance.pk %}
+                            {% trans "Edit Student" %}
+                        {% else %}
+                            {% trans "Create New Student" %}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="studentForm" novalidate enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                <p class="mb-0">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Student Photo -->
+                        <div class="field-group">
+                            <div class="field-group-header">
+                                <h6 class="field-group-title">{% trans "Student Photo" %}</h6>
+                                <p class="field-group-description mb-0">
+                                    {% trans "Upload a clear photo for student identification" %}
+                                </p>
+                            </div>
+
+                            <div class="row align-items-center">
+                                <div class="col-md-3 text-center">
+                                    <div class="photo-upload-area" id="photoUploadArea">
+                                        {% if form.instance.photo %}
+                                        <img src="{{ form.instance.photo.url }}" alt="Student Photo" class="photo-preview" id="photoPreview">
+                                        {% else %}
+                                        <div class="photo-placeholder" id="photoPlaceholder">
+                                            <div class="text-center">
+                                                <i class="bi bi-camera fs-1 text-muted"></i>
+                                                <p class="mt-2 mb-0 text-muted">{% trans "Click to upload photo" %}</p>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <input type="file" name="photo" id="photoInput" accept="image/*" style="display: none;">
+                                    <div class="mt-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('photoInput').click()">
+                                            <i class="bi bi-upload me-1"></i>{% trans "Upload" %}
+                                        </button>
+                                        {% if form.instance.photo %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger" id="removePhoto">
+                                            <i class="bi bi-trash me-1"></i>{% trans "Remove" %}
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-9">
+                                    <div class="alert alert-info">
+                                        <small>
+                                            <i class="bi bi-info-circle me-2"></i>
+                                            {% trans "Recommended: Square photo, minimum 300x300 pixels, clear face visible. Maximum file size: 2MB." %}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Basic Information Field Group -->
+                        <div class="field-group">
+                            <div class="field-group-header">
+                                <h6 class="field-group-title">{% trans "Basic Information" %}</h6>
+                                <p class="field-group-description mb-0">
+                                    {% trans "Enter the student's personal and identification details" %}
+                                </p>
+                            </div>
+
+                            <div class="row">
+                                <!-- Student ID -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.student_id.id_for_label }}" class="form-label required">
+                                        {{ form.student_id.label }}
+                                    </label>
+                                    {{ form.student_id }}
+                                    {% if form.student_id.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.student_id.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        {% trans "Unique student identification number" %}
+                                    </div>
+                                </div>
+
+                                <!-- Admission Number -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.admission_number.id_for_label }}" class="form-label required">
+                                        {{ form.admission_number.label }}
+                                    </label>
+                                    {{ form.admission_number }}
+                                    {% if form.admission_number.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.admission_number.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <!-- First Name -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.user.first_name.id_for_label }}" class="form-label required">
+                                        {% trans "First Name" %}
+                                    </label>
+                                    <input type="text" class="form-control" name="first_name" value="{{ form.user.first_name.value|default:'' }}" required>
+                                </div>
+
+                                <!-- Last Name -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.user.last_name.id_for_label }}" class="form-label required">
+                                        {% trans "Last Name" %}
+                                    </label>
+                                    <input type="text" class="form-control" name="last_name" value="{{ form.user.last_name.value|default:'' }}" required>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <!-- Date of Birth -->
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.date_of_birth.id_for_label }}" class="form-label required">
+                                        {{ form.date_of_birth.label }}
+                                    </label>
+                                    {{ form.date_of_birth }}
+                                    {% if form.date_of_birth.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.date_of_birth.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Gender -->
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.gender.id_for_label }}" class="form-label required">
+                                        {{ form.gender.label }}
+                                    </label>
+                                    {{ form.gender }}
+                                    {% if form.gender.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.gender.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Place of Birth -->
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.place_of_birth.id_for_label }}" class="form-label">
+                                        {{ form.place_of_birth.label }}
+                                    </label>
+                                    {{ form.place_of_birth }}
+                                    {% if form.place_of_birth.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.place_of_birth.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Age Calculator -->
+                            <div class="age-calculator mb-3">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <h6 class="mb-1">{% trans "Age Information" %}</h6>
+                                        <p class="mb-0 text-muted" id="ageText">
+                                            {% if form.instance.date_of_birth %}
+                                                {{ form.instance.age }} {% trans "years old" %}
+                                            {% else %}
+                                                {% trans "Enter date of birth to calculate age" %}
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                    <div class="col-md-4 text-end">
+                                        <span class="badge bg-primary" id="ageBadge">
+                                            {% if form.instance.date_of_birth %}
+                                                {{ form.instance.age }} {% trans "years" %}
+                                            {% else %}
+                                                0 {% trans "years" %}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contact Information Field Group -->
+                        <div class="field-group">
+                            <div class="field-group-header">
+                                <h6 class="field-group-title">{% trans "Contact Information" %}</h6>
+                                <p class="field-group-description mb-0">
+                                    {% trans "Student's contact details and address information" %}
+                                </p>
+                            </div>
+
+                            <div class="row">
+                                <!-- Email -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.user.email.id_for_label }}" class="form-label required">
+                                        {% trans "Email Address" %}
+                                    </label>
+                                    <input type="email" class="form-control" name="email" value="{{ form.user.email.value|default:'' }}" required>
+                                </div>
+
+                                <!-- Mobile -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.user.mobile.id_for_label }}" class="form-label">
+                                        {% trans "Mobile Number" %}
+                                    </label>
+                                    <input type="tel" class="form-control" name="mobile" value="{{ form.user.mobile.value|default:'' }}">
+                                </div>
+                            </div>
+
+                            <!-- Address Fields -->
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    <label for="{{ form.address_line_1.id_for_label }}" class="form-label">
+                                        {{ form.address_line_1.label }}
+                                    </label>
+                                    {{ form.address_line_1 }}
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.city.id_for_label }}" class="form-label">
+                                        {{ form.city.label }}
+                                    </label>
+                                    {{ form.city }}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.state.id_for_label }}" class="form-label">
+                                        {{ form.state.label }}
+                                    </label>
+                                    {{ form.state }}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.postal_code.id_for_label }}" class="form-label">
+                                        {{ form.postal_code.label }}
+                                    </label>
+                                    {{ form.postal_code }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Academic Information Field Group -->
+                        <div class="field-group">
+                            <div class="field-group-header">
+                                <h6 class="field-group-title">{% trans "Academic Information" %}</h6>
+                                <p class="field-group-description mb-0">
+                                    {% trans "Student's academic background and current status" %}
+                                </p>
+                            </div>
+
+                            <div class="row">
+                                <!-- Student Type -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.student_type.id_for_label }}" class="form-label required">
+                                        {{ form.student_type.label }}
+                                    </label>
+                                    {{ form.student_type }}
+                                    {% if form.student_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.student_type.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Admission Date -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.admission_date.id_for_label }}" class="form-label required">
+                                        {{ form.admission_date.label }}
+                                    </label>
+                                    {{ form.admission_date }}
+                                    {% if form.admission_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.admission_date.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <!-- Previous School -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.previous_school.id_for_label }}" class="form-label">
+                                        {{ form.previous_school.label }}
+                                    </label>
+                                    {{ form.previous_school }}
+                                    {% if form.previous_school.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.previous_school.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Nationality -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.nationality.id_for_label }}" class="form-label">
+                                        {{ form.nationality.label }}
+                                    </label>
+                                    {{ form.nationality }}
+                                    {% if form.nationality.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.nationality.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <!-- Religion -->
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.religion.id_for_label }}" class="form-label">
+                                        {{ form.religion.label }}
+                                    </label>
+                                    {{ form.religion }}
+                                </div>
+
+                                <!-- Blood Group -->
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.blood_group.id_for_label }}" class="form-label">
+                                        {{ form.blood_group.label }}
+                                    </label>
+                                    {{ form.blood_group }}
+                                </div>
+
+                                <!-- Is Boarder -->
+                                <div class="col-md-4 mb-3">
+                                    <div class="form-check form-switch mt-4">
+                                        {{ form.is_boarder }}
+                                        <label class="form-check-label" for="{{ form.is_boarder.id_for_label }}">
+                                            {{ form.is_boarder.label }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Special Needs Field Group -->
+                        <div class="field-group">
+                            <div class="field-group-header">
+                                <h6 class="field-group-title">{% trans "Special Needs & Medical Information" %}</h6>
+                                <p class="field-group-description mb-0">
+                                    {% trans "Information about special requirements and medical conditions" %}
+                                </p>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        {{ form.has_special_needs }}
+                                        <label class="form-check-label" for="{{ form.has_special_needs.id_for_label }}">
+                                            {{ form.has_special_needs.label }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    <label for="{{ form.special_needs_description.id_for_label }}" class="form-label">
+                                        {{ form.special_needs_description.label }}
+                                    </label>
+                                    {{ form.special_needs_description }}
+                                    <div class="form-text">
+                                        {% trans "Describe any special needs, accommodations, or support requirements" %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    <label for="{{ form.medical_conditions.id_for_label }}" class="form-label">
+                                        {% trans "Medical Conditions" %}
+                                    </label>
+                                    <textarea class="form-control" name="medical_conditions" rows="3" placeholder="{% trans 'List any medical conditions, allergies, or medications...' %}">{{ form.medical_conditions.value|default:'' }}</textarea>
+                                    <div class="form-text">
+                                        {% trans "Important medical information for emergency situations" %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Parent/Guardian Information Field Group -->
+                        <div class="field-group">
+                            <div class="field-group-header">
+                                <h6 class="field-group-title">{% trans "Parent/Guardian Information" %}</h6>
+                                <p class="field-group-description mb-0">
+                                    {% trans "Contact information for parents or legal guardians" %}
+                                </p>
+                            </div>
+
+                            <!-- Father Information -->
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">{% trans "Father's Name" %}</label>
+                                    <input type="text" class="form-control" name="father_name" value="{{ form.father_name.value|default:'' }}">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">{% trans "Father's Occupation" %}</label>
+                                    <input type="text" class="form-control" name="father_occupation" value="{{ form.father_occupation.value|default:'' }}">
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">{% trans "Father's Phone" %}</label>
+                                    <input type="tel" class="form-control" name="father_phone" value="{{ form.father_phone.value|default:'' }}">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">{% trans "Father's Email" %}</label>
+                                    <input type="email" class="form-control" name="father_email" value="{{ form.father_email.value|default:'' }}">
+                                </div>
+                            </div>
+
+                            <!-- Mother Information -->
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">{% trans "Mother's Name" %}</label>
+                                    <input type="text" class="form-control" name="mother_name" value="{{ form.mother_name.value|default:'' }}">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">{% trans "Mother's Occupation" %}</label>
+                                    <input type="text" class="form-control" name="mother_occupation" value="{{ form.mother_occupation.value|default:'' }}">
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">{% trans "Mother's Phone" %}</label>
+                                    <input type="tel" class="form-control" name="mother_phone" value="{{ form.mother_phone.value|default:'' }}">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">{% trans "Mother's Email" %}</label>
+                                    <input type="email" class="form-control" name="mother_email" value="{{ form.mother_email.value|default:'' }}">
+                                </div>
+                            </div>
+
+                            <!-- Guardian Information (if different from parents) -->
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6 class="mt-4 mb-3">{% trans "Guardian Information (if different from parents)" %}</h6>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">{% trans "Guardian's Name" %}</label>
+                                    <input type="text" class="form-control" name="guardian_name" value="{{ form.guardian_name.value|default:'' }}">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">{% trans "Relationship" %}</label>
+                                    <input type="text" class="form-control" name="guardian_relation" value="{{ form.guardian_relation.value|default:'' }}" placeholder="{% trans 'e.g., Uncle, Aunt, Grandparent' %}">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">{% trans "Guardian's Phone" %}</label>
+                                    <input type="tel" class="form-control" name="guardian_phone" value="{{ form.guardian_phone.value|default:'' }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status Field Group -->
+                        <div class="field-group">
+                            <div class="field-group-header">
+                                <h6 class="field-group-title">{% trans "Student Status" %}</h6>
+                                <p class="field-group-description mb-0">
+                                    {% trans "Configure the student's current status in the system" %}
+                                </p>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="form-check form-switch">
+                                        {{ form.status }}
+                                        <label class="form-check-label" for="{{ form.status.id_for_label }}">
+                                            {{ form.status.label }}
+                                        </label>
+                                    </div>
+                                    {% if form.status.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.status.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        {% trans "Active students can attend classes and participate in school activities" %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="form-actions">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="{% url 'academics:student_list' %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-circle me-2"></i>{% trans "Cancel" %}
+                                </a>
+                                <div class="btn-group">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi {% if form.instance.pk %}bi-check-lg{% else %}bi-plus-lg{% endif %} me-2"></i>
+                                        {% if form.instance.pk %}
+                                            {% trans "Update Student" %}
+                                        {% else %}
+                                            {% trans "Create Student" %}
+                                        {% endif %}
+                                    </button>
+                                    {% if form.instance.pk %}
+                                    <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <button type="submit" name="save_and_continue" class="dropdown-item">
+                                                <i class="bi bi-check2-circle me-2"></i>{% trans "Save and Continue Editing" %}
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button type="submit" name="save_and_add_another" class="dropdown-item">
+                                                <i class="bi bi-plus-circle me-2"></i>{% trans "Save and Add Another" %}
+                                            </button>
+                                        </li>
+                                    </ul>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Student Guidelines -->
+            {% if not form.instance.pk %}
+            <div class="card guidelines-card mt-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>{% trans "Student Registration Guidelines" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>{% trans "Student ID:" %}</strong> {% trans "Use a unique identification number that follows your school's numbering system" %}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>{% trans "Personal Information:" %}</strong> {% trans "Ensure all personal details are accurate and up-to-date for emergency contacts" %}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>{% trans "Medical Information:" %}</strong> {% trans "Document any medical conditions or special needs for proper care and accommodations" %}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>{% trans "Parent/Guardian Contacts:" %}</strong> {% trans "Provide multiple contact methods for reliable communication" %}
+                        </li>
+                        <li class="mb-0">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>{% trans "Photo Requirements:" %}</strong> {% trans "Upload a clear, recent photo for identification cards and school records" %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Photo upload functionality
+        const photoInput = document.getElementById('photoInput');
+        const photoUploadArea = document.getElementById('photoUploadArea');
+        const photoPreview = document.getElementById('photoPreview');
+        const photoPlaceholder = document.getElementById('photoPlaceholder');
+        const removePhoto = document.getElementById('removePhoto');
+
+        photoUploadArea.addEventListener('click', function() {
+            photoInput.click();
+        });
+
+        photoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.size > 2 * 1024 * 1024) { // 2MB limit
+                    alert('{% trans "File size must be less than 2MB" %}');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    if (photoPreview) {
+                        photoPreview.src = e.target.result;
+                    } else {
+                        // Create new preview image
+                        const newPreview = document.createElement('img');
+                        newPreview.src = e.target.result;
+                        newPreview.alt = 'Student Photo';
+                        newPreview.className = 'photo-preview';
+                        newPreview.id = 'photoPreview';
+                        photoUploadArea.innerHTML = '';
+                        photoUploadArea.appendChild(newPreview);
+                        
+                        // Show remove button
+                        if (removePhoto) {
+                            removePhoto.style.display = 'inline-block';
+                        }
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        if (removePhoto) {
+            removePhoto.addEventListener('click', function() {
+                photoInput.value = '';
+                if (photoPreview) {
+                    photoPreview.remove();
+                }
+                photoUploadArea.innerHTML = '';
+                photoUploadArea.appendChild(photoPlaceholder);
+                this.style.display = 'none';
+            });
+        }
+
+        // Age calculation
+        const dobInput = document.getElementById('{{ form.date_of_birth.id_for_label }}');
+        const ageText = document.getElementById('ageText');
+        const ageBadge = document.getElementById('ageBadge');
+
+        function calculateAge() {
+            if (dobInput.value) {
+                const birthDate = new Date(dobInput.value);
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+
+                ageText.textContent = age + ' {% trans "years old" %}';
+                ageBadge.textContent = age + ' {% trans "years" %}';
+                
+                // Color code based on age
+                if (age < 5) {
+                    ageBadge.className = 'badge bg-warning';
+                } else if (age > 18) {
+                    ageBadge.className = 'badge bg-info';
+                } else {
+                    ageBadge.className = 'badge bg-primary';
+                }
+            } else {
+                ageText.textContent = '{% trans "Enter date of birth to calculate age" %}';
+                ageBadge.textContent = '0 {% trans "years" %}';
+                ageBadge.className = 'badge bg-secondary';
+            }
+        }
+
+        dobInput.addEventListener('change', calculateAge);
+        calculateAge(); // Initialize
+
+        // Form validation
+        const studentForm = document.getElementById('studentForm');
+        studentForm.addEventListener('submit', function(e) {
+            let isValid = true;
+            const requiredFields = studentForm.querySelectorAll('[required]');
+            
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    isValid = false;
+                    field.classList.add('is-invalid');
+                } else {
+                    field.classList.remove('is-invalid');
+                }
+            });
+
+            // Validate email format
+            const emailField = studentForm.querySelector('input[type="email"]');
+            if (emailField.value && !isValidEmail(emailField.value)) {
+                isValid = false;
+                emailField.classList.add('is-invalid');
+            }
+
+            if (!isValid) {
+                e.preventDefault();
+                const firstInvalid = studentForm.querySelector('.is-invalid');
+                if (firstInvalid) {
+                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        });
+
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        // Auto-format student ID to uppercase
+        const studentIdInput = document.getElementById('{{ form.student_id.id_for_label }}');
+        if (studentIdInput) {
+            studentIdInput.addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+            });
+        }
+    });
+</script>
+{% endblock %}

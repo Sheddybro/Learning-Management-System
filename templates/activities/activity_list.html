@@ -1,0 +1,656 @@
+{% extends 'base/base.html' %}
+{% load static i18n user_filters %}
+
+{% block title %}{% trans "Extracurricular Activities" %}{% endblock %}
+
+{% block body_class %}activities-list{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active" aria-current="page">{% trans "Activities" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+{% if user.is_staff or user|has_role:'coordinator' %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'activities:activity_create' %}" class="btn btn-success">
+            <i class="bi bi-plus-circle me-2"></i>{% trans "Add Activity" %}
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.activities-container {
+    max-width: 100%;
+}
+
+.activities-header {
+    background: linear-gradient(135deg, var(--bs-success), #28a745);
+    color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--bs-primary);
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    opacity: 0.8;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.filters-section {
+    background: var(--bs-light);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.activity-card {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    background: white;
+    border: 2px solid transparent;
+    height: 100%;
+}
+
+.activity-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-color: var(--bs-success);
+}
+
+.activity-image {
+    height: 200px;
+    object-fit: cover;
+    width: 100%;
+    background: linear-gradient(135deg, var(--bs-light), #f8f9fa);
+}
+
+.activity-header {
+    background: linear-gradient(135deg, var(--bs-success), #28a745);
+    color: white;
+    padding: 1rem;
+    position: relative;
+}
+
+.activity-status {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.status-planning { background: var(--bs-secondary); color: white; }
+.status-active { background: var(--bs-success); color: white; }
+.status-completed { background: var(--bs-primary); color: white; }
+.status-cancelled { background: var(--bs-danger); color: white; }
+
+.activity-body {
+    padding: 1.5rem;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.activity-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    font-size: 0.875rem;
+    color: var(--bs-secondary);
+}
+
+.meta-item i {
+    margin-right: 0.5rem;
+    width: 16px;
+}
+
+.activity-description {
+    color: var(--bs-body-color);
+    margin-bottom: 1rem;
+    line-height: 1.5;
+    flex-grow: 1;
+}
+
+.activity-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 0.75rem 0.5rem;
+    background: var(--bs-light);
+    border-radius: 6px;
+}
+
+.stat-value {
+    font-weight: bold;
+    color: var(--bs-primary);
+    display: block;
+    font-size: 1.1rem;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--bs-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.activity-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: auto;
+}
+
+.btn-view {
+    flex: 1;
+    transition: all 0.3s ease;
+}
+
+.btn-view:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.activity-footer {
+    background: var(--bs-light);
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--bs-border-color);
+    font-size: 0.875rem;
+    color: var(--bs-secondary);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-radius: 12px;
+    margin: 2rem 0;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    color: var(--bs-secondary);
+    margin-bottom: 1.5rem;
+}
+
+.search-results {
+    background: var(--bs-light);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+    .activities-header {
+        padding: 1.5rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .activity-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .activity-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .activity-actions {
+        flex-direction: column;
+    }
+
+    .btn-view {
+        margin-bottom: 0.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="activities-container">
+    <!-- Statistics Header -->
+    <div class="activities-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2 class="mb-1">
+                    <i class="bi bi-calendar-event me-2"></i>{% trans "Extracurricular Activities Hub" %}
+                </h2>
+                <p class="mb-0 opacity-75">
+                    {% trans "Discover and participate in enriching extracurricular activities beyond academics" %}
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                {% if activities %}
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-number">{{ activities|length }}</span>
+                        <span class="stat-label">{% trans "Total" %}</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number">{{ activities|active_count }}</span>
+                        <span class="stat-label">{% trans "Active" %}</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number">{{ activities|enrolled_count }}</span>
+                        <span class="stat-label">{% trans "Enrolled" %}</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filters -->
+    <div class="filters-section">
+        <form method="get" id="filterForm" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="id_search" class="form-label">{% trans "Search Activities" %}</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" id="id_search" name="search"
+                           placeholder="{% trans 'Search by title or description...' %}"
+                           value="{{ search_form.search.value|default:'' }}">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <label for="id_category" class="form-label">{% trans "Category" %}</label>
+                <select class="form-select" id="id_category" name="category">
+                    <option value="">{% trans "All Categories" %}</option>
+                    {% for category in search_form.category.field.queryset %}
+                    <option value="{{ category.pk }}" {% if search_form.category.value == category.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ category.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="id_activity_type" class="form-label">{% trans "Type" %}</label>
+                <select class="form-select" id="id_activity_type" name="activity_type">
+                    <option value="">{% trans "All Types" %}</option>
+                    {% for type in search_form.activity_type.field.queryset %}
+                    <option value="{{ type.pk }}" {% if search_form.activity_type.value == type.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ type.title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="id_status" class="form-label">{% trans "Status" %}</label>
+                <select class="form-select" id="id_status" name="status">
+                    <option value="">{% trans "All Status" %}</option>
+                    {% for status_choice in search_form.status.field.choices %}
+                    <option value="{{ status_choice.0 }}" {% if search_form.status.value == status_choice.0 %}selected{% endif %}>
+                        {{ status_choice.1 }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-success w-100">
+                    <i class="bi bi-search me-1"></i>{% trans "Filter" %}
+                </button>
+            </div>
+        </form>
+
+        <!-- Search Results Info -->
+        <div class="search-results d-none" id="searchResults">
+            <i class="bi bi-info-circle me-2"></i>
+            <span id="resultsText">{% trans "Showing all activities" %}</span>
+        </div>
+    </div>
+
+    <!-- Activities Grid -->
+    <div class="row" id="activitiesGrid">
+        {% for activity in activities %}
+        <div class="col-lg-4 col-md-6 mb-4 activity-item"
+             data-title="{{ activity.title|lower }}"
+             data-category="{{ activity.category.name|lower }}"
+             data-type="{{ activity.activity_type.title|lower }}"
+             data-status="{{ activity.status|lower }}">
+
+            <div class="activity-card d-flex flex-column">
+                <!-- Activity Image -->
+                {% if activity.image %}
+                <img src="{{ activity.image.url }}" alt="{{ activity.title }}" class="activity-image">
+                {% else %}
+                <div class="activity-image d-flex align-items-center justify-content-center">
+                    <i class="bi bi-calendar-event display-4 text-muted"></i>
+                </div>
+                {% endif %}
+
+                <!-- Card Header -->
+                <div class="activity-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h5 class="card-title mb-0 text-truncate">{{ activity.title }}</h5>
+                        <span class="activity-status status-{{ activity.status|lower }}">
+                            {{ activity.get_status_display }}
+                        </span>
+                    </div>
+
+                    <div class="activity-meta mt-2">
+                        <div class="meta-item">
+                            <i class="bi bi-tag"></i>
+                            {{ activity.category.name }}
+                        </div>
+                        <div class="meta-item">
+                            <i class="bi bi-people"></i>
+                            {{ activity.activity_type.title }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card Body -->
+                <div class="activity-body">
+                    <p class="activity-description">{{ activity.description|truncatechars:150 }}</p>
+
+                    <!-- Activity Stats -->
+                    <div class="activity-stats">
+                        <div class="stat-item">
+                            <span class="stat-value">${{ activity.fee_amount|floatformat:0 }}</span>
+                            <span class="stat-label">{% trans "Fee" %}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">
+                                {% if activity.available_spots %}
+                                    {{ activity.available_spots }}
+                                {% else %}
+                                    ∞
+                                {% endif %}
+                            </span>
+                            <span class="stat-label">{% trans "Available" %}</span>
+                        </div>
+                        {% if activity.enrolled_count %}
+                        <div class="stat-item">
+                            <span class="stat-value">{{ activity.enrolled_count }}</span>
+                            <span class="stat-label">{% trans "Enrolled" %}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="activity-actions">
+                        <a href="{% url 'activities:activity_detail' activity.pk %}"
+                           class="btn btn-success btn-view">
+                            <i class="bi bi-eye me-1"></i>{% trans "View Details" %}
+                        </a>
+                        {% if user|has_role:'student' and not activity.is_enrolled %}
+                        <button type="button" class="btn btn-outline-success" onclick="enrollActivity({{ activity.pk }}, '{{ activity.title }}')">
+                            <i class="bi bi-person-plus me-1"></i>{% trans "Enroll" %}
+                        </button>
+                        {% endif %}
+                        {% if user|has_role:'student' and activity.is_enrolled %}
+                        <span class="badge bg-success">
+                            <i class="bi bi-check-circle me-1"></i>{% trans "Enrolled" %}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Card Footer -->
+                <div class="activity-footer">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-calendar me-1"></i>
+                            <strong>{% trans "Start:" %}</strong> {{ activity.start_date|date:"M j, Y" }}
+                            {% if activity.end_date %}
+                            <strong>{% trans "End:" %}</strong> {{ activity.end_date|date:"M j, Y" }}
+                            {% endif %}
+                        </div>
+                        {% if activity.registration_deadline and activity.registration_deadline >= now.date %}
+                        <div class="text-success fw-bold">
+                            <i class="bi bi-clock me-1"></i>{% trans "Open" %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="bi bi-calendar-x"></i>
+                </div>
+                <h4 class="mb-3">{% trans "No Activities Found" %}</h4>
+                <p class="text-muted mb-4">
+                    {% trans "There are currently no extracurricular activities available matching your criteria." %}
+                </p>
+                {% if user.is_staff or user|has_role:'coordinator' %}
+                <a href="{% url 'activities:activity_create' %}" class="btn btn-success btn-lg">
+                    <i class="bi bi-plus-circle me-2"></i>{% trans "Create First Activity" %}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="{% trans 'Activity pagination' %}" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    <i class="bi bi-chevron-left"></i> {% trans "Previous" %}
+                </a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active">
+                <span class="page-link">{{ num }}</span>
+            </li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+            </li>
+            {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %>&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    {% trans "Next" %} <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('filterForm');
+    const searchInput = document.getElementById('id_search');
+    const categorySelect = document.getElementById('id_category');
+    const typeSelect = document.getElementById('id_activity_type');
+    const statusSelect = document.getElementById('id_status');
+    const activitiesGrid = document.getElementById('activitiesGrid');
+    const activityItems = document.querySelectorAll('.activity-item');
+    const searchResults = document.getElementById('searchResults');
+    const resultsText = document.getElementById('resultsText');
+
+    // Initialize filter functionality
+    function applyFilters() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const selectedCategory = categorySelect.value.toLowerCase();
+        const selectedType = typeSelect.value.toLowerCase();
+        const selectedStatus = statusSelect.value.toLowerCase();
+
+        let visibleCount = 0;
+
+        activityItems.forEach(item => {
+            const title = item.dataset.title || '';
+            const category = item.dataset.category || '';
+            const type = item.dataset.type || '';
+            const status = item.dataset.status || '';
+
+            const matchesSearch = !searchTerm || title.includes(searchTerm);
+            const matchesCategory = !selectedCategory || category === selectedCategory;
+            const matchesType = !selectedType || type === selectedType;
+            const matchesStatus = !selectedStatus || status === selectedStatus;
+
+            if (matchesSearch && matchesCategory && matchesType && matchesStatus) {
+                item.style.display = '';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+
+        // Update search results info
+        if (searchTerm || selectedCategory || selectedType || selectedStatus) {
+            searchResults.classList.remove('d-none');
+            let text = `{% trans "Found" %} ${visibleCount} {% trans "activities matching filters" %}`;
+            resultsText.textContent = text;
+        } else {
+            searchResults.classList.add('d-none');
+        }
+
+        // Show "no results" message if needed
+        const existingEmpty = activitiesGrid.querySelector('.empty-state:not(.col-12)');
+        if (visibleCount === 0 && !existingEmpty) {
+            const noResults = document.createElement('div');
+            noResults.className = 'col-12';
+            noResults.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="bi bi-search"></i>
+                    </div>
+                    <h4>{% trans "No Results Found" %}</h4>
+                    <p class="text-muted">{% trans "Try adjusting your search or filter criteria." %}</p>
+                </div>
+            `;
+            activitiesGrid.appendChild(noResults);
+        } else if (visibleCount > 0 && existingEmpty && !existingEmpty.classList.contains('col-12')) {
+            existingEmpty.remove();
+        }
+    }
+
+    // Event listeners for real-time filtering
+    searchInput.addEventListener('input', applyFilters);
+    categorySelect.addEventListener('change', applyFilters);
+    typeSelect.addEventListener('change', applyFilters);
+    statusSelect.addEventListener('change', applyFilters);
+
+    // Form submission (for server-side filtering)
+    filterForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(filterForm);
+        const params = new URLSearchParams();
+
+        for (let [key, value] of formData.entries()) {
+            if (value.trim()) {
+                params.append(key, value);
+            }
+        }
+
+        // Reload page with filters
+        window.location.search = params.toString();
+    });
+
+    // Animate cards on scroll
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+
+    activityItems.forEach((item, index) => {
+        item.style.opacity = '0';
+        item.style.transform = 'translateY(20px)';
+        item.style.transition = `opacity 0.5s ease ${index * 0.1}s, transform 0.5s ease ${index * 0.1}s`;
+        observer.observe(item);
+    });
+
+    // Trigger initial animation for visible items
+    setTimeout(() => {
+        const visibleItems = document.querySelectorAll('.activity-item:not([style*="none"])');
+        visibleItems.forEach(item => {
+            item.style.opacity = '1';
+            item.style.transform = 'translateY(0)';
+        });
+    }, 100);
+
+    // Enrollment functionality
+    window.enrollActivity = function(activityId, activityTitle) {
+        if (confirm(`{% trans "Are you sure you want to enroll in" %} "${activityTitle}"?`)) {
+            // Create a form to submit enrollment
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `{% url 'activities:activity_enroll' 0 %}`.replace('0', activityId);
+
+            // Add CSRF token
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (csrfToken) {
+                form.appendChild(csrfToken.cloneNode(true));
+            }
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+    };
+});
+</script>
+{% endblock %}

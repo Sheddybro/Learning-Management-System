@@ -1,0 +1,1238 @@
+<!-- templates/transport/allocations/transportallocation_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Transport Allocations" %}{% endblock %}
+
+{% block page_title %}{% trans "Transport Allocations" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Allocations" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'transport:transportallocation_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> {% trans "New Allocation" %}
+        </a>
+        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#bulkAllocationModal">
+                    <i class="fas fa-users me-2"></i> {% trans "Bulk Allocation" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#importModal">
+                    <i class="fas fa-file-import me-2"></i> {% trans "Import Allocations" %}
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="#" id="exportAllocations">
+                    <i class="fas fa-file-export me-2"></i> {% trans "Export to Excel" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#reportsModal">
+                    <i class="fas fa-chart-bar me-2"></i> {% trans "Generate Reports" %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .allocations-management-page {
+        background-color: #f8f9fa;
+    }
+
+    .allocations-management {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .stats-card {
+        text-align: center;
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+        border: 0;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stats-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stats-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+    
+    .allocation-card {
+        border-radius: 0.75rem;
+        border: 0;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .allocation-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .student-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+    
+    .route-badge {
+        background: #e7f1ff;
+        color: #0d6efd;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .status-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-active {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-inactive {
+        background-color: #f3f4f6;
+        color: #6b7280;
+    }
+    
+    .status-pending {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    
+    .status-expired {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .allocation-type {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        margin-right: 0.5rem;
+    }
+    
+    .type-morning {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .type-evening {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .type-both {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .filter-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        border: none;
+    }
+    
+    .search-box {
+        position: relative;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    .search-input {
+        padding-left: 40px;
+    }
+    
+    .view-toggle {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .view-toggle .btn {
+        border: none;
+        border-radius: 0;
+        padding: 0.5rem 1rem;
+    }
+    
+    .view-toggle .btn.active {
+        background: #0d6efd;
+        color: white;
+    }
+    
+    .action-buttons .btn {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .table-actions {
+        white-space: nowrap;
+    }
+    
+    .expiry-warning {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .capacity-warning {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+    }
+    
+    /* Grid/List view transitions */
+    .view-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .view-list {
+        display: none;
+    }
+    
+    .view-grid .allocation-item {
+        display: block;
+    }
+    
+    .view-list .allocation-item {
+        display: none;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-left: 2rem;
+        margin-bottom: 1rem;
+    }
+    
+    .timeline-item:before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0.5rem;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #0d6efd;
+    }
+    
+    .timeline-item:after {
+        content: '';
+        position: absolute;
+        left: 5px;
+        top: 1.5rem;
+        bottom: -1rem;
+        width: 2px;
+        background: #dee2e6;
+    }
+    
+    .timeline-item:last-child:after {
+        display: none;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .student-avatar {
+            width: 50px;
+            height: 50px;
+            font-size: 1.25rem;
+        }
+        
+        .view-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .action-buttons .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="allocations-management">
+    <!-- Filters and Controls -->
+    <div class="card filter-card mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-3">
+                    <div class="search-box">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" class="form-control search-input" id="allocationSearch" 
+                               placeholder="{% trans 'Search allocations...' %}">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" id="statusFilter">
+                        <option value="">{% trans "All Status" %}</option>
+                        <option value="active">{% trans "Active" %}</option>
+                        <option value="inactive">{% trans "Inactive" %}</option>
+                        <option value="pending">{% trans "Pending" %}</option>
+                        <option value="expired">{% trans "Expired" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" id="routeFilter">
+                        <option value="">{% trans "All Routes" %}</option>
+                        {% for route in routes %}
+                        <option value="{{ route.id }}">{{ route.code }} - {{ route.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" id="typeFilter">
+                        <option value="">{% trans "All Types" %}</option>
+                        <option value="morning">{% trans "Morning Only" %}</option>
+                        <option value="evening">{% trans "Evening Only" %}</option>
+                        <option value="both">{% trans "Both" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" id="sessionFilter">
+                        <option value="">{% trans "All Sessions" %}</option>
+                        {% for session in academic_sessions %}
+                        <option value="{{ session.id }}">{{ session.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <div class="view-toggle btn-group" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" data-view="grid">
+                            <i class="fas fa-th"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" data-view="list">
+                            <i class="fas fa-list"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Advanced Filters -->
+            <div class="mt-3">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters">
+                    <i class="fas fa-sliders-h me-1"></i> {% trans "Advanced Filters" %}
+                </button>
+                
+                <div class="collapse mt-2" id="advancedFilters">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label small">{% trans "Student Grade" %}</label>
+                            <select class="form-select form-select-sm" id="gradeFilter">
+                                <option value="">{% trans "All Grades" %}</option>
+                                {% for grade in grades %}
+                                <option value="{{ grade }}">{{ grade }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">{% trans "Expiry Status" %}</label>
+                            <select class="form-select form-select-sm" id="expiryFilter">
+                                <option value="">{% trans "Any Expiry" %}</option>
+                                <option value="expiring_soon">{% trans "Expiring Soon" %}</option>
+                                <option value="expired">{% trans "Expired" %}</option>
+                                <option value="indefinite">{% trans "Indefinite" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">{% trans "Fee Range" %}</label>
+                            <select class="form-select form-select-sm" id="feeFilter">
+                                <option value="">{% trans "Any Fee" %}</option>
+                                <option value="0-50">$0 - $50</option>
+                                <option value="51-100">$51 - $100</option>
+                                <option value="101-200">$101 - $200</option>
+                                <option value="201+">$201+</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">&nbsp;</label>
+                            <div>
+                                <button class="btn btn-sm btn-primary w-100" id="applyFilters">
+                                    <i class="fas fa-filter me-1"></i> {% trans "Apply" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="row mb-4">
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <div class="stats-value text-primary">{{ total_allocations }}</div>
+                    <div class="stats-label">{% trans "Total Allocations" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <div class="stats-value text-success">{{ active_allocations }}</div>
+                    <div class="stats-label">{% trans "Active Allocations" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <div class="stats-value text-warning">{{ expiring_soon }}</div>
+                    <div class="stats-label">{% trans "Expiring Soon" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <div class="stats-value text-danger">{{ expired_allocations }}</div>
+                    <div class="stats-label">{% trans "Expired" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <div class="stats-value text-info">{{ monthly_revenue|floatformat:2 }}</div>
+                    <div class="stats-label">{% trans "Monthly Revenue" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <div class="stats-value text-secondary">{{ utilization_rate }}%</div>
+                    <div class="stats-label">{% trans "Capacity Utilization" %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Warnings and Alerts -->
+    {% if expiring_soon > 0 %}
+    <div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>{% trans "Attention:" %}</strong> 
+        {% blocktrans count counter=expiring_soon %}
+        You have {{ expiring_soon }} allocation that will expire soon.
+        {% plural %}
+        You have {{ expiring_soon }} allocations that will expire soon.
+        {% endblocktrans %}
+        <a href="?expiry_status=expiring_soon" class="alert-link">{% trans "View expiring allocations" %}</a>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <!-- Allocations Grid View -->
+    <div class="view-grid" id="allocationsView">
+        {% for allocation in allocations %}
+        <div class="allocation-item" data-allocation-id="{{ allocation.id }}">
+            <div class="card allocation-card">
+                <div class="card-body">
+                    <!-- Student Information -->
+                    <div class="d-flex align-items-start mb-3">
+                        <div class="student-avatar me-3">
+                            {{ allocation.student.first_name|first|upper }}{{ allocation.student.last_name|first|upper }}
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="card-title mb-1">
+                                {{ allocation.student.get_full_name }}
+                            </h6>
+                            <p class="card-text text-muted small mb-1">
+                                {{ allocation.student.grade_level }} • {{ allocation.student.section }}
+                            </p>
+                            <p class="card-text small text-muted mb-0">
+                                <i class="fas fa-id-badge me-1"></i>{{ allocation.student.student_id }}
+                            </p>
+                        </div>
+                        <div class="text-end">
+                            <span class="status-badge status-{{ allocation.status }}">
+                                {{ allocation.get_status_display }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Route Information -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="route-badge">
+                                <i class="fas fa-route me-1"></i>
+                                {{ allocation.route_schedule.route.code }}
+                            </span>
+                            <span class="allocation-type type-{{ allocation.allocation_type }}">
+                                <i class="fas fa-{% if allocation.allocation_type == 'morning' %}sun{% elif allocation.allocation_type == 'evening' %}moon{% else %}sync{% endif %} me-1"></i>
+                                {{ allocation.get_allocation_type_display }}
+                            </span>
+                        </div>
+                        <p class="small mb-1">
+                            <i class="fas fa-bus me-1 text-muted"></i>
+                            {{ allocation.route_schedule.vehicle.vehicle_number }}
+                        </p>
+                        <p class="small mb-0">
+                            <i class="fas fa-user me-1 text-muted"></i>
+                            {{ allocation.route_schedule.driver.user.get_full_name }}
+                        </p>
+                    </div>
+
+                    <!-- Stop Information -->
+                    <div class="timeline-container mb-3">
+                        <div class="timeline-item">
+                            <strong>{% trans "Pickup:" %}</strong>
+                            <div class="small">{{ allocation.pickup_stop.name }}</div>
+                            <div class="small text-muted">
+                                <i class="fas fa-clock me-1"></i>
+                                {{ allocation.pickup_stop.pickup_time|default:"-" }}
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <strong>{% trans "Drop:" %}</strong>
+                            <div class="small">{{ allocation.drop_stop.name }}</div>
+                            <div class="small text-muted">
+                                <i class="fas fa-clock me-1"></i>
+                                {{ allocation.drop_stop.drop_time|default:"-" }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Date and Fee Information -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <small class="text-muted">{% trans "Start:" %}</small>
+                            <div class="small">{{ allocation.start_date|date:"M d, Y" }}</div>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted">{% trans "Monthly Fee:" %}</small>
+                            <div class="small fw-bold text-success">${{ allocation.monthly_fee }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Expiry Warning -->
+                    {% if allocation.is_active_allocation and allocation.end_date %}
+                        {% with days_remaining=allocation.end_date|timeuntil %}
+                        {% if "day" in days_remaining and days_remaining < 7 %}
+                        <div class="expiry-warning p-2 mb-3 rounded">
+                            <small>
+                                <i class="fas fa-exclamation-triangle me-1 text-warning"></i>
+                                {% trans "Expires in" %} {{ days_remaining }}
+                            </small>
+                        </div>
+                        {% endif %}
+                        {% endwith %}
+                    {% endif %}
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons d-flex gap-2">
+                        <a href="{% url 'transport:transportallocation_update' allocation.pk %}" 
+                           class="btn btn-outline-primary btn-sm flex-fill">
+                            <i class="fas fa-edit me-1"></i> {% trans "Edit" %}
+                        </a>
+                        <button class="btn btn-outline-danger btn-sm" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#deleteModal"
+                                data-allocation-id="{{ allocation.pk }}"
+                                data-student-name="{{ allocation.student.get_full_name }}"
+                                data-route-name="{{ allocation.route_schedule.route.code }}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-route text-muted fa-3x mb-3"></i>
+                    <h5 class="text-muted">{% trans "No allocations found" %}</h5>
+                    <p class="text-muted">{% trans "Get started by creating your first transport allocation." %}</p>
+                    <a href="{% url 'transport:transportallocation_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i> {% trans "Create Allocation" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Allocations Table View (Hidden by default) -->
+    <div class="view-list" id="tableView">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="allocationsTable">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Student" %}</th>
+                                <th>{% trans "Route" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Pickup" %}</th>
+                                <th>{% trans "Drop" %}</th>
+                                <th>{% trans "Start Date" %}</th>
+                                <th>{% trans "End Date" %}</th>
+                                <th>{% trans "Fee" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for allocation in allocations %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary bg-opacity-10 rounded p-2 me-3">
+                                            <i class="fas fa-user text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <strong>{{ allocation.student.get_full_name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ allocation.student.grade_level }} • {{ allocation.student.section }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div>
+                                        <strong>{{ allocation.route_schedule.route.code }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ allocation.route_schedule.vehicle.vehicle_number }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="allocation-type type-{{ allocation.allocation_type }}">
+                                        {{ allocation.get_allocation_type_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <small>
+                                        {{ allocation.pickup_stop.name }}<br>
+                                        <span class="text-muted">{{ allocation.pickup_stop.pickup_time|default:"-" }}</span>
+                                    </small>
+                                </td>
+                                <td>
+                                    <small>
+                                        {{ allocation.drop_stop.name }}<br>
+                                        <span class="text-muted">{{ allocation.drop_stop.drop_time|default:"-" }}</span>
+                                    </small>
+                                </td>
+                                <td>{{ allocation.start_date|date:"M d, Y" }}</td>
+                                <td>
+                                    {% if allocation.end_date %}
+                                        {{ allocation.end_date|date:"M d, Y" }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong>${{ allocation.monthly_fee }}</strong>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ allocation.status }}">
+                                        {{ allocation.get_status_display }}
+                                    </span>
+                                </td>
+                                <td class="table-actions">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'transport:transportallocation_update' allocation.pk %}" 
+                                           class="btn btn-outline-primary">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button class="btn btn-outline-danger" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#deleteModal"
+                                                data-allocation-id="{{ allocation.pk }}"
+                                                data-student-name="{{ allocation.student.get_full_name }}"
+                                                data-route-name="{{ allocation.route_schedule.route.code }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="{% trans 'Allocation pagination' %}" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">{% trans "First" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>
+            </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">{% trans "Last" %}</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">{% trans "Confirm Deletion" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Are you sure you want to delete the transport allocation for" %} <strong id="studentName"></strong>?</p>
+                <p class="small text-muted">
+                    <i class="fas fa-route me-1"></i>
+                    {% trans "Route:" %} <span id="routeName"></span>
+                </p>
+                <p class="text-danger small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    {% trans "This action cannot be undone. The student will be removed from this transport route." %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">{% trans "Delete Allocation" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Allocation Modal -->
+<div class="modal fade" id="bulkAllocationModal" tabindex="-1" aria-labelledby="bulkAllocationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkAllocationModalLabel">
+                    <i class="fas fa-users me-2"></i>{% trans "Bulk Transport Allocation" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Allocate multiple students to transport routes at once." %}</p>
+                
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Select Route Schedule" %}</label>
+                    <select class="form-select" id="bulkRouteSchedule">
+                        <option value="">{% trans "Choose a route schedule..." %}</option>
+                        {% for schedule in route_schedules %}
+                        <option value="{{ schedule.id }}">
+                            {{ schedule.route.code }} - {{ schedule.vehicle.vehicle_number }} ({{ schedule.academic_session.name }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Select Students" %}</label>
+                    <select class="form-select" multiple id="bulkStudents" size="8">
+                        {% for student in available_students %}
+                        <option value="{{ student.id }}">
+                            {{ student.get_full_name }} ({{ student.grade_level }} - {{ student.section }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">{% trans "Hold Ctrl/Cmd to select multiple students" %}</div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">{% trans "Allocation Type" %}</label>
+                            <select class="form-select" id="bulkAllocationType">
+                                <option value="both">{% trans "Both Morning and Evening" %}</option>
+                                <option value="morning">{% trans "Morning Only" %}</option>
+                                <option value="evening">{% trans "Evening Only" %}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">{% trans "Start Date" %}</label>
+                            <input type="date" class="form-control" id="bulkStartDate">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="processBulkAllocation">
+                    <i class="fas fa-users me-1"></i> {% trans "Create Allocations" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importModalLabel">{% trans "Import Allocations" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Upload a CSV or Excel file containing allocation data." %}</p>
+                <div class="mb-3">
+                    <label for="importFile" class="form-label">{% trans "Select File" %}</label>
+                    <input class="form-control" type="file" id="importFile" accept=".csv,.xlsx,.xls">
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="updateExisting">
+                    <label class="form-check-label" for="updateExisting">
+                        {% trans "Update existing allocations" %}
+                    </label>
+                </div>
+                <div class="mt-3">
+                    <a href="#" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-download me-1"></i> {% trans "Download Template" %}
+                    </a>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="startImport">{% trans "Import Allocations" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reports Modal -->
+<div class="modal fade" id="reportsModal" tabindex="-1" aria-labelledby="reportsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reportsModalLabel">
+                    <i class="fas fa-chart-bar me-2"></i>{% trans "Allocation Reports" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-route text-primary fa-2x mb-3"></i>
+                                <h6>{% trans "Route Utilization" %}</h6>
+                                <p class="small text-muted">{% trans "Capacity and usage by route" %}</p>
+                                <button class="btn btn-outline-primary btn-sm" id="generateRouteReport">
+                                    {% trans "Generate Report" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-dollar-sign text-success fa-2x mb-3"></i>
+                                <h6>{% trans "Revenue Report" %}</h6>
+                                <p class="small text-muted">{% trans "Monthly fees and revenue analysis" %}</p>
+                                <button class="btn btn-outline-success btn-sm" id="generateRevenueReport">
+                                    {% trans "Generate Report" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-user-graduate text-info fa-2x mb-3"></i>
+                                <h6>{% trans "Student Allocation" %}</h6>
+                                <p class="small text-muted">{% trans "Allocations by grade and section" %}</p>
+                                <button class="btn btn-outline-info btn-sm" id="generateStudentReport">
+                                    {% trans "Generate Report" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-calendar-times text-warning fa-2x mb-3"></i>
+                                <h6>{% trans "Expiry Report" %}</h6>
+                                <p class="small text-muted">{% trans "Upcoming allocation expirations" %}</p>
+                                <button class="btn btn-outline-warning btn-sm" id="generateExpiryReport">
+                                    {% trans "Generate Report" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const viewToggleButtons = document.querySelectorAll('[data-view]');
+        const gridView = document.getElementById('allocationsView');
+        const listView = document.getElementById('tableView');
+        
+        viewToggleButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const viewType = this.getAttribute('data-view');
+                
+                // Update active button
+                viewToggleButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide views
+                if (viewType === 'grid') {
+                    gridView.style.display = 'grid';
+                    listView.style.display = 'none';
+                } else {
+                    gridView.style.display = 'none';
+                    listView.style.display = 'block';
+                }
+            });
+        });
+
+        // Search Functionality
+        const searchInput = document.getElementById('allocationSearch');
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const allocationItems = document.querySelectorAll('.allocation-item');
+            
+            allocationItems.forEach(item => {
+                const allocationText = item.textContent.toLowerCase();
+                if (allocationText.includes(searchTerm)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+
+        // Filter Functionality
+        const statusFilter = document.getElementById('statusFilter');
+        const routeFilter = document.getElementById('routeFilter');
+        const typeFilter = document.getElementById('typeFilter');
+        const sessionFilter = document.getElementById('sessionFilter');
+        const applyFiltersBtn = document.getElementById('applyFilters');
+        
+        function applyFilters() {
+            const status = statusFilter.value;
+            const route = routeFilter.value;
+            const type = typeFilter.value;
+            const session = sessionFilter.value;
+            
+            // In a real implementation, this would make an AJAX request to filter allocations
+            console.log('Applying filters:', { status, route, type, session });
+            
+            // Show loading state
+            showLoadingState();
+            
+            // Simulate API call
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Filters applied successfully" %}', 'success');
+            }, 1000);
+        }
+        
+        applyFiltersBtn.addEventListener('click', applyFilters);
+        
+        // Reset filters when dropdown is changed (for instant filtering)
+        [statusFilter, routeFilter, typeFilter, sessionFilter].forEach(filter => {
+            filter.addEventListener('change', applyFilters);
+        });
+
+        // Delete Modal Handler
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteForm = document.getElementById('deleteForm');
+        
+        deleteModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const allocationId = button.getAttribute('data-allocation-id');
+            const studentName = button.getAttribute('data-student-name');
+            const routeName = button.getAttribute('data-route-name');
+            
+            document.getElementById('studentName').textContent = studentName;
+            document.getElementById('routeName').textContent = routeName;
+            deleteForm.action = `/transport/allocations/${allocationId}/delete/`;
+        });
+
+        // Bulk Allocation
+        document.getElementById('processBulkAllocation').addEventListener('click', function() {
+            const routeSchedule = document.getElementById('bulkRouteSchedule').value;
+            const students = Array.from(document.getElementById('bulkStudents').selectedOptions).map(opt => opt.value);
+            const allocationType = document.getElementById('bulkAllocationType').value;
+            const startDate = document.getElementById('bulkStartDate').value;
+            
+            if (!routeSchedule || students.length === 0 || !startDate) {
+                showNotification('{% trans "Please fill all required fields" %}', 'error');
+                return;
+            }
+            
+            showLoadingState();
+            
+            // In real implementation, this would process bulk allocation
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification(`{% trans "Successfully created" %} ${students.length} {% trans "allocations" %}`, 'success');
+                $('#bulkAllocationModal').modal('hide');
+            }, 2000);
+        });
+
+        // Import Functionality
+        document.getElementById('startImport').addEventListener('click', function() {
+            const fileInput = document.getElementById('importFile');
+            const updateExisting = document.getElementById('updateExisting').checked;
+            
+            if (!fileInput.files.length) {
+                showNotification('{% trans "Please select a file to import" %}', 'error');
+                return;
+            }
+            
+            showLoadingState();
+            
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Allocations imported successfully" %}', 'success');
+                $('#importModal').modal('hide');
+            }, 2000);
+        });
+
+        // Export Functionality
+        document.getElementById('exportAllocations').addEventListener('click', function() {
+            showLoadingState();
+            
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Allocations exported to Excel successfully" %}', 'success');
+                
+                // Simulate file download
+                const link = document.createElement('a');
+                link.href = '#'; // In real app, this would be the file URL
+                link.download = 'allocations_export.xlsx';
+                link.click();
+            }, 1500);
+        });
+
+        // Report Generation
+        document.getElementById('generateRouteReport').addEventListener('click', function() {
+            generateReport('route_utilization');
+        });
+        
+        document.getElementById('generateRevenueReport').addEventListener('click', function() {
+            generateReport('revenue');
+        });
+        
+        document.getElementById('generateStudentReport').addEventListener('click', function() {
+            generateReport('student_allocation');
+        });
+        
+        document.getElementById('generateExpiryReport').addEventListener('click', function() {
+            generateReport('expiry');
+        });
+        
+        function generateReport(type) {
+            showLoadingState();
+            
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification(`{% trans "Report generated successfully" %}`, 'success');
+                
+                // Simulate file download
+                const link = document.createElement('a');
+                link.href = '#'; // In real app, this would be the file URL
+                link.download = `${type}_report.pdf`;
+                link.click();
+                
+                $('#reportsModal').modal('hide');
+            }, 2000);
+        }
+
+        // Utility Functions
+        function showLoadingState() {
+            const spinner = document.createElement('div');
+            spinner.id = 'loadingSpinner';
+            spinner.className = 'position-fixed top-50 start-50 translate-middle';
+            spinner.innerHTML = `
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">{% trans "Loading..." %}</span>
+                </div>
+            `;
+            document.body.appendChild(spinner);
+        }
+
+        function hideLoadingState() {
+            const spinner = document.getElementById('loadingSpinner');
+            if (spinner) {
+                spinner.remove();
+            }
+        }
+
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                    <span>${message}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+
+        // Initialize DataTable for table view
+        if ($.fn.DataTable) {
+            $('#allocationsTable').DataTable({
+                pageLength: 25,
+                responsive: true,
+                language: {
+                    search: "{% trans 'Search allocations:' %}",
+                    lengthMenu: "{% trans 'Show _MENU_ entries' %}",
+                    info: "{% trans 'Showing _START_ to _END_ of _TOTAL_ allocations' %}",
+                    paginate: {
+                        previous: "{% trans 'Previous' %}",
+                        next: "{% trans 'Next' %}"
+                    }
+                }
+            });
+        }
+
+        // Expiry warnings check
+        function checkExpiryWarnings() {
+            const today = new Date();
+            const sevenDaysFromNow = new Date();
+            sevenDaysFromNow.setDate(today.getDate() + 7);
+            
+            let expiringCount = 0;
+            
+            // Check each allocation's end date
+            document.querySelectorAll('.allocation-item').forEach(item => {
+                const endDate = item.querySelector('[data-end-date]')?.getAttribute('data-end-date');
+                if (endDate) {
+                    const expiry = new Date(endDate);
+                    if (expiry <= sevenDaysFromNow && expiry >= today) {
+                        expiringCount++;
+                    }
+                }
+            });
+            
+            if (expiringCount > 0) {
+                showExpiryWarning(expiringCount);
+            }
+        }
+
+        function showExpiryWarning(count) {
+            const warningHtml = `
+                <div class="alert alert-warning alert-dismissible fade show mb-4">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>{% trans "Expiry Alert:" %}</strong>
+                    ${count} {% trans "allocation(s) will expire within the next 7 days." %}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+
+            // Insert warning at the top of the content
+            const content = document.querySelector('.allocations-management');
+            if (content) {
+                content.insertAdjacentHTML('afterbegin', warningHtml);
+            }
+        }
+
+        // Initialize warnings check
+        setTimeout(checkExpiryWarnings, 1000);
+    });
+</script>
+{% endblock %}

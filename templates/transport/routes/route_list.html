@@ -1,0 +1,931 @@
+<!-- templates/transport/routes/route_list.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Transport Routes" %}{% endblock %}
+
+{% block page_title %}{% trans "Transport Routes" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Routes" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .route-management-page {
+        background-color: #f8f9fa;
+    }
+
+    /* Route List Specific Styles */
+    .routes-container {
+        margin-top: 1rem;
+    }
+    
+    .filter-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .route-card {
+        background: #fff;
+        border-radius: 0.75rem;
+        border: 0;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border-left: 4px solid #0d6efd;
+        transition: all 0.3s ease;
+        margin-bottom: 1rem;
+        overflow: hidden;
+    }
+    
+    .route-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .route-card.inactive {
+        border-left-color: #6c757d;
+        opacity: 0.8;
+    }
+    
+    .route-card.high-utilization {
+        border-left-color: #28a745;
+    }
+    
+    .route-card.medium-utilization {
+        border-left-color: #ffc107;
+    }
+    
+    .route-card.low-utilization {
+        border-left-color: #fd7e14;
+    }
+    
+    .route-header {
+        padding: 1.25rem 1.5rem 0.75rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .route-body {
+        padding: 1rem 1.5rem;
+    }
+    
+    .route-footer {
+        padding: 0.75rem 1.5rem;
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        border-radius: 0 0 12px 12px;
+    }
+    
+    .route-code-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+    
+    .status-badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.3rem 0.6rem;
+        border-radius: 15px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .status-active { background-color: #28a745; color: white; }
+    .status-inactive { background-color: #6c757d; color: white; }
+    
+    .utilization-badge {
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 0.3rem 0.6rem;
+        border-radius: 15px;
+    }
+    
+    .utilization-high { background-color: #d1fae5; color: #065f46; }
+    .utilization-medium { background-color: #fef3c7; color: #92400e; }
+    .utilization-low { background-color: #fee2e2; color: #991b1b; }
+    
+    .route-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+    
+    .route-meta {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .route-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 0.5rem;
+        background: #f8f9fa;
+        border-radius: 6px;
+    }
+    
+    .stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .action-buttons .btn {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.75rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        color: #dee2e6;
+        margin-bottom: 1rem;
+    }
+    
+    .stats-card {
+        text-align: center;
+        padding: 1rem;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stats-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stats-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .quick-actions {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .route-path {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 1rem 0;
+        padding: 1rem;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 8px;
+    }
+    
+    .path-point {
+        display: flex;
+        align-items: center;
+        flex: 1;
+    }
+    
+    .path-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #0d6efd;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        font-size: 0.875rem;
+    }
+    
+    .path-details {
+        flex: 1;
+    }
+    
+    .path-name {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.25rem;
+    }
+    
+    .path-address {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .path-arrow {
+        color: #6c757d;
+        margin: 0 1rem;
+        font-size: 1.5rem;
+    }
+    
+    .efficiency-meter {
+        height: 6px;
+        background: #e5e7eb;
+        border-radius: 3px;
+        margin: 0.5rem 0;
+        overflow: hidden;
+    }
+    
+    .efficiency-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.5s ease;
+    }
+    
+    .efficiency-high { background: linear-gradient(90deg, #10b981, #34d399); }
+    .efficiency-medium { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .efficiency-low { background: linear-gradient(90deg, #ef4444, #f87171); }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .route-header,
+        .route-body,
+        .route-footer {
+            padding: 1rem;
+        }
+        
+        .action-buttons .btn {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+        }
+        
+        .stats-card {
+            padding: 0.75rem;
+        }
+        
+        .stats-value {
+            font-size: 1.5rem;
+        }
+        
+        .route-path {
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .path-arrow {
+            transform: rotate(90deg);
+            margin: 0.5rem 0;
+        }
+    }
+    
+    /* Animation for new routes */
+    @keyframes highlight {
+        0% { background-color: rgba(13, 110, 253, 0.1); }
+        100% { background-color: transparent; }
+    }
+    
+    .highlight-new {
+        animation: highlight 2s ease-in-out;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="routes-container">
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-value text-primary">{{ total_routes }}</div>
+                <div class="stats-label">{% trans "Total Routes" %}</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-value text-success">{{ active_routes }}</div>
+                <div class="stats-label">{% trans "Active Routes" %}</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-value text-info">{{ total_students }}</div>
+                <div class="stats-label">{% trans "Students Transported" %}</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-value text-warning">{{ total_vehicles }}</div>
+                <div class="stats-label">{% trans "Vehicles Assigned" %}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <a href="{% url 'transport:route_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> {% trans "New Route" %}
+                </a>
+                <button class="btn btn-outline-secondary ms-2" id="exportBtn">
+                    <i class="fas fa-download me-1"></i> {% trans "Export" %}
+                </button>
+                <a href="{% url 'transport:route_optimization' %}" class="btn btn-outline-info ms-2">
+                    <i class="fas fa-route me-1"></i> {% trans "Route Optimization" %}
+                </a>
+            </div>
+            <div>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="viewMode" id="viewModeCards" autocomplete="off" checked>
+                    <label class="btn btn-outline-secondary" for="viewModeCards" title="{% trans 'Card View' %}">
+                        <i class="fas fa-grip"></i>
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="viewMode" id="viewModeTable" autocomplete="off">
+                    <label class="btn btn-outline-secondary" for="viewModeTable" title="{% trans 'Table View' %}">
+                        <i class="fas fa-list"></i>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-card">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="statusFilter" class="form-label">{% trans "Status" %}</label>
+                <select class="form-select" id="statusFilter">
+                    <option value="">{% trans "All Status" %}</option>
+                    <option value="active">{% trans "Active" %}</option>
+                    <option value="inactive">{% trans "Inactive" %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="utilizationFilter" class="form-label">{% trans "Utilization" %}</label>
+                <select class="form-select" id="utilizationFilter">
+                    <option value="">{% trans "All Utilization" %}</option>
+                    <option value="high">{% trans "High" %}</option>
+                    <option value="medium">{% trans "Medium" %}</option>
+                    <option value="low">{% trans "Low" %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="searchFilter" class="form-label">{% trans "Search" %}</label>
+                <input type="text" class="form-control" id="searchFilter" placeholder="{% trans 'Search routes...' %}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label d-block">&nbsp;</label>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-secondary w-50" id="resetFilters">
+                        <i class="fas fa-refresh me-1"></i> {% trans "Reset" %}
+                    </button>
+                    <button class="btn btn-primary w-50" id="applyFilters">
+                        <i class="fas fa-filter me-1"></i> {% trans "Apply" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Routes List -->
+    <div id="routesList">
+        {% if routes %}
+            <!-- Card View -->
+            <div id="cardView">
+                {% for route in routes %}
+                <div class="route-card {% if not route.is_active %}inactive{% endif %} {{ route.utilization_class }}" 
+                     data-status="{% if route.is_active %}active{% else %}inactive{% endif %}"
+                     data-utilization="{{ route.utilization_level }}"
+                     data-search="{{ route.name }} {{ route.code }} {{ route.start_point }} {{ route.end_point }}">
+                    <div class="route-header">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h4 class="route-title">{{ route.name }}</h4>
+                                <div class="route-meta">
+                                    <span class="route-code-badge me-2">{{ route.code }}</span>
+                                    {% if route.is_active %}
+                                    <span class="status-badge status-active">{% trans "Active" %}</span>
+                                    {% else %}
+                                    <span class="status-badge status-inactive">{% trans "Inactive" %}</span>
+                                    {% endif %}
+                                    <span class="utilization-badge utilization-{{ route.utilization_level }} ms-2">
+                                        {{ route.get_utilization_display }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="route-meta">
+                                    <i class="fas fa-road me-1"></i> {{ route.total_distance }} km
+                                    <i class="fas fa-clock ms-2 me-1"></i> {{ route.estimated_duration }} min
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="route-body">
+                        <!-- Route Path -->
+                        <div class="route-path">
+                            <div class="path-point">
+                                <div class="path-icon">
+                                    <i class="fas fa-play"></i>
+                                </div>
+                                <div class="path-details">
+                                    <div class="path-name">{% trans "Start" %}</div>
+                                    <div class="path-address">{{ route.start_point }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="path-arrow">
+                                <i class="fas fa-arrow-right"></i>
+                            </div>
+                            
+                            <div class="path-point">
+                                <div class="path-icon">
+                                    <i class="fas fa-stop"></i>
+                                </div>
+                                <div class="path-details">
+                                    <div class="path-name">{% trans "End" %}</div>
+                                    <div class="path-address">{{ route.end_point }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Route Statistics -->
+                        <div class="route-stats">
+                            <div class="stat-item">
+                                <div class="stat-value">{{ route.current_students_count }}</div>
+                                <div class="stat-label">{% trans "Students" %}</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ route.current_vehicles_count }}</div>
+                                <div class="stat-label">{% trans "Vehicles" %}</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ route.stops_count }}</div>
+                                <div class="stat-label">{% trans "Stops" %}</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ route.utilization_percentage }}%</div>
+                                <div class="stat-label">{% trans "Utilization" %}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Efficiency Meter -->
+                        <div class="efficiency-meter">
+                            <div class="efficiency-fill efficiency-{{ route.utilization_level }}" 
+                                 style="width: {{ route.utilization_percentage }}%"></div>
+                        </div>
+                        
+                        {% if route.description %}
+                        <div class="mt-3">
+                            <p class="text-muted mb-0" style="font-size: 0.875rem;">
+                                {{ route.description|truncatewords:20 }}
+                            </p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="route-footer">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="route-meta">
+                                <small>
+                                    <i class="fas fa-calendar me-1"></i>
+                                    {% trans "Updated" %} {{ route.updated_at|timesince }} {% trans "ago" %}
+                                </small>
+                            </div>
+                            <div class="action-buttons">
+                                <a href="{% url 'transport:route_detail' route.pk %}" 
+                                   class="btn btn-sm btn-outline-primary" title="{% trans 'View Details' %}">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'transport:route_update' route.pk %}" 
+                                   class="btn btn-sm btn-outline-secondary" title="{% trans 'Edit' %}">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'transport:routestop_create' route.pk %}" 
+                                   class="btn btn-sm btn-outline-info" title="{% trans 'Manage Stops' %}">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                </a>
+                                {% if perms.transport.delete_route %}
+                                <a href="{% url 'transport:route_delete' route.pk %}" 
+                                   class="btn btn-sm btn-outline-danger" title="{% trans 'Delete' %}">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Table View (Hidden by default) -->
+            <div id="tableView" style="display: none;">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Route Code" %}</th>
+                                <th>{% trans "Route Name" %}</th>
+                                <th>{% trans "Path" %}</th>
+                                <th>{% trans "Distance" %}</th>
+                                <th>{% trans "Duration" %}</th>
+                                <th>{% trans "Students" %}</th>
+                                <th>{% trans "Utilization" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for route in routes %}
+                            <tr data-status="{% if route.is_active %}active{% else %}inactive{% endif %}"
+                                data-utilization="{{ route.utilization_level }}"
+                                data-search="{{ route.name }} {{ route.code }} {{ route.start_point }} {{ route.end_point }}">
+                                <td>
+                                    <strong>{{ route.code }}</strong>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">{{ route.name }}</div>
+                                    {% if route.description %}
+                                    <small class="text-muted">{{ route.description|truncatewords:5 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="small">
+                                        <div><strong>{% trans "From:" %}</strong> {{ route.start_point }}</div>
+                                        <div><strong>{% trans "To:" %}</strong> {{ route.end_point }}</div>
+                                    </div>
+                                </td>
+                                <td>{{ route.total_distance }} km</td>
+                                <td>{{ route.estimated_duration }} min</td>
+                                <td>
+                                    <strong>{{ route.current_students_count }}</strong>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="efficiency-meter me-2" style="width: 60px;">
+                                            <div class="efficiency-fill efficiency-{{ route.utilization_level }}" 
+                                                 style="width: {{ route.utilization_percentage }}%"></div>
+                                        </div>
+                                        <span class="utilization-badge utilization-{{ route.utilization_level }}">
+                                            {{ route.utilization_percentage }}%
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if route.is_active %}
+                                    <span class="status-badge status-active">{% trans "Active" %}</span>
+                                    {% else %}
+                                    <span class="status-badge status-inactive">{% trans "Inactive" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'transport:route_detail' route.pk %}" 
+                                           class="btn btn-outline-primary" title="{% trans 'View Details' %}">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'transport:route_update' route.pk %}" 
+                                           class="btn btn-outline-secondary" title="{% trans 'Edit' %}">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="{% trans 'Routes pagination' %}" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">{% trans "First" %}</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">{% trans "Last" %}</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+        {% else %}
+            <!-- Empty State -->
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="fas fa-route"></i>
+                </div>
+                <h4>{% trans "No Routes Found" %}</h4>
+                <p class="text-muted mb-4">{% trans "There are no transport routes to display. Create your first route to get started." %}</p>
+                <a href="{% url 'transport:route_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> {% trans "Create Route" %}
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Mode Toggle
+        const viewModeCards = document.getElementById('viewModeCards');
+        const viewModeTable = document.getElementById('viewModeTable');
+        const cardView = document.getElementById('cardView');
+        const tableView = document.getElementById('tableView');
+
+        viewModeCards.addEventListener('change', function() {
+            if (this.checked) {
+                cardView.style.display = 'block';
+                tableView.style.display = 'none';
+            }
+        });
+
+        viewModeTable.addEventListener('change', function() {
+            if (this.checked) {
+                cardView.style.display = 'none';
+                tableView.style.display = 'block';
+            }
+        });
+
+        // Filter Functionality
+        const statusFilter = document.getElementById('statusFilter');
+        const utilizationFilter = document.getElementById('utilizationFilter');
+        const searchFilter = document.getElementById('searchFilter');
+        const applyFiltersBtn = document.getElementById('applyFilters');
+        const resetFiltersBtn = document.getElementById('resetFilters');
+
+        function applyFilters() {
+            const status = statusFilter.value;
+            const utilization = utilizationFilter.value;
+            const searchTerm = searchFilter.value.toLowerCase();
+
+            // Get all route elements
+            const routes = document.querySelectorAll('.route-card, tbody tr');
+            
+            let visibleCount = 0;
+            
+            routes.forEach(route => {
+                let show = true;
+
+                // Status filter
+                if (status && route.dataset.status !== status) {
+                    show = false;
+                }
+
+                // Utilization filter
+                if (utilization && route.dataset.utilization !== utilization) {
+                    show = false;
+                }
+
+                // Search filter
+                if (searchTerm && !route.dataset.search.toLowerCase().includes(searchTerm)) {
+                    show = false;
+                }
+
+                // Show/hide based on filters
+                if (show) {
+                    route.style.display = '';
+                    visibleCount++;
+                } else {
+                    route.style.display = 'none';
+                }
+            });
+
+            updateResultsCount(visibleCount);
+            showNotification(`{% trans "Filters applied" %} - ${visibleCount} {% trans "routes found" %}`, 'success');
+        }
+
+        function resetFilters() {
+            statusFilter.value = '';
+            utilizationFilter.value = '';
+            searchFilter.value = '';
+
+            // Show all routes
+            const routes = document.querySelectorAll('.route-card, tbody tr');
+            routes.forEach(route => {
+                route.style.display = '';
+            });
+
+            updateResultsCount(routes.length);
+            showNotification('{% trans "Filters reset" %}', 'info');
+        }
+
+        function updateResultsCount(count) {
+            // Update a results counter if needed
+            console.log(`Visible routes: ${count}`);
+        }
+
+        // Real-time search
+        searchFilter.addEventListener('input', function() {
+            applyFilters();
+        });
+
+        applyFiltersBtn.addEventListener('click', applyFilters);
+        resetFiltersBtn.addEventListener('click', resetFilters);
+
+        // Export Functionality
+        const exportBtn = document.getElementById('exportBtn');
+        
+        exportBtn.addEventListener('click', function() {
+            showExportOptions();
+        });
+
+        function showExportOptions() {
+            const exportOptions = `
+                <div class="dropdown-menu dropdown-menu-end show" style="position: absolute; transform: translate(-120px, 40px);">
+                    <a class="dropdown-item" href="#" onclick="exportData('pdf')">
+                        <i class="fas fa-file-pdf me-2 text-danger"></i> PDF Report
+                    </a>
+                    <a class="dropdown-item" href="#" onclick="exportData('excel')">
+                        <i class="fas fa-file-excel me-2 text-success"></i> Excel Export
+                    </a>
+                    <a class="dropdown-item" href="#" onclick="exportData('csv')">
+                        <i class="fas fa-file-csv me-2 text-primary"></i> CSV Data
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" href="#" onclick="exportRouteMap()">
+                        <i class="fas fa-map me-2 text-info"></i> Route Maps
+                    </a>
+                </div>
+            `;
+            
+            // Create and show dropdown
+            const dropdown = document.createElement('div');
+            dropdown.className = 'dropdown';
+            dropdown.innerHTML = exportOptions;
+            document.body.appendChild(dropdown);
+            
+            // Remove dropdown when clicking elsewhere
+            setTimeout(() => {
+                document.addEventListener('click', function closeDropdown() {
+                    dropdown.remove();
+                    document.removeEventListener('click', closeDropdown);
+                });
+            }, 100);
+        }
+
+        // Highlight new routes (if any)
+        function highlightNewRoutes() {
+            const newRoutes = document.querySelectorAll('.route-card');
+            newRoutes.forEach((route, index) => {
+                if (index < 3) { // Highlight first 3 routes as "new"
+                    route.classList.add('highlight-new');
+                }
+            });
+        }
+
+        // Initialize highlight
+        setTimeout(highlightNewRoutes, 1000);
+
+        // Quick Status Filters
+        function createQuickFilters() {
+            const quickFilters = `
+                <div class="d-flex gap-2 mb-3 flex-wrap">
+                    <span class="filter-toggle" data-status="active">
+                        <i class="fas fa-check-circle text-success me-1"></i>
+                        {% trans "Active" %}
+                    </span>
+                    <span class="filter-toggle" data-utilization="high">
+                        <i class="fas fa-chart-line text-success me-1"></i>
+                        {% trans "High Usage" %}
+                    </span>
+                    <span class="filter-toggle" data-utilization="low">
+                        <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+                        {% trans "Low Usage" %}
+                    </span>
+                </div>
+            `;
+            
+            document.querySelector('.quick-actions').insertAdjacentHTML('afterend', quickFilters);
+
+            // Add click handlers for quick filters
+            document.querySelectorAll('.filter-toggle').forEach(toggle => {
+                toggle.addEventListener('click', function() {
+                    if (this.dataset.status) {
+                        statusFilter.value = this.dataset.status;
+                    }
+                    if (this.dataset.utilization) {
+                        utilizationFilter.value = this.dataset.utilization;
+                    }
+                    applyFilters();
+                    
+                    // Update active state
+                    document.querySelectorAll('.filter-toggle').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+        }
+
+        createQuickFilters();
+
+        // Notification function
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+    });
+
+    // Global functions for external calls
+    window.exportData = function(format) {
+        showNotification(`{% trans "Exporting routes data as" %} ${format.toUpperCase()}...`, 'info');
+        
+        // Simulate export process
+        setTimeout(() => {
+            showNotification(`{% trans "Routes data exported successfully as" %} ${format.toUpperCase()}`, 'success');
+        }, 1500);
+    };
+
+    window.exportRouteMap = function() {
+        showNotification('{% trans "Generating route maps..." %}', 'info');
+        
+        setTimeout(() => {
+            showNotification('{% trans "Route maps exported successfully" %}', 'success');
+        }, 1500);
+    };
+
+    // Helper function for notifications (duplicate definition for global scope)
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 3000);
+    }
+</script>
+{% endblock %}

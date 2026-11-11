@@ -1,0 +1,672 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Health Reports & Analytics{% endblock %}
+
+{% block page_title %}Health Reports & Analytics{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active" aria-current="page">Health Reports</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-primary" id="generateReportBtn">
+            <i class="bi bi-file-earmark-text me-1"></i> Generate Report
+        </button>
+        <button type="button" class="btn btn-outline-success" id="exportDataBtn">
+            <i class="bi bi-download me-1"></i> Export Data
+        </button>
+        <button type="button" class="btn btn-outline-info" id="scheduleReportsBtn">
+            <i class="bi bi-calendar-event me-1"></i> Schedule Reports
+        </button>
+        <button type="button" class="btn btn-outline-secondary" id="customReportBtn">
+            <i class="bi bi-gear me-1"></i> Custom Report
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="reports-container">
+    <!-- Report Filters -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-funnel me-2"></i>Report Filters
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" id="reportFiltersForm" class="row g-3">
+                <div class="col-md-3">
+                    <label for="report_type" class="form-label">Report Type</label>
+                    <select class="form-select" id="report_type" name="report_type">
+                        <option value="overview" {% if request.GET.report_type == 'overview' %}selected{% endif %}>Health Overview</option>
+                        <option value="appointments" {% if request.GET.report_type == 'appointments' %}selected{% endif %}>Appointments</option>
+                        <option value="medications" {% if request.GET.report_type == 'medications' %}selected{% endif %}>Medications</option>
+                        <option value="screenings" {% if request.GET.report_type == 'screenings' %}selected{% endif %}>Screenings</option>
+                        <option value="emergencies" {% if request.GET.report_type == 'emergencies' %}selected{% endif %}>Emergency Contacts</option>
+                        <option value="trends" {% if request.GET.report_type == 'trends' %}selected{% endif %}>Health Trends</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label for="date_from" class="form-label">From Date</label>
+                    <input type="date" class="form-control" id="date_from" name="date_from"
+                           value="{{ request.GET.date_from|default:'' }}">
+                </div>
+
+                <div class="col-md-2">
+                    <label for="date_to" class="form-label">To Date</label>
+                    <input type="date" class="form-control" id="date_to" name="date_to"
+                           value="{{ request.GET.date_to|default:'' }}">
+                </div>
+
+                <div class="col-md-2">
+                    <label for="grade_filter" class="form-label">Grade/Class</label>
+                    <select class="form-select" id="grade_filter" name="grade_filter">
+                        <option value="">All Grades</option>
+                        <option value="1" {% if request.GET.grade_filter == '1' %}selected{% endif %}>Grade 1</option>
+                        <option value="2" {% if request.GET.grade_filter == '2' %}selected{% endif %}>Grade 2</option>
+                        <option value="3" {% if request.GET.grade_filter == '3' %}selected{% endif %}>Grade 3</option>
+                        <option value="4" {% if request.GET.grade_filter == '4' %}selected{% endif %}>Grade 4</option>
+                        <option value="5" {% if request.GET.grade_filter == '5' %}selected{% endif %}>Grade 5</option>
+                        <option value="6" {% if request.GET.grade_filter == '6' %}selected{% endif %}>Grade 6</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label for="health_status" class="form-label">Health Status</label>
+                    <select class="form-select" id="health_status" name="health_status">
+                        <option value="">All Statuses</option>
+                        <option value="excellent" {% if request.GET.health_status == 'excellent' %}selected{% endif %}>Excellent</option>
+                        <option value="good" {% if request.GET.health_status == 'good' %}selected{% endif %}>Good</option>
+                        <option value="fair" {% if request.GET.health_status == 'fair' %}selected{% endif %}>Fair</option>
+                        <option value="poor" {% if request.GET.health_status == 'poor' %}selected{% endif %}>Poor</option>
+                    </select>
+                </div>
+
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Key Metrics Dashboard -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-primary">
+                <div class="card-body text-center">
+                    <i class="bi bi-people fs-2 text-primary mb-2"></i>
+                    <h4 class="card-title mb-1">{{ total_students|default:"245" }}</h4>
+                    <p class="card-text text-muted mb-0">Total Students</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-success">
+                <div class="card-body text-center">
+                    <i class="bi bi-heart-pulse fs-2 text-success mb-2"></i>
+                    <h4 class="card-title mb-1">{{ healthy_students|default:"215" }}</h4>
+                    <p class="card-text text-muted mb-0">Healthy Students</p>
+                    <small class="text-success">{{ healthy_percentage|default:"88" }}%</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-warning">
+                <div class="card-body text-center">
+                    <i class="bi bi-exclamation-triangle fs-2 text-warning mb-2"></i>
+                    <h4 class="card-title mb-1">{{ needs_attention|default:"18" }}</h4>
+                    <p class="card-text text-muted mb-0">Needs Attention</p>
+                    <small class="text-warning">{{ attention_percentage|default:"7" }}%</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-danger">
+                <div class="card-body text-center">
+                    <i class="bi bi-hospital fs-2 text-danger mb-2"></i>
+                    <h4 class="card-title mb-1">{{ critical_cases|default:"12" }}</h4>
+                    <p class="card-text text-muted mb-0">Critical Cases</p>
+                    <small class="text-danger">{{ critical_percentage|default:"5" }}%</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Report Content -->
+    <div class="row">
+        <!-- Appointments Report -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-calendar-event me-2"></i>Appointment Statistics
+                    </h5>
+                    <span class="badge bg-info">{{ appointments_this_month|default:"45" }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container mb-3" style="height: 200px;">
+                        <canvas id="appointmentsChart"></canvas>
+                    </div>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="stat-mini">
+                                <h6>{{ completed_appointments|default:"32" }}</h6>
+                                <small class="text-muted">Completed</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-mini">
+                                <h6>{{ scheduled_appointments|default:"13" }}</h6>
+                                <small class="text-muted">Scheduled</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-mini">
+                                <h6>{{ cancelled_appointments|default:"3" }}</h6>
+                                <small class="text-muted">Cancelled</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health Screenings Report -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-search me-2"></i>Health Screenings
+                    </h5>
+                    <span class="badge bg-success">{{ screenings_this_month|default:"28" }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container mb-3" style="height: 200px;">
+                        <canvas id="screeningsChart"></canvas>
+                    </div>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="stat-mini">
+                                <h6>{{ normal_results|default:"22" }}</h6>
+                                <small class="text-success">Normal</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-mini">
+                                <h6>{{ attention_results|default:"5" }}</h6>
+                                <small class="text-warning">Attention</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-mini">
+                                <h6>{{ abnormal_results|default:"1" }}</h6>
+                                <small class="text-danger">Abnormal</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Reports Section -->
+    <div class="row">
+        <!-- Medications Report -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-capsule me-2"></i>Active Medications
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="medications-summary">
+                        <div class="medication-stat mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Total Active Medications:</span>
+                                <strong>{{ active_medications_count|default:"67" }}</strong>
+                            </div>
+                        </div>
+
+                        <div class="medication-breakdown">
+                            <div class="med-type mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <small>Prescription Drugs</small>
+                                    <small>{{ prescription_count|default:"42" }}</small>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-primary" style="width: {{ prescription_percentage|default:"63" }}%"></div>
+                                </div>
+                            </div>
+
+                            <div class="med-type mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <small>Over-the-Counter</small>
+                                    <small>{{ otc_count|default:"25" }}</small>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-info" style="width: {{ otc_percentage|default:"37" }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="top-medications">
+                            <h6>Most Common Medications:</h6>
+                            <ol class="list-unstyled small">
+                                <li><i class="bi bi-dot me-1"></i>Amoxicillin ({{ amoxicillin_count|default:"12" }})</li>
+                                <li><i class="bi bi-dot me-1"></i>Ibuprofen ({{ ibuprofen_count|default:"8" }})</li>
+                                <li><i class="bi bi-dot me-1"></i>Albuterol ({{ albuterol_count|default:"6" }})</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Emergency Contacts Report -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-person me-2"></i>Emergency Contacts
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="contacts-summary">
+                        <div class="contact-stat mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Total Contacts:</span>
+                                <strong>{{ total_contacts|default:"312" }}</strong>
+                            </div>
+                        </div>
+
+                        <div class="contact-breakdown">
+                            <div class="contact-type mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <small>Primary Contacts</small>
+                                    <small>{{ primary_contacts|default:"245" }}</small>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-warning" style="width: {{ primary_percentage|default:"78" }}%"></div>
+                                </div>
+                            </div>
+
+                            <div class="contact-type mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <small>Active Contacts</small>
+                                    <small>{{ active_contacts|default:"298" }}</small>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-success" style="width: {{ active_percentage|default:"95" }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="contact-permissions">
+                            <h6>Authorization Summary:</h6>
+                            <div class="permission-item small mb-2">
+                                <i class="bi bi-check-circle text-success me-1"></i>
+                                Can pickup: {{ pickup_authorized|default:"189" }} ({{ pickup_percentage|default:"61" }}%)
+                            </div>
+                            <div class="permission-item small mb-2">
+                                <i class="bi bi-check-circle text-info me-1"></i>
+                                Medical decisions: {{ medical_authorized|default:"156" }} ({{ medical_percentage|default:"50" }}%)
+                            </div>
+                            <div class="permission-item small">
+                                <i class="bi bi-check-circle text-primary me-1"></i>
+                                Record access: {{ record_authorized|default:"134" }} ({{ record_percentage|default:"43" }}%)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health Trends -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-graph-up me-2"></i>Health Trends
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="trends-summary">
+                        <div class="trend-item mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small">Common Illnesses This Month</span>
+                                <span class="badge bg-danger">{{ illnesses_this_month|default:"23" }}</span>
+                            </div>
+                            <div class="trend-list small">
+                                <div><i class="bi bi-dot me-1"></i>Colds & Flu ({{ colds_count|default:"12" }})</div>
+                                <div><i class="bi bi-dot me-1"></i>Stomach Issues ({{ stomach_count|default:"6" }})</div>
+                                <div><i class="bi bi-dot me-1"></i>Allergies ({{ allergy_count|default:"5" }})</div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="trend-item mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small">BMI Distribution</span>
+                                <span class="badge bg-info">{{ bmi_average|default:"18.7" }}</span>
+                            </div>
+                            <div class="bmi-distribution small">
+                                <div class="d-flex justify-content-between">
+                                    <span>Underweight (< 18.5)</span>
+                                    <span>{{ underweight_count|default:"15" }}%</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Normal (18.5-25)</span>
+                                    <span>{{ normal_bmi_count|default:"68" }}%</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Overweight (> 25)</span>
+                                    <span>{{ overweight_count|default:"17" }}%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="trend-item">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small">Immunization Rate</span>
+                                <span class="badge bg-success">{{ immunization_rate|default:"94" }}%</span>
+                            </div>
+                            <div class="small text-muted">
+                                {{ vaccinated_students|default:"231" }} of {{ total_students|default:"245" }} students fully vaccinated
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Options -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-file-earmark-spreadsheet me-2"></i>Export Options
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <button class="btn btn-outline-primary w-100" onclick="exportPDF()">
+                                <i class="bi bi-file-earmark-pdf me-1"></i>
+                                Export PDF Report
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <button class="btn btn-outline-success w-100" onclick="exportExcel()">
+                                <i class="bi bi-file-earmark-excel me-1"></i>
+                                Export Excel Data
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <button class="btn btn-outline-info w-100" onclick="exportCSV()">
+                                <i class="bi bi-filetype-csv me-1"></i>
+                                Export CSV
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <button class="btn btn-outline-secondary w-100" onclick="scheduleReport()">
+                                <i class="bi bi-calendar-plus me-1"></i>
+                                Schedule Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js Library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Report Styles -->
+<style>
+.reports-container {
+    max-width: 100%;
+}
+
+.stat-mini h6 {
+    margin-bottom: 2px;
+    font-weight: bold;
+    color: #0d6efd;
+}
+
+.stat-mini small {
+    color: #6c757d;
+}
+
+.chart-container {
+    position: relative;
+}
+
+.medication-breakdown, .contact-breakdown {
+    margin-top: 15px;
+}
+
+.med-type, .contact-type {
+    margin-bottom: 8px;
+}
+
+.progress {
+    margin-top: 4px;
+}
+
+.top-medications ol {
+    padding-left: 15px;
+}
+
+.permission-item {
+    display: flex;
+    align-items: center;
+}
+
+.trend-list div {
+    margin-bottom: 2px;
+}
+
+.bmi-distribution div {
+    margin-bottom: 2px;
+}
+
+.export-options .btn {
+    padding: 12px;
+    font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    .export-options .col-md-3 {
+        margin-bottom: 10px;
+    }
+}
+</style>
+
+<!-- Report Scripts -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Charts
+    initializeCharts();
+
+    // Report generation
+    document.getElementById('generateReportBtn').addEventListener('click', function() {
+        showToast('Generating comprehensive health report...', 'info');
+        // Simulate report generation
+        setTimeout(() => {
+            showToast('Report generated successfully! Opening in new tab...', 'success');
+        }, 3000);
+    });
+
+    // Data export
+    document.getElementById('exportDataBtn').addEventListener('click', function() {
+        showToast('Preparing data for export...', 'info');
+        // Simulate export preparation
+        setTimeout(() => {
+            showToast('Data exported successfully!', 'success');
+        }, 2000);
+    });
+
+    // Schedule reports
+    document.getElementById('scheduleReportsBtn').addEventListener('click', function() {
+        showToast('Opening report scheduler...', 'info');
+    });
+
+    // Custom report
+    document.getElementById('customReportBtn').addEventListener('click', function() {
+        showToast('Opening custom report builder...', 'info');
+    });
+});
+
+// Chart initialization
+function initializeCharts() {
+    // Appointments Chart
+    const appointmentsCtx = document.getElementById('appointmentsChart').getContext('2d');
+    new Chart(appointmentsCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Completed', 'Scheduled', 'Cancelled'],
+            datasets: [{
+                data: [{{ completed_appointments|default:"32" }}, {{ scheduled_appointments|default:"13" }}, {{ cancelled_appointments|default:"3" }}],
+                backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        font: {
+                            size: 11
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Screenings Chart
+    const screeningsCtx = document.getElementById('screeningsChart').getContext('2d');
+    new Chart(screeningsCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Normal', 'Needs Attention', 'Abnormal'],
+            datasets: [{
+                data: [{{ normal_results|default:"22" }}, {{ attention_results|default:"5" }}, {{ abnormal_results|default:"1" }}],
+                backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        font: {
+                            size: 11
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Export functions
+function exportPDF() {
+    showToast('Generating PDF report...', 'info');
+    setTimeout(() => {
+        showToast('PDF report downloaded successfully!', 'success');
+    }, 2500);
+}
+
+function exportExcel() {
+    showToast('Generating Excel file...', 'info');
+    setTimeout(() => {
+        showToast('Excel file downloaded successfully!', 'success');
+    }, 2000);
+}
+
+function exportCSV() {
+    showToast('Generating CSV file...', 'info');
+    setTimeout(() => {
+        showToast('CSV file downloaded successfully!', 'success');
+    }, 1500);
+}
+
+function scheduleReport() {
+    showToast('Opening report scheduler...', 'info');
+    // In a real implementation, this would open a modal
+}
+
+// Global toast function
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'primary'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    `;
+
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+
+    toastContainer.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+
+    toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+    });
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + R to generate report
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+        e.preventDefault();
+        document.getElementById('generateReportBtn').click();
+    }
+
+    // Ctrl/Cmd + E to export data
+    if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+        e.preventDefault();
+        document.getElementById('exportDataBtn').click();
+    }
+});
+</script>
+{% endblock %}

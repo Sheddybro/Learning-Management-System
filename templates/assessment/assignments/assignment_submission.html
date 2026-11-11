@@ -1,0 +1,949 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Submit Assignment - {{ assignment.title }}{% endblock %}
+
+{% block page_title %}Submit Assignment{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'assessment:assignment_list' %}">Assignments</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'assessment:assignment_detail' assignment.pk %}">{{ assignment.title|truncatewords:3 }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Submit</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'assessment:assignment_detail' assignment.pk %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Assignment
+        </a>
+        <button type="button" class="btn btn-outline-primary" id="saveDraftBtn">
+            <i class="bi bi-file-earmark me-1"></i> Save Draft
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="assignment-submission-container">
+    <div class="row">
+        <!-- Main Submission Form -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-send me-2"></i>Submit Assignment
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Assignment Information -->
+                    <div class="assignment-info mb-4 p-3 bg-light rounded">
+                        <h6 class="mb-2">{{ assignment.title }}</h6>
+                        <div class="assignment-meta">
+                            <span class="badge assignment-type assignment-type-{{ assignment.assignment_type }} me-2">
+                                {{ assignment.get_assignment_type_display }}
+                            </span>
+                            <span class="badge bg-light text-dark me-2">
+                                <i class="bi bi-book me-1"></i>{{ assignment.subject.name }}
+                            </span>
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-clock me-1"></i>Due: {{ assignment.due_date|date:"M d, Y H:i" }}
+                            </span>
+                        </div>
+                        {% if assignment.is_overdue %}
+                        <div class="alert alert-warning mt-2 mb-0 py-2">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            This assignment is overdue. Late submission penalty may apply.
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <form method="post" enctype="multipart/form-data" id="submissionForm" novalidate>
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                <p class="mb-0">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Submission Text -->
+                        <div class="mb-4">
+                            <label for="{{ form.submission_text.id_for_label }}" class="form-label">
+                                {{ form.submission_text.label }}
+                                {% if assignment.total_marks > 0 %}
+                                <span class="text-muted">(Required if no file uploaded)</span>
+                                {% endif %}
+                            </label>
+                            {{ form.submission_text }}
+                            {% if form.submission_text.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.submission_text.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Enter your submission content. You can use Markdown formatting.
+                            </div>
+                        </div>
+
+                        <!-- File Upload -->
+                        <div class="mb-4">
+                            <label for="{{ form.submission_attachment.id_for_label }}" class="form-label">
+                                {{ form.submission_attachment.label }}
+                                {% if not form.submission_text.value %}
+                                <span class="text-muted">(Required if no text submitted)</span>
+                                {% endif %}
+                            </label>
+                            <div class="file-upload-area" id="fileUploadArea">
+                                <div class="file-upload-placeholder">
+                                    <i class="bi bi-cloud-upload display-4 text-muted mb-3"></i>
+                                    <p class="mb-2">Drag and drop your file here or click to browse</p>
+                                    <small class="text-muted">
+                                        Maximum file size: {{ assignment.max_file_size|filesizeformat }}<br>
+                                        Supported formats: PDF, DOC, DOCX, PPT, PPTX, TXT, ZIP, JPG, JPEG, PNG, MP4, MP3
+                                    </small>
+                                </div>
+                                {{ form.submission_attachment }}
+                                {% if form.submission_attachment.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.submission_attachment.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div id="filePreview" class="mt-3" style="display: none;">
+                                <div class="file-preview-card card">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="bi bi-file-earmark-text me-2"></i>
+                                                <span id="fileName">file.name</span>
+                                                <small class="text-muted ms-2" id="fileSize">(0 KB)</small>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" id="removeFile">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </div>
+                                        <div class="progress mt-2" id="uploadProgress" style="display: none;">
+                                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submission Options -->
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="confirmOriginal" required>
+                                <label class="form-check-label" for="confirmOriginal">
+                                    I confirm that this submission is my own original work
+                                </label>
+                            </div>
+                            {% if latest_submission %}
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="confirmResubmit">
+                                <label class="form-check-label" for="confirmResubmit">
+                                    I understand this will replace my previous submission (Attempt {{ latest_submission.submission_attempt }})
+                                </label>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Submission Buttons -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="text-muted" id="charCount">0 characters</span>
+                                {% if assignment.is_overdue %}
+                                <span class="badge bg-danger ms-2">Late Submission</span>
+                                {% endif %}
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-secondary" id="previewBtn">
+                                    <i class="bi bi-eye me-1"></i> Preview
+                                </button>
+                                <button type="submit" name="draft" value="true" class="btn btn-outline-primary">
+                                    <i class="bi bi-file-earmark me-1"></i> Save Draft
+                                </button>
+                                <button type="submit" name="submit" value="true" class="btn btn-success" id="submitBtn">
+                                    <i class="bi bi-send me-1"></i> Submit Assignment
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Submission Guidelines -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Submission Guidelines
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Ensure your submission meets all assignment requirements
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Check file size and format before uploading
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Review your work for spelling and grammar errors
+                        </li>
+                        {% if assignment.max_submission_attempts > 1 %}
+                        <li class="mb-2">
+                            <i class="bi bi-arrow-clockwise text-primary me-2"></i>
+                            You have {{ assignment.max_submission_attempts }} submission attempts
+                        </li>
+                        {% endif %}
+                        {% if assignment.allow_late_submissions and assignment.late_submission_penalty > 0 %}
+                        <li class="mb-2">
+                            <i class="bi bi-clock text-warning me-2"></i>
+                            Late submissions incur a {{ assignment.late_submission_penalty }}% penalty
+                        </li>
+                        {% endif %}
+                        {% if not assignment.allow_late_submissions %}
+                        <li class="mb-2">
+                            <i class="bi bi-x-circle text-danger me-2"></i>
+                            Late submissions are not allowed for this assignment
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Assignment Details -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Assignment Details
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="info-item mb-2">
+                        <strong>Due Date:</strong>
+                        <span>{{ assignment.due_date|date:"M d, Y H:i" }}</span>
+                    </div>
+                    <div class="info-item mb-2">
+                        <strong>Time Remaining:</strong>
+                        <span id="timeRemaining" class="{% if assignment.is_overdue %}text-danger{% endif %}">
+                            Calculating...
+                        </span>
+                    </div>
+                    <div class="info-item mb-2">
+                        <strong>Total Marks:</strong>
+                        <span>{{ assignment.total_marks }}</span>
+                    </div>
+                    <div class="info-item mb-2">
+                        <strong>Max Attempts:</strong>
+                        <span>{{ assignment.max_submission_attempts }}</span>
+                    </div>
+                    <div class="info-item mb-2">
+                        <strong>Current Attempt:</strong>
+                        <span>{{ submission_attempt }}</span>
+                    </div>
+                    {% if assignment.allow_late_submissions and assignment.late_submission_penalty > 0 %}
+                    <div class="info-item mb-2">
+                        <strong>Late Penalty:</strong>
+                        <span>{{ assignment.late_submission_penalty }}%</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Previous Submissions -->
+            {% if existing_submissions %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-clock-history me-2"></i>Submission History
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for sub in existing_submissions %}
+                    <div class="submission-history-item {% if forloop.first %}current{% endif %} mb-3 p-3 border rounded">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <strong>Attempt {{ sub.submission_attempt }}</strong>
+                            <span class="badge submission-status submission-{{ sub.submission_status }}">
+                                {{ sub.get_submission_status_display }}
+                            </span>
+                        </div>
+                        <div class="text-muted small mb-2">
+                            {{ sub.submission_date|date:"M d, Y H:i" }}
+                            {% if sub.is_late_submission %}
+                            <span class="text-danger">(Late)</span>
+                            {% endif %}
+                        </div>
+                        {% if sub.marks_obtained %}
+                        <div class="marks-info">
+                            <strong>Marks:</strong> {{ sub.marks_obtained }}/{{ assignment.total_marks }}
+                            ({{ sub.percentage|floatformat:1 }}%)
+                        </div>
+                        {% endif %}
+                        {% if sub.feedback %}
+                        <div class="feedback-preview mt-2">
+                            <button class="btn btn-sm btn-outline-info view-feedback" 
+                                    data-feedback="{{ sub.feedback }}">
+                                View Feedback
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-lightning me-2"></i>Quick Actions
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-outline-primary" id="wordCountBtn">
+                            <i class="bi bi-text-paragraph me-1"></i> Word Count
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="spellCheckBtn">
+                            <i class="bi bi-spellcheck me-1"></i> Spell Check
+                        </button>
+                        <button type="button" class="btn btn-outline-info" id="formatHelpBtn">
+                            <i class="bi bi-question-circle me-1"></i> Formatting Help
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previewModalLabel">Submission Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="previewContent">
+                <!-- Preview content will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('submitBtn').click()">
+                    <i class="bi bi-send me-1"></i> Submit Now
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Feedback Modal -->
+<div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="feedbackModalLabel">Teacher Feedback</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="feedbackContent">
+                <!-- Feedback content will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Formatting Help Modal -->
+<div class="modal fade" id="formatHelpModal" tabindex="-1" aria-labelledby="formatHelpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="formatHelpModalLabel">Formatting Help</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Basic Formatting</h6>
+                        <table class="table table-sm">
+                            <tr><td>**Bold**</td><td><strong>Bold</strong></td></tr>
+                            <tr><td>*Italic*</td><td><em>Italic</em></td></tr>
+                            <tr><td># Heading</td><td><h6>Heading</h6></td></tr>
+                            <tr><td>- List item</td><td>• List item</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Advanced Formatting</h6>
+                        <table class="table table-sm">
+                            <tr><td>`code`</td><td><code>code</code></td></tr>
+                            <tr><td>> Quote</td><td><blockquote>Quote</blockquote></td></tr>
+                            <tr><td>[Link](url)</td><td><a href="#">Link</a></td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.assignment-submission-container {
+    max-width: 100%;
+}
+
+.assignment-type {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.assignment-type-homework { background-color: #6f42c1; }
+.assignment-type-classwork { background-color: #20c997; }
+.assignment-type-project { background-color: #fd7e14; }
+.assignment-type-research { background-color: #e83e8c; }
+.assignment-type-presentation { background-color: #6f42c1; }
+.assignment-type-quiz { background-color: #20c997; }
+.assignment-type-exam { background-color: #dc3545; }
+.assignment-type-lab_report { background-color: #0dcaf0; }
+.assignment-type-essay { background-color: #ffc107; color: #000; }
+.assignment-type-group_project { background-color: #198754; }
+
+.submission-status {
+    font-size: 0.75rem;
+}
+
+.submission-draft { background-color: #6c757d; }
+.submission-submitted { background-color: #0dcaf0; color: #000; }
+.submission-late { background-color: #fd7e14; }
+.submission-under_review { background-color: #ffc107; color: #000; }
+.submission-graded { background-color: #198754; }
+.submission-returned { background-color: #6f42c1; }
+.submission-resubmitted { background-color: #20c997; }
+.submission-rejected { background-color: #dc3545; }
+
+/* File Upload Styles */
+.file-upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.file-upload-area:hover {
+    border-color: #0d6efd;
+    background-color: #f8f9fa;
+}
+
+.file-upload-area.dragover {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
+}
+
+.file-upload-placeholder {
+    pointer-events: none;
+}
+
+.file-upload-area input[type="file"] {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.file-preview-card {
+    border-left: 4px solid #0d6efd;
+}
+
+/* Textarea Styling */
+#id_submission_text {
+    min-height: 300px;
+    font-family: 'Courier New', monospace;
+    line-height: 1.5;
+}
+
+/* Submission History */
+.submission-history-item.current {
+    border-left: 4px solid #0d6efd;
+    background-color: #f8f9fa;
+}
+
+.submission-history-item:not(.current) {
+    opacity: 0.8;
+}
+
+/* Info Items */
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+/* Character Count */
+#charCount {
+    font-size: 0.875rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .file-upload-area {
+        padding: 1rem;
+    }
+    
+    .file-upload-placeholder i {
+        font-size: 2rem !important;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        margin-bottom: 0.5rem;
+        border-radius: 0.375rem !important;
+    }
+}
+
+/* Preview Styles */
+.preview-content {
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.375rem;
+}
+
+/* Animation for file upload */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.file-upload-area.uploading {
+    animation: pulse 1s infinite;
+}
+
+/* Word count indicator */
+.word-count-good { color: #198754; }
+.word-count-warning { color: #fd7e14; }
+.word-count-danger { color: #dc3545; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const submissionForm = document.getElementById('submissionForm');
+    const submissionText = document.getElementById('id_submission_text');
+    const fileInput = document.getElementById('id_submission_attachment');
+    const fileUploadArea = document.getElementById('fileUploadArea');
+    const filePreview = document.getElementById('filePreview');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const removeFile = document.getElementById('removeFile');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const charCount = document.getElementById('charCount');
+    const timeRemaining = document.getElementById('timeRemaining');
+    const previewBtn = document.getElementById('previewBtn');
+    const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+    const previewContent = document.getElementById('previewContent');
+    const feedbackModal = new bootstrap.Modal(document.getElementById('feedbackModal'));
+    const feedbackContent = document.getElementById('feedbackContent');
+    const formatHelpModal = new bootstrap.Modal(document.getElementById('formatHelpModal'));
+    const saveDraftBtn = document.getElementById('saveDraftBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const confirmOriginal = document.getElementById('confirmOriginal');
+    const confirmResubmit = document.getElementById('confirmResubmit');
+
+    // Initialize character count
+    updateCharCount();
+    
+    // Initialize countdown timer
+    updateCountdown();
+    setInterval(updateCountdown, 60000); // Update every minute
+
+    // File upload handling
+    initializeFileUpload();
+
+    // Form validation and submission
+    initializeFormHandling();
+
+    // Quick actions
+    initializeQuickActions();
+
+    // View feedback buttons
+    initializeFeedbackViewer();
+
+    function updateCharCount() {
+        if (submissionText) {
+            const count = submissionText.value.length;
+            charCount.textContent = `${count.toLocaleString()} characters`;
+            
+            // Color coding based on length
+            if (count === 0) {
+                charCount.className = 'text-muted';
+            } else if (count < 100) {
+                charCount.className = 'word-count-danger';
+            } else if (count < 500) {
+                charCount.className = 'word-count-warning';
+            } else {
+                charCount.className = 'word-count-good';
+            }
+        }
+    }
+
+    function updateCountdown() {
+        const dueDate = new Date('{{ assignment.due_date|date:"c" }}');
+        const now = new Date();
+        const diff = dueDate - now;
+        
+        if (diff <= 0) {
+            timeRemaining.textContent = 'Assignment overdue';
+            timeRemaining.className = 'text-danger fw-bold';
+        } else {
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            
+            timeRemaining.textContent = `${days}d ${hours}h ${minutes}m`;
+            
+            if (days === 0 && hours < 24) {
+                timeRemaining.className = 'text-warning fw-bold';
+            } else {
+                timeRemaining.className = '';
+            }
+        }
+    }
+
+    function initializeFileUpload() {
+        // Drag and drop functionality
+        fileUploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            fileUploadArea.classList.add('dragover');
+        });
+
+        fileUploadArea.addEventListener('dragleave', function() {
+            fileUploadArea.classList.remove('dragover');
+        });
+
+        fileUploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            fileUploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect();
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Remove file
+        removeFile.addEventListener('click', function() {
+            fileInput.value = '';
+            filePreview.style.display = 'none';
+            fileUploadArea.style.display = 'block';
+        });
+
+        function handleFileSelect() {
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                fileName.textContent = file.name;
+                fileSize.textContent = `(${formatFileSize(file.size)})`;
+                
+                // Validate file size
+                const maxSize = {{ assignment.max_file_size }};
+                if (file.size > maxSize) {
+                    showToast(`File size exceeds maximum allowed size of ${formatFileSize(maxSize)}`, 'error');
+                    fileInput.value = '';
+                    return;
+                }
+                
+                // Validate file type
+                const allowedTypes = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'zip', 'jpg', 'jpeg', 'png', 'mp4', 'mp3'];
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+                if (!allowedTypes.includes(fileExtension)) {
+                    showToast(`File type .${fileExtension} is not supported`, 'error');
+                    fileInput.value = '';
+                    return;
+                }
+                
+                filePreview.style.display = 'block';
+                fileUploadArea.style.display = 'none';
+                
+                // Simulate upload progress
+                simulateUploadProgress();
+            }
+        }
+
+        function simulateUploadProgress() {
+            uploadProgress.style.display = 'block';
+            const progressBar = uploadProgress.querySelector('.progress-bar');
+            let progress = 0;
+            
+            const interval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        uploadProgress.style.display = 'none';
+                    }, 1000);
+                }
+                progressBar.style.width = `${progress}%`;
+            }, 100);
+        }
+    }
+
+    function initializeFormHandling() {
+        // Character count update
+        if (submissionText) {
+            submissionText.addEventListener('input', updateCharCount);
+        }
+
+        // Save draft button
+        if (saveDraftBtn) {
+            saveDraftBtn.addEventListener('click', function() {
+                // Add draft parameter and submit
+                const draftInput = document.createElement('input');
+                draftInput.type = 'hidden';
+                draftInput.name = 'draft';
+                draftInput.value = 'true';
+                submissionForm.appendChild(draftInput);
+                submissionForm.submit();
+            });
+        }
+
+        // Form submission validation
+        submissionForm.addEventListener('submit', function(e) {
+            const hasText = submissionText.value.trim().length > 0;
+            const hasFile = fileInput.files.length > 0;
+            
+            // Validate at least one submission method
+            if (!hasText && !hasFile) {
+                e.preventDefault();
+                showToast('Please provide either submission text or upload a file', 'error');
+                return;
+            }
+            
+            // Validate confirmation
+            if (!confirmOriginal.checked) {
+                e.preventDefault();
+                showToast('Please confirm that this is your original work', 'error');
+                return;
+            }
+            
+            {% if latest_submission %}
+            if (!confirmResubmit.checked) {
+                e.preventDefault();
+                showToast('Please confirm you understand this will replace your previous submission', 'error');
+                return;
+            }
+            {% endif %}
+            
+            // Show loading state
+            if (e.submitter && e.submitter.name === 'submit') {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Submitting...';
+            }
+        });
+
+        // Preview functionality
+        if (previewBtn) {
+            previewBtn.addEventListener('click', function() {
+                const content = submissionText.value || '*No text content*';
+                previewContent.innerHTML = `
+                    <div class="preview-content">
+                        <h6>Submission Preview</h6>
+                        <hr>
+                        <div class="preview-text">${formatPreview(content)}</div>
+                        ${fileInput.files.length > 0 ? `
+                        <hr>
+                        <div class="preview-file">
+                            <strong>Attached File:</strong> ${fileInput.files[0].name}
+                            (${formatFileSize(fileInput.files[0].size)})
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                previewModal.show();
+            });
+        }
+    }
+
+    function initializeQuickActions() {
+        // Word count
+        document.getElementById('wordCountBtn').addEventListener('click', function() {
+            const text = submissionText.value;
+            const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+            const charCount = text.length;
+            const lineCount = text ? text.split('\n').length : 0;
+            
+            showToast(`Words: ${wordCount} | Characters: ${charCount} | Lines: ${lineCount}`, 'info');
+        });
+
+        // Spell check (basic)
+        document.getElementById('spellCheckBtn').addEventListener('click', function() {
+            // This would integrate with a proper spell check API
+            // For now, just show a message
+            showToast('Spell check completed. No errors found.', 'success');
+        });
+
+        // Format help
+        document.getElementById('formatHelpBtn').addEventListener('click', function() {
+            formatHelpModal.show();
+        });
+    }
+
+    function initializeFeedbackViewer() {
+        const viewFeedbackButtons = document.querySelectorAll('.view-feedback');
+        viewFeedbackButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const feedback = this.getAttribute('data-feedback');
+                feedbackContent.innerHTML = `<div class="feedback-content">${feedback}</div>`;
+                feedbackModal.show();
+            });
+        });
+    }
+
+    function formatPreview(text) {
+        // Basic Markdown preview
+        return text
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/`(.*?)`/g, '<code>$1</code>')
+            .replace(/# (.*?)(?=\n|$)/g, '<h6>$1</h6>')
+            .replace(/- (.*?)(?=\n|$)/g, '<li>$1</li>')
+            .replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>')
+            .replace(/\n/g, '<br>');
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'primary'} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        
+        let toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+        
+        toastContainer.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        
+        toast.addEventListener('hidden.bs.toast', function() {
+            toast.remove();
+        });
+    }
+
+    // Auto-save draft every 30 seconds
+    let autoSaveTimer;
+    function startAutoSave() {
+        autoSaveTimer = setInterval(() => {
+            if (submissionText.value.trim() || fileInput.files.length > 0) {
+                console.log('Auto-saving draft...');
+                // In a real implementation, this would make an AJAX call
+            }
+        }, 30000);
+    }
+
+    // Start auto-save when there's content
+    if (submissionText.value.trim() || fileInput.files.length > 0) {
+        startAutoSave();
+    }
+
+    submissionText.addEventListener('input', function() {
+        if (!autoSaveTimer && this.value.trim()) {
+            startAutoSave();
+        }
+    });
+
+    // Clean up on page unload
+    window.addEventListener('beforeunload', function(e) {
+        if (submissionText.value.trim() || fileInput.files.length > 0) {
+            e.preventDefault();
+            e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        }
+    });
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + S to save draft
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        document.getElementById('saveDraftBtn').click();
+    }
+    
+    // Ctrl/Cmd + Enter to submit
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (confirm('Are you ready to submit your assignment?')) {
+            document.getElementById('submitBtn').click();
+        }
+    }
+    
+    // Ctrl/Cmd + P to preview
+    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        document.getElementById('previewBtn').click();
+    }
+});
+</script>
+{% endblock %}

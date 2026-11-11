@@ -1,0 +1,564 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Attendance Records" %} - {{ student.user.get_full_name }}{% endblock %}
+
+{% block content %}
+<div class="student-attendance">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="fas fa-user-check mr-2 text-primary"></i>
+                {% trans "Attendance Records" %}
+            </h1>
+            <p class="text-muted mb-0">{% trans "Monitor your attendance patterns and stay on track" %}</p>
+        </div>
+        <div>
+            <a href="{% url 'academics:student_dashboard' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left mr-2"></i>{% trans "Back to Dashboard" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Attendance Summary Cards -->
+    {% if attendance_summary %}
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-left-success">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                {% trans "Present Days" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ attendance_summary.days_present }}
+                            </div>
+                            <div class="text-xs text-muted">
+                                {% trans "Days attended" %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-left-danger">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                {% trans "Absent Days" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ attendance_summary.days_absent }}
+                            </div>
+                            <div class="text-xs text-muted">
+                                {% trans "Days missed" %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-times-circle fa-2x text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-left-warning">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                {% trans "Late Arrivals" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ attendance_summary.days_late }}
+                            </div>
+                            <div class="text-xs text-muted">
+                                {% trans "Times late" %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-left-info">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                {% trans "Attendance Rate" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ attendance_summary.attendance_percentage }}%
+                            </div>
+                            <div class="text-xs text-muted">
+                                {% trans "Overall rate" %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-percentage fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Monthly Attendance Chart -->
+    {% if monthly_stats %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-bar mr-2"></i>
+                        {% trans "Monthly Attendance Overview" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="monthlyAttendanceChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Attendance Calendar and Records -->
+    <div class="row">
+        <!-- Recent Attendance Records -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-calendar-alt mr-2"></i>
+                        {% trans "Recent Attendance Records" %}
+                    </h6>
+                    <div class="input-group" style="width: 250px;">
+                        <input type="text" class="form-control" id="attendanceSearch" placeholder="{% trans 'Search records...' %}">
+                        <div class="input-group-append">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if attendance_records %}
+                        <div class="attendance-timeline">
+                            {% for record in attendance_records %}
+                            <div class="attendance-item mb-3 p-3 border-left-{{ record.status|default:'secondary' }} bg-light" data-attendance-id="{{ record.id }}">
+                                <div class="row align-items-center">
+                                    <div class="col-md-3">
+                                        <div class="date-display">
+                                            <h6 class="mb-0">{{ record.date|date:"M j, Y" }}</h6>
+                                            <small class="text-muted">{{ record.date|date:"l" }}</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="status-display">
+                                            {% if record.status == 'present' %}
+                                                <span class="badge badge-success badge-lg">
+                                                    <i class="fas fa-check mr-1"></i>{% trans "Present" %}
+                                                </span>
+                                            {% elif record.status == 'absent' %}
+                                                <span class="badge badge-danger badge-lg">
+                                                    <i class="fas fa-times mr-1"></i>{% trans "Absent" %}
+                                                </span>
+                                            {% elif record.status == 'late' %}
+                                                <span class="badge badge-warning badge-lg">
+                                                    <i class="fas fa-clock mr-1"></i>{% trans "Late" %}
+                                                </span>
+                                            {% elif record.status == 'half_day' %}
+                                                <span class="badge badge-info badge-lg">
+                                                    <i class="fas fa-adjust mr-1"></i>{% trans "Half Day" %}
+                                                </span>
+                                            {% else %}
+                                                <span class="badge badge-secondary badge-lg">
+                                                    {{ record.get_status_display }}
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        {% if record.check_in_time %}
+                                            <div class="time-display">
+                                                <i class="fas fa-sign-in-alt text-success mr-1"></i>
+                                                {{ record.check_in_time|time:"H:i" }}
+                                                {% if record.check_out_time %}
+                                                    <br>
+                                                    <i class="fas fa-sign-out-alt text-primary mr-1"></i>
+                                                    {{ record.check_out_time|time:"H:i" }}
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">{% trans "No check-in recorded" %}</span>
+                                        {% endif %}
+                                        {% if record.late_minutes %}
+                                            <br>
+                                            <small class="text-danger">
+                                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                                {{ record.late_minutes }} {% trans "minutes late" %}
+                                            </small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-3 text-right">
+                                        {% if record.remarks %}
+                                            <div class="remarks-display">
+                                                <small class="text-muted">{{ record.remarks }}</small>
+                                            </div>
+                                        {% endif %}
+                                        {% if record.total_hours %}
+                                            <div class="hours-display">
+                                                <span class="badge badge-light">
+                                                    <i class="fas fa-clock mr-1"></i>
+                                                    {{ record.total_hours }} {% trans "hours" %}
+                                                </span>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Pagination -->
+                        {% if attendance_records.paginator %}
+                        <nav aria-label="Attendance pagination" class="mt-3">
+                            <ul class="pagination justify-content-center">
+                                {% if attendance_records.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ attendance_records.previous_page_number }}">{% trans "Previous" %}</a>
+                                    </li>
+                                {% endif %}
+
+                                {% for num in attendance_records.paginator.page_range %}
+                                    {% if attendance_records.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% elif num > attendance_records.number|add:'-3' and num < attendance_records.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if attendance_records.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ attendance_records.next_page_number }}">{% trans "Next" %}</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-calendar-times fa-4x text-muted mb-3"></i>
+                            <h4 class="text-muted">{% trans "No attendance records" %}</h4>
+                            <p class="text-muted">{% trans "Your attendance records will appear here once they are recorded." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Attendance Insights -->
+            <div class="card mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-lightbulb mr-2"></i>
+                        {% trans "Attendance Insights" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if attendance_summary %}
+                        <div class="insights-list">
+                            {% if attendance_summary.attendance_percentage >= 85 %}
+                                <div class="insight-item positive mb-3">
+                                    <i class="fas fa-thumbs-up text-success mr-2"></i>
+                                    <span>{% trans "Excellent attendance! Keep it up." %}</span>
+                                </div>
+                            {% elif attendance_summary.attendance_percentage >= 75 %}
+                                <div class="insight-item neutral mb-3">
+                                    <i class="fas fa-info-circle text-info mr-2"></i>
+                                    <span>{% trans "Good attendance. Try to be more consistent." %}</span>
+                                </div>
+                            {% else %}
+                                <div class="insight-item warning mb-3">
+                                    <i class="fas fa-exclamation-triangle text-warning mr-2"></i>
+                                    <span>{% trans "Attendance needs improvement. Contact your teacher if needed." %}</span>
+                                </div>
+                            {% endif %}
+
+                            {% if attendance_summary.days_late > 5 %}
+                                <div class="insight-item warning mb-3">
+                                    <i class="fas fa-clock text-warning mr-2"></i>
+                                    <span>{% trans "You've been late" %} {{ attendance_summary.days_late }} {% trans "times. Try to arrive on time." %}</span>
+                                </div>
+                            {% endif %}
+
+                            {% if attendance_summary.days_absent > 10 %}
+                                <div class="insight-item danger mb-3">
+                                    <i class="fas fa-exclamation-circle text-danger mr-2"></i>
+                                    <span>{% trans "High number of absences. This may affect your grades." %}</span>
+                                </div>
+                            {% endif %}
+
+                            <div class="insight-item info">
+                                <i class="fas fa-calendar-alt text-primary mr-2"></i>
+                                <span>{% trans "Total school days:" %} {{ attendance_summary.total_school_days }}</span>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-chart-line fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">{% trans "Insights will appear once you have attendance data." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="card mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-pie mr-2"></i>
+                        {% trans "Quick Stats" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if attendance_summary %}
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-value">{{ attendance_summary.days_present }}</div>
+                                <div class="stat-label">{% trans "Present" %}</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ attendance_summary.days_absent }}</div>
+                                <div class="stat-label">{% trans "Absent" %}</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ attendance_summary.days_late }}</div>
+                                <div class="stat-label">{% trans "Late" %}</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ attendance_summary.days_half_day }}</div>
+                                <div class="stat-label">{% trans "Half Day" %}</div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-chart-pie fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">{% trans "Stats will appear once you have attendance data." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Attendance Policy Reminder -->
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        {% trans "Attendance Policy" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="policy-info">
+                        <p class="small mb-2">
+                            <strong>{% trans "Minimum Attendance Required:" %}</strong> 75%
+                        </p>
+                        <p class="small mb-2">
+                            <strong>{% trans "Late Threshold:" %}</strong> 15 {% trans "minutes" %}
+                        </p>
+                        <p class="small mb-0">
+                            <strong>{% trans "Consequences:" %}</strong> {% trans "Low attendance may affect your grades and promotion." %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.badge-lg {
+    font-size: 1em;
+    padding: 0.5em 0.8em;
+}
+
+.attendance-item {
+    transition: all 0.3s ease;
+}
+
+.attendance-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
+}
+
+.insights-list .insight-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+}
+
+.insights-list .positive {
+    background-color: rgba(40, 167, 69, 0.1);
+    border-left: 4px solid #28a745;
+}
+
+.insights-list .neutral {
+    background-color: rgba(23, 162, 184, 0.1);
+    border-left: 4px solid #17a2b8;
+}
+
+.insights-list .warning {
+    background-color: rgba(255, 193, 7, 0.1);
+    border-left: 4px solid #ffc107;
+}
+
+.insights-list .danger {
+    background-color: rgba(220, 53, 69, 0.1);
+    border-left: 4px solid #dc3545;
+}
+
+.insights-list .info {
+    background-color: rgba(0, 123, 255, 0.1);
+    border-left: 4px solid #007bff;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+    background-color: #f8f9fc;
+    border-radius: 0.5rem;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #5a5c69;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.policy-info p {
+    line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+    .input-group {
+        width: 100% !important;
+        margin-top: 10px;
+    }
+
+    .d-flex.justify-content-between {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Search functionality
+$('#attendanceSearch').on('keyup', function() {
+    var searchTerm = $(this).val().toLowerCase();
+    $('.attendance-item').each(function() {
+        var itemText = $(this).text().toLowerCase();
+        if (itemText.indexOf(searchTerm) > -1) {
+            $(this).show();
+        } else {
+            $(this).hide();
+        }
+    });
+});
+
+// Monthly Attendance Chart
+{% if monthly_stats %}
+var monthlyCtx = document.getElementById('monthlyAttendanceChart').getContext('2d');
+var monthlyData = {
+    labels: {{ monthly_stats|map:"month"|safe }},
+    datasets: [{
+        label: '{% trans "Present Days" %}',
+        data: {{ monthly_stats|map:"present_days"|safe }},
+        backgroundColor: 'rgba(40, 167, 69, 0.2)',
+        borderColor: 'rgba(40, 167, 69, 1)',
+        borderWidth: 1
+    }, {
+        label: '{% trans "Absent Days" %}',
+        data: {{ monthly_stats|map:"absent_days"|safe }},
+        backgroundColor: 'rgba(220, 53, 69, 0.2)',
+        borderColor: 'rgba(220, 53, 69, 1)',
+        borderWidth: 1
+    }, {
+        label: '{% trans "Late Days" %}',
+        data: {{ monthly_stats|map:"late_days"|safe }},
+        backgroundColor: 'rgba(255, 193, 7, 0.2)',
+        borderColor: 'rgba(255, 193, 7, 1)',
+        borderWidth: 1
+    }]
+};
+
+var monthlyChart = new Chart(monthlyCtx, {
+    type: 'bar',
+    data: monthlyData,
+    options: {
+        responsive: true,
+        scales: {
+            x: {
+                stacked: true,
+            },
+            y: {
+                stacked: true,
+                beginAtZero: true
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top'
+            }
+        }
+    }
+});
+{% endif %}
+
+// Auto-refresh functionality
+setInterval(function() {
+    // Check for new attendance records periodically
+    console.log('Checking for attendance updates...');
+}, 300000); // Check every 5 minutes
+</script>
+{% endblock %}

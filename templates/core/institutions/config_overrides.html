@@ -1,0 +1,379 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Configuration Overrides" %} - {{ institution.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-cogs text-warning"></i> {% trans "Configuration Overrides" %}
+                    </h1>
+                    <p class="text-muted">{{ institution.name }} ({{ institution.code }})</p>
+                </div>
+                <div>
+                    <a href="{% url 'core:institution_detail' institution.id %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> {% trans "Back to Institution" %}
+                    </a>
+                    <button type="submit" form="configOverrideForm" class="btn btn-primary">
+                        <i class="fas fa-save"></i> {% trans "Save Changes" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Information Alert -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                <strong>{% trans "Configuration Overrides" %}</strong>
+                {% trans "These settings will override the global system configuration for this institution only. Leave fields empty to use global defaults." %}
+            </div>
+        </div>
+    </div>
+
+    <form id="configOverrideForm" method="post">
+        {% csrf_token %}
+
+        <!-- Configuration Sections -->
+        {% regroup configs_by_type by config_type as config_groups %}
+
+        {% for group in config_groups %}
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-cog"></i> {{ group.grouper|title }} {% trans "Configurations" %}
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for config in group.list %}
+                    <div class="col-md-6 mb-4">
+                        <div class="config-override-item">
+                            <label for="id_config_{{ config.id }}" class="form-label">
+                                <strong>{{ config.key }}</strong>
+                                {% if config.description %}
+                                <br><small class="text-muted">{{ config.description }}</small>
+                                {% endif %}
+                            </label>
+
+                            <!-- Current Global Value Display -->
+                            <div class="mb-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-globe"></i> {% trans "Global Value:" %}
+                                    <code class="ms-1">{{ config.value|truncatechars:50 }}</code>
+                                </small>
+                            </div>
+
+                            <!-- Override Input -->
+                            <div class="input-group">
+                                <textarea
+                                    class="form-control config-override-value"
+                                    id="id_config_{{ config.id }}"
+                                    name="config_{{ config.id }}"
+                                    rows="2"
+                                    placeholder="{% trans 'Enter override value (leave empty for global default)' %}"
+                                    data-config-key="{{ config.key }}"
+                                    data-global-value="{{ config.value }}"
+                                >{% if config.override_value %}{{ config.override_value }}{% endif %}</textarea>
+
+                                <div class="input-group-append">
+                                    <div class="input-group-text">
+                                        <div class="form-check">
+                                            <input class="form-check-input config-override-toggle"
+                                                   type="checkbox"
+                                                   id="toggle_{{ config.id }}"
+                                                   {% if config.override_value %}checked{% endif %}>
+                                            <label class="form-check-label" for="toggle_{{ config.id }}">
+                                                {% trans "Override" %}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Validation Feedback -->
+                            <div class="invalid-feedback" id="feedback_{{ config.id }}">
+                                {% trans "Please enter a valid value for this configuration." %}
+                            </div>
+
+                            <!-- Helper Actions -->
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <a href="#" class="text-decoration-none me-2" onclick="resetToGlobal({{ config.id }})">
+                                        <i class="fas fa-undo"></i> {% trans "Reset to Global" %}
+                                    </a>
+                                    <a href="#" class="text-decoration-none" onclick="showConfigHelp('{{ config.key }}')">
+                                        <i class="fas fa-question-circle"></i> {% trans "Help" %}
+                                    </a>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Save Actions -->
+        <div class="card shadow">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            {% trans "Changes will take effect immediately after saving." %}
+                        </span>
+                    </div>
+                    <div>
+                        <a href="{% url 'core:institution_detail' institution.id %}" class="btn btn-outline-secondary me-2">
+                            {% trans "Cancel" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> {% trans "Save Configuration Overrides" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Configuration Help Modal -->
+<div class="modal fade" id="configHelpModal" tabindex="-1" aria-labelledby="configHelpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="configHelpModalLabel">{% trans "Configuration Help" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="configHelpContent">
+                <!-- Help content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.config-override-item {
+    padding: 1rem;
+    border: 1px solid #e3e6f0;
+    border-radius: 0.5rem;
+    background: #f8f9fc;
+}
+
+.config-override-item:hover {
+    border-color: #bac8f3;
+    background: #fff;
+}
+
+.config-override-value {
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+}
+
+.config-override-toggle {
+    margin: 0;
+}
+
+.input-group-text {
+    background: #fff;
+    border-left: none;
+}
+
+.input-group .form-control:focus + .input-group-append .input-group-text {
+    border-color: #bac8f3;
+}
+
+.form-check-label {
+    font-size: 0.875rem;
+    margin-left: 0.25rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    initializeConfigOverrides();
+});
+
+function initializeConfigOverrides() {
+    // Initialize toggle states
+    $('.config-override-toggle').each(function() {
+        updateOverrideState($(this));
+    });
+
+    // Handle toggle changes
+    $('.config-override-toggle').on('change', function() {
+        updateOverrideState($(this));
+    });
+
+    // Handle form submission
+    $('#configOverrideForm').on('submit', function(e) {
+        // Clear empty override values for unchecked toggles
+        $('.config-override-toggle:not(:checked)').each(function() {
+            const configId = $(this).attr('id').replace('toggle_', '');
+            $(`#id_config_${configId}`).val('');
+        });
+
+        // Show loading state
+        const submitBtn = $(this).find('button[type="submit"]');
+        const originalText = submitBtn.html();
+        submitBtn.html('<i class="fas fa-spinner fa-spin"></i> {% trans "Saving..." %}').prop('disabled', true);
+
+        // Re-enable after a delay (in case of errors)
+        setTimeout(function() {
+            submitBtn.html(originalText).prop('disabled', false);
+        }, 5000);
+    });
+
+    // Auto-save draft (optional)
+    let autoSaveTimeout;
+    $('.config-override-value').on('input', function() {
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(function() {
+            // Could implement auto-save here
+            console.log('Auto-saving draft...');
+        }, 30000);
+    });
+}
+
+function updateOverrideState(toggle) {
+    const configId = toggle.attr('id').replace('toggle_', '');
+    const textarea = $(`#id_config_${configId}`);
+    const container = textarea.closest('.config-override-item');
+
+    if (toggle.is(':checked')) {
+        textarea.prop('disabled', false).removeClass('bg-light');
+        container.addClass('border-primary');
+        container.find('label strong').addClass('text-primary');
+    } else {
+        textarea.prop('disabled', true).addClass('bg-light').val('');
+        container.removeClass('border-primary');
+        container.find('label strong').removeClass('text-primary');
+    }
+}
+
+function resetToGlobal(configId) {
+    const toggle = $(`#toggle_${configId}`);
+    const textarea = $(`#id_config_${configId}`);
+    const globalValue = textarea.data('global-value');
+
+    if (confirm('{% trans "Are you sure you want to reset this configuration to the global default?" %}')) {
+        textarea.val('');
+        toggle.prop('checked', false).trigger('change');
+    }
+}
+
+function showConfigHelp(configKey) {
+    // Configuration help content
+    const helpContent = getConfigHelpContent(configKey);
+
+    $('#configHelpContent').html(helpContent);
+    $('#configHelpModal').modal('show');
+}
+
+function getConfigHelpContent(configKey) {
+    // This would typically come from a backend API or predefined content
+    const helpData = {
+        'site_name': {
+            title: '{% trans "Site Name" %}',
+            description: '{% trans "The name of your institution as displayed throughout the system." %}',
+            type: '{% trans "String" %}',
+            example: '"My School Name"'
+        },
+        'max_login_attempts': {
+            title: '{% trans "Maximum Login Attempts" %}',
+            description: '{% trans "Number of failed login attempts before account is locked." %}',
+            type: '{% trans "Integer" %}',
+            example: '5'
+        },
+        'session_timeout': {
+            title: '{% trans "Session Timeout (minutes)" %}',
+            description: '{% trans "How long a user session remains active without activity." %}',
+            type: '{% trans "Integer" %}',
+            example: '60'
+        },
+        'default_language': {
+            title: '{% trans "Default Language" %}',
+            description: '{% trans "The default language for the institution interface." %}',
+            type: '{% trans "String" %}',
+            example: '"en"'
+        }
+        // Add more configuration help as needed
+    };
+
+    const help = helpData[configKey];
+    if (!help) {
+        return `<div class="alert alert-warning">{% trans "Help content not available for this configuration." %}</div>`;
+    }
+
+    return `
+        <h6>${help.title}</h6>
+        <p class="text-muted">${help.description}</p>
+        <div class="row">
+            <div class="col-md-6">
+                <strong>{% trans "Type:" %}</strong> ${help.type}
+            </div>
+            <div class="col-md-6">
+                <strong>{% trans "Example:" %}</strong>
+                <code>${help.example}</code>
+            </div>
+        </div>
+    `;
+}
+
+// Validation functions
+function validateConfigValue(configId) {
+    const textarea = $(`#id_config_${configId}`);
+    const value = textarea.val();
+    const feedback = $(`#feedback_${configId}`);
+
+    // Basic validation - could be enhanced based on config type
+    if (value && !isValidJSON(value)) {
+        textarea.addClass('is-invalid');
+        feedback.text('{% trans "Invalid JSON format" %}');
+        return false;
+    } else {
+        textarea.removeClass('is-invalid');
+        return true;
+    }
+}
+
+function isValidJSON(str) {
+    try {
+        JSON.parse(str);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Bulk operations
+function resetAllOverrides() {
+    if (confirm('{% trans "Are you sure you want to reset all configurations to global defaults?" %}')) {
+        $('.config-override-toggle').prop('checked', false).trigger('change');
+    }
+}
+
+function copyFromInstitution(sourceInstitutionId) {
+    // Implementation for copying overrides from another institution
+    console.log('Copying overrides from institution:', sourceInstitutionId);
+    // This would typically make an AJAX call
+}
+</script>
+{% endblock %}

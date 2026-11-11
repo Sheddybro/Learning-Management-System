@@ -1,0 +1,964 @@
+<!-- templates/academics/departments/department_detail.html -->
+{% extends 'academics/base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{{ department.name }} - {% trans "Department Details" %}{% endblock %}
+
+{% block page_title %}{{ department.name }}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'academics:dashboard' %}">{% trans "Academics" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'academics:department_list' %}">{% trans "Departments" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ department.name }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        {% if perms.academics.change_department %}
+        <a href="{% url 'academics:department_update' department.pk %}" class="btn btn-primary">
+            <i class="bi bi-pencil-square me-1"></i> {% trans "Edit Department" %}
+        </a>
+        {% endif %}
+        <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="bi bi-download me-1"></i> {% trans "Export" %}
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" id="export-teachers">{% trans "Teachers List" %}</a></li>
+            <li><a class="dropdown-item" href="#" id="export-subjects">{% trans "Subjects List" %}</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#" id="export-department-report">{% trans "Department Report" %}</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+.department-detail {
+    font-family: 'Inter', sans-serif;
+}
+
+.department-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    margin-bottom: 2rem;
+}
+
+.department-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.department-meta .badge {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.department-stats {
+    display: flex;
+    gap: 2rem;
+    justify-content: flex-end;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    opacity: 0.8;
+    margin-top: 0.25rem;
+}
+
+.department-tabs .nav-tabs {
+    border-bottom: 2px solid #dee2e6;
+}
+
+.department-tabs .nav-link {
+    color: #6c757d;
+    font-weight: 500;
+    border: none;
+    padding: 1rem 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.department-tabs .nav-link:hover {
+    color: #495057;
+    border: none;
+}
+
+.department-tabs .nav-link.active {
+    color: #0d6efd;
+    background: none;
+    border: none;
+    border-bottom: 3px solid #0d6efd;
+}
+
+.teacher-card, .subject-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid #e9ecef;
+    margin-bottom: 1rem;
+}
+
+.teacher-card:hover, .subject-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.teacher-avatar, .subject-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+.teacher-avatar {
+    background: linear-gradient(135deg, #0dcaf0, #0d6efd);
+    color: white;
+}
+
+.subject-icon {
+    background: linear-gradient(135deg, #198754, #20c997);
+    color: white;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+
+.empty-state .display-1 {
+    opacity: 0.5;
+    margin-bottom: 1rem;
+}
+
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #0d6efd;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+    .department-header {
+        padding: 1.5rem;
+        text-align: center;
+    }
+    
+    .department-stats {
+        justify-content: center;
+        margin-top: 1rem;
+    }
+    
+    .department-stats .stat-item {
+        flex: 1;
+    }
+    
+    .department-tabs .nav-link {
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .department-header {
+        padding: 1rem;
+    }
+    
+    .department-stats {
+        gap: 1rem;
+    }
+    
+    .department-tabs .nav-link {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+    }
+}
+</style>
+
+<div class="department-detail">
+    <!-- Department Header -->
+    <div class="department-header">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="d-flex align-items-center">
+                    <div class="department-avatar me-3">
+                        {{ department.code|slice:":2"|upper }}
+                    </div>
+                    <div>
+                        <h1 class="h2 mb-1">{{ department.name }}</h1>
+                        <p class="mb-2 opacity-75">{{ department.description|default:"No description available" }}</p>
+                        <div class="department-meta">
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-code me-1"></i>{{ department.code }}
+                            </span>
+                            {% if department.head_of_department %}
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-person-badge me-1"></i>
+                                {{ department.head_of_department.user.get_full_name }}
+                            </span>
+                            {% endif %}
+                            {% if department.established_date %}
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-calendar me-1"></i>
+                                {{ department.established_date|date:"Y" }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="department-stats">
+                    <div class="stat-item">
+                        <div class="stat-number">{{ teachers.count }}</div>
+                        <div class="stat-label">{% trans "Teachers" %}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">{{ subjects.count }}</div>
+                        <div class="stat-label">{% trans "Subjects" %}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">{{ total_students }}</div>
+                        <div class="stat-label">{% trans "Students" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="department-tabs mb-4">
+        <div class="nav nav-tabs" id="department-tab" role="tablist">
+            <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+                <i class="bi bi-grid me-1"></i> {% trans "Overview" %}
+            </button>
+            <button class="nav-link" id="teachers-tab" data-bs-toggle="tab" data-bs-target="#teachers" type="button" role="tab">
+                <i class="bi bi-people me-1"></i> {% trans "Teachers" %} ({{ teachers.count }})
+            </button>
+            <button class="nav-link" id="subjects-tab" data-bs-toggle="tab" data-bs-target="#subjects" type="button" role="tab">
+                <i class="bi bi-journal-text me-1"></i> {% trans "Subjects" %} ({{ subjects.count }})
+            </button>
+            <button class="nav-link" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analytics" type="button" role="tab">
+                <i class="bi bi-graph-up me-1"></i> {% trans "Analytics" %}
+            </button>
+        </div>
+    </nav>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="department-tab-content">
+        <!-- Overview Tab -->
+        <div class="tab-pane fade show active" id="overview" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-8">
+                    <!-- Department Information -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-info-circle me-2"></i> {% trans "Department Information" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <table class="table table-borderless">
+                                        <tr>
+                                            <td class="text-muted" width="40%">{% trans "Department Code" %}:</td>
+                                            <td><strong>{{ department.code }}</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted">{% trans "Status" %}:</td>
+                                            <td>
+                                                <span class="badge bg-success">{% trans "Active" %}</span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted">{% trans "Established" %}:</td>
+                                            <td>
+                                                <strong>
+                                                    {% if department.established_date %}
+                                                        {{ department.established_date|date:"F j, Y" }}
+                                                    {% else %}
+                                                        {% trans "Not specified" %}
+                                                    {% endif %}
+                                                </strong>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <table class="table table-borderless">
+                                        <tr>
+                                            <td class="text-muted" width="40%">{% trans "Head of Department" %}:</td>
+                                            <td>
+                                                <strong>
+                                                    {% if department.head_of_department %}
+                                                        {{ department.head_of_department.user.get_full_name }}
+                                                    {% else %}
+                                                        {% trans "Not assigned" %}
+                                                    {% endif %}
+                                                </strong>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted">{% trans "Total Teachers" %}:</td>
+                                            <td><strong>{{ teachers.count }}</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted">{% trans "Total Subjects" %}:</td>
+                                            <td><strong>{{ subjects.count }}</strong></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            {% if department.description %}
+                            <div class="mt-3">
+                                <h6>{% trans "Description" %}</h6>
+                                <p class="text-muted">{{ department.description }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-clock-history me-2"></i> {% trans "Recent Activity" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group list-group-flush">
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="bi bi-person-plus text-success me-2"></i>
+                                        <span>{% trans "New teacher joined the department" %}</span>
+                                    </div>
+                                    <small class="text-muted">2 days ago</small>
+                                </div>
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="bi bi-journal-plus text-primary me-2"></i>
+                                        <span>{% trans "New subject added" %}</span>
+                                    </div>
+                                    <small class="text-muted">1 week ago</small>
+                                </div>
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="bi bi-arrow-left-right text-warning me-2"></i>
+                                        <span>{% trans "Department head changed" %}</span>
+                                    </div>
+                                    <small class="text-muted">2 weeks ago</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <!-- Head of Department -->
+                    {% if department.head_of_department %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-person-badge me-2"></i> {% trans "Head of Department" %}
+                            </h5>
+                        </div>
+                        <div class="card-body text-center">
+                            {% if department.head_of_department.photo %}
+                            <img src="{{ department.head_of_department.photo.url }}" 
+                                 alt="{{ department.head_of_department.user.get_full_name }}"
+                                 class="rounded-circle mb-3" width="100" height="100">
+                            {% else %}
+                            <div class="teacher-avatar mx-auto mb-3">
+                                {{ department.head_of_department.user.get_initials }}
+                            </div>
+                            {% endif %}
+                            <h5>{{ department.head_of_department.user.get_full_name }}</h5>
+                            <p class="text-muted mb-2">{{ department.head_of_department.teacher_id }}</p>
+                            <p class="text-muted small mb-3">
+                                {{ department.head_of_department.specialization|default:"No specialization" }}
+                            </p>
+                            <div class="contact-info">
+                                <a href="mailto:{{ department.head_of_department.user.email }}" 
+                                   class="btn btn-outline-primary btn-sm me-1">
+                                    <i class="bi bi-envelope"></i>
+                                </a>
+                                <a href="{% url 'academics:teacher_detail' department.head_of_department.pk %}" 
+                                   class="btn btn-outline-info btn-sm">
+                                    <i class="bi bi-eye"></i> {% trans "Profile" %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Quick Stats -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-graph-up me-2"></i> {% trans "Quick Stats" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="quick-stats">
+                                <div class="stat-item text-center mb-3">
+                                    <div class="stat-number display-6 text-primary">{{ teachers.count }}</div>
+                                    <div class="stat-label">{% trans "Teaching Staff" %}</div>
+                                </div>
+                                <div class="row text-center">
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <div class="stat-number h4 text-success">{{ core_subjects }}</div>
+                                            <div class="stat-label">{% trans "Core Subjects" %}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <div class="stat-number h4 text-info">{{ elective_subjects }}</div>
+                                            <div class="stat-label">{% trans "Elective Subjects" %}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Teachers Tab -->
+        <div class="tab-pane fade" id="teachers" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">{% trans "Department Teachers" %}</h5>
+                        <div class="header-actions">
+                            <div class="input-group input-group-sm" style="width: 250px;">
+                                <input type="text" class="form-control" placeholder="{% trans 'Search teachers...' %}" id="teacher-search">
+                                <button class="btn btn-outline-secondary" type="button">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if teachers %}
+                    <div class="row" id="teachers-container">
+                        {% for teacher in teachers %}
+                        <div class="col-md-6 col-lg-4 mb-3 teacher-item">
+                            <div class="card teacher-card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-start">
+                                        {% if teacher.photo %}
+                                        <img src="{{ teacher.photo.url }}" alt="{{ teacher.user.get_full_name }}"
+                                             class="rounded-circle me-3" width="60" height="60">
+                                        {% else %}
+                                        <div class="teacher-avatar me-3">
+                                            {{ teacher.user.get_initials }}
+                                        </div>
+                                        {% endif %}
+                                        <div class="flex-grow-1">
+                                            <h6 class="card-title mb-1">
+                                                <a href="{% url 'academics:teacher_detail' teacher.pk %}" class="text-decoration-none">
+                                                    {{ teacher.user.get_full_name }}
+                                                </a>
+                                            </h6>
+                                            <p class="card-text text-muted small mb-1">
+                                                {{ teacher.teacher_id }}
+                                            </p>
+                                            <p class="card-text text-muted small mb-2">
+                                                {{ teacher.qualification|default:"No qualification" }}
+                                            </p>
+                                            <div class="teacher-meta">
+                                                <span class="badge bg-primary me-1">
+                                                    {{ teacher.get_teacher_type_display }}
+                                                </span>
+                                                <span class="badge bg-secondary">
+                                                    {{ teacher.experience_years }} yrs exp
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <div class="btn-group w-100" role="group">
+                                        <a href="{% url 'academics:teacher_detail' teacher.pk %}" class="btn btn-outline-primary btn-sm">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="mailto:{{ teacher.user.email }}" class="btn btn-outline-info btn-sm">
+                                            <i class="bi bi-envelope"></i>
+                                        </a>
+                                        {% if perms.academics.change_teacher %}
+                                        <a href="{% url 'academics:teacher_update' teacher.pk %}" class="btn btn-outline-secondary btn-sm">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <i class="bi bi-people display-1 text-muted"></i>
+                        <h5 class="text-muted mt-3">{% trans "No Teachers Found" %}</h5>
+                        <p class="text-muted">{% trans "There are no teachers assigned to this department yet." %}</p>
+                        {% if perms.academics.add_teacher %}
+                        <a href="{% url 'academics:teacher_create' %}?department={{ department.pk }}" class="btn btn-primary">
+                            <i class="bi bi-person-plus me-1"></i> {% trans "Add Teacher" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Subjects Tab -->
+        <div class="tab-pane fade" id="subjects" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">{% trans "Department Subjects" %}</h5>
+                        <div class="header-actions">
+                            <div class="input-group input-group-sm" style="width: 250px;">
+                                <input type="text" class="form-control" placeholder="{% trans 'Search subjects...' %}" id="subject-search">
+                                <button class="btn btn-outline-secondary" type="button">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if subjects %}
+                    <div class="row" id="subjects-container">
+                        {% for subject in subjects %}
+                        <div class="col-md-6 col-lg-4 mb-3 subject-item">
+                            <div class="card subject-card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-start">
+                                        <div class="subject-icon me-3">
+                                            {{ subject.code|slice:":2"|upper }}
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="card-title mb-1">
+                                                <a href="{% url 'academics:subject_detail' subject.pk %}" class="text-decoration-none">
+                                                    {{ subject.name }}
+                                                </a>
+                                            </h6>
+                                            <p class="card-text text-muted small mb-1">
+                                                {{ subject.code }}
+                                            </p>
+                                            <p class="card-text text-muted small mb-2">
+                                                {{ subject.description|truncatewords:10|default:"No description" }}
+                                            </p>
+                                            <div class="subject-meta">
+                                                <span class="badge {% if subject.subject_type == 'core' %}bg-success{% else %}bg-info{% endif %} me-1">
+                                                    {{ subject.get_subject_type_display }}
+                                                </span>
+                                                <span class="badge bg-secondary">
+                                                    {{ subject.credits }} credit{{ subject.credits|pluralize }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <div class="btn-group w-100" role="group">
+                                        <a href="{% url 'academics:subject_detail' subject.pk %}" class="btn btn-outline-primary btn-sm">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% if perms.academics.change_subject %}
+                                        <a href="{% url 'academics:subject_update' subject.pk %}" class="btn btn-outline-secondary btn-sm">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <i class="bi bi-journal-x display-1 text-muted"></i>
+                        <h5 class="text-muted mt-3">{% trans "No Subjects Found" %}</h5>
+                        <p class="text-muted">{% trans "There are no subjects assigned to this department yet." %}</p>
+                        {% if perms.academics.add_subject %}
+                        <a href="{% url 'academics:subject_create' %}?department={{ department.pk }}" class="btn btn-primary">
+                            <i class="bi bi-journal-plus me-1"></i> {% trans "Add Subject" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div class="tab-pane fade" id="analytics" role="tabpanel">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-pie-chart me-2"></i> {% trans "Subject Distribution" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="text-center py-4">
+                                <canvas id="subjectTypeChart" width="200" height="200"></canvas>
+                            </div>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="stat-item">
+                                        <div class="stat-number h4 text-success">{{ core_subjects }}</div>
+                                        <div class="stat-label">{% trans "Core Subjects" %}</div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="stat-item">
+                                        <div class="stat-number h4 text-info">{{ elective_subjects }}</div>
+                                        <div class="stat-label">{% trans "Elective Subjects" %}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-bar-chart me-2"></i> {% trans "Teacher Statistics" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="teacher-stats">
+                                <div class="stat-item text-center mb-3">
+                                    <div class="stat-number display-6 text-primary">{{ teachers.count }}</div>
+                                    <div class="stat-label">{% trans "Total Teachers" %}</div>
+                                </div>
+                                <div class="row text-center">
+                                    <div class="col-4">
+                                        <div class="stat-item">
+                                            <div class="stat-number h5 text-success">{{ full_time_teachers }}</div>
+                                            <div class="stat-label">{% trans "Full Time" %}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="stat-item">
+                                            <div class="stat-number h5 text-warning">{{ part_time_teachers }}</div>
+                                            <div class="stat-label">{% trans "Part Time" %}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="stat-item">
+                                            <div class="stat-number h5 text-info">{{ visiting_teachers }}</div>
+                                            <div class="stat-label">{% trans "Visiting" %}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Performance Metrics -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-speedometer2 me-2"></i> {% trans "Performance Metrics" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="metric-card">
+                                <div class="metric-value text-primary h3">{{ average_experience }}</div>
+                                <div class="metric-label text-muted">{% trans "Avg. Experience (yrs)" %}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="metric-card">
+                                <div class="metric-value text-success h3">{{ subject_teacher_ratio }}</div>
+                                <div class="metric-label text-muted">{% trans "Subjects per Teacher" %}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="metric-card">
+                                <div class="metric-value text-info h3">{{ total_credits }}</div>
+                                <div class="metric-label text-muted">{% trans "Total Credits" %}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="metric-card">
+                                <div class="metric-value text-warning h3">{{ active_ratio }}%</div>
+                                <div class="metric-label text-muted">{% trans "Active Ratio" %}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">{% trans "Loading..." %}</span>
+                </div>
+                <p class="mb-0" id="loading-message">{% trans "Processing..." %}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class DepartmentDetail {
+    constructor(config) {
+        this.config = config;
+        this.init();
+    }
+
+    init() {
+        this.setupEventListeners();
+        this.setupSearch();
+        this.setupCharts();
+    }
+
+    setupEventListeners() {
+        // Export handlers
+        document.getElementById('export-teachers')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.exportTeachers();
+        });
+
+        document.getElementById('export-subjects')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.exportSubjects();
+        });
+
+        document.getElementById('export-department-report')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.exportDepartmentReport();
+        });
+
+        // Tab change handlers
+        document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
+            tab.addEventListener('show.bs.tab', (event) => {
+                const target = event.target.getAttribute('data-bs-target');
+                this.onTabChange(target);
+            });
+        });
+    }
+
+    setupSearch() {
+        // Teacher search
+        const teacherSearch = document.getElementById('teacher-search');
+        if (teacherSearch) {
+            teacherSearch.addEventListener('input', (e) => {
+                this.filterTeachers(e.target.value);
+            });
+        }
+
+        // Subject search
+        const subjectSearch = document.getElementById('subject-search');
+        if (subjectSearch) {
+            subjectSearch.addEventListener('input', (e) => {
+                this.filterSubjects(e.target.value);
+            });
+        }
+    }
+
+    setupCharts() {
+        // Subject type chart
+        const subjectTypeChart = document.getElementById('subjectTypeChart');
+        if (subjectTypeChart) {
+            const ctx = subjectTypeChart.getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['{% trans "Core Subjects" %}', '{% trans "Elective Subjects" %}'],
+                    datasets: [{
+                        data: [{{ core_subjects }}, {{ elective_subjects }}],
+                        backgroundColor: ['#198754', '#0dcaf0'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    filterTeachers(searchTerm) {
+        const container = document.getElementById('teachers-container');
+        const items = container?.getElementsByClassName('teacher-item');
+        
+        if (!items) return;
+
+        searchTerm = searchTerm.toLowerCase();
+        
+        for (let item of items) {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(searchTerm) ? 'block' : 'none';
+        }
+    }
+
+    filterSubjects(searchTerm) {
+        const container = document.getElementById('subjects-container');
+        const items = container?.getElementsByClassName('subject-item');
+        
+        if (!items) return;
+
+        searchTerm = searchTerm.toLowerCase();
+        
+        for (let item of items) {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(searchTerm) ? 'block' : 'none';
+        }
+    }
+
+    onTabChange(tabId) {
+        // Load additional data when switching to analytics tab
+        if (tabId === '#analytics') {
+            this.loadAnalyticsData();
+        }
+    }
+
+    async loadAnalyticsData() {
+        // Could load additional analytics data via AJAX
+        console.log('Loading analytics data...');
+    }
+
+    exportTeachers() {
+        this.showLoading('{% trans "Exporting teachers list..." %}');
+        
+        // Simulate export process
+        setTimeout(() => {
+            this.hideLoading();
+            this.showSuccess('{% trans "Teachers list exported successfully!" %}');
+        }, 1500);
+    }
+
+    exportSubjects() {
+        this.showLoading('{% trans "Exporting subjects list..." %}');
+        
+        setTimeout(() => {
+            this.hideLoading();
+            this.showSuccess('{% trans "Subjects list exported successfully!" %}');
+        }, 1500);
+    }
+
+    exportDepartmentReport() {
+        this.showLoading('{% trans "Generating department report..." %}');
+        
+        setTimeout(() => {
+            this.hideLoading();
+            this.showSuccess('{% trans "Department report generated successfully!" %}');
+            
+            // Trigger download
+            const link = document.createElement('a');
+            link.href = '#'; // Would be actual report URL
+            link.download = 'department_report.pdf';
+            link.click();
+        }, 2000);
+    }
+
+    showLoading(message = '{% trans "Loading..." %}') {
+        document.getElementById('loading-message').textContent = message;
+        new bootstrap.Modal(document.getElementById('loadingModal')).show();
+    }
+
+    hideLoading() {
+        bootstrap.Modal.getInstance(document.getElementById('loadingModal'))?.hide();
+    }
+
+    showError(message) {
+        // You could replace this with a toast notification
+        alert(`{% trans "Error" %}: ${message}`);
+    }
+
+    showSuccess(message) {
+        // You could replace this with a toast notification
+        alert(`{% trans "Success" %}: ${message}`);
+    }
+}
+
+// Initialize when document is ready
+document.addEventListener('DOMContentLoaded', function() {
+    const departmentDetail = new DepartmentDetail({
+        departmentId: {{ department.pk }},
+        departmentCode: '{{ department.code }}'
+    });
+});
+</script>
+{% endblock %}

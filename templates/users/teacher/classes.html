@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "My Classes" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">{% trans "My Classes" %}</h1>
+                    <p class="text-muted">{% trans "Manage your assigned classes and subjects" %}</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'users:teacher_dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> {% trans "Back to Dashboard" %}
+                    </a>
+                    <a href="{% url 'users:teacher_timetable' %}" class="btn btn-primary">
+                        <i class="bi bi-calendar"></i> {% trans "View Timetable" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Classes Grid -->
+    <div class="row">
+        {% for class_data in classes_list %}
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-mortarboard"></i> {{ class_data.class.name }}
+                        </h5>
+                        <span class="badge bg-light text-dark">{{ class_data.total_students }} {% trans "Students" %}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Class Info -->
+                    <div class="mb-3">
+                        <small class="text-muted d-block">{% trans "Academic Session" %}</small>
+                        <strong>{{ current_session.name }}</strong>
+                    </div>
+
+                    <div class="mb-3">
+                        <small class="text-muted d-block">{% trans "Total Weekly Periods" %}</small>
+                        <strong>{{ class_data.total_periods }}</strong>
+                    </div>
+
+                    <!-- Subjects -->
+                    <div class="mb-3">
+                        <small class="text-muted d-block">{% trans "Subjects Taught" %}</small>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% for subject in class_data.subjects %}
+                            <span class="badge bg-secondary">{{ subject.name }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'users:teacher_class_attendance' class_data.class.id %}"
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-check-circle"></i> {% trans "Take Attendance" %}
+                        </a>
+                        <a href="{% url 'users:teacher_class_materials' class_data.class.id %}"
+                           class="btn btn-outline-success btn-sm">
+                            <i class="bi bi-file-earmark-text"></i> {% trans "Class Materials" %}
+                        </a>
+                        <button class="btn btn-outline-info btn-sm" onclick="viewClassDetails({{ class_data.class.id }})">
+                            <i class="bi bi-info-circle"></i> {% trans "Class Details" %}
+                        </button>
+                    </div>
+                </div>
+                <div class="card-footer bg-light">
+                    <small class="text-muted">
+                        <i class="bi bi-calendar-event"></i>
+                        {% trans "Last updated" %} {{ class_data.class.updated_at|date:"M d, Y" }}
+                    </small>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-mortarboard text-muted" style="font-size: 4rem;"></i>
+                    <h4 class="text-muted mt-3">{% trans "No Classes Assigned" %}</h4>
+                    <p class="text-muted">{% trans "You don't have any classes assigned for the current academic session." %}</p>
+                    <a href="{% url 'users:teacher_dashboard' %}" class="btn btn-primary">
+                        <i class="bi bi-arrow-left"></i> {% trans "Back to Dashboard" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Class Details Modal -->
+    <div class="modal fade" id="classDetailsModal" tabindex="-1" aria-labelledby="classDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="classDetailsModalLabel">{% trans "Class Details" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="classDetailsContent">
+                    <!-- Content will be loaded here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function viewClassDetails(classId) {
+    // Load class details via AJAX
+    fetch(`/api/classes/${classId}/details/`)
+        .then(response => response.json())
+        .then(data => {
+            const content = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Class Information</h6>
+                        <p><strong>Name:</strong> ${data.name}</p>
+                        <p><strong>Academic Session:</strong> ${data.academic_session}</p>
+                        <p><strong>Total Students:</strong> ${data.total_students}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Subject Assignments</h6>
+                        <ul class="list-unstyled">
+                            ${data.subjects.map(subject => `<li><i class="bi bi-book"></i> ${subject.name} (${subject.periods_per_week} periods)</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `;
+            document.getElementById('classDetailsContent').innerHTML = content;
+            new bootstrap.Modal(document.getElementById('classDetailsModal')).show();
+        })
+        .catch(error => {
+            console.error('Error loading class details:', error);
+            document.getElementById('classDetailsContent').innerHTML = '<p class="text-danger">Error loading class details.</p>';
+            new bootstrap.Modal(document.getElementById('classDetailsModal')).show();
+        });
+}
+</script>
+
+<style>
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+    transition: all 0.3s ease;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+</style>
+{% endblock %}

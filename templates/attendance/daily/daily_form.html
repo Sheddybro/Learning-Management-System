@@ -1,0 +1,802 @@
+<!-- templates/attendance/daily/daily_form.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if form.instance.pk %}Edit Attendance{% else %}Mark Attendance{% endif %} - School Management System
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.attendance-form-card {
+    border-left: 4px solid #007bff;
+}
+.student-info-card {
+    background: #f8f9fa;
+    border: 1px solid #e3e6f0;
+}
+.time-input-group {
+    max-width: 200px;
+}
+.status-badge {
+    font-size: 0.8rem;
+}
+.calculated-field {
+    background-color: #e9ecef;
+    opacity: 1;
+}
+.required-field::after {
+    content: " *";
+    color: #dc3545;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Page Header -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h1 class="h3 mb-2">
+                                {% if form.instance.pk %}
+                                Edit Attendance Record
+                                {% else %}
+                                Mark Student Attendance
+                                {% endif %}
+                            </h1>
+                            <nav aria-label="breadcrumb">
+                                <ol class="breadcrumb">
+                                    <li class="breadcrumb-item"><a href="{% url 'attendance:dashboard' %}">Dashboard</a></li>
+                                    <li class="breadcrumb-item"><a href="{% url 'attendance:daily_list' %}">Daily Attendance</a></li>
+                                    <li class="breadcrumb-item active">
+                                        {% if form.instance.pk %}Edit{% else %}Create{% endif %}
+                                    </li>
+                                </ol>
+                            </nav>
+                        </div>
+                        <a href="{% url 'attendance:daily_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i> Back to List
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Information Card -->
+            <div class="card student-info-card shadow mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center">
+                                <img src="{% if student.user.profile_picture %}{{ student.user.profile_picture.url }}{% else %}{% static 'img/default-avatar.png' %}{% endif %}" 
+                                     class="rounded-circle me-4" width="80" height="80"
+                                     alt="{{ student.user.get_full_name }}">
+                                <div>
+                                    <h4 class="mb-1">{{ student.user.get_full_name }}</h4>
+                                    <p class="text-muted mb-1">
+                                        <i class="fas fa-id-card me-2"></i>{{ student.admission_number }}
+                                    </p>
+                                    <p class="text-muted mb-0">
+                                        <i class="fas fa-chalkboard me-2"></i>
+                                        {{ student.current_class.name|default:"No class assigned" }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="h3 text-primary mb-0">
+                                {% if student.overall_attendance %}
+                                    {{ student.overall_attendance }}%
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">Overall Attendance</small>
+                            <div class="mt-2">
+                                <span class="badge 
+                                    {% if student.overall_attendance >= 90 %}bg-success
+                                    {% elif student.overall_attendance >= 75 %}bg-warning
+                                    {% else %}bg-danger{% endif %}">
+                                    {% if student.overall_attendance >= 90 %}Excellent
+                                    {% elif student.overall_attendance >= 75 %}Good
+                                    {% else %}Needs Improvement{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attendance Form -->
+            <div class="card attendance-form-card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-{% if form.instance.pk %}edit{% else %}plus-circle{% endif %} me-2"></i>
+                        {% if form.instance.pk %}
+                        Update Attendance Details
+                        {% else %}
+                        New Attendance Record
+                        {% endif %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="attendanceForm" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Hidden student field for new records -->
+                        {% if not form.instance.pk %}
+                        <input type="hidden" name="student" value="{{ student.id }}">
+                        {% endif %}
+
+                        <!-- Basic Information Section -->
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <label for="date" class="form-label fw-bold required-field">Date</label>
+                                <input type="date" class="form-control {% if form.date.errors %}is-invalid{% endif %}" 
+                                       id="date" name="date" 
+                                       value="{{ form.date.value|default:today|date:'Y-m-d' }}" 
+                                       max="{{ today|date:'Y-m-d' }}" required>
+                                {% if form.date.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.date.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">Cannot mark attendance for future dates.</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="attendance_session" class="form-label fw-bold required-field">Session</label>
+                                <select class="form-select {% if form.attendance_session.errors %}is-invalid{% endif %}" 
+                                        id="attendance_session" name="attendance_session" required>
+                                    <option value="">Select Session</option>
+                                    {% for session in attendance_sessions %}
+                                    <option value="{{ session.id }}" 
+                                            {% if form.attendance_session.value == session.id %}selected{% endif %}>
+                                        {{ session.name }} ({{ session.start_time|time }} - {{ session.end_time|time }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% if form.attendance_session.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.attendance_session.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="status" class="form-label fw-bold required-field">Attendance Status</label>
+                                <select class="form-select {% if form.status.errors %}is-invalid{% endif %}" 
+                                        id="status" name="status" required>
+                                    <option value="">Select Status</option>
+                                    {% for status_value, status_label in status_choices %}
+                                    <option value="{{ status_value }}" 
+                                            {% if form.status.value == status_value %}selected{% endif %}>
+                                        {{ status_label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% if form.status.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.status.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Time Information Section -->
+                        <div class="row mb-4" id="timeFields">
+                            <div class="col-md-6">
+                                <label for="check_in_time" class="form-label fw-bold">Check-in Time</label>
+                                <input type="datetime-local" class="form-control {% if form.check_in_time.errors %}is-invalid{% endif %}" 
+                                       id="check_in_time" name="check_in_time" 
+                                       value="{% if form.check_in_time.value %}{{ form.check_in_time.value|date:'Y-m-d\TH:i' }}{% endif %}">
+                                {% if form.check_in_time.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.check_in_time.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">Required for present/late status.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="check_out_time" class="form-label fw-bold">Check-out Time</label>
+                                <input type="datetime-local" class="form-control {% if form.check_out_time.errors %}is-invalid{% endif %}" 
+                                       id="check_out_time" name="check_out_time" 
+                                       value="{% if form.check_out_time.value %}{{ form.check_out_time.value|date:'Y-m-d\TH:i' }}{% endif %}">
+                                {% if form.check_out_time.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.check_out_time.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">Optional for attendance calculation.</div>
+                            </div>
+                        </div>
+
+                        <!-- Auto-calculated Fields Section -->
+                        <div class="card bg-light mb-4">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="fas fa-calculator me-2"></i>Calculated Fields</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row" id="calculatedFields">
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">Total Hours</label>
+                                        <input type="text" class="form-control calculated-field" 
+                                               id="total_hours" value="{{ form.instance.total_hours|default:'0.00' }}" readonly>
+                                        <div class="form-text">Auto-calculated from check-in/out times.</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">Late Minutes</label>
+                                        <input type="text" class="form-control calculated-field" 
+                                               id="late_minutes" value="{{ form.instance.late_minutes|default:'0' }}" readonly>
+                                        <div class="form-text">Based on session start time.</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">Status Indicators</label>
+                                        <div class="mt-2">
+                                            <span id="lateStatus" class="badge bg-success status-badge me-2">On Time</span>
+                                            <span id="presentStatus" class="badge bg-info status-badge">Present</span>
+                                        </div>
+                                        <div class="form-text">Auto-detected status flags.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Additional Information Section -->
+                        <div class="mb-4">
+                            <label for="remarks" class="form-label fw-bold">Remarks</label>
+                            <textarea class="form-control {% if form.remarks.errors %}is-invalid{% endif %}" 
+                                      id="remarks" name="remarks" rows="3" 
+                                      placeholder="Additional notes or comments about this attendance record...">{{ form.remarks.value|default:'' }}</textarea>
+                            {% if form.remarks.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.remarks.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Optional remarks about this attendance record (e.g., reason for absence, special circumstances).
+                            </div>
+                        </div>
+
+                        <!-- Technical Information (for existing records) -->
+                        {% if form.instance.pk %}
+                        <div class="card border-info mb-4">
+                            <div class="card-header bg-info text-white">
+                                <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Record Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <strong>Created:</strong><br>
+                                        <span class="text-muted">{{ form.instance.created_at|date:"M d, Y H:i" }}</span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Last Updated:</strong><br>
+                                        <span class="text-muted">{{ form.instance.updated_at|date:"M d, Y H:i" }}</span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Marked By:</strong><br>
+                                        <span class="text-muted">{{ form.instance.marked_by.get_full_name|default:"System" }}</span>
+                                    </div>
+                                </div>
+                                {% if form.instance.ip_address %}
+                                <div class="row mt-2">
+                                    <div class="col-12">
+                                        <strong>IP Address:</strong>
+                                        <span class="text-muted">{{ form.instance.ip_address }}</span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Conflict Alert -->
+                        <div class="alert alert-warning mb-4" id="conflictAlert" style="display: none;">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <span id="conflictMessage"></span>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                {% if form.instance.pk %}
+                                <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" 
+                                        data-bs-target="#deleteModal">
+                                    <i class="fas fa-trash me-1"></i> Delete Record
+                                </button>
+                                {% endif %}
+                            </div>
+                            <div class="btn-group">
+                                <a href="{% url 'attendance:daily_list' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times me-1"></i> Cancel
+                                </a>
+                                <button type="button" class="btn btn-outline-info" onclick="previewAttendance()">
+                                    <i class="fas fa-eye me-1"></i> Preview
+                                </button>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-save me-1"></i>
+                                    {% if form.instance.pk %}Update Record{% else %}Create Record{% endif %}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Student's Recent Attendance History -->
+            {% if recent_attendances %}
+            <div class="card shadow mt-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-history me-2"></i>Recent Attendance History
+                    </h6>
+                    <span class="badge bg-primary">{{ recent_attendances|length }} records</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Session</th>
+                                    <th>Status</th>
+                                    <th>Check-in</th>
+                                    <th>Check-out</th>
+                                    <th>Hours</th>
+                                    <th>Remarks</th>
+                                    <th>Marked By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for attendance in recent_attendances %}
+                                <tr class="{% if attendance.pk == form.instance.pk %}table-info{% endif %}">
+                                    <td>
+                                        <strong>{{ attendance.date }}</strong>
+                                        {% if attendance.pk == form.instance.pk %}
+                                        <span class="badge bg-info ms-1">Current</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ attendance.attendance_session.name }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if attendance.status == 'present' %}bg-success
+                                            {% elif attendance.status == 'absent' %}bg-danger
+                                            {% elif attendance.status == 'late' %}bg-warning
+                                            {% elif attendance.status == 'half_day' %}bg-orange text-white
+                                            {% else %}bg-info{% endif %}">
+                                            {{ attendance.get_status_display }}
+                                        </span>
+                                        {% if attendance.is_late %}
+                                        <i class="fas fa-clock text-warning ms-1" title="Late Arrival"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if attendance.check_in_time %}
+                                            {{ attendance.check_in_time|time }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if attendance.check_out_time %}
+                                            {{ attendance.check_out_time|time }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if attendance.total_hours %}
+                                            <span class="badge bg-light text-dark">{{ attendance.total_hours }}h</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if attendance.remarks %}
+                                            <span class="d-inline-block text-truncate" style="max-width: 150px;" 
+                                                  title="{{ attendance.remarks }}">
+                                                {{ attendance.remarks }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ attendance.marked_by.get_full_name|default:"System" }}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+{% if form.instance.pk %}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Delete Attendance Record
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this attendance record?</p>
+                <div class="alert alert-danger">
+                    <strong>This action cannot be undone!</strong><br>
+                    The following record will be permanently removed from the system.
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <strong>Student:</strong> {{ form.instance.student.user.get_full_name }}<br>
+                        <strong>Date:</strong> {{ form.instance.date }}<br>
+                        <strong>Session:</strong> {{ form.instance.attendance_session.name }}<br>
+                        <strong>Status:</strong> {{ form.instance.get_status_display }}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> Cancel
+                </button>
+                <form method="post" action="{% url 'attendance:daily_delete' form.instance.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i> Delete Record
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Attendance Record Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="previewContent">
+                <!-- Preview content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="submitForm()">
+                    <i class="fas fa-check me-1"></i> Confirm & Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const statusSelect = document.getElementById('status');
+    const timeFields = document.getElementById('timeFields');
+    const checkInTime = document.getElementById('check_in_time');
+    const checkOutTime = document.getElementById('check_out_time');
+    const totalHours = document.getElementById('total_hours');
+    const lateMinutes = document.getElementById('late_minutes');
+    const lateStatus = document.getElementById('lateStatus');
+    const presentStatus = document.getElementById('presentStatus');
+    const conflictAlert = document.getElementById('conflictAlert');
+    const conflictMessage = document.getElementById('conflictMessage');
+    const dateField = document.getElementById('date');
+
+    // Show/hide time fields based on status
+    function toggleTimeFields() {
+        const status = statusSelect.value;
+        if (status === 'present' || status === 'late' || status === 'half_day') {
+            timeFields.style.display = 'flex';
+            if (status === 'present' || status === 'late') {
+                checkInTime.required = true;
+            } else {
+                checkInTime.required = false;
+            }
+        } else {
+            timeFields.style.display = 'none';
+            checkInTime.required = false;
+            checkInTime.value = '';
+            checkOutTime.value = '';
+            updateCalculatedFields();
+        }
+        
+        updateStatusIndicators();
+    }
+
+    // Update calculated fields when times change
+    function updateCalculatedFields() {
+        if (checkInTime.value && checkOutTime.value) {
+            const checkIn = new Date(checkInTime.value);
+            const checkOut = new Date(checkOutTime.value);
+            
+            if (checkOut > checkIn) {
+                const diffMs = checkOut - checkIn;
+                const hours = (diffMs / (1000 * 60 * 60)).toFixed(2);
+                totalHours.value = hours + ' hours';
+                
+                // Calculate late minutes
+                const sessionDate = dateField.value;
+                const sessionStart = new Date(sessionDate + 'T08:00:00'); // Default session start 8:00 AM
+                
+                if (checkIn > sessionStart) {
+                    const lateMs = checkIn - sessionStart;
+                    const lateMins = Math.floor(lateMs / (1000 * 60));
+                    lateMinutes.value = lateMins + ' minutes';
+                    
+                    // Update late status
+                    if (lateMins > 0) {
+                        lateStatus.textContent = 'Late';
+                        lateStatus.className = 'badge bg-warning status-badge me-2';
+                    } else {
+                        lateStatus.textContent = 'On Time';
+                        lateStatus.className = 'badge bg-success status-badge me-2';
+                    }
+                } else {
+                    lateMinutes.value = '0 minutes';
+                    lateStatus.textContent = 'On Time';
+                    lateStatus.className = 'badge bg-success status-badge me-2';
+                }
+            } else {
+                totalHours.value = '0.00 hours';
+                lateMinutes.value = '0 minutes';
+                lateStatus.textContent = 'On Time';
+                lateStatus.className = 'badge bg-success status-badge me-2';
+            }
+        } else {
+            totalHours.value = '0.00 hours';
+            lateMinutes.value = '0 minutes';
+            lateStatus.textContent = 'On Time';
+            lateStatus.className = 'badge bg-success status-badge me-2';
+        }
+        
+        checkAttendanceConflict();
+    }
+
+    // Update status indicators
+    function updateStatusIndicators() {
+        const status = statusSelect.value;
+        if (status === 'present' || status === 'late' || status === 'half_day') {
+            presentStatus.textContent = 'Present';
+            presentStatus.className = 'badge bg-success status-badge';
+        } else if (status === 'absent') {
+            presentStatus.textContent = 'Absent';
+            presentStatus.className = 'badge bg-danger status-badge';
+        } else {
+            presentStatus.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            presentStatus.className = 'badge bg-info status-badge';
+        }
+    }
+
+    // Check for attendance conflicts
+    function checkAttendanceConflict() {
+        const studentId = "{{ student.id }}";
+        const date = dateField.value;
+        const sessionId = document.getElementById('attendance_session').value;
+        const recordId = "{{ form.instance.pk|default:'' }}";
+        
+        if (!date || !sessionId) return;
+
+        fetch('/attendance/api/check-attendance-conflict/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                student_id: studentId,
+                date: date,
+                session_id: sessionId,
+                record_id: recordId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.has_conflict) {
+                conflictMessage.textContent = data.message;
+                conflictAlert.style.display = 'block';
+            } else {
+                conflictAlert.style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error checking attendance conflict:', error);
+        });
+    }
+
+    // Event listeners
+    statusSelect.addEventListener('change', toggleTimeFields);
+    checkInTime.addEventListener('change', updateCalculatedFields);
+    checkOutTime.addEventListener('change', updateCalculatedFields);
+    dateField.addEventListener('change', checkAttendanceConflict);
+    document.getElementById('attendance_session').addEventListener('change', checkAttendanceConflict);
+
+    // Initialize
+    toggleTimeFields();
+    updateCalculatedFields();
+    updateStatusIndicators();
+
+    // Set maximum date to today
+    const today = new Date().toISOString().split('T')[0];
+    dateField.max = today;
+
+    // Auto-fill current time for check-in
+    checkInTime.addEventListener('focus', function() {
+        if (!this.value) {
+            const now = new Date();
+            // Adjust for timezone offset
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            this.value = now.toISOString().slice(0, 16);
+            updateCalculatedFields();
+        }
+    });
+
+    // Auto-fill check-out time (45 minutes later)
+    checkInTime.addEventListener('change', function() {
+        if (this.value && !checkOutTime.value) {
+            const checkIn = new Date(this.value);
+            checkIn.setMinutes(checkIn.getMinutes() + 45); // Default 45-minute session
+            checkOutTime.value = checkIn.toISOString().slice(0, 16);
+            updateCalculatedFields();
+        }
+    });
+});
+
+// Form validation
+function validateForm() {
+    const status = document.getElementById('status').value;
+    const date = document.getElementById('date').value;
+    const today = new Date().toISOString().split('T')[0];
+    const checkInTime = document.getElementById('check_in_time');
+    const checkOutTime = document.getElementById('check_out_time');
+    
+    let isValid = true;
+    let errorMessage = '';
+
+    // Check future date
+    if (date > today) {
+        errorMessage = 'Cannot mark attendance for future dates.';
+        isValid = false;
+    }
+    
+    // Check required fields
+    if (!status) {
+        errorMessage = 'Please select an attendance status.';
+        isValid = false;
+    }
+    
+    // Check time validity for present/late status
+    if ((status === 'present' || status === 'late') && !checkInTime.value) {
+        errorMessage = 'Check-in time is required for present or late status.';
+        isValid = false;
+    }
+    
+    // Check time order
+    if (checkInTime.value && checkOutTime.value) {
+        const checkIn = new Date(checkInTime.value);
+        const checkOut = new Date(checkOutTime.value);
+        
+        if (checkOut <= checkIn) {
+            errorMessage = 'Check-out time must be after check-in time.';
+            isValid = false;
+        }
+    }
+
+    if (!isValid) {
+        alert('Please fix the following error:\n\n' + errorMessage);
+    }
+    
+    return isValid;
+}
+
+// Preview function
+function previewAttendance() {
+    if (!validateForm()) return;
+
+    const formData = new FormData(document.getElementById('attendanceForm'));
+    let previewHTML = `
+        <h6>Attendance Record Preview</h6>
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            Please review the attendance details before saving.
+        </div>
+        <dl class="row">
+    `;
+    
+    for (let [key, value] of formData.entries()) {
+        if (key === 'csrfmiddlewaretoken') continue;
+        
+        let displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        let displayValue = value;
+        
+        if (key === 'status') {
+            const statusOptions = {
+                'present': '<span class="badge bg-success">Present</span>',
+                'absent': '<span class="badge bg-danger">Absent</span>',
+                'late': '<span class="badge bg-warning">Late</span>',
+                'half_day': '<span class="badge bg-orange text-white">Half Day</span>',
+                'leave': '<span class="badge bg-info">On Leave</span>'
+            };
+            displayValue = statusOptions[value] || value;
+        } else if (key.includes('time') && value) {
+            displayValue = new Date(value).toLocaleString();
+        } else if (!value) {
+            displayValue = '<span class="text-muted">Not provided</span>';
+        }
+        
+        previewHTML += `
+            <dt class="col-sm-4">${displayKey}:</dt>
+            <dd class="col-sm-8">${displayValue}</dd>
+        `;
+    }
+    
+    previewHTML += `
+        </dl>
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Click "Confirm & Save" to save this attendance record.
+        </div>
+    `;
+    
+    document.getElementById('previewContent').innerHTML = previewHTML;
+    const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+    modal.show();
+}
+
+// Submit form from preview
+function submitForm() {
+    document.getElementById('attendanceForm').submit();
+}
+
+// Utility function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Add form submission handler
+document.getElementById('attendanceForm').addEventListener('submit', function(e) {
+    if (!validateForm()) {
+        e.preventDefault();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,830 @@
+<!-- templates/transport/attendants/attendant_form.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if object %}{% trans "Edit Attendant" %}{% else %}{% trans "Create Attendant" %}{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if object %}{% trans "Edit Attendant" %}{% else %}{% trans "Create Attendant" %}{% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:attendant_list' %}">{% trans "Attendants" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if object %}{% trans "Edit Attendant" %}{% else %}{% trans "New Attendant" %}{% endif %}
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .attendant-form {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    
+    .form-section {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #20c997;
+    }
+    
+    .form-section h5 {
+        color: #20c997;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .form-section h5 i {
+        margin-right: 0.5rem;
+    }
+    
+    .photo-upload {
+        border: 2px dashed #dee2e6;
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        background: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    
+    .photo-upload:hover {
+        border-color: #20c997;
+        background: #f0fdf9;
+    }
+    
+    .photo-preview {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #20c997 0%, #198754 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 3rem;
+        margin: 0 auto 1rem;
+        overflow: hidden;
+    }
+    
+    .photo-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .info-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-left: 4px solid #6c757d;
+    }
+    
+    .info-card h6 {
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+    
+    .employment-status {
+        background: #e7f3ff;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .contact-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .responsibilities-editor {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        background: white;
+    }
+    
+    .responsibility-item {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .responsibility-item:last-child {
+        border-bottom: none;
+    }
+    
+    .responsibility-item input[type="checkbox"] {
+        margin-right: 0.75rem;
+    }
+    
+    .form-actions {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        position: sticky;
+        bottom: 0;
+        margin-top: 2rem;
+    }
+    
+    .salary-calculator {
+        background: #fff3cd;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .form-section {
+            padding: 1rem;
+        }
+        
+        .photo-preview {
+            width: 120px;
+            height: 120px;
+            font-size: 2.5rem;
+        }
+        
+        .contact-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="attendant-form">
+    <form method="post" id="attendantForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <!-- Photo & Basic Information Section -->
+        <div class="form-section">
+            <h5><i class="fas fa-user-circle"></i> {% trans "Basic Information" %}</h5>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <!-- Photo Upload -->
+                    <div class="photo-upload">
+                        <div class="photo-preview" id="photoPreview">
+                            {% if object and object.user.profile_picture %}
+                                <img src="{{ object.user.profile_picture.url }}" alt="{% trans 'Attendant Photo' %}" id="previewImage">
+                            {% else %}
+                                <i class="fas fa-user" id="defaultIcon"></i>
+                            {% endif %}
+                        </div>
+                        <input type="file" class="form-control d-none" id="photoUpload" name="profile_picture" accept="image/*">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('photoUpload').click()">
+                            <i class="fas fa-camera me-1"></i> 
+                            {% if object and object.user.profile_picture %}
+                                {% trans "Change Photo" %}
+                            {% else %}
+                                {% trans "Upload Photo" %}
+                            {% endif %}
+                        </button>
+                        <div class="form-text text-center mt-2">
+                            {% trans "JPG, PNG or GIF. Max 5MB." %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-8">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.user.id_for_label }}" class="form-label">
+                                    <strong>{% trans "User Account" %} *</strong>
+                                </label>
+                                {{ form.user }}
+                                {% if form.user.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.user.errors %}
+                                    <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">{% trans "Select existing user or create new one" %}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.employee_id.id_for_label }}" class="form-label">
+                                    <strong>{% trans "Employee ID" %} *</strong>
+                                </label>
+                                {{ form.employee_id }}
+                                {% if form.employee_id.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.employee_id.errors %}
+                                    <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.date_of_birth.id_for_label }}" class="form-label">
+                                    <strong>{% trans "Date of Birth" %} *</strong>
+                                </label>
+                                {{ form.date_of_birth }}
+                                {% if form.date_of_birth.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.date_of_birth.errors %}
+                                    <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.date_of_joining.id_for_label }}" class="form-label">
+                                    <strong>{% trans "Date of Joining" %} *</strong>
+                                </label>
+                                {{ form.date_of_joining }}
+                                {% if form.date_of_joining.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.date_of_joining.errors %}
+                                    <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Age Calculation -->
+                    <div class="info-card">
+                        <h6>{% trans "Age Information" %}</h6>
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <small class="text-muted">{% trans "Current Age" %}</small>
+                                <div><strong id="currentAge">-</strong></div>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">{% trans "Service Duration" %}</small>
+                                <div><strong id="serviceDuration">-</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Employment Details -->
+        <div class="form-section">
+            <h5><i class="fas fa-briefcase"></i> {% trans "Employment Details" %}</h5>
+            
+            <div class="employment-status">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="{{ form.salary.id_for_label }}" class="form-label">
+                                <strong>{% trans "Salary" %}</strong>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                {{ form.salary }}
+                            </div>
+                            {% if form.salary.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.salary.errors %}
+                                <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="{{ form.status.id_for_label }}" class="form-label">
+                                <strong>{% trans "Status" %} *</strong>
+                            </label>
+                            {{ form.status }}
+                            {% if form.status.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.status.errors %}
+                                <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Salary Calculator -->
+            <div class="salary-calculator">
+                <h6><i class="fas fa-calculator me-2"></i>{% trans "Salary Information" %}</h6>
+                <div class="row">
+                    <div class="col-md-3">
+                        <small>{% trans "Monthly" %}</small>
+                        <div><strong id="monthlySalary">$0.00</strong></div>
+                    </div>
+                    <div class="col-md-3">
+                        <small>{% trans "Annual" %}</small>
+                        <div><strong id="annualSalary">$0.00</strong></div>
+                    </div>
+                    <div class="col-md-3">
+                        <small>{% trans "Daily" %}</small>
+                        <div><strong id="dailySalary">$0.00</strong></div>
+                    </div>
+                    <div class="col-md-3">
+                        <small>{% trans "Hourly" %}</small>
+                        <div><strong id="hourlySalary">$0.00</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Information -->
+        <div class="form-section">
+            <h5><i class="fas fa-address-book"></i> {% trans "Contact Information" %}</h5>
+            
+            <div class="contact-grid">
+                <div class="mb-3">
+                    <label for="{{ form.phone.id_for_label }}" class="form-label">
+                        <strong>{% trans "Phone Number" %} *</strong>
+                    </label>
+                    {{ form.phone }}
+                    {% if form.phone.errors %}
+                    <div class="text-danger small mt-1">
+                        {% for error in form.phone.errors %}
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="{{ form.email.id_for_label }}" class="form-label">
+                        <strong>{% trans "Email Address" %} *</strong>
+                    </label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                    <div class="text-danger small mt-1">
+                        {% for error in form.email.errors %}
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ form.address.id_for_label }}" class="form-label">
+                    <strong>{% trans "Address" %}</strong>
+                </label>
+                {{ form.address }}
+                {% if form.address.errors %}
+                <div class="text-danger small mt-1">
+                    {% for error in form.address.errors %}
+                    <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Emergency Contact -->
+        <div class="form-section">
+            <h5><i class="fas fa-first-aid"></i> {% trans "Emergency Contact" %}</h5>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.emergency_contact_name.id_for_label }}" class="form-label">
+                            <strong>{% trans "Emergency Contact Name" %}</strong>
+                        </label>
+                        {{ form.emergency_contact_name }}
+                        {% if form.emergency_contact_name.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.emergency_contact_name.errors %}
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.emergency_contact_relation.id_for_label }}" class="form-label">
+                            <strong>{% trans "Relationship" %}</strong>
+                        </label>
+                        {{ form.emergency_contact_relation }}
+                        {% if form.emergency_contact_relation.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.emergency_contact_relation.errors %}
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Responsibilities -->
+        <div class="form-section">
+            <h5><i class="fas fa-tasks"></i> {% trans "Responsibilities" %}</h5>
+            
+            <div class="mb-3">
+                <label for="{{ form.responsibilities.id_for_label }}" class="form-label">
+                    <strong>{% trans "Responsibilities" %}</strong>
+                </label>
+                {{ form.responsibilities }}
+                {% if form.responsibilities.errors %}
+                <div class="text-danger small mt-1">
+                    {% for error in form.responsibilities.errors %}
+                    <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="form-text">{% trans "Describe the attendant's main responsibilities and duties" %}</div>
+            </div>
+            
+            <!-- Quick Responsibilities Checklist -->
+            <div class="responsibilities-editor">
+                <h6 class="mb-3">{% trans "Common Responsibilities Checklist" %}</h6>
+                <div class="responsibility-item">
+                    <input type="checkbox" id="resp1" class="responsibility-check">
+                    <label for="resp1">{% trans "Assist students during boarding and alighting" %}</label>
+                </div>
+                <div class="responsibility-item">
+                    <input type="checkbox" id="resp2" class="responsibility-check">
+                    <label for="resp2">{% trans "Maintain student discipline on the vehicle" %}</label>
+                </div>
+                <div class="responsibility-item">
+                    <input type="checkbox" id="resp3" class="responsibility-check">
+                    <label for="resp3">{% trans "Ensure student safety during travel" %}</label>
+                </div>
+                <div class="responsibility-item">
+                    <input type="checkbox" id="resp4" class="responsibility-check">
+                    <label for="resp4">{% trans "Maintain vehicle cleanliness" %}</label>
+                </div>
+                <div class="responsibility-item">
+                    <input type="checkbox" id="resp5" class="responsibility-check">
+                    <label for="resp5">{% trans "Assist with student attendance tracking" %}</label>
+                </div>
+                <div class="responsibility-item">
+                    <input type="checkbox" id="resp6" class="responsibility-check">
+                    <label for="resp6">{% trans "Communicate with parents when needed" %}</label>
+                </div>
+                <div class="responsibility-item">
+                    <input type="checkbox" id="resp7" class="responsibility-check">
+                    <label for="resp7">{% trans "Report incidents to supervisor" %}</label>
+                </div>
+                <div class="responsibility-item">
+                    <input type="checkbox" id="resp8" class="responsibility-check">
+                    <label for="resp8">{% trans "Assist driver with navigation when needed" %}</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <a href="{% url 'transport:attendant_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>
+                        {% trans "Back to Attendants" %}
+                    </a>
+                </div>
+                
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-primary" id="previewBtn">
+                        <i class="fas fa-eye me-1"></i>
+                        {% trans "Preview" %}
+                    </button>
+                    <button type="submit" class="btn btn-success" id="submitBtn">
+                        <i class="fas fa-save me-1"></i>
+                        {% if object %}{% trans "Update Attendant" %}{% else %}{% trans "Create Attendant" %}{% endif %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previewModalLabel">
+                    <i class="fas fa-eye me-2"></i>{% trans "Attendant Preview" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="previewContent">
+                <!-- Preview content will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-primary" id="confirmSubmit">
+                    <i class="fas fa-check me-1"></i>
+                    {% if object %}{% trans "Update Attendant" %}{% else %}{% trans "Create Attendant" %}{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form elements
+        const dateOfBirthInput = document.getElementById('{{ form.date_of_birth.id_for_label }}');
+        const dateOfJoiningInput = document.getElementById('{{ form.date_of_joining.id_for_label }}');
+        const salaryInput = document.getElementById('{{ form.salary.id_for_label }}');
+        const responsibilitiesTextarea = document.getElementById('{{ form.responsibilities.id_for_label }}');
+        const photoUpload = document.getElementById('photoUpload');
+        const photoPreview = document.getElementById('photoPreview');
+        const defaultIcon = document.getElementById('defaultIcon');
+        
+        // Photo upload preview
+        photoUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    if (defaultIcon) {
+                        defaultIcon.style.display = 'none';
+                    }
+                    
+                    let img = photoPreview.querySelector('img');
+                    if (!img) {
+                        img = document.createElement('img');
+                        photoPreview.appendChild(img);
+                    }
+                    img.src = e.target.result;
+                    img.alt = "{% trans 'Attendant Photo' %}";
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = 'cover';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // Age calculation
+        function calculateAgeAndService() {
+            const dob = dateOfBirthInput.value;
+            const doj = dateOfJoiningInput.value;
+            
+            if (dob) {
+                const birthDate = new Date(dob);
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                
+                document.getElementById('currentAge').textContent = age + ' {% trans "years" %}';
+            }
+            
+            if (doj) {
+                const joinDate = new Date(doj);
+                const today = new Date();
+                let years = today.getFullYear() - joinDate.getFullYear();
+                let months = today.getMonth() - joinDate.getMonth();
+                
+                if (months < 0) {
+                    years--;
+                    months += 12;
+                }
+                
+                let duration = '';
+                if (years > 0) {
+                    duration += years + ' {% trans "year" %}' + (years > 1 ? 's' : '');
+                }
+                if (months > 0) {
+                    if (duration) duration += ', ';
+                    duration += months + ' {% trans "month" %}' + (months > 1 ? 's' : '');
+                }
+                
+                document.getElementById('serviceDuration').textContent = duration || '{% trans "Just started" %}';
+            }
+        }
+        
+        dateOfBirthInput.addEventListener('change', calculateAgeAndService);
+        dateOfJoiningInput.addEventListener('change', calculateAgeAndService);
+        
+        // Salary calculation
+        function calculateSalaryBreakdown() {
+            const salary = parseFloat(salaryInput.value) || 0;
+            
+            if (salary > 0) {
+                const monthly = salary;
+                const annual = monthly * 12;
+                const daily = monthly / 22; // Assuming 22 working days per month
+                const hourly = daily / 8;   // Assuming 8 hours per day
+                
+                document.getElementById('monthlySalary').textContent = '$' + monthly.toFixed(2);
+                document.getElementById('annualSalary').textContent = '$' + annual.toFixed(2);
+                document.getElementById('dailySalary').textContent = '$' + daily.toFixed(2);
+                document.getElementById('hourlySalary').textContent = '$' + hourly.toFixed(2);
+            } else {
+                document.getElementById('monthlySalary').textContent = '$0.00';
+                document.getElementById('annualSalary').textContent = '$0.00';
+                document.getElementById('dailySalary').textContent = '$0.00';
+                document.getElementById('hourlySalary').textContent = '$0.00';
+            }
+        }
+        
+        salaryInput.addEventListener('input', calculateSalaryBreakdown);
+        
+        // Responsibilities checklist
+        const responsibilityChecks = document.querySelectorAll('.responsibility-check');
+        responsibilityChecks.forEach(check => {
+            check.addEventListener('change', function() {
+                updateResponsibilitiesText();
+            });
+        });
+        
+        function updateResponsibilitiesText() {
+            const selectedResponsibilities = [];
+            responsibilityChecks.forEach(check => {
+                if (check.checked) {
+                    selectedResponsibilities.push(check.nextElementSibling.textContent);
+                }
+            });
+            
+            if (selectedResponsibilities.length > 0) {
+                responsibilitiesTextarea.value = selectedResponsibilities.join('\n• ') + '\n';
+            }
+        }
+        
+        // Preview functionality
+        document.getElementById('previewBtn').addEventListener('click', function() {
+            generatePreview();
+        });
+        
+        document.getElementById('confirmSubmit').addEventListener('click', function() {
+            document.getElementById('attendantForm').submit();
+        });
+        
+        function generatePreview() {
+            const previewContent = document.getElementById('previewContent');
+            
+            // Collect form data
+            const formData = {
+                employeeId: document.getElementById('{{ form.employee_id.id_for_label }}').value,
+                user: document.getElementById('{{ form.user.id_for_label }}').options[document.getElementById('{{ form.user.id_for_label }}').selectedIndex]?.text,
+                dateOfBirth: dateOfBirthInput.value,
+                dateOfJoining: dateOfJoiningInput.value,
+                salary: salaryInput.value,
+                status: document.getElementById('{{ form.status.id_for_label }}').options[document.getElementById('{{ form.status.id_for_label }}').selectedIndex]?.text,
+                phone: document.getElementById('{{ form.phone.id_for_label }}').value,
+                email: document.getElementById('{{ form.email.id_for_label }}').value,
+                address: document.getElementById('{{ form.address.id_for_label }}').value,
+                emergencyContact: document.getElementById('{{ form.emergency_contact_name.id_for_label }}').value,
+                emergencyRelation: document.getElementById('{{ form.emergency_contact_relation.id_for_label }}').value,
+                responsibilities: responsibilitiesTextarea.value
+            };
+            
+            // Generate preview HTML
+            previewContent.innerHTML = `
+                <div class="preview-section">
+                    <h6>{% trans "Attendant Summary" %}</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <tr><td><strong>{% trans "Employee ID:" %}</strong></td><td>${formData.employeeId}</td></tr>
+                            <tr><td><strong>{% trans "User Account:" %}</strong></td><td>${formData.user}</td></tr>
+                            <tr><td><strong>{% trans "Date of Birth:" %}</strong></td><td>${formData.dateOfBirth}</td></tr>
+                            <tr><td><strong>{% trans "Date of Joining:" %}</strong></td><td>${formData.dateOfJoining}</td></tr>
+                            <tr><td><strong>{% trans "Salary:" %}</strong></td><td>$${formData.salary}</td></tr>
+                            <tr><td><strong>{% trans "Status:" %}</strong></td><td>${formData.status}</td></tr>
+                            <tr><td><strong>{% trans "Phone:" %}</strong></td><td>${formData.phone}</td></tr>
+                            <tr><td><strong>{% trans "Email:" %}</strong></td><td>${formData.email}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                
+                ${formData.address ? `
+                <div class="preview-section mt-3">
+                    <h6>{% trans "Address" %}</h6>
+                    <p>${formData.address}</p>
+                </div>
+                ` : ''}
+                
+                ${formData.emergencyContact ? `
+                <div class="preview-section mt-3">
+                    <h6>{% trans "Emergency Contact" %}</h6>
+                    <p>${formData.emergencyContact} (${formData.emergencyRelation})</p>
+                </div>
+                ` : ''}
+                
+                ${formData.responsibilities ? `
+                <div class="preview-section mt-3">
+                    <h6>{% trans "Responsibilities" %}</h6>
+                    <p>${formData.responsibilities.replace(/\n/g, '<br>')}</p>
+                </div>
+                ` : ''}
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    {% trans "Please review the attendant details before confirming." %}
+                </div>
+            `;
+            
+            // Show preview modal
+            new bootstrap.Modal(document.getElementById('previewModal')).show();
+        }
+        
+        // Form validation
+        const attendantForm = document.getElementById('attendantForm');
+        attendantForm.addEventListener('submit', function(e) {
+            let isValid = true;
+            let errorMessage = '';
+            
+            // Check required fields
+            const requiredFields = [
+                '{{ form.user.id_for_label }}',
+                '{{ form.employee_id.id_for_label }}',
+                '{{ form.date_of_birth.id_for_label }}',
+                '{{ form.date_of_joining.id_for_label }}',
+                '{{ form.phone.id_for_label }}',
+                '{{ form.email.id_for_label }}'
+            ];
+            
+            requiredFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (!field.value.trim()) {
+                    isValid = false;
+                    field.classList.add('is-invalid');
+                    errorMessage = '{% trans "Please fill all required fields" %}';
+                } else {
+                    field.classList.remove('is-invalid');
+                }
+            });
+            
+            // Age validation
+            if (dateOfBirthInput.value) {
+                const dob = new Date(dateOfBirthInput.value);
+                const today = new Date();
+                const age = today.getFullYear() - dob.getFullYear();
+                
+                if (age < 18) {
+                    isValid = false;
+                    dateOfBirthInput.classList.add('is-invalid');
+                    errorMessage = '{% trans "Attendant must be at least 18 years old" %}';
+                }
+            }
+            
+            if (!isValid) {
+                e.preventDefault();
+                showNotification(errorMessage, 'error');
+            }
+        });
+        
+        // Initialize calculations
+        calculateAgeAndService();
+        calculateSalaryBreakdown();
+        
+        // Utility function for notifications
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                    <span>${message}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %}

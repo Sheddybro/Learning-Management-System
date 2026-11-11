@@ -1,0 +1,602 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}{{ medication.medication_name }} - {{ medication.student.user.get_full_name }}{% endblock %}
+
+{% block page_title %}{{ medication.medication_name }} - {{ medication.student.user.get_full_name }}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'health:medication_list' %}">Medications</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ medication.medication_name }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'health:medication_update' pk=medication.pk %}" class="btn btn-primary">
+            <i class="bi bi-pencil me-1"></i> Edit Medication
+        </a>
+        <button type="button" class="btn btn-outline-info" id="printMedicationBtn">
+            <i class="bi bi-printer me-1"></i> Print Details
+        </button>
+        <button type="button" class="btn btn-outline-warning" id="calculateDosageBtn">
+            <i class="bi bi-calculator me-1"></i> Dosage Calculator
+        </button>
+        {% if medication.administration_status == 'pending' %}
+            <button type="button" class="btn btn-outline-success" id="markAdministeredBtn">
+                <i class="bi bi-check-circle me-1"></i> Mark Administered
+            </button>
+        {% endif %}
+        <button type="button" class="btn btn-outline-danger" id="discontinueBtn">
+            <i class="bi bi-x-circle me-1"></i> Discontinue
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="medication-detail-container">
+    <!-- Medication Header -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-2 text-center">
+                    <div class="medication-icon">
+                        <i class="bi bi-capsule fs-1 text-info"></i>
+                    </div>
+                </div>
+                <div class="col-md-7">
+                    <h2 class="mb-1">{{ medication.medication_name }}</h2>
+                    <p class="text-muted mb-2">{{ medication.get_medication_type_display }}</p>
+                    <div class="medication-meta">
+                        <span class="badge bg-primary me-2">{{ medication.dosage_amount }} {{ medication.dosage_frequency }}</span>
+                        <span class="badge
+                            {% if medication.administration_status == 'administered' %}bg-success
+                            {% elif medication.administration_status == 'pending' %}bg-warning
+                            {% elif medication.administration_status == 'missed' %}bg-danger
+                            {% else %}bg-secondary{% endif %}">
+                            {{ medication.get_administration_status_display }}
+                        </span>
+                        {% if medication.is_active %}
+                            <span class="badge bg-success ms-2">Active</span>
+                        {% else %}
+                            <span class="badge bg-secondary ms-2">Inactive</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-3 text-end">
+                    <div class="patient-info">
+                        <div class="avatar-circle bg-info text-white mb-2">
+                            {{ medication.student.user.get_full_name.0|upper }}
+                        </div>
+                        <div class="patient-name">{{ medication.student.user.get_full_name }}</div>
+                        <small class="text-muted">ID: {{ medication.student.student_id }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Medication Details Grid -->
+    <div class="row mb-4">
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Medication Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-5">Generic Name:</dt>
+                        <dd class="col-sm-7">{{ medication.generic_name|default:"—" }}</dd>
+
+                        <dt class="col-sm-5">Type:</dt>
+                        <dd class="col-sm-7">{{ medication.get_medication_type_display }}</dd>
+
+                        <dt class="col-sm-5">Dosage Form:</dt>
+                        <dd class="col-sm-7">{{ medication.get_dosage_form_display|default:"—" }}</dd>
+
+                        <dt class="col-sm-5">Dosage Amount:</dt>
+                        <dd class="col-sm-7">{{ medication.dosage_amount }}</dd>
+
+                        <dt class="col-sm-5">Frequency:</dt>
+                        <dd class="col-sm-7">{{ medication.dosage_frequency }}</dd>
+
+                        <dt class="col-sm-5">Instructions:</dt>
+                        <dd class="col-sm-7">{{ medication.dosage_instructions|default:"—" }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-calendar-event me-2"></i>Schedule & Duration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="schedule-info">
+                        <div class="schedule-item mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Start Date:</span>
+                                <strong>{{ medication.start_date|date:"M d, Y" }}</strong>
+                            </div>
+                        </div>
+
+                        <div class="schedule-item mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>End Date:</span>
+                                <strong>
+                                    {% if medication.end_date %}
+                                        {{ medication.end_date|date:"M d, Y" }}
+                                    {% else %}
+                                        Ongoing
+                                    {% endif %}
+                                </strong>
+                            </div>
+                        </div>
+
+                        <div class="schedule-item mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Duration:</span>
+                                <strong>
+                                    {% if medication.end_date %}
+                                        {{ medication.end_date|date:"M d, Y"|date:"U"|sub:medication.start_date|date:"U"|date:"d" }} days
+                                    {% else %}
+                                        Ongoing
+                                    {% endif %}
+                                </strong>
+                            </div>
+                        </div>
+
+                        <div class="schedule-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Administration Times:</span>
+                                <strong>{{ medication.administration_times|length }}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if medication.administration_times %}
+                        <hr>
+                        <h6>Administration Schedule:</h6>
+                        <div class="administration-times">
+                            {% for time in medication.administration_times %}
+                                <span class="badge bg-light text-dark me-1">{{ time }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Special Considerations & Side Effects -->
+    <div class="row mb-4">
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>Special Considerations
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="considerations-list">
+                        <div class="consideration-item mb-3">
+                            <div class="d-flex align-items-center">
+                                {% if medication.requires_refrigeration %}
+                                    <i class="bi bi-snow text-info me-2"></i>
+                                    <span>Requires refrigeration</span>
+                                {% else %}
+                                    <i class="bi bi-snow text-muted me-2"></i>
+                                    <span class="text-muted">No refrigeration required</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="consideration-item mb-3">
+                            <div class="d-flex align-items-center">
+                                {% if medication.emergency_medication %}
+                                    <i class="bi bi-exclamation-triangle text-danger me-2"></i>
+                                    <span>Emergency medication</span>
+                                {% else %}
+                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                    <span class="text-muted">Standard medication</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="consideration-item mb-3">
+                            <div class="d-flex align-items-center">
+                                {% if medication.self_administered %}
+                                    <i class="bi bi-person-check text-primary me-2"></i>
+                                    <span>Self-administered</span>
+                                {% else %}
+                                    <i class="bi bi-person-badge text-secondary me-2"></i>
+                                    <span>Administered by staff</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-shield-exclamation me-2"></i>Side Effects & Notes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if medication.side_effects %}
+                        <div class="alert alert-warning">
+                            <h6>Known Side Effects:</h6>
+                            <p class="mb-0">{{ medication.side_effects }}</p>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="bi bi-check-circle text-success fs-1 mb-3"></i>
+                            <p class="text-muted">No side effects recorded</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Administration Tracking -->
+    {% if medication.administration_status == 'administered' %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-check-circle me-2"></i>Administration Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <div class="admin-detail">
+                                    <div class="detail-label">Administered By:</div>
+                                    <div class="detail-value">{{ medication.administered_by|default:"—" }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="admin-detail">
+                                    <div class="detail-label">Administration Date:</div>
+                                    <div class="detail-value">{{ medication.administration_date|date:"M d, Y"|default:"—" }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="admin-detail">
+                                    <div class="detail-label">Administration Time:</div>
+                                    <div class="detail-value">{{ medication.administration_time|default:"—" }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="admin-detail">
+                                    <div class="detail-label">Effectiveness Rating:</div>
+                                    <div class="detail-value">
+                                        {% if medication.effectiveness_rating %}
+                                            {% for i in "12345"|make_list %}
+                                                {% if forloop.counter <= medication.effectiveness_rating %}
+                                                    <i class="bi bi-star-fill text-warning"></i>
+                                                {% else %}
+                                                    <i class="bi bi-star text-muted"></i>
+                                                {% endif %}
+                                            {% endfor %}
+                                            ({{ medication.effectiveness_rating }}/5)
+                                        {% else %}
+                                            Not rated
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if medication.administration_notes %}
+                            <div class="mt-3">
+                                <h6>Administration Notes:</h6>
+                                <p class="text-muted">{{ medication.administration_notes }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Prescription Information -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-file-medical me-2"></i>Prescription Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">Prescribed By:</dt>
+                                <dd class="col-sm-8">{{ medication.prescribed_by|default:"—" }}</dd>
+
+                                <dt class="col-sm-4">Prescription Date:</dt>
+                                <dd class="col-sm-8">{{ medication.prescription_date|date:"M d, Y"|default:"—" }}</dd>
+
+                                <dt class="col-sm-4">Prescription #:</dt>
+                                <dd class="col-sm-8">{{ medication.prescription_number|default:"—" }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">Provider Contact:</dt>
+                                <dd class="col-sm-8">{{ medication.provider_contact|default:"—" }}</dd>
+
+                                <dt class="col-sm-4">Clinic/Hospital:</dt>
+                                <dd class="col-sm-8">{{ medication.clinic_hospital_name|default:"—" }}</dd>
+
+                                <dt class="col-sm-4">Record Created:</dt>
+                                <dd class="col-sm-8">{{ medication.created_at|date:"M d, Y H:i" }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Related Medications -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-capsule me-2"></i>Other Medications for {{ medication.student.user.get_full_name }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if related_medications %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Medication</th>
+                                        <th>Dosage</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for med in related_medications|slice:":5" %}
+                                        <tr class="{% if med.pk == medication.pk %}table-primary{% endif %}">
+                                            <td>{{ med.medication_name }}</td>
+                                            <td>{{ med.dosage_amount }} {{ med.dosage_frequency }}</td>
+                                            <td>
+                                                <span class="badge
+                                                    {% if med.administration_status == 'administered' %}bg-success
+                                                    {% elif med.administration_status == 'pending' %}bg-warning
+                                                    {% else %}bg-secondary{% endif %}">
+                                                    {{ med.get_administration_status_display }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% if med.pk != medication.pk %}
+                                                    <a href="{% url 'health:medication_detail' pk=med.pk %}" class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                {% else %}
+                                                    <span class="text-muted">Current</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="text-center mt-3">
+                            <a href="{% url 'health:medication_list' %}?student={{ medication.student.pk }}" class="btn btn-outline-primary">
+                                <i class="bi bi-list me-1"></i>View All Medications
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-capsule text-muted fs-1 mb-3"></i>
+                            <h6 class="text-muted">No other medications</h6>
+                            <p class="text-muted mb-0">This is the only medication record for this student.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print Styles -->
+<style media="print">
+    .page-actions, .btn, .breadcrumb { display: none !important; }
+    .card { border: 1px solid #ddd !important; margin-bottom: 20px !important; }
+    .card-header { background-color: #f8f9fa !important; }
+</style>
+
+<!-- Detail View Styles -->
+<style>
+.medication-detail-container {
+    max-width: 100%;
+}
+
+.medication-icon {
+    padding: 20px;
+    border-radius: 50%;
+    background-color: #f8f9fa;
+    display: inline-block;
+}
+
+.medication-meta {
+    margin-top: 10px;
+}
+
+.patient-info {
+    text-align: center;
+}
+
+.patient-info .avatar-circle {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+    margin: 0 auto;
+}
+
+.patient-name {
+    font-weight: bold;
+    margin-top: 8px;
+}
+
+.schedule-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.schedule-item:last-child {
+    border-bottom: none;
+}
+
+.administration-times {
+    margin-top: 10px;
+}
+
+.administration-times .badge {
+    margin-bottom: 5px;
+}
+
+.considerations-list .consideration-item {
+    padding: 8px 0;
+}
+
+.admin-detail {
+    text-align: center;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.detail-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+.detail-value {
+    font-weight: bold;
+    color: #0d6efd;
+}
+
+.table-primary {
+    background-color: #e7f3ff !important;
+}
+
+@media (max-width: 768px) {
+    .medication-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+
+    .patient-info {
+        margin-top: 15px;
+    }
+}
+</style>
+
+<!-- Detail View Scripts -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Print functionality
+    document.getElementById('printMedicationBtn').addEventListener('click', function() {
+        window.print();
+    });
+
+    // Dosage calculator
+    document.getElementById('calculateDosageBtn').addEventListener('click', function() {
+        showToast('Opening dosage calculator...', 'info');
+        // In a real implementation, this would open a calculator modal
+    });
+
+    // Mark administered functionality
+    const markAdministeredBtn = document.getElementById('markAdministeredBtn');
+    if (markAdministeredBtn) {
+        markAdministeredBtn.addEventListener('click', function() {
+            if (confirm('Mark this medication as administered?')) {
+                showToast('Marking medication as administered...', 'info');
+                // Simulate status update
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            }
+        });
+    }
+
+    // Discontinue functionality
+    document.getElementById('discontinueBtn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to discontinue this medication?')) {
+            showToast('Discontinuing medication...', 'warning');
+            // Simulate discontinuation
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        }
+    });
+});
+
+// Global functions
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'primary'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    `;
+
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+
+    toastContainer.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+
+    toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+    });
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + P to print
+    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        document.getElementById('printMedicationBtn').click();
+    }
+});
+</script>
+{% endblock %}

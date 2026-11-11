@@ -1,0 +1,913 @@
+<!-- templates/transport/routeschedules/routeschedule_list.html -->
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Route Schedules - School Management System" %}{% endblock %}
+
+{% block meta_description %}{% trans "Manage and monitor transport route schedules including vehicle assignments, driver allocations, and operational timing." %}{% endblock %}
+
+{% block body_class %}route-schedules-page{% endblock %}
+
+{% block page_title %}{% trans "Route Schedules" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Route Schedules" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'transport:routeschedule_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>{% trans "New Schedule" %}
+        </a>
+        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'transport:route_optimization' %}">
+                <i class="fas fa-magic me-2"></i>{% trans "Optimize Routes" %}
+            </a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#" id="export-schedules">
+                <i class="fas fa-file-export me-2"></i>{% trans "Export Schedules" %}
+            </a></li>
+            <li><a class="dropdown-item" href="#" id="bulk-actions">
+                <i class="fas fa-tasks me-2"></i>{% trans "Bulk Actions" %}
+            </a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .route-schedules-page {
+        background-color: #f8f9fa;
+    }
+
+    .welcome-card {
+        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+        border-radius: 1rem;
+    }
+
+    .avatar {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .avatar-sm {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+
+    .schedule-card {
+        border-radius: 0.75rem;
+        border: 0;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .schedule-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .schedule-card.inactive {
+        border-left-color: #6c757d;
+        opacity: 0.8;
+    }
+    
+    .schedule-card.maintenance {
+        border-left-color: #fd7e14;
+    }
+    
+    .schedule-header {
+        display: flex;
+        justify-content: between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .schedule-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .schedule-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        margin-right: 1rem;
+    }
+    
+    .route-icon {
+        background-color: #e7f1ff;
+        color: #0d6efd;
+    }
+    
+    .vehicle-icon {
+        background-color: #e8f5e8;
+        color: #198754;
+    }
+    
+    .driver-icon {
+        background-color: #fef7e6;
+        color: #fd7e14;
+    }
+    
+    .time-slot {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .time-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    
+    .time-value {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 0.5rem;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .days-indicator {
+        display: flex;
+        gap: 0.25rem;
+        margin-top: 0.5rem;
+    }
+    
+    .day-dot {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.625rem;
+        font-weight: 600;
+        border: 2px solid #e9ecef;
+    }
+    
+    .day-dot.active {
+        background-color: #0d6efd;
+        color: white;
+        border-color: #0d6efd;
+    }
+    
+    .operational-badge {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        z-index: 1;
+    }
+    
+    .filter-card {
+        border-radius: 0.75rem;
+        border: 0;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 1.5rem;
+    }
+    
+    .view-toggle {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .view-btn {
+        padding: 0.5rem 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        background: white;
+        color: #6c757d;
+        transition: all 0.3s ease;
+    }
+    
+    .view-btn.active {
+        background-color: #0d6efd;
+        color: white;
+        border-color: #0d6efd;
+    }
+    
+    .schedule-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+    
+    .action-btn {
+        padding: 0.375rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.875rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+        
+        .schedule-header {
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .schedule-actions {
+            flex-wrap: wrap;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="route-schedules-list">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 bg-primary text-white welcome-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="card-title h4 mb-2">
+                                {% trans "Route Schedules Management" %}, {{ user.display_name }}!
+                            </h2>
+                            <p class="card-text mb-0 opacity-75">
+                                {% now "l, F j, Y" %}
+                            </p>
+                            {% if user.user_type %}
+                            <span class="badge bg-light text-primary mt-2">
+                                {{ user.get_user_type_display }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <div class="dashboard-stats-mini">
+                                <div class="stat-item">
+                                    <i class="bi bi-calendar-event fs-1 opacity-50"></i>
+                                </div>
+                            </div>
+                    </div>
+                </div>
+            </div>
+
+
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex flex-column h-100 justify-content-between">
+                                <div class="view-toggle">
+                                    <button class="view-btn active" data-view="grid">
+                                        <i class="fas fa-th-large"></i>
+                                    </button>
+                                    <button class="view-btn" data-view="list">
+                                        <i class="fas fa-list"></i>
+                                    </button>
+                                    <button class="view-btn" data-view="calendar">
+                                        <i class="fas fa-calendar"></i>
+                                    </button>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-outline-secondary w-50" id="reset-filters">
+                                        <i class="fas fa-redo me-1"></i>{% trans "Reset" %}
+                                    </button>
+                                    <button class="btn btn-primary w-50" id="apply-filters">
+                                        <i class="fas fa-filter me-1"></i>{% trans "Filter" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Sidebar -->
+        <div class="col-lg-4">
+            <!-- Quick Stats -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <h5 class="card-title mb-0">{% trans "Quick Stats" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="text-center p-3 border rounded">
+                                <div class="text-primary fs-4 mb-1">
+                                    <i class="fas fa-route"></i>
+                                </div>
+                                <div class="fw-bold">{{ schedules.count }}</div>
+                                <small class="text-muted">{% trans "Schedules" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 border rounded">
+                                <div class="text-success fs-4 mb-1">
+                                    <i class="fas fa-play-circle"></i>
+                                </div>
+                                <div class="fw-bold">{{ active_schedules_count }}</div>
+                                <small class="text-muted">{% trans "Active" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 border rounded">
+                                <div class="text-info fs-4 mb-1">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="fw-bold">{{ total_students_count }}</div>
+                                <small class="text-muted">{% trans "Students" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 border rounded">
+                                <div class="text-warning fs-4 mb-1">
+                                    <i class="fas fa-calendar-check"></i>
+                                </div>
+                                <div class="fw-bold">{{ operational_today_count }}</div>
+                                <small class="text-muted">{% trans "Today" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <h5 class="card-title mb-0">{% trans "Quick Links" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'transport:dashboard' %}" class="btn btn-outline-primary text-start">
+                            <i class="fas fa-tachometer-alt me-2"></i>
+                            {% trans "Transport Dashboard" %}
+                        </a>
+                        <a href="{% url 'transport:routeschedule_create' %}" class="btn btn-outline-success text-start">
+                            <i class="fas fa-plus me-2"></i>
+                            {% trans "Create Schedule" %}
+                        </a>
+                        <a href="{% url 'transport:vehicle_list' %}" class="btn btn-outline-info text-start">
+                            <i class="fas fa-bus me-2"></i>
+                            {% trans "Manage Vehicles" %}
+                        </a>
+                        <a href="{% url 'transport:driver_list' %}" class="btn btn-outline-warning text-start">
+                            <i class="fas fa-id-card me-2"></i>
+                            {% trans "Manage Drivers" %}
+                        </a>
+                        <a href="{% url 'transport:route_list' %}" class="btn btn-outline-secondary text-start">
+                            <i class="fas fa-route me-2"></i>
+                            {% trans "Manage Routes" %}
+                        </a>
+                        <a href="{% url 'transport:transportallocation_list' %}" class="btn btn-outline-dark text-start">
+                            <i class="fas fa-user-plus me-2"></i>
+                            {% trans "Student Allocations" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <h5 class="card-title mb-0">{% trans "Recent Activity" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_schedule_changes %}
+                        <div class="list-group list-group-flush">
+                            {% for change in recent_schedule_changes|slice:":5" %}
+                            <div class="list-group-item px-0 py-2">
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar avatar-sm bg-primary text-white rounded-circle me-2">
+                                        <i class="fas fa-{{ change.action_icon|default:'edit' }}"></i>
+                                    </div>
+                                    <div class="flex-fill">
+                                        <small class="fw-semibold">{{ change.description }}</small>
+                                        <br>
+                                        <small class="text-muted">{{ change.created_at|timesince }} ago</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-clock text-muted mb-2"></i>
+                            <p class="text-muted small mb-0">{% trans "No recent activity" %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Maintenance Alerts -->
+            {% if vehicles_due_maintenance %}
+            <div class="card border-0 shadow-sm mb-4 border-start border-warning border-4">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <h5 class="card-title mb-0 text-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        {% trans "Maintenance Alerts" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning border-0 p-2 mb-2">
+                        <small>{{ vehicles_due_maintenance }} {% trans "vehicles due for maintenance" %}</small>
+                    </div>
+                    <a href="{% url 'transport:vehicle_maintenance_schedule' %}" class="btn btn-warning btn-sm w-100">
+                        {% trans "View Schedule" %}
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card schedule-card">
+                <div class="card-body text-center">
+                    <div class="schedule-icon route-icon mx-auto mb-3">
+                        <i class="fas fa-route"></i>
+                    </div>
+                    <h3 class="text-primary mb-1">{{ schedules.count }}</h3>
+                    <p class="text-muted mb-0">{% trans "Total Schedules" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card schedule-card">
+                <div class="card-body text-center">
+                    <div class="schedule-icon vehicle-icon mx-auto mb-3">
+                        <i class="fas fa-bus"></i>
+                    </div>
+                    <h3 class="text-success mb-1" id="active-schedules">{{ active_schedules_count }}</h3>
+                    <p class="text-muted mb-0">{% trans "Active Schedules" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card schedule-card">
+                <div class="card-body text-center">
+                    <div class="schedule-icon driver-icon mx-auto mb-3">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3 class="text-info mb-1" id="total-students">{{ total_students_count }}</h3>
+                    <p class="text-muted mb-0">{% trans "Students Allocated" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card schedule-card">
+                <div class="card-body text-center">
+                    <div class="schedule-icon mx-auto mb-3" style="background-color: #f0e6ff; color: #6f42c1;">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <h3 class="text-warning mb-1" id="operational-today">{{ operational_today_count }}</h3>
+                    <p class="text-muted mb-0">{% trans "Operational Today" %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schedules Grid -->
+    <div id="schedules-grid" class="row">
+        {% for schedule in schedules %}
+        <div class="col-xl-4 col-lg-6 mb-4 schedule-item" 
+             data-route="{{ schedule.route.id }}"
+             data-vehicle="{{ schedule.vehicle.id }}"
+             data-driver="{{ schedule.driver.id }}"
+             data-status="{{ schedule.status }}">
+            <div class="card schedule-card {% if schedule.status != 'active' %}inactive{% endif %}">
+                <!-- Operational Badge -->
+                {% if schedule.is_operational_today %}
+                <span class="badge bg-success operational-badge">
+                    <i class="fas fa-play me-1"></i>{% trans "Today" %}
+                </span>
+                {% endif %}
+                
+                <div class="card-body">
+                    <!-- Schedule Header -->
+                    <div class="schedule-header">
+                        <div class="d-flex align-items-start">
+                            <div class="schedule-icon route-icon">
+                                <i class="fas fa-route"></i>
+                            </div>
+                            <div>
+                                <h5 class="card-title mb-1">{{ schedule.route.code }}</h5>
+                                <p class="card-text text-muted small mb-0">{{ schedule.route.name }}</p>
+                                <span class="badge {% if schedule.status == 'active' %}bg-success{% else %}bg-secondary{% endif %} schedule-badge">
+                                    {{ schedule.get_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resource Information -->
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="schedule-icon vehicle-icon me-2" style="width: 35px; height: 35px; font-size: 1rem;">
+                                    <i class="fas fa-bus"></i>
+                                </div>
+                                <div>
+                                    <small class="text-muted d-block">{% trans "Vehicle" %}</small>
+                                    <strong class="small">{{ schedule.vehicle.vehicle_number }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="schedule-icon driver-icon me-2" style="width: 35px; height: 35px; font-size: 1rem;">
+                                    <i class="fas fa-id-card"></i>
+                                </div>
+                                <div>
+                                    <small class="text-muted d-block">{% trans "Driver" %}</small>
+                                    <strong class="small">{{ schedule.driver.user.get_full_name }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timing Information -->
+                    <div class="mb-3">
+                        <div class="time-slot">
+                            <div class="time-label">{% trans "Morning Schedule" %}</div>
+                            <div class="time-value">
+                                {{ schedule.morning_start_time|time:"H:i" }} - {{ schedule.morning_end_time|time:"H:i" }}
+                            </div>
+                        </div>
+                        {% if schedule.evening_start_time and schedule.evening_end_time %}
+                        <div class="time-slot">
+                            <div class="time-label">{% trans "Evening Schedule" %}</div>
+                            <div class="time-value">
+                                {{ schedule.evening_start_time|time:"H:i" }} - {{ schedule.evening_end_time|time:"H:i" }}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Operating Days -->
+                    <div class="mb-3">
+                        <small class="text-muted d-block mb-2">{% trans "Operating Days" %}</small>
+                        <div class="days-indicator">
+                            {% for day_num in "1234567" %}
+                            <div class="day-dot {% if day_num in schedule.days_of_week %}active{% endif %}" 
+                                 title="{% cycle 'Monday' 'Tuesday' 'Wednesday' 'Thursday' 'Friday' 'Saturday' 'Sunday' %}">
+                                {{ day_num }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Statistics -->
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value text-primary">{{ schedule.current_students_count }}</div>
+                            <div class="stat-label">{% trans "Students" %}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value text-success">{{ schedule.vehicle.available_seats }}</div>
+                            <div class="stat-label">{% trans "Available" %}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value text-info">{{ schedule.route.total_distance }}km</div>
+                            <div class="stat-label">{% trans "Distance" %}</div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="schedule-actions">
+                        <a href="{% url 'transport:routeschedule_detail' schedule.pk %}" class="btn btn-outline-info btn-sm action-btn">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{% url 'transport:routeschedule_update' schedule.pk %}" class="btn btn-outline-primary btn-sm action-btn">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="{% url 'transport:transportallocation_create' %}?schedule={{ schedule.pk }}" class="btn btn-outline-success btn-sm action-btn">
+                            <i class="fas fa-user-plus"></i>
+                        </a>
+                        <a href="{% url 'transport:routeschedule_delete' schedule.pk %}" class="btn btn-outline-danger btn-sm action-btn">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card schedule-card">
+                <div class="card-body">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="fas fa-route"></i>
+                        </div>
+                        <h4>{% trans "No Route Schedules Found" %}</h4>
+                        <p class="text-muted mb-4">
+                            {% trans "Get started by creating your first route schedule to manage transportation operations." %}
+                        </p>
+                        <a href="{% url 'transport:routeschedule_create' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>{% trans "Create First Schedule" %}
+                        </a>
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                {% trans "Need help?" %} 
+                                <a href="{% url 'transport:route_optimization' %}">{% trans "Try route optimization" %}</a>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <nav aria-label="{% trans 'Schedule pagination' %}">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1" aria-label="{% trans 'First' %}">
+                            <span aria-hidden="true">&laquo;&laquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="{% trans 'Previous' %}">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="{% trans 'Next' %}">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}" aria-label="{% trans 'Last' %}">
+                            <span aria-hidden="true">&raquo;&raquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Filter functionality
+        const routeFilter = document.getElementById('route-filter');
+        const vehicleFilter = document.getElementById('vehicle-filter');
+        const driverFilter = document.getElementById('driver-filter');
+        const statusFilter = document.getElementById('status-filter');
+        const applyFiltersBtn = document.getElementById('apply-filters');
+        const resetFiltersBtn = document.getElementById('reset-filters');
+        const scheduleItems = document.querySelectorAll('.schedule-item');
+
+        function applyFilters() {
+            const routeValue = routeFilter.value;
+            const vehicleValue = vehicleFilter.value;
+            const driverValue = driverFilter.value;
+            const statusValue = statusFilter.value;
+
+            let visibleCount = 0;
+
+            scheduleItems.forEach(item => {
+                const matchesRoute = !routeValue || item.getAttribute('data-route') === routeValue;
+                const matchesVehicle = !vehicleValue || item.getAttribute('data-vehicle') === vehicleValue;
+                const matchesDriver = !driverValue || item.getAttribute('data-driver') === driverValue;
+                const matchesStatus = !statusValue || item.getAttribute('data-status') === statusValue;
+
+                if (matchesRoute && matchesVehicle && matchesDriver && matchesStatus) {
+                    item.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+
+            // Update statistics
+            document.getElementById('active-schedules').textContent = visibleCount;
+            
+            // Show/hide empty state
+            const emptyState = document.querySelector('.empty-state');
+            if (emptyState && visibleCount === 0) {
+                emptyState.closest('.card').style.display = 'block';
+            } else if (emptyState) {
+                emptyState.closest('.card').style.display = 'none';
+            }
+        }
+
+        function resetFilters() {
+            routeFilter.value = '';
+            vehicleFilter.value = '';
+            driverFilter.value = '';
+            statusFilter.value = '';
+            applyFilters();
+        }
+
+        applyFiltersBtn.addEventListener('click', applyFilters);
+        resetFiltersBtn.addEventListener('click', resetFilters);
+
+        // View toggle functionality
+        const viewButtons = document.querySelectorAll('.view-btn');
+        const schedulesGrid = document.getElementById('schedules-grid');
+
+        viewButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const viewType = this.getAttribute('data-view');
+                
+                // Update active button
+                viewButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+
+                // Apply view changes
+                if (viewType === 'list') {
+                    schedulesGrid.classList.add('list-view');
+                    schedulesGrid.classList.remove('calendar-view');
+                } else if (viewType === 'calendar') {
+                    schedulesGrid.classList.add('calendar-view');
+                    schedulesGrid.classList.remove('list-view');
+                } else {
+                    schedulesGrid.classList.remove('list-view', 'calendar-view');
+                }
+            });
+        });
+
+        // Quick status update
+        document.querySelectorAll('.schedule-badge').forEach(badge => {
+            badge.addEventListener('click', function() {
+                const scheduleCard = this.closest('.schedule-card');
+                const scheduleId = scheduleCard.querySelector('a[href*="update"]').href.split('/').slice(-2, -1)[0];
+                
+                const currentStatus = this.classList.contains('bg-success') ? 'active' : 'inactive';
+                const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+                
+                if (confirm(`{% trans "Change schedule status to" %} ${newStatus}?`)) {
+                    // In a real implementation, this would make an API call
+                    console.log(`Updating schedule ${scheduleId} to ${newStatus}`);
+                    
+                    // Update UI immediately
+                    if (newStatus === 'active') {
+                        this.classList.remove('bg-secondary');
+                        this.classList.add('bg-success');
+                        this.textContent = '{% trans "Active" %}';
+                        scheduleCard.classList.remove('inactive');
+                    } else {
+                        this.classList.remove('bg-success');
+                        this.classList.add('bg-secondary');
+                        this.textContent = '{% trans "Inactive" %}';
+                        scheduleCard.classList.add('inactive');
+                    }
+                }
+            });
+        });
+
+        // Export functionality
+        document.getElementById('export-schedules').addEventListener('click', function(e) {
+            e.preventDefault();
+            // In a real implementation, this would trigger file download
+            alert('{% trans "Export feature would be implemented here" %}');
+        });
+
+        // Bulk actions
+        document.getElementById('bulk-actions').addEventListener('click', function(e) {
+            e.preventDefault();
+            // In a real implementation, this would show bulk action modal
+            alert('{% trans "Bulk actions modal would open here" %}');
+        });
+
+        // Auto-refresh operational status
+        function updateOperationalStatus() {
+            const now = new Date();
+            const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            const adjustedDay = currentDay === 0 ? 7 : currentDay; // Adjust to match our day numbering
+            
+            document.querySelectorAll('.schedule-item').forEach(item => {
+                const daysOfWeek = item.getAttribute('data-days') || '';
+                const isOperational = daysOfWeek.includes(adjustedDay.toString());
+                const operationalBadge = item.querySelector('.operational-badge');
+                
+                if (isOperational && operationalBadge) {
+                    operationalBadge.style.display = 'block';
+                } else if (operationalBadge) {
+                    operationalBadge.style.display = 'none';
+                }
+            });
+        }
+
+        // Update operational status every minute
+        updateOperationalStatus();
+        setInterval(updateOperationalStatus, 60000);
+
+        // Add animation to schedule cards
+        const scheduleCards = document.querySelectorAll('.schedule-card');
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, { threshold: 0.1 });
+
+        scheduleCards.forEach(card => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            observer.observe(card);
+        });
+
+        // Initialize filters from URL parameters
+        function initializeFiltersFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            if (urlParams.get('route')) routeFilter.value = urlParams.get('route');
+            if (urlParams.get('vehicle')) vehicleFilter.value = urlParams.get('vehicle');
+            if (urlParams.get('driver')) driverFilter.value = urlParams.get('driver');
+            if (urlParams.get('status')) statusFilter.value = urlParams.get('status');
+            
+            applyFilters();
+        }
+
+        initializeFiltersFromURL();
+    });
+</script>
+{% endblock %}

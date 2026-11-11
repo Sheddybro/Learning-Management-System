@@ -1,0 +1,460 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Departments" %}{% endblock %}
+
+{% block body_class %}academics-departments{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'academics:department_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>{% trans "New Department" %}
+        </a>
+        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterModal">
+            <i class="bi bi-funnel me-2"></i>{% trans "Filter" %}
+        </button>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download me-2"></i>{% trans "Export" %}
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-pdf me-2"></i>PDF</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-excel me-2"></i>Excel</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-text me-2"></i>CSV</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/academics/lists.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="departments-list-container">
+    <!-- Search and Filter Bar -->
+    <div class="search-filter-bar mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" class="form-control" placeholder="{% trans 'Search departments...' %}" id="searchInput">
+                </div>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-secondary active" data-view="grid">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-view="list">
+                        <i class="bi bi-list-ul"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ total_departments }}</h4>
+                            <p class="card-text mb-0">{% trans "Total Departments" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-building fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ active_departments }}</h4>
+                            <p class="card-text mb-0">{% trans "Active Departments" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-check-circle fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ total_subjects }}</h4>
+                            <p class="card-text mb-0">{% trans "Total Subjects" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-journals fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ total_teachers }}</h4>
+                            <p class="card-text mb-0">{% trans "Department Teachers" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-person-badge fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Departments Grid View -->
+    <div id="gridView" class="departments-grid">
+        <div class="row">
+            {% for department in departments %}
+            <div class="col-xl-4 col-lg-6 mb-4 department-card-col">
+                <div class="card department-card h-100">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h5 class="card-title mb-0">{{ department.name }}</h5>
+                            <span class="badge {% if department.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ department.get_status_display }}
+                            </span>
+                        </div>
+                        <p class="text-muted mb-0 small">{{ department.code }}</p>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text text-muted mb-3">{{ department.description|truncatewords:20 }}</p>
+                        
+                        <div class="department-stats mb-3">
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="stat">
+                                        <h6 class="text-primary mb-1">{{ department.subjects.count }}</h6>
+                                        <small class="text-muted">{% trans "Subjects" %}</small>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="stat">
+                                        <h6 class="text-success mb-1">{{ department.teachers.count }}</h6>
+                                        <small class="text-muted">{% trans "Teachers" %}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if department.head_of_department %}
+                        <div class="department-head mb-3">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-placeholder bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                    {{ department.head_of_department.user.get_initials }}
+                                </div>
+                                <div class="head-info">
+                                    <small class="text-muted d-block">{% trans "Head of Department" %}</small>
+                                    <small class="fw-semibold">{{ department.head_of_department.user.get_full_name }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if department.established_date %}
+                        <div class="established-date">
+                            <small class="text-muted">
+                                <i class="bi bi-calendar me-1"></i>
+                                {% trans "Established" %} {{ department.established_date|date:"Y" }}
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <div class="btn-group w-100" role="group">
+                            <a href="{% url 'academics:department_detail' department.pk %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye me-1"></i>{% trans "View" %}
+                            </a>
+                            <a href="{% url 'academics:department_update' department.pk %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-pencil me-1"></i>{% trans "Edit" %}
+                            </a>
+                            <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-people me-2"></i>{% trans "View Teachers" %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-journals me-2"></i>{% trans "View Subjects" %}
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item text-danger" href="#">
+                                        <i class="bi bi-trash me-2"></i>{% trans "Delete" %}
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="bi bi-building text-muted fs-1"></i>
+                    <h4 class="text-muted mt-3">{% trans "No Departments Found" %}</h4>
+                    <p class="text-muted mb-4">{% trans "Get started by creating your first academic department." %}</p>
+                    <a href="{% url 'academics:department_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>{% trans "Create First Department" %}
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Departments Table View (Hidden by Default) -->
+    <div id="tableView" class="departments-table" style="display: none;">
+        <div class="card table-card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">{% trans "Departments" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Department" %}</th>
+                                <th>{% trans "Code" %}</th>
+                                <th>{% trans "Head of Department" %}</th>
+                                <th>{% trans "Subjects" %}</th>
+                                <th>{% trans "Teachers" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for department in departments %}
+                            <tr>
+                                <td>
+                                    <div>
+                                        <h6 class="mb-0">{{ department.name }}</h6>
+                                        <small class="text-muted">{{ department.description|truncatewords:10 }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">{{ department.code }}</span>
+                                </td>
+                                <td>
+                                    {% if department.head_of_department %}
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-placeholder bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 28px; height: 28px; font-size: 0.7rem;">
+                                            {{ department.head_of_department.user.get_initials }}
+                                        </div>
+                                        <span>{{ department.head_of_department.user.get_full_name }}</span>
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted">{% trans "Not assigned" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ department.subjects.count }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success">{{ department.teachers.count }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if department.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">
+                                        {{ department.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'academics:department_detail' department.pk %}" class="btn btn-outline-primary" title="{% trans 'View' %}">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{% url 'academics:department_update' department.pk %}" class="btn btn-outline-secondary" title="{% trans 'Edit' %}">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-outline-info dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item" href="#">
+                                                    <i class="bi bi-people me-2"></i>{% trans "Teachers" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#">
+                                                    <i class="bi bi-journals me-2"></i>{% trans "Subjects" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="{% trans 'Department pagination' %}" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">{% trans "First" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">{% trans "Last" %}</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterModalLabel">{% trans "Filter Departments" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="get" id="filterForm">
+                    <div class="mb-3">
+                        <label for="statusFilter" class="form-label">{% trans "Status" %}</label>
+                        <select class="form-select" id="statusFilter" name="status">
+                            <option value="">{% trans "All Statuses" %}</option>
+                            <option value="active">{% trans "Active" %}</option>
+                            <option value="inactive">{% trans "Inactive" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="hasHeadFilter" class="form-label">{% trans "Head of Department" %}</label>
+                        <select class="form-select" id="hasHeadFilter" name="has_head">
+                            <option value="">{% trans "All Departments" %}</option>
+                            <option value="yes">{% trans "With Head" %}</option>
+                            <option value="no">{% trans "Without Head" %}</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('filterForm').reset()">
+                    {% trans "Reset" %}
+                </button>
+                <button type="submit" form="filterForm" class="btn btn-primary">{% trans "Apply Filters" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const gridView = document.getElementById('gridView');
+        const tableView = document.getElementById('tableView');
+        const viewButtons = document.querySelectorAll('[data-view]');
+        
+        viewButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const view = this.getAttribute('data-view');
+                
+                // Update active button
+                viewButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide views
+                if (view === 'grid') {
+                    gridView.style.display = 'block';
+                    tableView.style.display = 'none';
+                } else {
+                    gridView.style.display = 'none';
+                    tableView.style.display = 'block';
+                }
+            });
+        });
+
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const departmentCards = document.querySelectorAll('.department-card-col');
+        
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            
+            departmentCards.forEach(card => {
+                const departmentName = card.querySelector('.card-title').textContent.toLowerCase();
+                const departmentCode = card.querySelector('.card-header p').textContent.toLowerCase();
+                const departmentDesc = card.querySelector('.card-text').textContent.toLowerCase();
+                
+                if (departmentName.includes(searchTerm) || departmentCode.includes(searchTerm) || departmentDesc.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+
+        // Department card hover effects
+        const departmentCardsElements = document.querySelectorAll('.department-card');
+        departmentCardsElements.forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-5px)';
+                this.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+                this.style.boxShadow = '';
+            });
+        });
+    });
+</script>
+{% endblock %}

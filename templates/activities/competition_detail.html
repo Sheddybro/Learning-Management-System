@@ -1,0 +1,670 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{{ competition.title }}{% endblock %}
+
+{% block body_class %}activities-competition-detail{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'activities:activity_list' %}">{% trans "Activities" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'activities:competition_list' %}">{% trans "Competitions" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ competition.title }}</li>
+{% endblock %}
+
+{% block page_actions %}
+{% if user.is_staff or competition.activity.coordinator == user %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'activities:competition_edit' competition.pk %}" class="btn btn-outline-warning">
+            <i class="bi bi-pencil me-2"></i>{% trans "Edit Competition" %}
+        </a>
+        <a href="{% url 'activities:enrollment_list' competition.pk %}" class="btn btn-outline-info">
+            <i class="bi bi-people me-2"></i>{% trans "Enrollments" %}
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.competition-detail-container {
+    max-width: 100%;
+}
+
+.competition-hero {
+    background: linear-gradient(135deg, var(--bs-warning), #ffc107);
+    color: #212529;
+    border-radius: 12px;
+    padding: 3rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.competition-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 300px;
+    height: 300px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    transform: translate(50%, -50%);
+}
+
+.competition-status-badge {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    font-size: 0.875rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.status-planning { background: var(--bs-secondary); color: white; }
+.status-active { background: var(--bs-success); color: white; }
+.status-completed { background: var(--bs-primary); color: white; }
+.status-cancelled { background: var(--bs-danger); color: white; }
+
+.competition-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.meta-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.meta-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-color: var(--bs-warning);
+}
+
+.meta-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.meta-icon i {
+    font-size: 1.75rem;
+    color: white;
+}
+
+.icon-calendar { background: var(--bs-primary); }
+.icon-users { background: var(--bs-success); }
+.icon-location { background: var(--bs-info); }
+.icon-award { background: var(--bs-warning); }
+
+.competition-content {
+    background: white;
+    border-radius: 12px;
+    padding: 2.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.competition-description {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: var(--bs-body-color);
+    margin-bottom: 2rem;
+}
+
+.competition-section {
+    background: var(--bs-light);
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    border-left: 4px solid var(--bs-warning);
+}
+
+.section-title {
+    color: var(--bs-primary);
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+}
+
+.section-title i {
+    margin-right: 0.5rem;
+    color: var(--bs-warning);
+}
+
+.prize-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.prize-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.prize-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--bs-warning);
+}
+
+.prize-card.gold::before { background: linear-gradient(90deg, #ffd700, #ffed4e); }
+.prize-card.silver::before { background: linear-gradient(90deg, #c0c0c0, #e8e8e8); }
+.prize-card.bronze::before { background: linear-gradient(90deg, #cd7f32, #daa520); }
+
+.prize-medal {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.prize-amount {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: var(--bs-primary);
+}
+
+.registration-status {
+    background: linear-gradient(135deg, var(--bs-light), #f8f9fa);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.status-open { background: var(--bs-success); color: white; }
+.status-closed { background: var(--bs-danger); color: white; }
+.status-info { background: var(--bs-info); color: white; }
+
+.countdown-timer {
+    background: linear-gradient(135deg, var(--bs-danger), #dc3545);
+    color: white;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: var(--bs-light);
+    border-radius: 8px;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--bs-primary);
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--bs-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.contact-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.contact-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--bs-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    font-weight: bold;
+    font-size: 2rem;
+}
+
+@media (max-width: 768px) {
+    .competition-hero {
+        padding: 2rem;
+    }
+
+    .competition-meta-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .competition-content {
+        padding: 1.5rem;
+    }
+
+    .competition-section {
+        padding: 1.5rem;
+    }
+
+    .prize-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .registration-status {
+        padding: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="competition-detail-container">
+    <!-- Competition Hero Section -->
+    <div class="competition-hero">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <div class="d-flex align-items-center mb-2">
+                    <span class="competition-status-badge status-{{ competition.status|lower }}">
+                        {{ competition.get_status_display }}
+                    </span>
+                </div>
+                <h1 class="display-5 fw-bold mb-3">{{ competition.title }}</h1>
+                <p class="lead mb-4 opacity-90">{{ competition.description|truncatechars:200|default:"No description available" }}</p>
+
+                <div class="d-flex flex-wrap gap-3 mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-trophy me-2"></i>
+                        <span class="badge bg-light text-dark px-3 py-2">{{ competition.get_competition_type_display }}</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-bar-chart me-2"></i>
+                        <span class="badge bg-light text-dark px-3 py-2">{{ competition.get_level_display }}</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-tag me-2"></i>
+                        <span class="badge bg-light text-dark px-3 py-2">{{ competition.activity.title }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 text-center">
+                <div class="bg-white bg-opacity-20 rounded p-4 d-inline-block">
+                    <i class="bi bi-trophy display-1 text-white"></i>
+                </div>
+                {% if competition.registration_deadline %}
+                <div class="mt-3">
+                    {% now "Y-m-d" as today %}
+                    {% if today <= competition.registration_deadline|date:"Y-m-d" %}
+                        <div class="text-white">
+                            <small>Registration closes in</small>
+                            <div class="countdown-timer" id="countdownTimer">
+                                Calculating...
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Meta Information Grid -->
+    <div class="competition-meta-grid">
+        <div class="meta-card">
+            <div class="meta-icon icon-calendar">
+                <i class="bi bi-calendar"></i>
+            </div>
+            <h6 class="mb-2">{% trans "Duration" %}</h6>
+            <p class="mb-0 text-muted">
+                {{ competition.start_date|date:"M j, Y" }}
+                {% if competition.end_date %} - {{ competition.end_date|date:"M j, Y" }}{% endif %}
+            </p>
+        </div>
+
+        <div class="meta-card">
+            <div class="meta-icon icon-users">
+                <i class="bi bi-people"></i>
+            </div>
+            <h6 class="mb-2">{% trans "Participants" %}</h6>
+            <p class="mb-0 text-muted">
+                {% if competition.max_participants %}
+                    Up to {{ competition.max_participants }}
+                    {% if competition.participant_type %}
+                        {{ competition.get_participant_type_display|lower }}s
+                    {% endif %}
+                {% else %}
+                    {% trans "Unlimited" %}
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="meta-card">
+            <div class="meta-icon icon-location">
+                <i class="bi bi-geo-alt"></i>
+            </div>
+            <h6 class="mb-2">{% trans "Location" %}</h6>
+            <p class="mb-0 text-muted">
+                {% if competition.venue %}
+                    {{ competition.venue }}
+                {% else %}
+                    {% trans "TBD" %}
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="meta-card">
+            <div class="meta-icon icon-award">
+                <i class="bi bi-trophy"></i>
+            </div>
+            <h6 class="mb-2">{% trans "Prizes" %}</h6>
+            <p class="mb-0 text-muted">
+                {% if competition.first_prize %}
+                    {{ competition.first_prize }}
+                {% else %}
+                    {% trans "TBA" %}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Competition Details -->
+            {% if competition.description %}
+            <div class="competition-content">
+                <div class="competition-description">
+                    {{ competition.description }}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Rules and Format -->
+            {% if competition.rules %}
+            <div class="competition-section">
+                <h5 class="section-title">
+                    <i class="bi bi-file-text"></i>{% trans "Rules & Regulations" %}
+                </h5>
+                <div style="white-space: pre-line;">{{ competition.rules }}</div>
+            </div>
+            {% endif %}
+
+            {% if competition.format_description %}
+            <div class="competition-section">
+                <h5 class="section-title">
+                    <i class="bi bi-gear"></i>{% trans "Competition Format" %}
+                </h5>
+                <p class="mb-0">{{ competition.format_description }}</p>
+            </div>
+            {% endif %}
+
+            {% if competition.scoring_system %}
+            <div class="competition-section">
+                <h5 class="section-title">
+                    <i class="bi bi-trophy"></i>{% trans "Scoring System" %}
+                </h5>
+                <p class="mb-0">{{ competition.scoring_system }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Prizes -->
+            {% if competition.first_prize or competition.second_prize or competition.third_prize %}
+            <div class="competition-section">
+                <h5 class="section-title">
+                    <i class="bi bi-gift"></i>{% trans "Prizes & Rewards" %}
+                </h5>
+                <div class="prize-grid">
+                    {% if competition.first_prize %}
+                    <div class="prize-card gold">
+                        <div class="prize-medal">🥇</div>
+                        <div class="prize-amount">{{ competition.first_prize }}</div>
+                        <div class="text-muted">{% trans "First Prize" %}</div>
+                    </div>
+                    {% endif %}
+                    {% if competition.second_prize %}
+                    <div class="prize-card silver">
+                        <div class="prize-medal">🥈</div>
+                        <div class="prize-amount">{{ competition.second_prize }}</div>
+                        <div class="text-muted">{% trans "Second Prize" %}</div>
+                    </div>
+                    {% endif %}
+                    {% if competition.third_prize %}
+                    <div class="prize-card bronze">
+                        <div class="prize-medal">🥉</div>
+                        <div class="prize-amount">{{ competition.third_prize }}</div>
+                        <div class="text-muted">{% trans "Third Prize" %}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Requirements -->
+            {% if competition.requirements %}
+            <div class="competition-section">
+                <h5 class="section-title">
+                    <i class="bi bi-list-check"></i>{% trans "Requirements" %}
+                </h5>
+                <div style="white-space: pre-line;">{{ competition.requirements }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Registration Status -->
+            <div class="registration-status">
+                {% if competition.registration_deadline %}
+                    {% now "Y-m-d" as today %}
+                    {% if today <= competition.registration_deadline|date:"Y-m-d" %}
+                        <div class="status-indicator status-open mb-3">
+                            <i class="bi bi-check-circle me-2"></i>
+                            {% trans "Registration Open" %}
+                        </div>
+                        <div class="text-muted">
+                            {% trans "Deadline:" %} {{ competition.registration_deadline|date:"M j, Y" }}
+                        </div>
+                    {% else %}
+                        <div class="status-indicator status-closed">
+                            <i class="bi bi-x-circle me-2"></i>
+                            {% trans "Registration Closed" %}
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="status-indicator status-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        {% trans "Check with Organizer" %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="competition-content">
+                <h5 class="mb-3 text-center">
+                    <i class="bi bi-bar-chart me-2 text-primary"></i>{% trans "Competition Stats" %}
+                </h5>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-number">{{ competition.registered_count|default:0 }}</span>
+                        <span class="stat-label">{% trans "Registered" %}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">
+                            {% if competition.max_participants %}
+                                {{ competition.available_spots|default:0 }}
+                            {% else %}
+                                ∞
+                            {% endif %}
+                        </span>
+                        <span class="stat-label">{% trans "Available" %}</span>
+                    </div>
+                    {% if competition.days_until_start %}
+                    <div class="stat-item">
+                        <span class="stat-number">{{ competition.days_until_start }}</span>
+                        <span class="stat-label">{% trans "Days Left" %}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Competition Info -->
+            <div class="competition-content">
+                <h5 class="mb-3 text-center">
+                    <i class="bi bi-info-circle me-2 text-primary"></i>{% trans "Competition Info" %}
+                </h5>
+                <div class="mb-3">
+                    <strong class="text-muted d-block">{% trans "Type:" %}</strong>
+                    <span class="badge bg-primary">{{ competition.get_competition_type_display }}</span>
+                </div>
+                <div class="mb-3">
+                    <strong class="text-muted d-block">{% trans "Level:" %}</strong>
+                    <span class="badge bg-secondary">{{ competition.get_level_display }}</span>
+                </div>
+                <div class="mb-3">
+                    <strong class="text-muted d-block">{% trans "Activity:" %}</strong>
+                    <a href="{% url 'activities:activity_detail' competition.activity.pk %}"
+                       class="text-decoration-none">{{ competition.activity.title }}</a>
+                </div>
+                {% if competition.allow_team_participation %}
+                <div class="mb-0">
+                    <span class="badge bg-success">
+                        <i class="bi bi-people me-1"></i>{% trans "Team Participation Allowed" %}
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Contact Information -->
+            {% if competition.contact_person or competition.contact_email %}
+            <div class="contact-card">
+                <h5 class="mb-3">
+                    <i class="bi bi-person-badge me-2 text-primary"></i>{% trans "Contact Information" %}
+                </h5>
+                <div class="contact-avatar">
+                    {% if competition.contact_person %}
+                        {{ competition.contact_person|make_list|first|upper }}
+                    {% else %}
+                        ?
+                    {% endif %}
+                </div>
+                {% if competition.contact_person %}
+                <h6 class="mb-1">{{ competition.contact_person }}</h6>
+                {% endif %}
+                {% if competition.contact_email %}
+                <p class="text-muted mb-0">
+                    <a href="mailto:{{ competition.contact_email }}" class="text-decoration-none">
+                        {{ competition.contact_email }}
+                    </a>
+                </p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Countdown timer for registration deadline
+    {% if competition.registration_deadline %}
+        {% now "Y-m-d H:i:s" as now %}
+        const deadline = new Date('{{ competition.registration_deadline|date:"Y-m-d" }}T23:59:59');
+        const now = new Date('{{ now }}');
+        const countdownElement = document.getElementById('countdownTimer');
+
+        function updateCountdown() {
+            const timeLeft = deadline - new Date();
+
+            if (timeLeft > 0) {
+                const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+
+                countdownElement.textContent = `${days}d ${hours}h ${minutes}m`;
+            } else {
+                countdownElement.textContent = '{% trans "Closed" %}';
+                countdownElement.className = 'text-muted';
+            }
+        }
+
+        updateCountdown();
+        setInterval(updateCountdown, 60000); // Update every minute
+    {% endif %}
+
+    // Animate elements on scroll
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+
+    // Apply animations to key elements
+    const animateElements = document.querySelectorAll('.competition-content, .competition-section, .registration-status, .contact-card');
+    animateElements.forEach((element, index) => {
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(20px)';
+        element.style.transition = `opacity 0.6s ease ${index * 0.1}s, transform 0.6s ease ${index * 0.1}s`;
+        observer.observe(element);
+    });
+
+    // Trigger initial animation for visible elements
+    setTimeout(() => {
+        const visibleElements = document.querySelectorAll('.competition-content:not([style*="none"]), .competition-section:not([style*="none"]), .registration-status:not([style*="none"]), .contact-card:not([style*="none"])');
+        visibleElements.forEach(element => {
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        });
+    }, 100);
+});
+</script>
+{% endblock %}

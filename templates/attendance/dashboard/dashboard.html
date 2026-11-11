@@ -1,0 +1,731 @@
+<!-- templates/attendance/dashboard/dashboard.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Attendance Dashboard - School Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+.attendance-stats-card {
+    border-left: 4px solid #007bff;
+    transition: transform 0.2s;
+}
+.attendance-stats-card:hover {
+    transform: translateY(-2px);
+}
+.attendance-stats-card.present {
+    border-left-color: #28a745;
+}
+.attendance-stats-card.absent {
+    border-left-color: #dc3545;
+}
+.attendance-stats-card.late {
+    border-left-color: #ffc107;
+}
+.attendance-stats-card.leave {
+    border-left-color: #17a2b8;
+}
+.quick-action-btn {
+    transition: all 0.3s;
+}
+.quick-action-btn:hover {
+    transform: scale(1.05);
+}
+.attendance-chart-container {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.recent-activity-item {
+    border-left: 3px solid transparent;
+    padding-left: 15px;
+    margin-bottom: 10px;
+}
+.recent-activity-item.present {
+    border-left-color: #28a745;
+}
+.recent-activity-item.absent {
+    border-left-color: #dc3545;
+}
+.recent-activity-item.late {
+    border-left-color: #ffc107;
+}
+.status-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+.progress-thin {
+    height: 6px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-2">Attendance Dashboard</h1>
+                    <p class="text-muted mb-0">
+                        {% if user.student_profile %}
+                            Welcome back, {{ user.get_full_name }}! Here's your attendance overview.
+                        {% elif user.teacher_profile %}
+                            Teacher Dashboard - Manage your class attendance
+                        {% else %}
+                            Attendance Management System
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-primary">{{ today|date:"F j, Y" }}</span>
+                    {% if user.is_staff or user.teacher_profile %}
+                    <a href="{% url 'attendance:bulk_class_select' %}" class="btn btn-primary">
+                        <i class="fas fa-users me-1"></i> Bulk Marking
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Dashboard -->
+    {% if user.student_profile %}
+    <div class="row">
+        <!-- Statistics Cards -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card present h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Present Days
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ present_count }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card absent h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Absent Days
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ absent_count }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-times-circle fa-2x text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card late h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Late Arrivals
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ late_count }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Attendance Rate
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ attendance_percentage }}%
+                            </div>
+                            <div class="mt-2">
+                                <div class="progress progress-thin">
+                                    <div class="progress-bar bg-success" 
+                                         role="progressbar" 
+                                         style="width: {{ attendance_percentage }}%"
+                                         aria-valuenow="{{ attendance_percentage }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chart-line fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Recent Attendance -->
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Attendance</h6>
+                    <a href="{% url 'attendance:student_my_attendance' %}" class="btn btn-sm btn-outline-primary">
+                        View All
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if recent_attendances %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Session</th>
+                                    <th>Status</th>
+                                    <th>Check-in</th>
+                                    <th>Hours</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for attendance in recent_attendances %}
+                                <tr>
+                                    <td>{{ attendance.date }}</td>
+                                    <td>{{ attendance.attendance_session.name }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if attendance.status == 'present' %}bg-success
+                                            {% elif attendance.status == 'absent' %}bg-danger
+                                            {% elif attendance.status == 'late' %}bg-warning
+                                            {% else %}bg-info{% endif %}">
+                                            {{ attendance.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if attendance.check_in_time %}
+                                            {{ attendance.check_in_time|time }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if attendance.total_hours %}
+                                            {{ attendance.total_hours }}h
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No attendance records found.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions & Leave Status -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'attendance:leave_create' %}" class="btn btn-outline-primary quick-action-btn">
+                            <i class="fas fa-calendar-plus me-2"></i>Apply for Leave
+                        </a>
+                        <a href="{% url 'attendance:summary' %}" class="btn btn-outline-info quick-action-btn">
+                            <i class="fas fa-chart-pie me-2"></i>View Reports
+                        </a>
+                        <a href="{% url 'attendance:student_my_attendance' %}" class="btn btn-outline-success quick-action-btn">
+                            <i class="fas fa-history me-2"></i>Attendance History
+                        </a>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h6 class="font-weight-bold mb-3">Current Month Summary</h6>
+                    <div id="studentAttendanceChart">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Teacher Dashboard -->
+    {% if user.teacher_profile %}
+    <div class="row">
+        <!-- Today's Summary -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Today's Attendance
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ today_attendance_count }}
+                            </div>
+                            <div class="mt-2 text-xs text-muted">
+                                {{ today_present_count }} present
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-day fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                My Classes
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ classes.count }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chalkboard-teacher fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Pending Leaves
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ pending_leaves_count }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                This Week
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ this_week_attendance }}
+                            </div>
+                            <div class="mt-2 text-xs text-muted">
+                                attendance records
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chart-bar fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- My Classes -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">My Classes</h6>
+                </div>
+                <div class="card-body">
+                    {% if classes %}
+                    <div class="list-group list-group-flush">
+                        {% for class in classes %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ class.name }}</h6>
+                                <small class="text-muted">
+                                    {{ class.students.count }} students
+                                </small>
+                            </div>
+                            <div class="btn-group">
+                                <a href="{% url 'attendance:bulk_mark' class.id %}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    Mark Attendance
+                                </a>
+                                <a href="#" class="btn btn-sm btn-outline-info">
+                                    View Report
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-chalkboard fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No classes assigned.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Activity</h6>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        {% for activity in recent_activities %}
+                        <div class="recent-activity-item {{ activity.status }}">
+                            <div class="d-flex justify-content-between">
+                                <strong>{{ activity.student_name }}</strong>
+                                <small class="text-muted">{{ activity.time|date:"M j, H:i" }}</small>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>{{ activity.description }}</span>
+                                <span class="badge 
+                                    {% if activity.status == 'present' %}bg-success
+                                    {% elif activity.status == 'absent' %}bg-danger
+                                    {% elif activity.status == 'late' %}bg-warning
+                                    {% else %}bg-info{% endif %} status-badge">
+                                    {{ activity.status|title }}
+                                </span>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-bell fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No recent activity.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Admin Dashboard -->
+    {% if user.is_staff and not user.teacher_profile and not user.student_profile %}
+    <div class="row">
+        <!-- System Overview -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Students
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ total_students }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Today's Attendance
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ today_attendance_count }}
+                            </div>
+                            <div class="mt-2 text-xs text-muted">
+                                {{ today_present_count }} present
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-user-check fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Active Sessions
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ active_sessions_count }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card attendance-stats-card h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                System Uptime
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                99.8%
+                            </div>
+                            <div class="mt-2 text-xs text-muted">
+                                All systems operational
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-server fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Quick Management -->
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Quick Management</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light border-0 h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-cog fa-2x text-primary mb-3"></i>
+                                    <h5>Configuration</h5>
+                                    <p class="text-muted">Manage attendance settings</p>
+                                    <a href="{% url 'attendance:config' %}" class="btn btn-primary">
+                                        Configure
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light border-0 h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-bar fa-2x text-success mb-3"></i>
+                                    <h5>Reports</h5>
+                                    <p class="text-muted">Generate attendance reports</p>
+                                    <a href="{% url 'attendance:summary' %}" class="btn btn-success">
+                                        View Reports
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light border-0 h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-calendar-alt fa-2x text-warning mb-3"></i>
+                                    <h5>Sessions</h5>
+                                    <p class="text-muted">Manage attendance sessions</p>
+                                    <a href="{% url 'attendance:session_list' %}" class="btn btn-warning">
+                                        Manage
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light border-0 h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-file-export fa-2x text-info mb-3"></i>
+                                    <h5>Export</h5>
+                                    <p class="text-muted">Export attendance data</p>
+                                    <a href="{% url 'attendance:export_report' %}" class="btn btn-info">
+                                        Export Data
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Alerts -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">System Alerts</h6>
+                </div>
+                <div class="card-body">
+                    {% if system_alerts %}
+                    <div class="list-group list-group-flush">
+                        {% for alert in system_alerts %}
+                        <div class="list-group-item d-flex align-items-center">
+                            <i class="fas fa-{{ alert.icon }} text-{{ alert.type }} me-3"></i>
+                            <div class="flex-grow-1">
+                                <small class="text-muted">{{ alert.time }}</small>
+                                <div>{{ alert.message }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                        <p class="text-success">All systems operational</p>
+                        <small class="text-muted">No alerts at this time</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts and dynamic content
+    initializeDashboardCharts();
+    
+    // Auto-refresh for real-time updates (every 30 seconds)
+    setInterval(updateLiveData, 30000);
+});
+
+function initializeDashboardCharts() {
+    // Student attendance chart
+    {% if user.student_profile %}
+    loadStudentAttendanceChart();
+    {% endif %}
+    
+    // Teacher class statistics
+    {% if user.teacher_profile %}
+    loadTeacherClassStats();
+    {% endif %}
+    
+    // Admin system overview
+    {% if user.is_staff and not user.teacher_profile and not user.student_profile %}
+    loadAdminOverview();
+    {% endif %}
+}
+
+function loadStudentAttendanceChart() {
+    // This would typically fetch data from an API endpoint
+    const chartData = {
+        labels: ['Present', 'Absent', 'Late', 'Leave'],
+        datasets: [{
+            data: [{{ present_count }}, {{ absent_count }}, {{ late_count }}, 0],
+            backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#17a2b8']
+        }]
+    };
+    
+    // Simple chart implementation (replace with Chart.js if available)
+    const chartContainer = document.getElementById('studentAttendanceChart');
+    if (chartContainer) {
+        chartContainer.innerHTML = `
+            <div class="text-center">
+                <div class="d-flex justify-content-center mb-3">
+                    ${chartData.labels.map((label, index) => `
+                        <div class="mx-2 text-center">
+                            <div class="rounded-circle bg-${['success', 'danger', 'warning', 'info'][index]} d-inline-block" 
+                                 style="width: 20px; height: 20px;"></div>
+                            <div class="small mt-1">${label}</div>
+                            <div class="fw-bold">${chartData.datasets[0].data[index]}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+}
+
+function updateLiveData() {
+    // This would fetch updated data from the server
+    console.log('Updating dashboard data...');
+    
+    // Example: Update today's attendance count for teachers/admins
+    {% if user.teacher_profile or user.is_staff %}
+    fetch('/attendance/api/dashboard-stats/')
+        .then(response => response.json())
+        .then(data => {
+            // Update relevant elements with new data
+            if (data.today_attendance_count) {
+                const element = document.querySelector('.card .h5:contains("Today\'s Attendance")');
+                if (element) {
+                    element.textContent = data.today_attendance_count;
+                }
+            }
+        })
+        .catch(error => console.error('Error updating dashboard:', error));
+    {% endif %}
+}
+
+// Utility function for contains selector
+$.expr[':'].contains = function(a, i, m) {
+    return $(a).text().toUpperCase().indexOf(m[3].toUpperCase()) >= 0;
+};
+</script>
+{% endblock %}

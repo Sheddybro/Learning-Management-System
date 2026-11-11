@@ -1,0 +1,873 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">{{ page_title }}</h1>
+            <p class="text-muted">{% trans "Monitor academic performance trends and analytics" %}</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if current_session %}
+                <span class="badge bg-primary fs-6">{{ current_session.name }}</span>
+            {% endif %}
+            <small class="text-muted">{{ request.user.get_full_name }}</small>
+        </div>
+    </div>
+
+    <!-- Filters and Controls -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "Performance Filters" %}</h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="grade_filter" class="form-label">{% trans "Grade Level" %}</label>
+                            <select class="form-select" id="grade_filter" name="grade">
+                                <option value="">{% trans "All Grades" %}</option>
+                                <option value="A">A</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                                <option value="F">F</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="subject_filter" class="form-label">{% trans "Subject" %}</label>
+                            <select class="form-select" id="subject_filter" name="subject">
+                                <option value="">{% trans "All Subjects" %}</option>
+                                <!-- Subject options will be populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="time_period" class="form-label">{% trans "Time Period" %}</label>
+                            <select class="form-select" id="time_period" name="period">
+                                <option value="current">{% trans "Current Session" %}</option>
+                                <option value="last_term">{% trans "Last Term" %}</option>
+                                <option value="last_year">{% trans "Last Year" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-search"></i> {% trans "Apply Filters" %}
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="exportReport()">
+                                <i class="fas fa-download"></i> {% trans "Export" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Overview Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                {% trans "Average Performance" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% for kpi in academic_kpis %}
+                                    {% if kpi.code == 'avg_performance' %}
+                                        {{ kpi_data|get_item:kpi.id.value|default:"--" }}%
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                {% trans "Students Excelling" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% for kpi in academic_kpis %}
+                                    {% if kpi.code == 'students_excelling' %}
+                                        {{ kpi_data|get_item:kpi.id.value|default:"--" }}
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-star fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                {% trans "Students Needing Support" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% for kpi in academic_kpis %}
+                                    {% if kpi.code == 'students_at_risk' %}
+                                        {{ kpi_data|get_item:kpi.id.value|default:"--" }}
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                {% trans "Pass Rate" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% for kpi in academic_kpis %}
+                                    {% if kpi.code == 'pass_rate' %}
+                                        {{ kpi_data|get_item:kpi.id.value|default:"--" }}%
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts and Analytics -->
+    <div class="row mb-4">
+        <!-- Grade Distribution Chart -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "Grade Distribution" %}</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="gradeDistributionChart" width="100%" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subject Performance Chart -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "Subject Performance" %}</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="subjectPerformanceChart" width="100%" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Class Performance Table -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "Class Performance Overview" %}</h6>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="toggleView('table')">
+                            <i class="fas fa-table"></i> {% trans "Table" %}
+                        </button>
+                        <button class="btn btn-sm btn-outline-success" onclick="toggleView('chart')">
+                            <i class="fas fa-chart-bar"></i> {% trans "Chart" %}
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Table View -->
+                    <div id="performanceTable" class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>{% trans "Class" %}</th>
+                                    <th>{% trans "Average Performance" %}</th>
+                                    <th>{% trans "Student Count" %}</th>
+                                    <th>{% trans "Top Performer" %}</th>
+                                    <th>{% trans "Lowest Performer" %}</th>
+                                    <th>{% trans "Action" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for class_data in performance_data.class_performance %}
+                                <tr>
+                                    <td>{{ class_data.academic_class__name }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if class_data.avg_percentage >= 80 %}success{% elif class_data.avg_percentage >= 60 %}warning{% else %}danger{% endif %}">
+                                            {{ class_data.avg_percentage|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                    <td>{{ class_data.student_count }}</td>
+                                    <td>--</td>
+                                    <td>--</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="viewClassDetails('{{ class_data.academic_class__name }}')">
+                                            {% trans "View Details" %}
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                                        <p class="text-muted">{% trans "No performance data available for the selected filters." %}</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Chart View -->
+                    <div id="performanceChart" class="d-none">
+                        <canvas id="classPerformanceChart" width="100%" height="400"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Academic KPIs Dashboard -->
+    {% if academic_kpis %}
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "Academic Key Performance Indicators" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for kpi in academic_kpis %}
+                        <div class="col-lg-3 col-md-6 mb-4">
+                            <div class="card border-left-primary h-100">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                                {{ kpi.name }}
+                                            </div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                                {% if kpi_data|length > 0 and kpi.id in kpi_data %}
+                                                    {% if kpi.value_type == 'percentage' %}
+                                                        {{ kpi_data|get_item:kpi.id.value }}%
+                                                    {% elif kpi.value_type == 'currency' %}
+                                                        ${{ kpi_data|get_item:kpi.id.value|floatformat:2 }}
+                                                    {% else %}
+                                                        {{ kpi_data|get_item:kpi.id.value }}
+                                                    {% endif %}
+                                                {% else %}
+                                                    --
+                                                {% endif %}
+                                            </div>
+                                            {% if kpi_data|length > 0 and kpi.id in kpi_data and kpi_data|get_item:kpi.id.change_percentage %}
+                                                <div class="text-xs">
+                                                    {% if kpi_data|get_item:kpi.id.change_percentage > 0 %}
+                                                        <span class="text-success">
+                                                            <i class="fas fa-arrow-up"></i> +{{ kpi_data|get_item:kpi.id.change_percentage }}%
+                                                        </span>
+                                                    {% elif kpi_data|get_item:kpi.id.change_percentage < 0 %}
+                                                        <span class="text-danger">
+                                                            <i class="fas fa-arrow-down"></i> {{ kpi_data|get_item:kpi.id.change_percentage }}%
+                                                        </span>
+                                                    {% else %}
+                                                        <span class="text-muted">
+                                                            <i class="fas fa-minus"></i> 0%
+                                                        </span>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<style>
+/* Performance Monitoring Styles */
+.card {
+    border: none;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+
+.border-left-danger {
+    border-left: 0.25rem solid #e74a3b !important;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.75em;
+    padding: 0.375rem 0.5rem;
+}
+
+.btn-outline-primary {
+    color: #4e73df;
+    border-color: #4e73df;
+}
+
+.btn-outline-primary:hover {
+    color: #fff;
+    background-color: #4e73df;
+    border-color: #4e73df;
+}
+
+.btn-outline-success {
+    color: #1cc88a;
+    border-color: #1cc88a;
+}
+
+.btn-outline-success:hover {
+    color: #fff;
+    background-color: #1cc88a;
+    border-color: #1cc88a;
+}
+
+/* Chart containers */
+canvas {
+    max-width: 100%;
+    height: auto !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+
+    .card-body .row {
+        margin-left: -5px;
+        margin-right: -5px;
+    }
+
+    .card-body .row > div {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+}
+
+/* Loading states */
+.chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    background: #f8f9fc;
+    border-radius: 0.5rem;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Performance Monitoring JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Performance Monitoring page loaded');
+
+    // Initialize page
+    initializePerformanceMonitoring();
+
+    // Set up event listeners
+    setupEventListeners();
+
+    // Load initial data
+    loadPerformanceData();
+
+    function initializePerformanceMonitoring() {
+        // Show loading states for charts
+        showChartLoadingStates();
+
+        // Initialize filters
+        initializeFilters();
+
+        // Setup responsive design
+        setupResponsiveDesign();
+    }
+
+    function showChartLoadingStates() {
+        const chartContainers = document.querySelectorAll('canvas');
+        chartContainers.forEach(canvas => {
+            const container = canvas.parentElement;
+            container.innerHTML = `
+                <div class="chart-loading">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="ms-2">Loading chart...</span>
+                </div>
+            `;
+        });
+    }
+
+    function initializeFilters() {
+        // Populate subject filter dynamically
+        populateSubjectFilter();
+
+        // Set up filter change handlers
+        const filters = document.querySelectorAll('select[name]');
+        filters.forEach(filter => {
+            filter.addEventListener('change', function() {
+                // Auto-submit form or update charts
+                updateChartsWithFilters();
+            });
+        });
+    }
+
+    function populateSubjectFilter() {
+        // This would typically fetch subjects from API
+        // For now, we'll use placeholder data
+        const subjectFilter = document.getElementById('subject_filter');
+        const subjects = [
+            'Mathematics',
+            'English',
+            'Science',
+            'History',
+            'Geography',
+            'Art',
+            'Physical Education'
+        ];
+
+        subjects.forEach(subject => {
+            const option = document.createElement('option');
+            option.value = subject.toLowerCase().replace(' ', '_');
+            option.textContent = subject;
+            subjectFilter.appendChild(option);
+        });
+    }
+
+    function setupResponsiveDesign() {
+        // Handle mobile responsiveness
+        const handleResize = () => {
+            const width = window.innerWidth;
+
+            if (width < 768) {
+                // Mobile: stack charts vertically
+                const chartContainers = document.querySelectorAll('.col-lg-6');
+                chartContainers.forEach(container => {
+                    container.classList.remove('col-lg-6');
+                    container.classList.add('col-12');
+                });
+            } else {
+                // Desktop: restore grid layout
+                const chartContainers = document.querySelectorAll('.col-12');
+                chartContainers.forEach(container => {
+                    if (container.querySelector('canvas')) {
+                        container.classList.remove('col-12');
+                        container.classList.add('col-lg-6');
+                    }
+                });
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Initial call
+    }
+
+    function setupEventListeners() {
+        // View toggle buttons
+        document.querySelectorAll('[onclick*="toggleView"]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const viewType = this.onclick.toString().match(/'(\w+)'/)[1];
+                toggleView(viewType);
+            });
+        });
+    }
+
+    async function loadPerformanceData() {
+        try {
+            // Fetch performance data from API
+            const response = await fetch('/core/api/performance/data/', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCSRFToken()
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                renderCharts(data);
+                updateTable(data);
+            } else {
+                throw new Error('Failed to load performance data');
+            }
+        } catch (error) {
+            console.error('Error loading performance data:', error);
+            showErrorMessage('Failed to load performance data. Please try again.');
+        }
+    }
+
+    function renderCharts(data) {
+        // Render grade distribution chart
+        renderGradeDistributionChart(data.grade_distribution || {});
+
+        // Render subject performance chart
+        renderSubjectPerformanceChart(data.subject_performance || []);
+
+        // Render class performance chart
+        renderClassPerformanceChart(data.class_performance || []);
+    }
+
+    function renderGradeDistributionChart(gradeData) {
+        const container = document.getElementById('gradeDistributionChart').parentElement;
+        container.innerHTML = '<canvas id="gradeDistributionChart" width="100%" height="300"></canvas>';
+
+        const ctx = document.getElementById('gradeDistributionChart').getContext('2d');
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(gradeData),
+                datasets: [{
+                    data: Object.values(gradeData),
+                    backgroundColor: [
+                        '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
+                        '#6f42c1', '#fd7e14', '#20c997', '#dc3545'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return `${context.label}: ${context.parsed} students (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderSubjectPerformanceChart(subjectData) {
+        const container = document.getElementById('subjectPerformanceChart').parentElement;
+        container.innerHTML = '<canvas id="subjectPerformanceChart" width="100%" height="300"></canvas>';
+
+        const ctx = document.getElementById('subjectPerformanceChart').getContext('2d');
+
+        const labels = subjectData.map(item => item.result__subject__name || item.subject);
+        const values = subjectData.map(item => parseFloat(item.avg_percentage || item.percentage));
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Average Performance (%)',
+                    data: values,
+                    backgroundColor: '#4e73df',
+                    borderColor: '#2e59d9',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Average: ${context.parsed.y}%`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderClassPerformanceChart(classData) {
+        const container = document.getElementById('classPerformanceChart').parentElement;
+        container.innerHTML = '<canvas id="classPerformanceChart" width="100%" height="400"></canvas>';
+
+        const ctx = document.getElementById('classPerformanceChart').getContext('2d');
+
+        const labels = classData.map(item => item.academic_class__name || item.class_name);
+        const values = classData.map(item => parseFloat(item.avg_percentage));
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Class Average Performance (%)',
+                    data: values,
+                    borderColor: '#1cc88a',
+                    backgroundColor: 'rgba(28, 200, 138, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#1cc88a',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Performance: ${context.parsed.y}%`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateTable(data) {
+        // Update table with new data if needed
+        const tableBody = document.querySelector('#performanceTable tbody');
+
+        if (data.class_performance && data.class_performance.length > 0) {
+            // Table is already populated from template
+            // Could add dynamic updates here if needed
+        }
+    }
+
+    function updateChartsWithFilters() {
+        // Re-fetch data with current filter values
+        const formData = new FormData(document.querySelector('form'));
+        const filters = Object.fromEntries(formData.entries());
+
+        console.log('Applying filters:', filters);
+        // Implement filter logic here
+        loadPerformanceData();
+    }
+
+    function toggleView(viewType) {
+        const tableView = document.getElementById('performanceTable');
+        const chartView = document.getElementById('performanceChart');
+
+        if (viewType === 'table') {
+            tableView.classList.remove('d-none');
+            chartView.classList.add('d-none');
+        } else if (viewType === 'chart') {
+            tableView.classList.add('d-none');
+            chartView.classList.remove('d-none');
+        }
+    }
+
+    function viewClassDetails(className) {
+        // Navigate to class details page
+        window.location.href = `/academics/classes/${className.toLowerCase().replace(' ', '-')}/performance/`;
+    }
+
+    function exportReport() {
+        // Export current view as PDF or Excel
+        const filters = new FormData(document.querySelector('form'));
+        const queryString = new URLSearchParams(filters).toString();
+
+        window.open(`/core/api/performance/export/?${queryString}`, '_blank');
+    }
+
+    function showErrorMessage(message) {
+        // Show error message to user
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        document.body.appendChild(alertDiv);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+
+    function getCSRFToken() {
+        // Get CSRF token from cookies or meta tag
+        const tokenElement = document.querySelector('meta[name="csrf-token"]');
+        if (tokenElement) {
+            return tokenElement.getAttribute('content');
+        }
+
+        // Fallback: get from cookies
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'csrftoken') {
+                return value;
+            }
+        }
+        return '';
+    }
+
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + E to export
+        if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+            e.preventDefault();
+            exportReport();
+        }
+
+        // Alt + T to toggle to table view
+        if (e.altKey && e.key === 't') {
+            e.preventDefault();
+            toggleView('table');
+        }
+
+        // Alt + C to toggle to chart view
+        if (e.altKey && e.key === 'c') {
+            e.preventDefault();
+            toggleView('chart');
+        }
+    });
+
+    // Performance monitoring
+    if ('performance' in window && 'getEntriesByType' in performance) {
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                const navigation = performance.getEntriesByType('navigation')[0];
+                const loadTime = navigation.loadEventEnd - navigation.fetchStart;
+
+                console.log(`Performance monitoring page loaded in ${loadTime.toFixed(2)}ms`);
+            }, 0);
+        });
+    }
+});
+</script>
+{% endblock %}

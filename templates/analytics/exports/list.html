@@ -1,0 +1,850 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Data Exports" %}{% endblock %}
+
+{% block page_title %}{% trans "Data Exports" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'analytics:dashboard' %}">{% trans "Analytics" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Data Exports" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'analytics:request_export' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> {% trans "New Export" %}
+        </a>
+        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'analytics:export_list' %}?status=completed">
+                <i class="bi bi-check-circle me-2"></i> {% trans "Completed Exports" %}
+            </a></li>
+            <li><a class="dropdown-item" href="{% url 'analytics:export_list' %}?status=processing">
+                <i class="bi bi-gear me-2"></i> {% trans "Processing Exports" %}
+            </a></li>
+            <li><a class="dropdown-item" href="{% url 'analytics:export_list' %}?status=failed">
+                <i class="bi bi-exclamation-triangle me-2"></i> {% trans "Failed Exports" %}
+            </a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .exports-list-card {
+        background: var(--bs-card-bg);
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .list-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        background: var(--bs-light);
+        border-radius: 0.5rem 0.5rem 0 0;
+    }
+    
+    .list-body {
+        padding: 1.5rem;
+    }
+    
+    .list-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--bs-border-color);
+        background: var(--bs-light-bg-subtle);
+        border-radius: 0 0 0.5rem 0.5rem;
+    }
+    
+    .export-card {
+        background: var(--bs-card-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.5rem;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+    
+    .export-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        border-color: var(--bs-primary);
+    }
+    
+    .export-card:last-child {
+        margin-bottom: 0;
+    }
+    
+    .export-header {
+        display: flex;
+        justify-content: between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    
+    .export-icon {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        flex-shrink: 0;
+        font-size: 1.25rem;
+    }
+    
+    .export-content {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .export-title {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        color: var(--bs-body-color);
+    }
+    
+    .export-description {
+        font-size: 0.875rem;
+        color: var(--bs-secondary);
+        margin-bottom: 0.5rem;
+    }
+    
+    .export-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .export-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        background: var(--bs-light);
+        color: var(--bs-secondary);
+        font-weight: 500;
+    }
+    
+    .export-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-card {
+        text-align: center;
+        padding: 0.75rem;
+        background: var(--bs-light-bg-subtle);
+        border-radius: 0.375rem;
+    }
+    
+    .stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
+        color: var(--bs-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.375rem;
+        font-weight: 600;
+    }
+    
+    .export-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .btn-export-action {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .filters-card {
+        background: var(--bs-card-bg);
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .filter-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        background: var(--bs-light);
+        border-radius: 0.5rem 0.5rem 0 0;
+    }
+    
+    .filter-body {
+        padding: 1.25rem;
+    }
+    
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-overview-card {
+        background: var(--bs-card-bg);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .overview-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+    
+    .overview-label {
+        font-size: 0.875rem;
+        color: var(--bs-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: var(--bs-secondary);
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        opacity: 0.5;
+    }
+    
+    .quick-filters {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+    
+    .quick-filter-btn {
+        padding: 0.375rem 0.75rem;
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.375rem;
+        background: var(--bs-card-bg);
+        color: var(--bs-body-color);
+        text-decoration: none;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+    }
+    
+    .quick-filter-btn:hover,
+    .quick-filter-btn.active {
+        background: var(--bs-primary);
+        color: white;
+        border-color: var(--bs-primary);
+    }
+    
+    .progress-container {
+        background: var(--bs-light);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .progress-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    
+    .progress-bar {
+        height: 6px;
+        background: var(--bs-light-bg-subtle);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+    
+    .processing-animation {
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    .expiry-warning {
+        border-left: 4px solid var(--bs-warning);
+        background: rgba(255, 193, 7, 0.1);
+    }
+    
+    .expired-alert {
+        border-left: 4px solid var(--bs-danger);
+        background: rgba(220, 53, 69, 0.1);
+    }
+    
+    .pagination-container {
+        background: var(--bs-card-bg);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-top: 1.5rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .file-info {
+        font-size: 0.875rem;
+        color: var(--bs-secondary);
+    }
+    
+    .duration-info {
+        font-size: 0.875rem;
+        color: var(--bs-secondary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Statistics Overview -->
+    <div class="col-12">
+        <div class="stats-overview">
+            <div class="stat-overview-card">
+                <div class="overview-value text-primary">{{ total_exports }}</div>
+                <div class="overview-label">{% trans "Total Exports" %}</div>
+            </div>
+            <div class="stat-overview-card">
+                <div class="overview-value text-success">{{ completed_exports_count|default:"0" }}</div>
+                <div class="overview-label">{% trans "Completed" %}</div>
+            </div>
+            <div class="stat-overview-card">
+                <div class="overview-value text-warning">{{ processing_exports_count|default:"0" }}</div>
+                <div class="overview-label">{% trans "Processing" %}</div>
+            </div>
+            <div class="stat-overview-card">
+                <div class="overview-value text-info">{{ total_file_size|default:"0" }}</div>
+                <div class="overview-label">{% trans "Total Size" %}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Filters -->
+    <div class="col-12">
+        <div class="quick-filters">
+            <a href="{% url 'analytics:export_list' %}" class="quick-filter-btn {% if not request.GET.status %}active{% endif %}">
+                {% trans "All Exports" %}
+            </a>
+            <a href="?status=completed" class="quick-filter-btn {% if request.GET.status == 'completed' %}active{% endif %}">
+                <i class="bi bi-check-circle me-1"></i> {% trans "Completed" %}
+            </a>
+            <a href="?status=processing" class="quick-filter-btn {% if request.GET.status == 'processing' %}active{% endif %}">
+                <i class="bi bi-gear me-1"></i> {% trans "Processing" %}
+            </a>
+            <a href="?status=pending" class="quick-filter-btn {% if request.GET.status == 'pending' %}active{% endif %}">
+                <i class="bi bi-clock me-1"></i> {% trans "Pending" %}
+            </a>
+            <a href="?status=failed" class="quick-filter-btn {% if request.GET.status == 'failed' %}active{% endif %}">
+                <i class="bi bi-exclamation-triangle me-1"></i> {% trans "Failed" %}
+            </a>
+            <a href="?status=cancelled" class="quick-filter-btn {% if request.GET.status == 'cancelled' %}active{% endif %}">
+                <i class="bi bi-x-circle me-1"></i> {% trans "Cancelled" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Exports List -->
+    <div class="col-12">
+        <div class="exports-list-card">
+            <div class="list-body">
+                {% if page_obj %}
+                    {% for export in page_obj %}
+                    <div class="export-card {% if export.is_expired %}expired-alert{% elif export.expires_soon %}expiry-warning{% endif %}">
+                        <div class="export-header">
+                            <div class="export-icon 
+                                {% if export.status == 'completed' %}bg-success bg-opacity-10 text-success
+                                {% elif export.status == 'failed' %}bg-danger bg-opacity-10 text-danger
+                                {% elif export.status == 'processing' %}bg-warning bg-opacity-10 text-warning
+                                {% elif export.status == 'pending' %}bg-info bg-opacity-10 text-info
+                                {% else %}bg-secondary bg-opacity-10 text-secondary{% endif %}">
+                                <i class="bi 
+                                    {% if export.format == 'excel' %}bi-file-earmark-spreadsheet
+                                    {% elif export.format == 'csv' %}bi-file-earmark-text
+                                    {% elif export.format == 'json' %}bi-file-earmark-code
+                                    {% else %}bi-file-earmark-text{% endif %}">
+                                </i>
+                            </div>
+                            
+                            <div class="export-content">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h5 class="export-title">{{ export.name }}</h5>
+                                        <p class="export-description">{{ export.description|default:"No description" }}</p>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            {% if export.status == 'completed' and export.file %}
+                                            <li><a class="dropdown-item" href="{% url 'analytics:download_export' export.id %}">
+                                                <i class="bi bi-download me-2"></i> {% trans "Download" %}
+                                            </a></li>
+                                            {% endif %}
+                                            <li><a class="dropdown-item" href="#" onclick="duplicateExport('{{ export.id }}')">
+                                                <i class="bi bi-copy me-2"></i> {% trans "Duplicate" %}
+                                            </a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            {% if export.status == 'pending' or export.status == 'processing' %}
+                                            <li><a class="dropdown-item text-warning" href="#" onclick="cancelExport('{{ export.id }}')">
+                                                <i class="bi bi-x-circle me-2"></i> {% trans "Cancel" %}
+                                            </a></li>
+                                            {% endif %}
+                                            <li><a class="dropdown-item text-danger" href="#" onclick="deleteExport('{{ export.id }}')">
+                                                <i class="bi bi-trash me-2"></i> {% trans "Delete" %}
+                                            </a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                <div class="export-meta">
+                                    <span class="export-badge">
+                                        <i class="bi bi-database me-1"></i>
+                                        {{ export.data_source }}
+                                    </span>
+                                    <span class="export-badge">
+                                        <i class="bi bi-filetype-{{ export.format }} me-1"></i>
+                                        {{ export.get_format_display }}
+                                    </span>
+                                    <span class="export-badge">
+                                        <i class="bi bi-calendar me-1"></i>
+                                        {{ export.created_at|date:"M d, Y" }}
+                                    </span>
+                                    {% if export.record_count %}
+                                    <span class="export-badge">
+                                        <i class="bi bi-list-ol me-1"></i>
+                                        {{ export.record_count }} {% trans "records" %}
+                                    </span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Processing Progress -->
+                                {% if export.status == 'processing' %}
+                                <div class="progress-container">
+                                    <div class="progress-header">
+                                        <span class="fw-medium">{% trans "Processing..." %}</span>
+                                        <span class="text-muted small">{% trans "Estimating time remaining" %}</span>
+                                    </div>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill bg-warning processing-animation" style="width: 75%"></div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Export Stats -->
+                                <div class="export-stats">
+                                    <div class="stat-card">
+                                        <div class="stat-value 
+                                            {% if export.status == 'completed' %}text-success
+                                            {% elif export.status == 'failed' %}text-danger
+                                            {% elif export.status == 'processing' %}text-warning
+                                            {% else %}text-info{% endif %}">
+                                            {{ export.get_status_display }}
+                                        </div>
+                                        <div class="stat-label">{% trans "Status" %}</div>
+                                    </div>
+                                    
+                                    {% if export.file_size %}
+                                    <div class="stat-card">
+                                        <div class="stat-value text-primary">{{ export.file_size_human }}</div>
+                                        <div class="stat-label">{% trans "File Size" %}</div>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if export.processing_duration %}
+                                    <div class="stat-card">
+                                        <div class="stat-value text-info">{{ export.processing_duration|floatformat:2 }}s</div>
+                                        <div class="stat-label">{% trans "Duration" %}</div>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="stat-card">
+                                        <div class="stat-value text-secondary">
+                                            {{ export.created_at|timesince }}
+                                        </div>
+                                        <div class="stat-label">{% trans "Created" %}</div>
+                                    </div>
+                                </div>
+
+                                <!-- Error Message -->
+                                {% if export.error_message %}
+                                <div class="alert alert-danger py-2">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        <small>{{ export.error_message }}</small>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Expiry Information -->
+                                {% if export.expires_at %}
+                                <div class="file-info">
+                                    <i class="bi bi-clock me-1"></i>
+                                    {% if export.is_expired %}
+                                    <span class="text-danger">{% trans "Expired" %} {{ export.expires_at|timesince }}</span>
+                                    {% else %}
+                                    <span class="{% if export.expires_soon %}text-warning{% else %}text-muted{% endif %}">
+                                        {% trans "Expires" %} {{ export.expires_at|timeuntil }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="export-actions">
+                            {% if export.status == 'completed' and export.file %}
+                            <a href="{% url 'analytics:download_export' export.id %}" class="btn btn-success btn-export-action">
+                                <i class="bi bi-download me-1"></i> {% trans "Download" %}
+                            </a>
+                            {% endif %}
+                            
+                            {% if export.status == 'pending' or export.status == 'processing' %}
+                            <button class="btn btn-warning btn-export-action" onclick="cancelExport('{{ export.id }}')">
+                                <i class="bi bi-x-circle me-1"></i> {% trans "Cancel" %}
+                            </button>
+                            {% endif %}
+                            
+                            {% if export.status == 'failed' %}
+                            <button class="btn btn-outline-warning btn-export-action" onclick="retryExport('{{ export.id }}')">
+                                <i class="bi bi-arrow-clockwise me-1"></i> {% trans "Retry" %}
+                            </button>
+                            {% endif %}
+                            
+                            <button class="btn btn-outline-info btn-export-action" onclick="duplicateExport('{{ export.id }}')">
+                                <i class="bi bi-copy me-1"></i> {% trans "Duplicate" %}
+                            </button>
+                            
+                            <a href="#" class="btn btn-outline-secondary btn-export-action" onclick="viewExportDetails('{{ export.id }}')">
+                                <i class="bi bi-eye me-1"></i> {% trans "Details" %}
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    <!-- Pagination -->
+                    {% if page_obj.has_other_pages %}
+                    <div class="pagination-container">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="text-muted">
+                                    {% blocktrans with start=page_obj.start_index end=page_obj.end_index total=page_obj.paginator.count %}
+                                    Showing {{ start }} to {{ end }} of {{ total }} exports
+                                    {% endblocktrans %}
+                                </small>
+                            </div>
+                            
+                            <nav aria-label="{% trans 'Export pagination' %}">
+                                <ul class="pagination mb-0">
+                                    {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-double-left"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% for num in page_obj.paginator.page_range %}
+                                        {% if page_obj.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                                        </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-double-right"></i>
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                {% else %}
+                    <!-- Empty State -->
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="bi bi-download"></i>
+                        </div>
+                        <h4>{% trans "No Data Exports" %}</h4>
+                        <p class="mb-4">{% trans "You haven't created any data exports yet. Create your first export to download data from the system." %}</p>
+                        <a href="{% url 'analytics:request_export' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle me-1"></i> {% trans "Create First Export" %}
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="exports-list-card">
+            <div class="list-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAllExports">
+                        <label class="form-check-label" for="selectAllExports">
+                            {% trans "Select all exports" %}
+                        </label>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-danger btn-sm" onclick="deleteSelectedExports()" disabled id="deleteSelectedBtn">
+                            <i class="bi bi-trash me-1"></i> {% trans "Delete Selected" %}
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="exportSelectedMetadata()" disabled id="exportMetadataBtn">
+                            <i class="bi bi-download me-1"></i> {% trans "Export Metadata" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize bulk selection
+        initializeBulkSelection();
+        
+        // Auto-refresh for processing exports
+        startAutoRefresh();
+        
+        // Initialize tooltips
+        initializeTooltips();
+    });
+    
+    function initializeBulkSelection() {
+        const selectAllCheckbox = document.getElementById('selectAllExports');
+        const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+        const exportMetadataBtn = document.getElementById('exportMetadataBtn');
+        
+        selectAllCheckbox.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.export-select');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateBulkActions();
+        });
+        
+        // Add event listeners to individual checkboxes
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('export-select')) {
+                updateBulkActions();
+            }
+        });
+    }
+    
+    function updateBulkActions() {
+        const selectedExports = document.querySelectorAll('.export-select:checked');
+        const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+        const exportMetadataBtn = document.getElementById('exportMetadataBtn');
+        const selectAllCheckbox = document.getElementById('selectAllExports');
+        
+        const hasSelections = selectedExports.length > 0;
+        deleteSelectedBtn.disabled = !hasSelections;
+        exportMetadataBtn.disabled = !hasSelections;
+        
+        // Update select all checkbox state
+        const allCheckboxes = document.querySelectorAll('.export-select');
+        const allChecked = allCheckboxes.length > 0 && selectedExports.length === allCheckboxes.length;
+        selectAllCheckbox.checked = allChecked;
+        selectAllCheckbox.indeterminate = !allChecked && selectedExports.length > 0;
+    }
+    
+    function startAutoRefresh() {
+        // Check if there are processing exports
+        const processingExports = document.querySelectorAll('.export-card .bg-warning');
+        if (processingExports.length > 0) {
+            // Refresh every 10 seconds for processing exports
+            setInterval(function() {
+                window.location.reload();
+            }, 10000);
+        }
+    }
+    
+    function initializeTooltips() {
+        // Initialize Bootstrap tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+    
+    function cancelExport(exportId) {
+        if (confirm('{% trans "Are you sure you want to cancel this export? This action cannot be undone." %}')) {
+            BaseApp.showLoading();
+            
+            // In real implementation, this would be an API call
+            setTimeout(function() {
+                BaseApp.hideLoading();
+                BaseApp.showToast('{% trans "Export cancelled successfully" %}', 'success');
+                
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1000);
+            }, 1500);
+        }
+    }
+    
+    function retryExport(exportId) {
+        BaseApp.showToast('{% trans "Retrying export..." %}', 'info');
+        
+        // In real implementation, this would be an API call
+        setTimeout(function() {
+            window.location.reload();
+        }, 2000);
+    }
+    
+    function duplicateExport(exportId) {
+        BaseApp.showToast('{% trans "Duplicating export..." %}', 'info');
+        
+        // In real implementation, this would open a modal or redirect
+        setTimeout(function() {
+            window.location.href = '{% url "analytics:request_export" %}?duplicate=' + exportId;
+        }, 500);
+    }
+    
+    function deleteExport(exportId) {
+        if (confirm('{% trans "Are you sure you want to delete this export? This action cannot be undone." %}')) {
+            BaseApp.showLoading();
+            
+            // In real implementation, this would be an API call
+            setTimeout(function() {
+                BaseApp.hideLoading();
+                BaseApp.showToast('{% trans "Export deleted successfully" %}', 'success');
+                
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1000);
+            }, 1500);
+        }
+    }
+    
+    function viewExportDetails(exportId) {
+        BaseApp.showToast('{% trans "Loading export details..." %}', 'info');
+        // In real implementation, this would open a modal with detailed information
+    }
+    
+    function deleteSelectedExports() {
+        const selectedExports = Array.from(document.querySelectorAll('.export-select:checked'))
+            .map(checkbox => checkbox.value);
+        
+        if (selectedExports.length === 0) {
+            BaseApp.showToast('{% trans "Please select exports to delete" %}', 'error');
+            return;
+        }
+        
+        if (confirm(`{% trans "Are you sure you want to delete" %} ${selectedExports.length} {% trans "export(s)? This action cannot be undone." %}`)) {
+            BaseApp.showLoading();
+            
+            // In real implementation, this would be an API call
+            setTimeout(function() {
+                BaseApp.hideLoading();
+                BaseApp.showToast(`{% trans "Deleted" %} ${selectedExports.length} {% trans "export(s) successfully" %}`, 'success');
+                
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1000);
+            }, 1500);
+        }
+    }
+    
+    function exportSelectedMetadata() {
+        const selectedExports = Array.from(document.querySelectorAll('.export-select:checked'))
+            .map(checkbox => checkbox.value);
+        
+        if (selectedExports.length === 0) {
+            BaseApp.showToast('{% trans "Please select exports to export metadata" %}', 'error');
+            return;
+        }
+        
+        BaseApp.showToast(`{% trans "Exporting metadata for" %} ${selectedExports.length} {% trans "export(s)..." %}`, 'info');
+        
+        // In real implementation, this would generate and download a metadata file
+        setTimeout(function() {
+            const metadataUrl = '{% url "analytics:export_list" %}?export_metadata=true&ids=' + selectedExports.join(',');
+            window.open(metadataUrl, '_blank');
+        }, 1000);
+    }
+    
+    // Add checkboxes to export cards (for bulk operations)
+    document.addEventListener('DOMContentLoaded', function() {
+        const exportCards = document.querySelectorAll('.export-card');
+        exportCards.forEach(card => {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'export-select form-check-input';
+            checkbox.value = card.dataset.exportId || Math.random().toString(36).substr(2, 9);
+            checkbox.style.position = 'absolute';
+            checkbox.style.top = '1rem';
+            checkbox.style.left = '1rem';
+            checkbox.style.zIndex = '1';
+            
+            card.style.position = 'relative';
+            card.appendChild(checkbox);
+        });
+    });
+</script>
+{% endblock %}

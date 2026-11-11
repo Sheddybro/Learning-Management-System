@@ -1,0 +1,581 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{{ report.name }}{% endblock %}
+
+{% block body_class %}analytics-reports-detail{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'analytics:dashboard' %}">{% trans "Analytics" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'analytics:report_list' %}">{% trans "Reports" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ report.name }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        {% if report.status == 'completed' %}
+        <a href="{% url 'analytics:report_download' report.pk %}" class="btn btn-success">
+            <i class="bi bi-download me-2"></i>{% trans "Download" %}
+        </a>
+        {% elif report.status == 'failed' %}
+        <button type="button" class="btn btn-outline-warning" onclick="retryReport()">
+            <i class="bi bi-arrow-clockwise me-2"></i>{% trans "Retry" %}
+        </button>
+        {% endif %}
+        <a href="{% url 'analytics:duplicate_report' report.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-copy me-2"></i>{% trans "Duplicate" %}
+        </a>
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="bi bi-three-dots"></i>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{% url 'analytics:report_list' %}">
+                    <i class="bi bi-list me-2"></i>{% trans "Back to Reports" %}
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="#" onclick="deleteReport()">
+                    <i class="bi bi-trash me-2"></i>{% trans "Delete Report" %}
+                </a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.report-detail-container {
+    max-width: 100%;
+}
+
+.report-hero {
+    background: linear-gradient(135deg, var(--bs-success), #28a745);
+    color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.report-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 250px;
+    height: 250px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    transform: translate(50%, -50%);
+}
+
+.report-status-badge {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    font-size: 0.875rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.status-completed { background: var(--bs-success); }
+.status-generating { background: var(--bs-warning); }
+.status-failed { background: var(--bs-danger); }
+.status-pending { background: var(--bs-secondary); }
+
+.report-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.meta-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.meta-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-color: var(--bs-success);
+}
+
+.meta-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.meta-icon i {
+    font-size: 1.75rem;
+    color: white;
+}
+
+.icon-calendar { background: var(--bs-primary); }
+.icon-user { background: var(--bs-success); }
+.icon-file { background: var(--bs-info); }
+.icon-stats { background: var(--bs-warning); }
+
+.report-content {
+    background: white;
+    border-radius: 12px;
+    padding: 2.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.report-description {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: var(--bs-body-color);
+    margin-bottom: 2rem;
+}
+
+.report-parameters {
+    background: var(--bs-light);
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    border-left: 4px solid var(--bs-success);
+}
+
+.parameters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.parameter-item {
+    background: white;
+    padding: 1rem;
+    border-radius: 6px;
+    border: 1px solid var(--bs-border-color);
+}
+
+.parameter-label {
+    font-weight: 600;
+    color: var(--bs-primary);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+.parameter-value {
+    font-size: 1rem;
+    color: var(--bs-body-color);
+}
+
+.report-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-color: var(--bs-primary);
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--bs-primary);
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--bs-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.generation-progress {
+    background: var(--bs-light);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.progress-spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 4px solid var(--bs-light);
+    border-top: 4px solid var(--bs-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.error-message {
+    background: var(--bs-danger);
+    color: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border-left: 4px solid var(--bs-danger);
+}
+
+@media (max-width: 768px) {
+    .report-hero {
+        padding: 1.5rem;
+    }
+
+    .report-meta-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .report-content {
+        padding: 1.5rem;
+    }
+
+    .parameters-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .report-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="report-detail-container">
+    <!-- Report Hero Section -->
+    <div class="report-hero">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <div class="d-flex align-items-center mb-2">
+                    <span class="report-status-badge status-{{ report.status }}">
+                        {{ report.get_status_display }}
+                    </span>
+                </div>
+                <h1 class="display-5 fw-bold mb-3">{{ report.name }}</h1>
+                <p class="lead mb-4 opacity-90">{{ report.report_type.name }}</p>
+
+                <div class="d-flex flex-wrap gap-3 mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-calendar me-2"></i>
+                        <span class="badge bg-light text-dark px-3 py-2">{{ report.academic_session.name }}</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-file-earmark me-2"></i>
+                        <span class="badge bg-light text-dark px-3 py-2">{{ report.format|upper }}</span>
+                    </div>
+                    {% if report.generated_by %}
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-person me-2"></i>
+                        <span class="badge bg-light text-dark px-3 py-2">{{ report.generated_by.get_full_name }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-lg-4 text-center">
+                <div class="bg-white bg-opacity-20 rounded p-4 d-inline-block">
+                    <i class="bi bi-file-earmark-text display-1 text-white"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meta Information Grid -->
+    <div class="report-meta-grid">
+        <div class="meta-card">
+            <div class="meta-icon icon-calendar">
+                <i class="bi bi-calendar"></i>
+            </div>
+            <h6 class="mb-2">{% trans "Generation Details" %}</h6>
+            <p class="mb-1"><strong>{% trans "Created:" %}</strong> {{ report.created_at|date:"M j, Y \a\t g:i A" }}</p>
+            <p class="mb-0"><strong>{% trans "Duration:" %}</strong> {% if report.generation_time %}{{ report.generation_time|floatformat:1 }}s{% else %}--{% endif %}</p>
+        </div>
+
+        <div class="meta-card">
+            <div class="meta-icon icon-user">
+                <i class="bi bi-person"></i>
+            </div>
+            <h6 class="mb-2">{% trans "Generated By" %}</h6>
+            {% if report.generated_by %}
+            <p class="mb-1"><strong>{{ report.generated_by.get_full_name }}</strong></p>
+            <p class="mb-0">{{ report.generated_by.email }}</p>
+            {% else %}
+            <p class="mb-0 text-muted">{% trans "System Generated" %}</p>
+            {% endif %}
+        </div>
+
+        <div class="meta-card">
+            <div class="meta-icon icon-file">
+                <i class="bi bi-file-earmark"></i>
+            </div>
+            <h6 class="mb-2">{% trans "File Information" %}</h6>
+            <p class="mb-1"><strong>{% trans "Format:" %}</strong> {{ report.format|upper }}</p>
+            <p class="mb-0"><strong>{% trans "Size:" %}</strong> {% if report.file_size %}{{ report.file_size|filesizeformat }}{% else %}--{% endif %}</p>
+        </div>
+
+        <div class="meta-card">
+            <div class="meta-icon icon-stats">
+                <i class="bi bi-graph-up"></i>
+            </div>
+            <h6 class="mb-2">{% trans "Usage Statistics" %}</h6>
+            <p class="mb-1"><strong>{% trans "Downloads:" %}</strong> {{ report.download_count|default:0 }}</p>
+            <p class="mb-0"><strong>{% trans "Last Accessed:" %}</strong> {% if report.last_accessed %}{{ report.last_accessed|timesince }} {% trans "ago" %}{% else %}--{% endif %}</p>
+        </div>
+    </div>
+
+    <!-- Report Content -->
+    <div class="report-content">
+        {% if report.status == 'completed' %}
+        <h4 class="mb-4">
+            <i class="bi bi-check-circle text-success me-2"></i>{% trans "Report Generated Successfully" %}
+        </h4>
+
+        {% if report.description %}
+        <div class="report-description">
+            {{ report.description }}
+        </div>
+        {% endif %}
+
+        <!-- Report Parameters -->
+        {% if report.parameters %}
+        <div class="report-parameters">
+            <h5 class="mb-3">
+                <i class="bi bi-gear me-2 text-success"></i>{% trans "Generation Parameters" %}
+            </h5>
+            <div class="parameters-grid">
+                {% for key, value in report.parameters.items %}
+                <div class="parameter-item">
+                    <div class="parameter-label">{{ key|title }}</div>
+                    <div class="parameter-value">{{ value }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Report Statistics -->
+        <div class="report-stats">
+            <div class="stat-card">
+                <span class="stat-value">{{ report.file_size|filesizeformat }}</span>
+                <span class="stat-label">{% trans "File Size" %}</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value">{{ report.generation_time|floatformat:1 }}s</span>
+                <span class="stat-label">{% trans "Generation Time" %}</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value">{{ report.download_count|default:0 }}</span>
+                <span class="stat-label">{% trans "Downloads" %}</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value">{{ report.created_at|timesince }}</span>
+                <span class="stat-label">{% trans "Age" %}</span>
+            </div>
+        </div>
+
+        <!-- Download Section -->
+        <div class="text-center">
+            <a href="{% url 'analytics:report_download' report.pk %}" class="btn btn-success btn-lg">
+                <i class="bi bi-download me-2"></i>{% trans "Download Report" %}
+            </a>
+            <p class="text-muted mt-2">{% trans "File will be downloaded in" %} {{ report.format|upper }} {% trans "format" %}</p>
+        </div>
+
+        {% elif report.status == 'generating' %}
+        <div class="generation-progress">
+            <div class="progress-spinner"></div>
+            <h4 class="mb-3">{% trans "Report Generation in Progress" %}</h4>
+            <p class="mb-0 text-muted">{% trans "Please wait while your report is being generated. This may take a few minutes." %}</p>
+            <div class="mt-3">
+                <button class="btn btn-outline-primary" onclick="checkStatus()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>{% trans "Check Status" %}
+                </button>
+            </div>
+        </div>
+
+        {% elif report.status == 'failed' %}
+        <div class="error-message">
+            <h4 class="mb-3">
+                <i class="bi bi-exclamation-triangle me-2"></i>{% trans "Report Generation Failed" %}
+            </h4>
+            {% if report.error_message %}
+            <p class="mb-3">{{ report.error_message }}</p>
+            {% endif %}
+            <p class="mb-0">{% trans "You can retry generating this report or contact support if the problem persists." %}</p>
+        </div>
+
+        <div class="text-center">
+            <button type="button" class="btn btn-warning btn-lg" onclick="retryReport()">
+                <i class="bi bi-arrow-clockwise me-2"></i>{% trans "Retry Generation" %}
+            </button>
+        </div>
+
+        {% elif report.status == 'pending' %}
+        <div class="alert alert-info">
+            <h4 class="mb-3">
+                <i class="bi bi-clock me-2"></i>{% trans "Report Queued for Generation" %}
+            </h4>
+            <p class="mb-0">{% trans "Your report has been queued and will be processed shortly." %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Check report status periodically if generating
+    {% if report.status == 'generating' %}
+    let statusCheckInterval = setInterval(function() {
+        fetch('{% url "analytics:report_status" report.pk %}', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status !== 'generating') {
+                clearInterval(statusCheckInterval);
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Status check failed:', error);
+        });
+    }, 10000); // Check every 10 seconds
+    {% endif %}
+
+    // Check status button functionality
+    window.checkStatus = function() {
+        showToast('{% trans "Checking report status..." %}', 'info');
+
+        fetch('{% url "analytics:report_status" report.pk %}', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status !== 'generating') {
+                location.reload();
+            } else {
+                showToast('{% trans "Report is still generating. Please wait." %}', 'info');
+            }
+        })
+        .catch(error => {
+            showToast('{% trans "Error checking status" %}', 'error');
+        });
+    };
+
+    // Retry report functionality
+    window.retryReport = function() {
+        if (confirm('{% trans "Are you sure you want to retry generating this report?" %}')) {
+            showToast('{% trans "Retrying report generation..." %}', 'info');
+
+            fetch('{% url "analytics:retry_report" report.pk %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('{% trans "Report regeneration started" %}', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast('{% trans "Failed to retry report" %}', 'error');
+                }
+            })
+            .catch(error => {
+                showToast('{% trans "Error retrying report" %}', 'error');
+            });
+        }
+    };
+
+    // Delete report functionality
+    window.deleteReport = function() {
+        if (confirm('{% trans "Are you sure you want to delete this report? This action cannot be undone." %}')) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{% url "analytics:delete_report" report.pk %}';
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            form.appendChild(csrfInput);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    };
+
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : 'success'} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+
+        let toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+
+        toastContainer.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+
+        toast.addEventListener('hidden.bs.toast', function() {
+            toast.remove();
+        });
+    }
+});
+</script>
+{% endblock %}

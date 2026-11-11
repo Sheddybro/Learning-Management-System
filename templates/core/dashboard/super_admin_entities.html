@@ -1,0 +1,1998 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load academics_filters %}
+
+{% block title %}{% trans "System Entity Management" %} - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-cogs text-warning"></i> {% trans "System Entity Management" %}
+                    </h1>
+                    <p class="text-muted">{% trans "Comprehensive view of all system entities across institutions" %}</p>
+                </div>
+                <div>
+                    <a href="{% url 'core:institution_list' %}" class="btn btn-primary">
+                        <i class="fas fa-school"></i> {% trans "Manage Institutions" %}
+                    </a>
+                    <a href="{% url 'core:super_admin_dashboard' %}" class="btn btn-info">
+                        <i class="fas fa-tachometer-alt"></i> {% trans "Dashboard" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Selected Institution Indicator -->
+    {% if view_all_institutions %}
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="alert alert-success d-flex align-items-center">
+                <i class="fas fa-globe fa-lg mr-3"></i>
+                <div>
+                    <strong>{% trans "Cross-Institution View:" %}</strong> {% trans "Viewing data from all institutions across the system" %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% elif selected_institution %}
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="alert alert-info d-flex align-items-center">
+                <i class="fas fa-school fa-lg mr-3"></i>
+                <div>
+                    <strong>{% trans "Currently Managing:" %}</strong> {{ selected_institution.name }} ({{ selected_institution.code }})
+                    {% if selected_institution.city %}
+                        - {{ selected_institution.city }}{% if selected_institution.country %}, {{ selected_institution.country }}{% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Aggregate Statistics Section (for Cross-Institution View) -->
+    {% if view_all_institutions and aggregate_stats.system_totals %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-bar"></i> {% trans "System-Wide Aggregate Statistics" %}
+                    </h6>
+                    <span class="badge badge-primary">{{ aggregate_stats.total_institutions }} {% trans "Institutions" %}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-xl-3 col-lg-6">
+                            <div class="card border-left-primary shadow h-100 py-2 mb-3">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                                {% trans "Total Students" %}
+                                            </div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                                {{ aggregate_stats.system_totals.total_students|default:0 }}
+                                                <small class="text-muted">
+                                                    ({{ aggregate_stats.system_totals.avg_students_per_institution|floatformat:0 }} {% trans "avg per institution" %})
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-user-graduate fa-2x text-primary"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-xl-3 col-lg-6">
+                            <div class="card border-left-success shadow h-100 py-2 mb-3">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                                {% trans "Total Teachers" %}
+                                            </div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                                {{ aggregate_stats.system_totals.total_teachers|default:0 }}
+                                                <small class="text-muted">
+                                                    ({{ aggregate_stats.system_totals.avg_teachers_per_institution|floatformat:0 }} {% trans "avg per institution" %})
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-chalkboard-teacher fa-2x text-success"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-xl-3 col-lg-6">
+                            <div class="card border-left-info shadow h-100 py-2 mb-3">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                                {% trans "Total Classes" %}
+                                            </div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                                {{ aggregate_stats.system_totals.total_classes|default:0 }}
+                                                <small class="text-muted">
+                                                    ({{ aggregate_stats.system_totals.avg_classes_per_institution|floatformat:0 }} {% trans "avg per institution" %})
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-users fa-2x text-info"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-xl-3 col-lg-6">
+                            <div class="card border-left-warning shadow h-100 py-2 mb-3">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                                {% trans "Institution Performance" %}
+                                            </div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                                {% trans "Top 5 Institutions" %}
+                                            </div>
+                                            <div class="text-xs text-muted mt-1">
+                                                {% trans "Ranked by student count" %}
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-trophy fa-2x text-warning"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Institution Breakdown Table -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <h6 class="font-weight-bold text-primary mb-3">
+                                <i class="fas fa-list-ol"></i> {% trans "Institution Breakdown" %}
+                            </h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Institution" %}</th>
+                                            <th class="text-center">{% trans "Students" %}</th>
+                                            <th class="text-center">{% trans "Teachers" %}</th>
+                                            <th class="text-center">{% trans "Classes" %}</th>
+                                            <th class="text-center">{% trans "S/T Ratio" %}</th>
+                                            <th class="text-center">{% trans "Class Utilization %" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for inst_stat in aggregate_stats.institution_breakdown %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ inst_stat.institution.code }}</strong><br>
+                                                <small class="text-muted">{{ inst_stat.institution.name|truncatechars:40 }}</small>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge badge-primary badge-pill">{{ inst_stat.students }}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge badge-success badge-pill">{{ inst_stat.teachers }}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge badge-info badge-pill">{{ inst_stat.classes }}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge badge-secondary badge-pill">{{ inst_stat.student_teacher_ratio }}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge badge-{% if inst_stat.class_utilization > 100 %}danger{% elif inst_stat.class_utilization > 80 %}warning{% else %}success{% endif %} badge-pill">
+                                                    {{ inst_stat.class_utilization }}%
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filters Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-filter"></i> {% trans "Filter Options" %}
+                    </h6>
+                    <span class="badge badge-info">{% trans "Click Filter to Apply" %}</span>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="form-inline">
+                        <div class="form-group mr-4">
+                            <label for="institution" class="mr-2 font-weight-bold">{% trans "Institution View:" %}</label>
+                            <select name="institution" id="institution" class="form-control form-control-lg">
+                                <option value="all" {% if view_all_institutions %}selected{% endif %}>
+                                    <i class="fas fa-globe mr-1"></i>{% trans "All Institutions (Cross-Institution View)" %}
+                                </option>
+                                {% for institution in institutions %}
+                                <option value="{{ institution.id }}" {% if selected_institution and selected_institution.id == institution.id %}selected{% endif %}>
+                                    {{ institution.name }} ({{ institution.code }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group mr-4">
+                            <label for="search" class="mr-2 font-weight-bold">{% trans "Search:" %}</label>
+                            <input type="text" name="search" id="search" value="{{ search_query }}" class="form-control" placeholder="{% trans 'Search by name, ID, etc.' %}">
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary btn-lg mr-2">
+                                <i class="fas fa-filter"></i> {% trans "Apply Filters" %}
+                            </button>
+                            {% if search_query or institution_filter %}
+                            <a href="{% url 'core:super_admin_entities' %}" class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-undo"></i> {% trans "Clear All" %}
+                            </a>
+                            {% endif %}
+                        </div>
+                    </form>
+
+                    <!-- Current Filters Display -->
+                    {% if search_query or institution_filter %}
+                    <div class="mt-3">
+                        <small class="text-muted">{% trans "Current filters applied:" %}</small>
+                        {% if institution_filter != "all" and selected_institution %}
+                            <span class="badge badge-info mr-2">
+                                <i class="fas fa-school"></i> {{ selected_institution.name }} ({{ selected_institution.code }})
+                            </span>
+                        {% elif view_all_institutions %}
+                            <span class="badge badge-success mr-2">
+                                <i class="fas fa-globe"></i> {% trans "All Institutions" %}
+                            </span>
+                        {% endif %}
+                        {% if search_query %}
+                            <span class="badge badge-warning">
+                                <i class="fas fa-search"></i> "{{ search_query }}"
+                            </span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards - Row 1: Academics -->
+    <div class="row mb-4">
+        <!-- Academics -->
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                {% trans "Students" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.students|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-user-graduate fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                {% trans "Teachers" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.teachers|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chalkboard-teacher fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                {% trans "Classes" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.classes|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                {% trans "Departments" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.departments|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-building fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-secondary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">
+                                {% trans "Sessions" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.sessions|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-alt fa-2x text-secondary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                {% trans "Enrollments" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.enrollments|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-id-card fa-2x text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards - Row 2: Users & Finance -->
+    <div class="row mb-4">
+        <!-- Users & Applications -->
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-dark shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-dark text-uppercase mb-1">
+                                {% trans "Users" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.users|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-dark"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                {% trans "Applications" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.applications|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-file-alt fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Finance -->
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                {% trans "Invoices" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.invoices|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-receipt fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                {% trans "Payments" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.payments|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-credit-card fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                {% trans "Expenses" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.expenses|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-wallet fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Library -->
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-secondary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">
+                                {% trans "Books" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.books|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-book fa-2x text-secondary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards - Row 3: Transport & Activities -->
+    <div class="row mb-4">
+        <!-- Transport -->
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                {% trans "Vehicles" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.vehicles|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-bus fa-2x text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-dark shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-dark text-uppercase mb-1">
+                                {% trans "Routes" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.routes|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-route fa-2x text-dark"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activities -->
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                {% trans "Activities" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.activities|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-trophy fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Communication -->
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                {% trans "Announcements" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.announcements|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-bullhorn fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audit -->
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                {% trans "Audit Logs" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.audit_logs|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-shield-alt fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assessment -->
+        <div class="col-xl-2 col-md-3 col-sm-6 mb-3">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                {% trans "Exams" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ entity_counts.exams|default:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-file-alt fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabbed Entity Tables -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <div class="row">
+                        <div class="col-12">
+                            <!-- Tab Categories -->
+                            <div class="btn-group btn-group-toggle mb-3" data-toggle="buttons">
+                                <label class="btn btn-outline-primary btn-sm active">
+                                    <input type="radio" name="tab-category" value="academics" checked> {% trans "Academics" %}
+                                </label>
+                                <label class="btn btn-outline-success btn-sm">
+                                    <input type="radio" name="tab-category" value="users"> {% trans "Users & Apps" %}
+                                </label>
+                                <label class="btn btn-outline-info btn-sm">
+                                    <input type="radio" name="tab-category" value="finance"> {% trans "Finance" %}
+                                </label>
+                                <label class="btn btn-outline-warning btn-sm">
+                                    <input type="radio" name="tab-category" value="library"> {% trans "Library" %}
+                                </label>
+                                <label class="btn btn-outline-danger btn-sm">
+                                    <input type="radio" name="tab-category" value="transport"> {% trans "Transport" %}
+                                </label>
+                                <label class="btn btn-outline-secondary btn-sm">
+                                    <input type="radio" name="tab-category" value="other"> {% trans "Other" %}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Academics Tabs -->
+                    <ul class="nav nav-tabs card-header-tabs academics-tabs" id="entity-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="students-tab" data-toggle="tab" href="#students" role="tab" aria-controls="students" aria-selected="true">
+                                <i class="fas fa-user-graduate"></i> {% trans "Students" %}
+                                <span class="badge badge-pill badge-primary ml-1">{{ students|length }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="teachers-tab" data-toggle="tab" href="#teachers" role="tab" aria-controls="teachers" aria-selected="false">
+                                <i class="fas fa-chalkboard-teacher"></i> {% trans "Teachers" %}
+                                <span class="badge badge-pill badge-success ml-1">{{ teachers|length }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="classes-tab" data-toggle="tab" href="#classes" role="tab" aria-controls="classes" aria-selected="false">
+                                <i class="fas fa-users"></i> {% trans "Classes" %}
+                                <span class="badge badge-pill badge-info ml-1">{{ classes|length }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="departments-tab" data-toggle="tab" href="#departments" role="tab" aria-controls="departments" aria-selected="false">
+                                <i class="fas fa-building"></i> {% trans "Departments" %}
+                                <span class="badge badge-pill badge-warning ml-1">{{ departments|length }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="sessions-tab" data-toggle="tab" href="#sessions" role="tab" aria-controls="sessions" aria-selected="false">
+                                <i class="fas fa-calendar-alt"></i> {% trans "Sessions" %}
+                                <span class="badge badge-pill badge-secondary ml-1">{{ sessions|length }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="enrollments-tab" data-toggle="tab" href="#enrollments" role="tab" aria-controls="enrollments" aria-selected="false">
+                                <i class="fas fa-id-card"></i> {% trans "Enrollments" %}
+                                <span class="badge badge-pill badge-danger ml-1">{{ enrollments|length }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="exams-tab" data-toggle="tab" href="#exams" role="tab" aria-controls="exams" aria-selected="false">
+                                <i class="fas fa-file-alt"></i> {% trans "Exams" %}
+                                <span class="badge badge-pill badge-info ml-1">{{ exams|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="assignments-tab" data-toggle="tab" href="#assignments" role="tab" aria-controls="assignments" aria-selected="false">
+                                <i class="fas fa-pencil-square"></i> {% trans "Assignments" %}
+                                <span class="badge badge-pill badge-warning ml-1">{{ assignments|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="results-tab" data-toggle="tab" href="#results" role="tab" aria-controls="results" aria-selected="false">
+                                <i class="fas fa-chart-line"></i> {% trans "Results" %}
+                                <span class="badge badge-pill badge-info ml-1">{{ results|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="reportcards-tab" data-toggle="tab" href="#reportcards" role="tab" aria-controls="reportcards" aria-selected="false">
+                                <i class="fas fa-card-list"></i> {% trans "Report Cards" %}
+                                <span class="badge badge-pill badge-success ml-1">{{ reportcards|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="subjects-tab" data-toggle="tab" href="#subjects" role="tab" aria-controls="subjects" aria-selected="false">
+                                <i class="fas fa-book-open"></i> {% trans "Subjects" %}
+                                <span class="badge badge-pill badge-dark ml-1">{{ subjects|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="timetables-tab" data-toggle="tab" href="#timetables" role="tab" aria-controls="timetables" aria-selected="false">
+                                <i class="fas fa-calendar-week"></i> {% trans "Timetables" %}
+                                <span class="badge badge-pill badge-primary ml-1">{{ timetables|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="materials-tab" data-toggle="tab" href="#materials" role="tab" aria-controls="materials" aria-selected="false">
+                                <i class="fas fa-folder-open"></i> {% trans "Materials" %}
+                                <span class="badge badge-pill badge-secondary ml-1">{{ materials|length|default:0 }}</span>
+                            </a>
+                        </li>
+                    </ul>
+
+                    <!-- Users & Applications Tabs -->
+                    <ul class="nav nav-tabs card-header-tabs users-tabs d-none" id="users-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="users-tab" data-toggle="tab" href="#users" role="tab" aria-controls="users" aria-selected="true">
+                                <i class="fas fa-users"></i> {% trans "Users" %}
+                                <span class="badge badge-pill badge-dark ml-1">{{ users_list|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="student-apps-tab" data-toggle="tab" href="#student-apps" role="tab" aria-controls="student-apps" aria-selected="false">
+                                <i class="fas fa-user-graduate"></i> {% trans "Student Apps" %}
+                                <span class="badge badge-pill badge-primary ml-1">{{ student_applications|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="staff-apps-tab" data-toggle="tab" href="#staff-apps" role="tab" aria-controls="staff-apps" aria-selected="false">
+                                <i class="fas fa-briefcase"></i> {% trans "Staff Apps" %}
+                                <span class="badge badge-pill badge-success ml-1">{{ staff_applications|length|default:0 }}</span>
+                            </a>
+                        </li>
+                    </ul>
+
+                    <!-- Finance Tabs -->
+                    <ul class="nav nav-tabs card-header-tabs finance-tabs d-none" id="finance-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="invoices-tab" data-toggle="tab" href="#invoices" role="tab" aria-controls="invoices" aria-selected="true">
+                                <i class="fas fa-receipt"></i> {% trans "Invoices" %}
+                                <span class="badge badge-pill badge-success ml-1">{{ invoices|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="payments-tab" data-toggle="tab" href="#payments" role="tab" aria-controls="payments" aria-selected="false">
+                                <i class="fas fa-credit-card"></i> {% trans "Payments" %}
+                                <span class="badge badge-pill badge-info ml-1">{{ payments|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="expenses-tab" data-toggle="tab" href="#expenses" role="tab" aria-controls="expenses" aria-selected="false">
+                                <i class="fas fa-wallet"></i> {% trans "Expenses" %}
+                                <span class="badge badge-pill badge-warning ml-1">{{ expenses|length|default:0 }}</span>
+                            </a>
+                        </li>
+                    </ul>
+
+                    <!-- Library Tabs -->
+                    <ul class="nav nav-tabs card-header-tabs library-tabs d-none" id="library-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="books-tab" data-toggle="tab" href="#books" role="tab" aria-controls="books" aria-selected="true">
+                                <i class="fas fa-book"></i> {% trans "Books" %}
+                                <span class="badge badge-pill badge-secondary ml-1">{{ books|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="authors-tab" data-toggle="tab" href="#authors" role="tab" aria-controls="authors" aria-selected="false">
+                                <i class="fas fa-user-edit"></i> {% trans "Authors" %}
+                                <span class="badge badge-pill badge-info ml-1">{{ authors|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="borrow-records-tab" data-toggle="tab" href="#borrow-records" role="tab" aria-controls="borrow-records" aria-selected="false">
+                                <i class="fas fa-arrow-left-right"></i> {% trans "Borrow Records" %}
+                                <span class="badge badge-pill badge-primary ml-1">{{ borrow_records|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="reservations-tab" data-toggle="tab" href="#reservations" role="tab" aria-controls="reservations" aria-selected="false">
+                                <i class="fas fa-bookmark-check"></i> {% trans "Reservations" %}
+                                <span class="badge badge-pill badge-success ml-1">{{ reservations|length|default:0 }}</span>
+                            </a>
+                        </li>
+                    </ul>
+
+                    <!-- Transport Tabs -->
+                    <ul class="nav nav-tabs card-header-tabs transport-tabs d-none" id="transport-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="vehicles-tab" data-toggle="tab" href="#vehicles" role="tab" aria-controls="vehicles" aria-selected="true">
+                                <i class="fas fa-bus"></i> {% trans "Vehicles" %}
+                                <span class="badge badge-pill badge-danger ml-1">{{ vehicles|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="drivers-tab" data-toggle="tab" href="#drivers" role="tab" aria-controls="drivers" aria-selected="false">
+                                <i class="fas fa-id-card"></i> {% trans "Drivers" %}
+                                <span class="badge badge-pill badge-warning ml-1">{{ drivers|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="routes-tab" data-toggle="tab" href="#routes" role="tab" aria-controls="routes" aria-selected="false">
+                                <i class="fas fa-route"></i> {% trans "Routes" %}
+                                <span class="badge badge-pill badge-dark ml-1">{{ routes|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="allocations-tab" data-toggle="tab" href="#allocations" role="tab" aria-controls="allocations" aria-selected="false">
+                                <i class="fas fa-user-check"></i> {% trans "Allocations" %}
+                                <span class="badge badge-pill badge-secondary ml-1">{{ allocations|length|default:0 }}</span>
+                            </a>
+                        </li>
+                    </ul>
+
+                    <!-- Other Tabs -->
+                    <ul class="nav nav-tabs card-header-tabs other-tabs d-none" id="other-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="activities-tab" data-toggle="tab" href="#activities" role="tab" aria-controls="activities" aria-selected="true">
+                                <i class="fas fa-trophy"></i> {% trans "Activities" %}
+                                <span class="badge badge-pill badge-primary ml-1">{{ activities|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="announcements-tab" data-toggle="tab" href="#announcements" role="tab" aria-controls="announcements" aria-selected="false">
+                                <i class="fas fa-bullhorn"></i> {% trans "Announcements" %}
+                                <span class="badge badge-pill badge-success ml-1">{{ announcements|length|default:0 }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="audit-logs-tab" data-toggle="tab" href="#audit-logs" role="tab" aria-controls="audit-logs" aria-selected="false">
+                                <i class="fas fa-shield-alt"></i> {% trans "Audit Logs" %}
+                                <span class="badge badge-pill badge-warning ml-1">{{ audit_logs|length|default:0 }}</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="entity-tab-content">
+                        <!-- Students Tab -->
+                        <div class="tab-pane fade show active" id="students" role="tabpanel" aria-labelledby="students-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Student ID" %}</th>
+                                            <th>{% trans "Name" %}</th>
+                                            <th>{% trans "Email" %}</th>
+                                            <th>{% trans "Class" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                            <th>{% trans "Admission Date" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for student in students %}
+                                        <tr>
+                                            <td>{{ student.student_id }}</td>
+                                            <td>{{ student.user.get_full_name }}</td>
+                                            <td>{{ student.user.email }}</td>
+                                            <td>
+                                                {% if student.current_class %}
+                                                    {{ student.current_class.name }}
+                                                {% else %}
+                                                    <span class="text-muted">{% trans "Not assigned" %}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-{% if student.status == 'active' %}success{% else %}secondary{% endif %}">
+                                                    {{ student.get_status_display|capfirst }}
+                                                </span>
+                                            </td>
+                                            <td>{{ student.admission_date|date:"M d, Y" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-user-graduate fa-3x mb-3"></i>
+                                                <p>{% trans "No students found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Teachers Tab -->
+                        <div class="tab-pane fade" id="teachers" role="tabpanel" aria-labelledby="teachers-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Teacher ID" %}</th>
+                                            <th>{% trans "Name" %}</th>
+                                            <th>{% trans "Email" %}</th>
+                                            <th>{% trans "Department" %}</th>
+                                            <th>{% trans "Type" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for teacher in teachers %}
+                                        <tr>
+                                            <td>{{ teacher.teacher_id }}</td>
+                                            <td>{{ teacher.user.get_full_name }}</td>
+                                            <td>{{ teacher.user.email }}</td>
+                                            <td>
+                                                {% if teacher.department %}
+                                                    {{ teacher.department.name }}
+                                                {% else %}
+                                                    <span class="text-muted">{% trans "Not assigned" %}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ teacher.get_teacher_type_display }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if teacher.status == 'active' %}success{% else %}secondary{% endif %}">
+                                                    {{ teacher.get_status_display|capfirst }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-chalkboard-teacher fa-3x mb-3"></i>
+                                                <p>{% trans "No teachers found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Classes Tab -->
+                        <div class="tab-pane fade" id="classes" role="tabpanel" aria-labelledby="classes-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Class Name" %}</th>
+                                            <th>{% trans "Code" %}</th>
+                                            <th>{% trans "Grade Level" %}</th>
+                                            <th>{% trans "Class Teacher" %}</th>
+                                            <th>{% trans "Capacity" %}</th>
+                                            <th>{% trans "Enrolled" %}</th>
+                                            <th>{% trans "Session" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for class in classes %}
+                                        <tr>
+                                            <td>{{ class.name }}</td>
+                                            <td>{{ class.code }}</td>
+                                            <td>{{ class.grade_level.name }}</td>
+                                            <td>
+                                                {% if class.class_teacher %}
+                                                    {{ class.class_teacher.user.get_full_name }}
+                                                {% else %}
+                                                    <span class="text-muted">{% trans "Not assigned" %}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ class.capacity }}</td>
+                                            <td>{{ class.current_student_count }}</td>
+                                            <td>{{ class.academic_session.name }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted py-4">
+                                                <i class="fas fa-users fa-3x mb-3"></i>
+                                                <p>{% trans "No classes found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Departments Tab -->
+                        <div class="tab-pane fade" id="departments" role="tabpanel" aria-labelledby="departments-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Department Name" %}</th>
+                                            <th>{% trans "Code" %}</th>
+                                            <th>{% trans "Head of Department" %}</th>
+                                            <th>{% trans "Established" %}</th>
+                                            <th>{% trans "Description" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for department in departments %}
+                                        <tr>
+                                            <td>{{ department.name }}</td>
+                                            <td>{{ department.code }}</td>
+                                            <td>
+                                                {% if department.head_of_department %}
+                                                    {{ department.head_of_department.user.get_full_name }}
+                                                {% else %}
+                                                    <span class="text-muted">{% trans "Not assigned" %}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if department.established_date %}
+                                                    {{ department.established_date|date:"M d, Y" }}
+                                                {% else %}
+                                                    <span class="text-muted">―</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if department.description %}
+                                                    {{ department.description|truncatechars:50 }}
+                                                {% else %}
+                                                    <span class="text-muted">―</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">
+                                                <i class="fas fa-building fa-3x mb-3"></i>
+                                                <p>{% trans "No departments found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Sessions Tab -->
+                        <div class="tab-pane fade" id="sessions" role="tabpanel" aria-labelledby="sessions-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Session Name" %}</th>
+                                            <th>{% trans "Start Date" %}</th>
+                                            <th>{% trans "End Date" %}</th>
+                                            <th>{% trans "Semesters" %}</th>
+                                            <th>{% trans "Current" %}</th>
+                                            <th>{% trans "Progress" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for session in sessions %}
+                                        <tr>
+                                            <td>{{ session.name }}</td>
+                                            <td>{{ session.start_date|date:"M d, Y" }}</td>
+                                            <td>{{ session.end_date|date:"M d, Y" }}</td>
+                                            <td>{{ session.number_of_semesters }}</td>
+                                            <td>
+                                                {% if session.is_current %}
+                                                    <span class="badge badge-success">{% trans "Yes" %}</span>
+                                                {% else %}
+                                                    <span class="badge badge-secondary">{% trans "No" %}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="progress" style="width: 100px;">
+                                                    <div class="progress-bar bg-{% if session.progress_percentage < 30 %}danger{% elif session.progress_percentage < 70 %}warning{% else %}success{% endif %} progress-bar-striped"
+                                                         role="progressbar"
+                                                         style="width: {{ session.progress_percentage }}%"
+                                                         aria-valuenow="{{ session.progress_percentage }}"
+                                                         aria-valuemin="0"
+                                                         aria-valuemax="100">
+                                                        {{ session.progress_percentage }}%
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-calendar-alt fa-3x mb-3"></i>
+                                                <p>{% trans "No sessions found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Enrollments Tab -->
+                        <div class="tab-pane fade" id="enrollments" role="tabpanel" aria-labelledby="enrollments-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Student" %}</th>
+                                            <th>{% trans "Class" %}</th>
+                                            <th>{% trans "Roll Number" %}</th>
+                                            <th>{% trans "Session" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                            <th>{% trans "Enrollment Date" %}</th>
+                                            <th>{% trans "Remarks" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for enrollment in enrollments %}
+                                        <tr>
+                                            <td>{{ enrollment.student.user.get_full_name }}</td>
+                                            <td>{{ enrollment.class_enrolled.name }}</td>
+                                            <td>{{ enrollment.roll_number }}</td>
+                                            <td>{{ enrollment.academic_session.name }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if enrollment.enrollment_status == 'active' %}success{% else %}secondary{% endif %}">
+                                                    {{ enrollment.get_enrollment_status_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ enrollment.enrollment_date|date:"M d, Y" }}</td>
+                                            <td>
+                                                {% if enrollment.remarks %}
+                                                    {{ enrollment.remarks|truncatechars:30 }}
+                                                {% else %}
+                                                    <span class="text-muted">―</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted py-4">
+                                                <i class="fas fa-id-card fa-3x mb-3"></i>
+                                                <p>{% trans "No enrollments found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Users Tab -->
+                        <div class="tab-pane fade" id="users" role="tabpanel" aria-labelledby="users-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Name" %}</th>
+                                            <th>{% trans "Email" %}</th>
+                                            <th>{% trans "Role" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                            <th>{% trans "Date Joined" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for user in users_list %}
+                                        <tr>
+                                            <td>{{ user.get_full_name }}</td>
+                                            <td>{{ user.email }}</td>
+                                            <td>{{ user.get_user_type_display|default:"User" }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if user.is_active %}success{% else %}secondary{% endif %}">
+                                                    {% if user.is_active %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}
+                                                </span>
+                                            </td>
+                                            <td>{{ user.date_joined|date:"M d, Y" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">
+                                                <i class="fas fa-users fa-3x mb-3"></i>
+                                                <p>{% trans "No users found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Student Applications Tab -->
+                        <div class="tab-pane fade" id="student-apps" role="tabpanel" aria-labelledby="student-apps-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Application #" %}</th>
+                                            <th>{% trans "Name" %}</th>
+                                            <th>{% trans "Email" %}</th>
+                                            <th>{% trans "Program" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                            <th>{% trans "Applied Date" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for app in student_applications %}
+                                        <tr>
+                                            <td>{{ app.application_number }}</td>
+                                            <td>{{ app.user.get_full_name }}</td>
+                                            <td>{{ app.user.email }}</td>
+                                            <td>{{ app.program_of_interest|default:"―" }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if app.application_status == 'approved' %}success{% elif app.application_status == 'rejected' %}danger{% else %}warning{% endif %}">
+                                                    {{ app.get_application_status_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ app.application_date|date:"M d, Y" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-user-graduate fa-3x mb-3"></i>
+                                                <p>{% trans "No student applications found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Staff Applications Tab -->
+                        <div class="tab-pane fade" id="staff-apps" role="tabpanel" aria-labelledby="staff-apps-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Application #" %}</th>
+                                            <th>{% trans "Name" %}</th>
+                                            <th>{% trans "Email" %}</th>
+                                            <th>{% trans "Position" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                            <th>{% trans "Applied Date" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for app in staff_applications %}
+                                        <tr>
+                                            <td>{{ app.application_number }}</td>
+                                            <td>{{ app.user.get_full_name }}</td>
+                                            <td>{{ app.user.email }}</td>
+                                            <td>{{ app.position_applied_for|default:"―" }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if app.application_status == 'approved' %}success{% elif app.application_status == 'rejected' %}danger{% else %}warning{% endif %}">
+                                                    {{ app.get_application_status_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ app.application_date|date:"M d, Y" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-briefcase fa-3x mb-3"></i>
+                                                <p>{% trans "No staff applications found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Invoices Tab -->
+                        <div class="tab-pane fade" id="invoices" role="tabpanel" aria-labelledby="invoices-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Invoice #" %}</th>
+                                            <th>{% trans "Student" %}</th>
+                                            <th>{% trans "Amount" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                            <th>{% trans "Due Date" %}</th>
+                                            <th>{% trans "Issue Date" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for invoice in invoices %}
+                                        <tr>
+                                            <td>{{ invoice.invoice_number }}</td>
+                                            <td>{{ invoice.student.user.get_full_name }}</td>
+                                            <td>${{ invoice.amount|floatformat:2 }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if invoice.status == 'paid' %}success{% elif invoice.status == 'overdue' %}danger{% else %}warning{% endif %}">
+                                                    {{ invoice.get_status_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ invoice.due_date|date:"M d, Y" }}</td>
+                                            <td>{{ invoice.issue_date|date:"M d, Y" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-receipt fa-3x mb-3"></i>
+                                                <p>{% trans "No invoices found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Payments Tab -->
+                        <div class="tab-pane fade" id="payments" role="tabpanel" aria-labelledby="payments-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Payment #" %}</th>
+                                            <th>{% trans "Student" %}</th>
+                                            <th>{% trans "Amount" %}</th>
+                                            <th>{% trans "Method" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                            <th>{% trans "Payment Date" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for payment in payments %}
+                                        <tr>
+                                            <td>{{ payment.payment_number }}</td>
+                                            <td>{{ payment.student.user.get_full_name }}</td>
+                                            <td>${{ payment.amount|floatformat:2 }}</td>
+                                            <td>{{ payment.get_payment_method_display }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if payment.payment_status == 'completed' %}success{% else %}warning{% endif %}">
+                                                    {{ payment.get_payment_status_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-credit-card fa-3x mb-3"></i>
+                                                <p>{% trans "No payments found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Expenses Tab -->
+                        <div class="tab-pane fade" id="expenses" role="tabpanel" aria-labelledby="expenses-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Description" %}</th>
+                                            <th>{% trans "Category" %}</th>
+                                            <th>{% trans "Amount" %}</th>
+                                            <th>{% trans "Vendor" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                            <th>{% trans "Expense Date" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for expense in expenses %}
+                                        <tr>
+                                            <td>{{ expense.description|truncatechars:50 }}</td>
+                                            <td>{{ expense.category|default:"―" }}</td>
+                                            <td>${{ expense.amount|floatformat:2 }}</td>
+                                            <td>{{ expense.vendor|default:"―" }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if expense.status == 'active' %}success{% else %}secondary{% endif %}">
+                                                    {{ expense.get_status_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ expense.expense_date|date:"M d, Y" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-wallet fa-3x mb-3"></i>
+                                                <p>{% trans "No expenses found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Books Tab -->
+                        <div class="tab-pane fade" id="books" role="tabpanel" aria-labelledby="books-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Title" %}</th>
+                                            <th>{% trans "ISBN" %}</th>
+                                            <th>{% trans "Authors" %}</th>
+                                            <th>{% trans "Publisher" %}</th>
+                                            <th>{% trans "Available" %}</th>
+                                            <th>{% trans "Total Copies" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for book in books %}
+                                        <tr>
+                                            <td>{{ book.title|truncatechars:50 }}</td>
+                                            <td>{{ book.isbn|default:"―" }}</td>
+                                            <td>{% for author in book.authors.all %}{{ author.get_full_name }}{% if not forloop.last %}, {% endif %}{% empty %}―{% endfor %}</td>
+                                            <td>{{ book.publisher.name|default:"―" }}</td>
+                                            <td>{{ book.available_copies }}</td>
+                                            <td>{{ book.total_copies }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-book fa-3x mb-3"></i>
+                                                <p>{% trans "No books found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Authors Tab -->
+                        <div class="tab-pane fade" id="authors" role="tabpanel" aria-labelledby="authors-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Name" %}</th>
+                                            <th>{% trans "Email" %}</th>
+                                            <th>{% trans "Phone" %}</th>
+                                            <th>{% trans "Nationality" %}</th>
+                                            <th>{% trans "Books" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for author in authors %}
+                                        <tr>
+                                            <td>{{ author.get_full_name }}</td>
+                                            <td>{{ author.email|default:"―" }}</td>
+                                            <td>{{ author.phone|default:"―" }}</td>
+                                            <td>{{ author.nationality|default:"―" }}</td>
+                                            <td>{{ author.books.count }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">
+                                                <i class="fas fa-user-edit fa-3x mb-3"></i>
+                                                <p>{% trans "No authors found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Borrow Records Tab -->
+                        <div class="tab-pane fade" id="borrow-records" role="tabpanel" aria-labelledby="borrow-records-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Student" %}</th>
+                                            <th>{% trans "Book" %}</th>
+                                            <th>{% trans "Borrow Date" %}</th>
+                                            <th>{% trans "Due Date" %}</th>
+                                            <th>{% trans "Return Date" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for record in borrow_records %}
+                                        <tr>
+                                            <td>{{ record.student.user.get_full_name }}</td>
+                                            <td>{{ record.book.title|truncatechars:40 }}</td>
+                                            <td>{{ record.borrow_date|date:"M d, Y" }}</td>
+                                            <td>{{ record.due_date|date:"M d, Y" }}</td>
+                                            <td>{% if record.return_date %}{{ record.return_date|date:"M d, Y" }}{% else %}―{% endif %}</td>
+                                            <td>
+                                                <span class="badge badge-{% if record.return_date %}success{% else %}warning{% endif %}">
+                                                    {% if record.return_date %}{% trans "Returned" %}{% else %}{% trans "Active" %}{% endif %}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-arrow-left-right fa-3x mb-3"></i>
+                                                <p>{% trans "No borrow records found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Reservations Tab -->
+                        <div class="tab-pane fade" id="reservations" role="tabpanel" aria-labelledby="reservations-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Student" %}</th>
+                                            <th>{% trans "Book" %}</th>
+                                            <th>{% trans "Reservation Date" %}</th>
+                                            <th>{% trans "Expiry Date" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for reservation in reservations %}
+                                        <tr>
+                                            <td>{{ reservation.student.user.get_full_name }}</td>
+                                            <td>{{ reservation.book.title|truncatechars:40 }}</td>
+                                            <td>{{ reservation.reservation_date|date:"M d, Y" }}</td>
+                                            <td>{{ reservation.expiry_date|date:"M d, Y" }}</td>
+                                            <td>
+                                                <span class="badge badge-warning">
+                                                    {{ reservation.get_status_display }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">
+                                                <i class="fas fa-bookmark-check fa-3x mb-3"></i>
+                                                <p>{% trans "No reservations found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Vehicles Tab -->
+                        <div class="tab-pane fade" id="vehicles" role="tabpanel" aria-labelledby="vehicles-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "License Plate" %}</th>
+                                            <th>{% trans "Make" %}</th>
+                                            <th>{% trans "Model" %}</th>
+                                            <th>{% trans "Type" %}</th>
+                                            <th>{% trans "Capacity" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for vehicle in vehicles %}
+                                        <tr>
+                                            <td>{{ vehicle.license_plate }}</td>
+                                            <td>{{ vehicle.make }}</td>
+                                            <td>{{ vehicle.model }}</td>
+                                            <td>{{ vehicle.vehicle_type }}</td>
+                                            <td>{{ vehicle.capacity }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if vehicle.status == 'active' %}success{% else %}secondary{% endif %}">
+                                                    {{ vehicle.get_status_display }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-bus fa-3x mb-3"></i>
+                                                <p>{% trans "No vehicles found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Drivers Tab -->
+                        <div class="tab-pane fade" id="drivers" role="tabpanel" aria-labelledby="drivers-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Name" %}</th>
+                                            <th>{% trans "Employee ID" %}</th>
+                                            <th>{% trans "License Number" %}</th>
+                                            <th>{% trans "License Expiry" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for driver in drivers %}
+                                        <tr>
+                                            <td>{{ driver.user.get_full_name }}</td>
+                                            <td>{{ driver.employee_id }}</td>
+                                            <td>{{ driver.license_number }}</td>
+                                            <td>{{ driver.license_expiry_date|date:"M d, Y" }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if driver.status == 'active' %}success{% else %}secondary{% endif %}">
+                                                    {{ driver.get_status_display }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">
+                                                <i class="fas fa-id-card fa-3x mb-3"></i>
+                                                <p>{% trans "No drivers found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Routes Tab -->
+                        <div class="tab-pane fade" id="routes" role="tabpanel" aria-labelledby="routes-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Name" %}</th>
+                                            <th>{% trans "Code" %}</th>
+                                            <th>{% trans "Distance (km)" %}</th>
+                                            <th>{% trans "Stops" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for route in routes %}
+                                        <tr>
+                                            <td>{{ route.name }}</td>
+                                            <td>{{ route.code }}</td>
+                                            <td>{{ route.distance_km }}</td>
+                                            <td>{% if route.stops %}{{ route.stops|length }}{% else %}0{% endif %}</td>
+                                            <td>
+                                                <span class="badge badge-{% if route.status == 'active' %}success{% else %}secondary{% endif %}">
+                                                    {{ route.get_status_display }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">
+                                                <i class="fas fa-route fa-3x mb-3"></i>
+                                                <p>{% trans "No routes found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Transport Allocations Tab -->
+                        <div class="tab-pane fade" id="allocations" role="tabpanel" aria-labelledby="allocations-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Student" %}</th>
+                                            <th>{% trans "Vehicle" %}</th>
+                                            <th>{% trans "Route" %}</th>
+                                            <th>{% trans "Pickup Point" %}</th>
+                                            <th>{% trans "Drop Point" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for allocation in allocations %}
+                                        <tr>
+                                            <td>{{ allocation.student.user.get_full_name }}</td>
+                                            <td>{{ allocation.vehicle.license_plate }}</td>
+                                            <td>{{ allocation.route.name }}</td>
+                                            <td>{{ allocation.pickup_point|default:"―" }}</td>
+                                            <td>{{ allocation.drop_point|default:"―" }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if allocation.status == 'active' %}success{% else %}secondary{% endif %}">
+                                                    {{ allocation.get_status_display }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-user-check fa-3x mb-3"></i>
+                                                <p>{% trans "No allocations found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Activities Tab -->
+                        <div class="tab-pane fade" id="activities" role="tabpanel" aria-labelledby="activities-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Name" %}</th>
+                                            <th>{% trans "Type" %}</th>
+                                            <th>{% trans "Date" %}</th>
+                                            <th>{% trans "Location" %}</th>
+                                            <th>{% trans "Participants" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for activity in activities %}
+                                        <tr>
+                                            <td>{{ activity.name|truncatechars:50 }}</td>
+                                            <td>{{ activity.activity_type }}</td>
+                                            <td>{{ activity.activity_date|date:"M d, Y" }}</td>
+                                            <td>{{ activity.location|default:"―" }}</td>
+                                            <td>{{ activity.participants.count }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if activity.status == 'completed' %}success{% elif activity.status == 'cancelled' %}danger{% else %}warning{% endif %}">
+                                                    {{ activity.get_status_display }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-trophy fa-3x mb-3"></i>
+                                                <p>{% trans "No activities found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Announcements Tab -->
+                        <div class="tab-pane fade" id="announcements" role="tabpanel" aria-labelledby="announcements-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Title" %}</th>
+                                            <th>{% trans "Author" %}</th>
+                                            <th>{% trans "Priority" %}</th>
+                                            <th>{% trans "Published" %}</th>
+                                            <th>{% trans "Views" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for announcement in announcements %}
+                                        <tr>
+                                            <td>{{ announcement.title|truncatechars:50 }}</td>
+                                            <td>{{ announcement.author.get_full_name }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if announcement.priority == 'high' %}danger{% elif announcement.priority == 'medium' %}warning{% else %}info{% endif %}">
+                                                    {{ announcement.get_priority_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ announcement.published_at|date:"M d, Y" }}</td>
+                                            <td>{{ announcement.views_count }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if announcement.is_published %}success{% else %}secondary{% endif %}">
+                                                    {% if announcement.is_published %}{% trans "Published" %}{% else %}{% trans "Draft" %}{% endif %}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-bullhorn fa-3x mb-3"></i>
+                                                <p>{% trans "No announcements found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Audit Logs Tab -->
+                        <div class="tab-pane fade" id="audit-logs" role="tabpanel" aria-labelledby="audit-logs-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "User" %}</th>
+                                            <th>{% trans "Action" %}</th>
+                                            <th>{% trans "Resource" %}</th>
+                                            <th>{% trans "Timestamp" %}</th>
+                                            <th>{% trans "IP Address" %}</th>
+                                            <th>{% trans "Details" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for log in audit_logs %}
+                                        <tr>
+                                            <td>{{ log.user.get_full_name }}</td>
+                                            <td>{{ log.action|truncatechars:30 }}</td>
+                                            <td>{{ log.resource|truncatechars:40 }}</td>
+                                            <td>{{ log.timestamp|date:"M d, Y H:i" }}</td>
+                                            <td>{{ log.ip_address|default:"―" }}</td>
+                                            <td>{{ log.details|truncatechars:50|default:"―" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-shield-alt fa-3x mb-3"></i>
+                                                <p>{% trans "No audit logs found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Exams Tab -->
+                        <div class="tab-pane fade" id="exams" role="tabpanel" aria-labelledby="exams-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Name" %}</th>
+                                            <th>{% trans "Subject" %}</th>
+                                            <th>{% trans "Class" %}</th>
+                                            <th>{% trans "Date" %}</th>
+                                            <th>{% trans "Duration" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for exam in exams %}
+                                        <tr>
+                                            <td>{{ exam.name|truncatechars:40 }}</td>
+                                            <td>{{ exam.subject.name }}</td>
+                                            <td>{{ exam.academic_class.name }}</td>
+                                            <td>{{ exam.exam_date|date:"M d, Y" }}</td>
+                                            <td>{% if exam.duration_minutes %}{{ exam.duration_minutes }} min{% else %}―{% endif %}</td>
+                                            <td>
+                                                <span class="badge badge-{% if exam.status == 'published' %}success{% else %}secondary{% endif %}">
+                                                    {{ exam.get_status_display }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-file-alt fa-3x mb-3"></i>
+                                                <p>{% trans "No exams found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Assignments Tab -->
+                        <div class="tab-pane fade" id="assignments" role="tabpanel" aria-labelledby="assignments-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Title" %}</th>
+                                            <th>{% trans "Subject" %}</th>
+                                            <th>{% trans "Teacher" %}</th>
+                                            <th>{% trans "Due Date" %}</th>
+                                            <th>{% trans "Class" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for assignment in assignments %}
+                                        <tr>
+                                            <td>{{ assignment.title|truncatechars:40 }}</td>
+                                            <td>{{ assignment.subject.name }}</td>
+                                            <td>{{ assignment.teacher.user.get_full_name }}</td>
+                                            <td>{{ assignment.due_date|date:"M d, Y" }}</td>
+                                            <td>{{ assignment.academic_class.name }}</td>
+                                            <td>
+                                                <span class="badge badge-{% if assignment.status == 'published' %}success{% else %}secondary{% endif %}">
+                                                    {{ assignment.get_status_display }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-pencil-square fa-3x mb-3"></i>
+                                                <p>{% trans "No assignments found matching the current filters." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+.border-left-secondary {
+    border-left: 0.25rem solid #858796 !important;
+}
+.border-left-danger {
+    border-left: 0.25rem solid #e74a3b !important;
+}
+
+.table-responsive {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.progress {
+    height: 20px;
+}
+
+.progress-bar {
+    font-size: 0.75rem;
+    line-height: 1.2;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Initialize Bootstrap tabs
+    $('#entity-tabs a, #users-tabs a, #finance-tabs a, #library-tabs a, #transport-tabs a, #other-tabs a').on('click', function (e) {
+        e.preventDefault();
+        $(this).tab('show');
+    });
+
+    // Tab category switching
+    $('input[name="tab-category"]').on('change', function() {
+        var category = $(this).val();
+        $('.academics-tabs, .users-tabs, .finance-tabs, .library-tabs, .transport-tabs, .other-tabs').addClass('d-none');
+        $('.' + category + '-tabs').removeClass('d-none');
+
+        // Show first tab content for the selected category
+        $('.tab-pane').removeClass('show active');
+        $('.' + category + '-tabs .nav-link').first().tab('show');
+    });
+
+    // Search on enter key
+    $('#search').keypress(function(e) {
+        if (e.which == 13) {
+            $(this).closest('form').submit();
+        }
+    });
+});
+</script>
+{% endblock %}

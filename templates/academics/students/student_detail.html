@@ -1,0 +1,1452 @@
+<!-- templates/academics/students/student_detail.html -->
+{% extends 'academics/base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {{ student.user.get_full_name }} - {% trans "Student Profile" %}
+{% endblock %}
+
+{% block page_title %}
+    {{ student.user.get_full_name }}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'academics:dashboard' %}">{% trans "Academics" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'academics:student_list' %}">{% trans "Students" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ student.user.get_full_name }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        {% if user.is_staff or user.teacher_profile %}
+        <a href="{% url 'academics:student_update' student.pk %}" class="btn btn-outline-warning">
+            <i class="bi bi-pencil me-1"></i> {% trans "Edit Profile" %}
+        </a>
+        {% endif %}
+        <a href="{% url 'academics:student_report' student.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-graph-up me-1"></i> {% trans "Progress Report" %}
+        </a>
+        <button type="button" class="btn btn-outline-info" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i> {% trans "Print" %}
+        </button>
+        <a href="{% url 'academics:student_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> {% trans "Back to Students" %}
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+.student-detail-container {
+    font-family: 'Inter', sans-serif;
+}
+
+.student-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 0.75rem;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.student-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.student-profile {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    position: relative;
+    z-index: 2;
+}
+
+.student-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    flex-shrink: 0;
+}
+
+.student-basic-info {
+    flex-grow: 1;
+}
+
+.student-name {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.student-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+.student-status-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    display: block;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.stat-trend {
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.trend-up { color: #28a745; }
+.trend-down { color: #dc3545; }
+.trend-neutral { color: #6c757d; }
+
+.info-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.info-card .card-header {
+    background: none;
+    border-bottom: 2px solid #e9ecef;
+    padding: 0 0 1rem 0;
+    margin-bottom: 1rem;
+}
+
+.info-card .card-title {
+    color: #495057;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin: 1rem 0;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.info-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.info-value {
+    font-weight: 600;
+    color: #212529;
+}
+
+.academic-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+.academic-table th {
+    background: #f8f9fa;
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.academic-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #e9ecef;
+    vertical-align: middle;
+}
+
+.academic-table tr:hover {
+    background: #f8f9fa;
+}
+
+.grade-badge {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    font-weight: 600;
+}
+
+.grade-a { background: #d4edda; color: #155724; }
+.grade-b { background: #d1ecf1; color: #0c5460; }
+.grade-c { background: #fff3cd; color: #856404; }
+.grade-d { background: #f8d7da; color: #721c24; }
+.grade-f { background: #f5c6cb; color: #721c24; }
+
+.performance-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.progress-container {
+    flex-grow: 1;
+    background: #e9ecef;
+    border-radius: 0.375rem;
+    height: 8px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: #0d6efd;
+    border-radius: 0.375rem;
+    transition: width 0.3s ease;
+}
+
+.parent-contact {
+    background: #e7f3ff;
+    border: 1px solid #b3d9ff;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin: 1rem 0;
+}
+
+.parent-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: #fff;
+    border-radius: 0.5rem;
+    border-left: 4px solid #0d6efd;
+}
+
+.parent-item:last-child {
+    margin-bottom: 0;
+}
+
+.parent-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.parent-details {
+    flex-grow: 1;
+}
+
+.parent-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: #212529;
+}
+
+.parent-relation {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+}
+
+.parent-contact-info {
+    font-size: 0.875rem;
+    color: #495057;
+}
+
+.contact-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.behavior-timeline {
+    position: relative;
+    padding-left: 2rem;
+    margin: 1.5rem 0;
+}
+
+.behavior-timeline::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e9ecef;
+}
+
+.behavior-item {
+    position: relative;
+    margin-bottom: 1.5rem;
+    padding-left: 1.5rem;
+}
+
+.behavior-item::before {
+    content: '';
+    position: absolute;
+    left: -0.5rem;
+    top: 0.5rem;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 2px;
+}
+
+.behavior-positive::before { background: #28a745; box-shadow: 0 0 0 2px #28a745; }
+.behavior-negative::before { background: #dc3545; box-shadow: 0 0 0 2px #dc3545; }
+.behavior-neutral::before { background: #ffc107; box-shadow: 0 0 0 2px #ffc107; }
+
+.behavior-date {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+}
+
+.behavior-content {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+}
+
+.behavior-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #212529;
+}
+
+.behavior-description {
+    color: #6c757d;
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.achievement-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: transform 0.2s ease;
+}
+
+.achievement-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.achievement-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.achievement-academic { background: #e3f2fd; color: #1976d2; }
+.achievement-sports { background: #e8f5e8; color: #388e3c; }
+.achievement-arts { background: #f3e5f5; color: #7b1fa2; }
+.achievement-leadership { background: #fff3e0; color: #f57c00; }
+
+.achievement-content {
+    flex-grow: 1;
+}
+
+.achievement-title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: #212529;
+}
+
+.achievement-details {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.medical-alert {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 1rem 0;
+    color: #721c24;
+}
+
+.medical-alert .alert-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tab-content {
+    margin-top: 1rem;
+}
+
+.nav-tabs .nav-link {
+    color: #495057;
+    font-weight: 500;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-bottom: 2px solid transparent;
+}
+
+.nav-tabs .nav-link.active {
+    color: #0d6efd;
+    background: none;
+    border-color: #0d6efd;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: #dee2e6;
+}
+
+@media print {
+    .page-actions,
+    .sidebar,
+    .navigation {
+        display: none !important;
+    }
+    
+    .student-header {
+        background: #fff !important;
+        color: #000 !important;
+        border: 2px solid #000;
+    }
+    
+    .stat-card,
+    .info-card {
+        border: 1px solid #000;
+        box-shadow: none;
+    }
+    
+    body {
+        font-size: 12pt;
+        line-height: 1.4;
+    }
+    
+    .nav-tabs {
+        display: none !important;
+    }
+    
+    .tab-pane {
+        display: block !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .student-profile {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+    
+    .student-meta {
+        justify-content: center;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .academic-table {
+        font-size: 0.875rem;
+    }
+    
+    .page-actions .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .page-actions .btn {
+        margin-bottom: 0.5rem;
+    }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6c757d;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+
+.attendance-chart-container {
+    height: 300px;
+    margin: 1.5rem 0;
+}
+
+.quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.action-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    text-align: center;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.3s ease;
+}
+
+.action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    text-decoration: none;
+    color: inherit;
+    border-color: #0d6efd;
+}
+
+.action-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #e7f1ff;
+    color: #0d6efd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin: 0 auto 1rem auto;
+}
+
+.action-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #212529;
+}
+
+.action-description {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin: 0;
+}
+
+.notes-section {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin: 1rem 0;
+}
+
+.notes-content {
+    color: #856404;
+    line-height: 1.6;
+    margin: 0;
+}
+</style>
+
+<div class="student-detail-container">
+    <!-- Student Header -->
+    <div class="student-header">
+        <div class="student-profile">
+            {% if student.photo %}
+            <img src="{{ student.photo.url }}" alt="{{ student.user.get_full_name }}" class="student-avatar">
+            {% else %}
+            <div class="student-avatar bg-light text-dark d-flex align-items-center justify-content-center">
+                {{ student.user.get_initials }}
+            </div>
+            {% endif %}
+            <div class="student-basic-info">
+                <h1 class="student-name">{{ student.user.get_full_name }}</h1>
+                <div class="student-meta">
+                    <div class="meta-item">
+                        <i class="bi bi-person-badge"></i>
+                        {{ student.student_id }}
+                    </div>
+                    <div class="meta-item">
+                        <i class="bi bi-calendar"></i>
+                        {{ student.date_of_birth|date:"F j, Y" }} ({{ student.age }} {% trans "years old" %})
+                    </div>
+                    <div class="meta-item">
+                        <i class="bi bi-gender-ambiguous"></i>
+                        {{ student.get_gender_display }}
+                    </div>
+                    <div class="meta-item">
+                        <i class="bi bi-geo-alt"></i>
+                        {{ student.nationality }}
+                    </div>
+                </div>
+                <div class="student-status-badges">
+                    <span class="badge bg-{{ student.get_student_type_color }}">
+                        {{ student.get_student_type_display }}
+                    </span>
+                    {% if student.is_boarder %}
+                    <span class="badge bg-info">
+                        <i class="bi bi-house me-1"></i> {% trans "Boarder" %}
+                    </span>
+                    {% endif %}
+                    {% if student.has_special_needs %}
+                    <span class="badge bg-warning">
+                        <i class="bi bi-heart me-1"></i> {% trans "Special Needs" %}
+                    </span>
+                    {% endif %}
+                    {% if student.current_class %}
+                    <span class="badge bg-primary">
+                        <i class="bi bi-people me-1"></i> {{ student.current_class.name }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Statistics -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-number">{{ overall_grade|default:"-" }}</span>
+            <span class="stat-label">{% trans "Overall Grade" %}</span>
+            <div class="stat-trend {% if grade_trend == 'up' %}trend-up{% elif grade_trend == 'down' %}trend-down{% else %}trend-neutral{% endif %}">
+                {% if grade_trend == 'up' %}
+                <i class="bi bi-arrow-up-circle me-1"></i> {% trans "Improving" %}
+                {% elif grade_trend == 'down' %}
+                <i class="bi bi-arrow-down-circle me-1"></i> {% trans "Needs attention" %}
+                {% else %}
+                <i class="bi bi-dash-circle me-1"></i> {% trans "Stable" %}
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <span class="stat-number">{{ attendance_rate }}%</span>
+            <span class="stat-label">{% trans "Attendance Rate" %}</span>
+            <div class="stat-trend {% if attendance_trend == 'up' %}trend-up{% elif attendance_trend == 'down' %}trend-down{% else %}trend-neutral{% endif %}">
+                {% if attendance_trend == 'up' %}
+                <i class="bi bi-arrow-up-circle me-1"></i> +{{ attendance_change }}%
+                {% elif attendance_trend == 'down' %}
+                <i class="bi bi-arrow-down-circle me-1"></i> {{ attendance_change }}%
+                {% else %}
+                <i class="bi bi-dash-circle me-1"></i> {% trans "No change" %}
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <span class="stat-number">{{ behavior_records.count }}</span>
+            <span class="stat-label">{% trans "Behavior Records" %}</span>
+            <div class="stat-trend {% if behavior_trend == 'positive' %}trend-up{% elif behavior_trend == 'negative' %}trend-down{% else %}trend-neutral{% endif %}">
+                {% if behavior_trend == 'positive' %}
+                <i class="bi bi-arrow-up-circle me-1"></i> {% trans "Positive" %}
+                {% elif behavior_trend == 'negative' %}
+                <i class="bi bi-arrow-down-circle me-1"></i> {% trans "Needs improvement" %}
+                {% else %}
+                <i class="bi bi-dash-circle me-1"></i> {% trans "Balanced" %}
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <span class="stat-number">{{ achievements.count }}</span>
+            <span class="stat-label">{% trans "Achievements" %}</span>
+            <div class="stat-trend trend-up">
+                <i class="bi bi-trophy me-1"></i> {% trans "Awarded" %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <a href="{% url 'academics:student_report' student.pk %}" class="action-card">
+            <div class="action-icon">
+                <i class="bi bi-graph-up"></i>
+            </div>
+            <div class="action-title">{% trans "Progress Report" %}</div>
+            <p class="action-description">{% trans "View detailed academic progress" %}</p>
+        </a>
+        
+        <a href="#" class="action-card" onclick="showContactModal()">
+            <div class="action-icon">
+                <i class="bi bi-envelope"></i>
+            </div>
+            <div class="action-title">{% trans "Contact Parents" %}</div>
+            <p class="action-description">{% trans "Send message to parents/guardians" %}</p>
+        </a>
+        
+        <a href="#" class="action-card" onclick="showAttendanceModal()">
+            <div class="action-icon">
+                <i class="bi bi-calendar-check"></i>
+            </div>
+            <div class="action-title">{% trans "Attendance" %}</div>
+            <p class="action-description">{% trans "View attendance records" %}</p>
+        </a>
+        
+        <a href="#" class="action-card" onclick="showBehaviorModal()">
+            <div class="action-icon">
+                <i class="bi bi-clipboard-data"></i>
+            </div>
+            <div class="action-title">{% trans "Behavior" %}</div>
+            <p class="action-description">{% trans "Add behavior record" %}</p>
+        </a>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs" id="studentTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="academic-tab" data-bs-toggle="tab" data-bs-target="#academic" type="button" role="tab">
+                <i class="bi bi-journal-bookmark me-1"></i> {% trans "Academic" %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="personal-tab" data-bs-toggle="tab" data-bs-target="#personal" type="button" role="tab">
+                <i class="bi bi-person me-1"></i> {% trans "Personal" %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="family-tab" data-bs-toggle="tab" data-bs-target="#family" type="button" role="tab">
+                <i class="bi bi-people me-1"></i> {% trans "Family" %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="behavior-tab" data-bs-toggle="tab" data-bs-target="#behavior" type="button" role="tab">
+                <i class="bi bi-clipboard-data me-1"></i> {% trans "Behavior" %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="achievements-tab" data-bs-toggle="tab" data-bs-target="#achievements" type="button" role="tab">
+                <i class="bi bi-trophy me-1"></i> {% trans "Achievements" %}
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="studentTabsContent">
+        <!-- Academic Tab -->
+        <div class="tab-pane fade show active" id="academic" role="tabpanel">
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-journal-bookmark"></i> {% trans "Current Enrollment" %}
+                    </h5>
+                </div>
+                
+                {% if current_enrollment %}
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Class" %}</span>
+                        <span class="info-value">{{ current_enrollment.class_enrolled.name }}</span>
+                    </div>
+                    {% if current_enrollment.department %}
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Department" %}</span>
+                        <span class="info-value">{{ current_enrollment.department.name }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Roll Number" %}</span>
+                        <span class="info-value">{{ current_enrollment.roll_number }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Academic Session" %}</span>
+                        <span class="info-value">{{ current_enrollment.academic_session.name }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Enrollment Date" %}</span>
+                        <span class="info-value">{{ current_enrollment.enrollment_date|date:"F j, Y" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Status" %}</span>
+                        <span class="info-value">
+                            <span class="badge bg-{% if current_enrollment.enrollment_status == 'active' %}success{% else %}warning{% endif %}">
+                                {{ current_enrollment.get_enrollment_status_display }}
+                            </span>
+                        </span>
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty-state py-3">
+                    <i class="bi bi-journal-x empty-state-icon" style="font-size: 2rem;"></i>
+                    <p class="mb-0">{% trans "Not currently enrolled in any class" %}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Academic Performance -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-graph-up"></i> {% trans "Academic Performance" %}
+                    </h5>
+                </div>
+                
+                {% if academic_records %}
+                <div class="table-responsive">
+                    <table class="academic-table">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Subject" %}</th>
+                                <th>{% trans "Grade" %}</th>
+                                <th>{% trans "Percentage" %}</th>
+                                <th>{% trans "Class Rank" %}</th>
+                                <th>{% trans "Performance" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in academic_records %}
+                            <tr>
+                                <td>
+                                    <strong>{{ record.subject.name }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ record.subject.code }}</small>
+                                </td>
+                                <td>
+                                    {% if record.overall_grade %}
+                                    <span class="grade-badge grade-{{ record.overall_grade|lower }}">
+                                        {{ record.overall_grade }}
+                                    </span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if record.percentage %}
+                                    <strong>{{ record.percentage }}%</strong>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if record.rank_in_class %}
+                                    #{{ record.rank_in_class }} of {{ record.total_students_in_class }}
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="performance-indicator">
+                                        {% if record.percentage %}
+                                        <span class="text-muted small">{{ record.percentage }}%</span>
+                                        <div class="progress-container">
+                                            <div class="progress-bar" style="width: {{ record.percentage }}%"></div>
+                                        </div>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state py-3">
+                    <i class="bi bi-journal-x empty-state-icon" style="font-size: 2rem;"></i>
+                    <p class="mb-0">{% trans "No academic records found" %}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Enrollment History -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-clock-history"></i> {% trans "Enrollment History" %}
+                    </h5>
+                </div>
+                
+                {% if enrollments %}
+                <div class="table-responsive">
+                    <table class="academic-table">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Academic Session" %}</th>
+                                <th>{% trans "Class" %}</th>
+                                <th>{% trans "Roll Number" %}</th>
+                                <th>{% trans "Enrollment Date" %}</th>
+                                <th>{% trans "Status" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for enrollment in enrollments %}
+                            <tr>
+                                <td>{{ enrollment.academic_session.name }}</td>
+                                <td>{{ enrollment.class_enrolled.name }}</td>
+                                <td>{{ enrollment.roll_number }}</td>
+                                <td>{{ enrollment.enrollment_date|date:"M j, Y" }}</td>
+                                <td>
+                                    <span class="badge bg-{% if enrollment.enrollment_status == 'active' %}success{% else %}secondary{% endif %}">
+                                        {{ enrollment.get_enrollment_status_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state py-3">
+                    <i class="bi bi-clock-history empty-state-icon" style="font-size: 2rem;"></i>
+                    <p class="mb-0">{% trans "No enrollment history found" %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Personal Information Tab -->
+        <div class="tab-pane fade" id="personal" role="tabpanel">
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-person"></i> {% trans "Personal Information" %}
+                    </h5>
+                </div>
+                
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Full Name" %}</span>
+                        <span class="info-value">{{ student.user.get_full_name }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Student ID" %}</span>
+                        <span class="info-value">{{ student.student_id }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Admission Number" %}</span>
+                        <span class="info-value">{{ student.admission_number }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Date of Birth" %}</span>
+                        <span class="info-value">{{ student.date_of_birth|date:"F j, Y" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Age" %}</span>
+                        <span class="info-value">{{ student.age }} {% trans "years old" %}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Gender" %}</span>
+                        <span class="info-value">{{ student.get_gender_display }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Blood Group" %}</span>
+                        <span class="info-value">
+                            {% if student.blood_group %}
+                                {{ student.get_blood_group_display }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Nationality" %}</span>
+                        <span class="info-value">{{ student.nationality }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Religion" %}</span>
+                        <span class="info-value">
+                            {% if student.religion %}
+                                {{ student.religion }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Place of Birth" %}</span>
+                        <span class="info-value">
+                            {% if student.place_of_birth %}
+                                {{ student.place_of_birth }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% if student.department %}
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Department" %}</span>
+                        <span class="info-value">{{ student.department.name }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Contact Information -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-telephone"></i> {% trans "Contact Information" %}
+                    </h5>
+                </div>
+                
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Email" %}</span>
+                        <span class="info-value">{{ student.user.email }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Mobile" %}</span>
+                        <span class="info-value">
+                            {% if student.user.mobile %}
+                                {{ student.user.mobile }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Phone" %}</span>
+                        <span class="info-value">
+                            {% if student.phone %}
+                                {{ student.phone }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Address -->
+                <div class="info-item mt-3">
+                    <span class="info-label">{% trans "Address" %}</span>
+                    <span class="info-value">
+                        {% if student.address %}
+                            {{ student.address }}<br>
+                            {{ student.city }}, {{ student.state }} {{ student.postal_code }}<br>
+                            {{ student.country }}
+                        {% else %}
+                            <span class="text-muted">{% trans "No address provided" %}</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Medical Information -->
+            {% if student.has_special_needs or student.blood_group %}
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-heart"></i> {% trans "Medical Information" %}
+                    </h5>
+                </div>
+                
+                {% if student.has_special_needs %}
+                <div class="medical-alert">
+                    <div class="alert-title">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        {% trans "Special Needs" %}
+                    </div>
+                    <p class="mb-0">{{ student.special_needs_description }}</p>
+                </div>
+                {% endif %}
+
+                <div class="info-grid">
+                    {% if student.blood_group %}
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Blood Group" %}</span>
+                        <span class="info-value">{{ student.get_blood_group_display }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Medical Conditions" %}</span>
+                        <span class="info-value">
+                            {% if student.medical_conditions %}
+                                {{ student.medical_conditions }}
+                            {% else %}
+                                <span class="text-muted">{% trans "None reported" %}</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Additional Notes -->
+            {% if student.notes %}
+            <div class="notes-section">
+                <h6><i class="bi bi-journal-text me-2"></i>{% trans "Additional Notes" %}</h6>
+                <p class="notes-content">{{ student.notes }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Family Information Tab -->
+        <div class="tab-pane fade" id="family" role="tabpanel">
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-people"></i> {% trans "Parent/Guardian Information" %}
+                    </h5>
+                </div>
+                
+                {% if parent_relationships %}
+                <div class="parent-contact">
+                    {% for relationship in parent_relationships %}
+                    <div class="parent-item">
+                        <div class="parent-details">
+                            <div class="parent-name">{{ relationship.parent.full_name }}</div>
+                            <div class="parent-relation">
+                                {{ relationship.get_relationship_display }}
+                                {% if relationship.is_legal_guardian %}
+                                <span class="badge bg-info ms-2">{% trans "Legal Guardian" %}</span>
+                                {% endif %}
+                                {% if relationship.is_primary_contact %}
+                                <span class="badge bg-primary ms-2">{% trans "Primary Contact" %}</span>
+                                {% endif %}
+                            </div>
+                            <div class="parent-contact-info">
+                                {% if relationship.parent.phone %}
+                                <i class="bi bi-telephone me-1"></i>{{ relationship.parent.phone }}
+                                {% endif %}
+                                {% if relationship.parent.email %}
+                                <i class="bi bi-envelope ms-2 me-1"></i>{{ relationship.parent.email }}
+                                {% endif %}
+                            </div>
+                            {% if relationship.parent.occupation %}
+                            <div class="parent-contact-info">
+                                <i class="bi bi-briefcase me-1"></i>{{ relationship.parent.occupation }}
+                                {% if relationship.parent.employer %}
+                                at {{ relationship.parent.employer }}
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="contact-actions">
+                            <button class="btn btn-outline-primary btn-sm" onclick="contactParent('{{ relationship.parent.email }}')">
+                                <i class="bi bi-envelope"></i>
+                            </button>
+                            <button class="btn btn-outline-success btn-sm" onclick="callParent('{{ relationship.parent.phone }}')">
+                                <i class="bi bi-telephone"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state py-3">
+                    <i class="bi bi-people empty-state-icon" style="font-size: 2rem;"></i>
+                    <p class="mb-0">{% trans "No parent/guardian information available" %}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Emergency Contacts -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-telephone-forward"></i> {% trans "Emergency Contacts" %}
+                    </h5>
+                </div>
+                
+                {% if emergency_contacts %}
+                <div class="info-grid">
+                    {% for contact in emergency_contacts %}
+                    <div class="info-item">
+                        <span class="info-label">{{ contact.full_name }}</span>
+                        <span class="info-value">
+                            {{ contact.relationship }}<br>
+                            <small class="text-muted">{{ contact.phone }}</small>
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state py-3">
+                    <i class="bi bi-telephone-x empty-state-icon" style="font-size: 2rem;"></i>
+                    <p class="mb-0">{% trans "No emergency contacts specified" %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Behavior Tab -->
+        <div class="tab-pane fade" id="behavior" role="tabpanel">
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-clipboard-data"></i> {% trans "Behavior Records" %}
+                    </h5>
+                </div>
+                
+                {% if behavior_records %}
+                <div class="behavior-timeline">
+                    {% for record in behavior_records %}
+                    <div class="behavior-item behavior-{{ record.behavior_type }}">
+                        <div class="behavior-date">{{ record.incident_date|date:"F j, Y" }}</div>
+                        <div class="behavior-content">
+                            <div class="behavior-title">{{ record.title }}</div>
+                            <p class="behavior-description">{{ record.description }}</p>
+                            <div class="d-flex gap-2 mt-2">
+                                <span class="badge bg-{{ record.get_severity_color }}">
+                                    {{ record.get_severity_display }}
+                                </span>
+                                <span class="badge bg-secondary">
+                                    {{ record.get_incident_category_display }}
+                                </span>
+                                {% if record.is_resolved %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle me-1"></i> {% trans "Resolved" %}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning">
+                                    <i class="bi bi-clock me-1"></i> {% trans "Pending" %}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state py-3">
+                    <i class="bi bi-clipboard-check empty-state-icon" style="font-size: 2rem;"></i>
+                    <p class="mb-0">{% trans "No behavior records found" %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Achievements Tab -->
+        <div class="tab-pane fade" id="achievements" role="tabpanel">
+            <div class="info-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-trophy"></i> {% trans "Achievements & Awards" %}
+                    </h5>
+                </div>
+                
+                {% if achievements %}
+                <div class="achievements-grid">
+                    {% for achievement in achievements %}
+                    <div class="achievement-card">
+                        <div class="achievement-icon achievement-{{ achievement.achievement_type }}">
+                            <i class="bi {% if achievement.achievement_type == 'academic' %}bi-journal-check{% elif achievement.achievement_type == 'sports' %}bi-trophy{% elif achievement.achievement_type == 'arts' %}bi-palette{% else %}bi-star{% endif %}"></i>
+                        </div>
+                        <div class="achievement-content">
+                            <div class="achievement-title">{{ achievement.title }}</div>
+                            <div class="achievement-details">
+                                {{ achievement.organization }} • {{ achievement.get_achievement_level_display }}<br>
+                                {{ achievement.achievement_date|date:"F Y" }}
+                                {% if achievement.position %}
+                                • {{ achievement.position }}
+                                {% endif %}
+                            </div>
+                            {% if achievement.description %}
+                            <p class="mt-2 mb-0 small text-muted">{{ achievement.description }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state py-3">
+                    <i class="bi bi-trophy empty-state-icon" style="font-size: 2rem;"></i>
+                    <p class="mb-0">{% trans "No achievements recorded yet" %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Modal -->
+<div class="modal fade" id="contactModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Contact Parents/Guardians" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Select parents/guardians to contact:" %}</p>
+                {% for relationship in parent_relationships %}
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="{{ relationship.parent.id }}" id="parent-{{ relationship.parent.id }}">
+                    <label class="form-check-label" for="parent-{{ relationship.parent.id }}">
+                        {{ relationship.parent.full_name }} ({{ relationship.get_relationship_display }})
+                    </label>
+                </div>
+                {% endfor %}
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Message" %}</label>
+                    <textarea class="form-control" id="contactMessage" rows="4" placeholder="{% trans 'Enter your message here...' %}"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" onclick="sendParentMessage()">{% trans "Send Message" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class StudentDetailView {
+    constructor() {
+        this.studentId = {{ student.pk }};
+        this.init();
+    }
+
+    init() {
+        this.setupEventListeners();
+        this.setupPrintHandler();
+    }
+
+    setupEventListeners() {
+        // Tab persistence
+        const activeTab = localStorage.getItem('studentDetailActiveTab');
+        if (activeTab) {
+            const tab = new bootstrap.Tab(document.getElementById(activeTab));
+            tab.show();
+        }
+
+        // Save active tab on change
+        document.getElementById('studentTabs').addEventListener('shown.bs.tab', (event) => {
+            localStorage.setItem('studentDetailActiveTab', event.target.id);
+        });
+    }
+
+    setupPrintHandler() {
+        // Print button handler is already set via onclick
+    }
+}
+
+// Global functions for modal interactions
+function showContactModal() {
+    const contactModal = new bootstrap.Modal(document.getElementById('contactModal'));
+    contactModal.show();
+}
+
+function contactParent(email) {
+    window.location.href = `mailto:${email}?subject=Regarding {{ student.user.get_full_name }}`;
+}
+
+function callParent(phone) {
+    if (phone) {
+        window.location.href = `tel:${phone}`;
+    } else {
+        alert('{% trans "Phone number not available" %}');
+    }
+}
+
+function sendParentMessage() {
+    const selectedParents = [];
+    document.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+        selectedParents.push(checkbox.value);
+    });
+
+    const message = document.getElementById('contactMessage').value;
+
+    if (selectedParents.length === 0) {
+        alert('{% trans "Please select at least one parent/guardian" %}');
+        return;
+    }
+
+    if (!message.trim()) {
+        alert('{% trans "Please enter a message" %}');
+        return;
+    }
+
+    // Here you would typically send the message via your backend
+    console.log('Sending message to parents:', selectedParents, 'Message:', message);
+    
+    // Show success message
+    alert('{% trans "Message sent successfully!" %}');
+    bootstrap.Modal.getInstance(document.getElementById('contactModal')).hide();
+}
+
+function showAttendanceModal() {
+    // Implement attendance modal logic
+    alert('{% trans "Attendance modal would open here" %}');
+}
+
+function showBehaviorModal() {
+    // Implement behavior modal logic
+    alert('{% trans "Behavior modal would open here" %}');
+}
+
+// Initialize when document is ready
+document.addEventListener('DOMContentLoaded', function() {
+    window.studentDetailView = new StudentDetailView();
+});
+</script>
+{% endblock %}

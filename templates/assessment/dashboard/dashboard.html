@@ -1,0 +1,748 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Attendance Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Dashboard-specific styles */
+    .dashboard-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: none;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    .dashboard-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-left: 4px solid #65a0f9;
+    }
+    
+    .stat-card.present {
+        border-left-color: #28a745;
+    }
+    
+    .stat-card.absent {
+        border-left-color: #dc3545;
+    }
+    
+    .stat-card.late {
+        border-left-color: #ffc107;
+    }
+    
+    .attendance-chart-container {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+    
+    .quick-action-btn {
+        border-radius: 10px;
+        padding: 12px 15px;
+        transition: all 0.3s ease;
+        border: none;
+        text-align: center;
+    }
+    
+    .quick-action-btn:hover {
+        transform: scale(1.05);
+    }
+    
+    .attendance-table th {
+        border-top: none;
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .status-badge {
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .status-present {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .status-absent {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .status-late {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-half_day {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .class-attendance-progress {
+        height: 8px;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .class-attendance-progress .progress-bar {
+        transition: width 0.5s ease;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}Attendance Dashboard{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">Home</a></li>
+<li class="breadcrumb-item active" aria-current="page">Attendance Dashboard</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Student Dashboard View -->
+    {% if user.student_profile %}
+    <div class="col-12">
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="card dashboard-card stat-card present h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title text-muted mb-2">Present Days</h6>
+                                <h3 class="mb-0">{{ present_count }}</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-check-circle fa-2x text-success"></i>
+                            </div>
+                        </div>
+                        <p class="card-text mt-2">
+                            <small class="text-muted">
+                                {{ attendance_percentage }}% of total days
+                            </small>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card dashboard-card stat-card absent h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title text-muted mb-2">Absent Days</h6>
+                                <h3 class="mb-0">{{ absent_count }}</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-times-circle fa-2x text-danger"></i>
+                            </div>
+                        </div>
+                        <p class="card-text mt-2">
+                            <small class="text-muted">
+                                {% widthratio absent_count total_count 100 %}% of total days
+                            </small>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card dashboard-card stat-card late h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title text-muted mb-2">Late Arrivals</h6>
+                                <h3 class="mb-0">{{ late_count }}</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-clock fa-2x text-warning"></i>
+                            </div>
+                        </div>
+                        <p class="card-text mt-2">
+                            <small class="text-muted">
+                                {% widthratio late_count total_count 100 %}% of total days
+                            </small>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card dashboard-card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title text-muted mb-2">Total Days</h6>
+                                <h3 class="mb-0">{{ total_count }}</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-calendar-alt fa-2x text-primary"></i>
+                            </div>
+                        </div>
+                        <p class="card-text mt-2">
+                            <small class="text-muted">
+                                Current academic session
+                            </small>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-8 mb-4">
+                <div class="card dashboard-card h-100">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title mb-0">Monthly Attendance Trend</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="attendance-chart-container">
+                            <canvas id="attendanceChart" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="card dashboard-card h-100">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title mb-0">Attendance Distribution</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="attendance-chart-container">
+                            <canvas id="attendancePieChart" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="card dashboard-card">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Recent Attendance</h5>
+                        <a href="{% url 'attendance:student_my_attendance' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if recent_attendances %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0 attendance-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Session</th>
+                                        <th>Status</th>
+                                        <th>Check-in</th>
+                                        <th>Check-out</th>
+                                        <th>Hours</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for attendance in recent_attendances %}
+                                    <tr>
+                                        <td>{{ attendance.date }}</td>
+                                        <td>{{ attendance.attendance_session.name }}</td>
+                                        <td>
+                                            <span class="status-badge status-{{ attendance.status }}">
+                                                {{ attendance.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if attendance.check_in_time %}
+                                                {{ attendance.check_in_time|time:"H:i" }}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if attendance.check_out_time %}
+                                                {{ attendance.check_out_time|time:"H:i" }}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if attendance.total_hours %}
+                                                {{ attendance.total_hours }}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-clipboard-list"></i>
+                            <h5>No attendance records found</h5>
+                            <p class="text-muted">Your attendance records will appear here once marked.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Teacher Dashboard View -->
+    {% elif user.teacher_profile %}
+    <div class="col-12">
+        <div class="row mb-4">
+            <div class="col-md-4 mb-3">
+                <div class="card dashboard-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-chalkboard-teacher fa-3x text-primary mb-3"></i>
+                        <h4>{{ classes.count }}</h4>
+                        <p class="card-text">Classes Assigned</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-3">
+                <div class="card dashboard-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-user-check fa-3x text-success mb-3"></i>
+                        <h4>{{ today_present_count }}</h4>
+                        <p class="card-text">Students Present Today</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-3">
+                <div class="card dashboard-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-clipboard-list fa-3x text-info mb-3"></i>
+                        <h4>{{ today_attendance_count }}</h4>
+                        <p class="card-text">Attendance Marked Today</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card dashboard-card">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title mb-0">Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <a href="{% url 'attendance:bulk_class_select' %}" class="btn btn-primary quick-action-btn w-100 h-100 py-4">
+                                    <i class="fas fa-users fa-2x mb-2"></i>
+                                    <h6>Bulk Attendance</h6>
+                                    <small class="d-block">Mark attendance for entire class</small>
+                                </a>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <a href="{% url 'attendance:daily_create' %}" class="btn btn-success quick-action-btn w-100 h-100 py-4">
+                                    <i class="fas fa-user-plus fa-2x mb-2"></i>
+                                    <h6>Individual Marking</h6>
+                                    <small class="d-block">Mark attendance for specific student</small>
+                                </a>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <a href="{% url 'attendance:period_list' %}" class="btn btn-info quick-action-btn w-100 h-100 py-4">
+                                    <i class="fas fa-clock fa-2x mb-2"></i>
+                                    <h6>Period Attendance</h6>
+                                    <small class="d-block">View period-wise attendance</small>
+                                </a>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <a href="{% url 'attendance:summary' %}" class="btn btn-warning quick-action-btn w-100 h-100 py-4">
+                                    <i class="fas fa-chart-bar fa-2x mb-2"></i>
+                                    <h6>Reports</h6>
+                                    <small class="d-block">View attendance reports</small>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card dashboard-card h-100">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title mb-0">My Classes</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if classes %}
+                        <div class="list-group list-group-flush">
+                            {% for class in classes %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ class.name }}</h6>
+                                    <small class="text-muted">{{ class.academic_session.name }}</small>
+                                </div>
+                                <a href="{% url 'attendance:bulk_mark' class.id %}" class="btn btn-sm btn-outline-primary">Mark Attendance</a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-chalkboard"></i>
+                            <h5>No classes assigned</h5>
+                            <p class="text-muted">You haven't been assigned to any classes yet.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-4">
+                <div class="card dashboard-card h-100">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title mb-0">Class Attendance Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if class_summaries %}
+                        {% for summary in class_summaries %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>{{ summary.class.name }}</span>
+                                <span>{{ summary.attendance_percentage }}%</span>
+                            </div>
+                            <div class="class-attendance-progress progress mb-2">
+                                <div class="progress-bar 
+                                    {% if summary.attendance_percentage >= 90 %}bg-success
+                                    {% elif summary.attendance_percentage >= 75 %}bg-info
+                                    {% elif summary.attendance_percentage >= 60 %}bg-warning
+                                    {% else %}bg-danger{% endif %}" 
+                                    role="progressbar" 
+                                    style="width: {{ summary.attendance_percentage }}%">
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                {{ summary.present_days }} present out of {{ summary.total_days }} days • {{ summary.student_count }} students
+                            </small>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-chart-pie"></i>
+                            <h5>No attendance data</h5>
+                            <p class="text-muted">Attendance summaries will appear here once data is available.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Admin Dashboard View -->
+    {% elif user.is_staff %}
+    <div class="col-12">
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="card dashboard-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                        <h4>{{ total_students }}</h4>
+                        <p class="card-text">Total Students</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card dashboard-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-user-check fa-3x text-success mb-3"></i>
+                        <h4>{{ today_present_count }}</h4>
+                        <p class="card-text">Present Today</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card dashboard-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-clipboard-list fa-3x text-info mb-3"></i>
+                        <h4>{{ today_attendance_count }}</h4>
+                        <p class="card-text">Records Today</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card dashboard-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-percentage fa-3x text-warning mb-3"></i>
+                        <h4>{{ overall_summary.attendance_rate }}%</h4>
+                        <p class="card-text">Overall Rate</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card dashboard-card">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title mb-0">Attendance Management</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <a href="{% url 'attendance:config' %}" class="btn btn-primary quick-action-btn w-100 h-100 py-4">
+                                    <i class="fas fa-cogs fa-2x mb-2"></i>
+                                    <h6>Configuration</h6>
+                                    <small class="d-block">Manage attendance settings</small>
+                                </a>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <a href="{% url 'attendance:session_list' %}" class="btn btn-success quick-action-btn w-100 h-100 py-4">
+                                    <i class="fas fa-clock fa-2x mb-2"></i>
+                                    <h6>Sessions</h6>
+                                    <small class="d-block">Manage attendance sessions</small>
+                                </a>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <a href="{% url 'attendance:leave_list' %}" class="btn btn-info quick-action-btn w-100 h-100 py-4">
+                                    <i class="fas fa-calendar-minus fa-2x mb-2"></i>
+                                    <h6>Leave Management</h6>
+                                    <small class="d-block">Approve/reject leave requests</small>
+                                </a>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <a href="{% url 'attendance:export_report' %}" class="btn btn-warning quick-action-btn w-100 h-100 py-4">
+                                    <i class="fas fa-download fa-2x mb-2"></i>
+                                    <h6>Export Data</h6>
+                                    <small class="d-block">Download attendance reports</small>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-8 mb-4">
+                <div class="card dashboard-card h-100">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title mb-0">Attendance Overview</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="attendance-chart-container">
+                            <canvas id="adminAttendanceChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="card dashboard-card h-100">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title mb-0">Today's Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if overall_summary %}
+                        <div class="list-group list-group-flush">
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Present
+                                </div>
+                                <span class="badge bg-success rounded-pill">{{ overall_summary.present_count }}</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-times-circle text-danger me-2"></i>
+                                    Absent
+                                </div>
+                                <span class="badge bg-danger rounded-pill">{{ overall_summary.absent_count }}</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-clock text-warning me-2"></i>
+                                    Late
+                                </div>
+                                <span class="badge bg-warning rounded-pill">{{ overall_summary.late_count }}</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-chart-line text-info me-2"></i>
+                                    Total Records
+                                </div>
+                                <span class="badge bg-info rounded-pill">{{ overall_summary.total_records }}</span>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-chart-bar"></i>
+                            <h5>No data available</h5>
+                            <p class="text-muted">Attendance data will appear here once available.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Default View for users without specific profiles -->
+    {% else %}
+    <div class="col-12">
+        <div class="card dashboard-card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-user-clock fa-4x text-muted mb-3"></i>
+                <h3>Attendance Dashboard</h3>
+                <p class="text-muted mb-4">You don't have permission to view attendance data.</p>
+                <a href="{% url 'users:dashboard' %}" class="btn btn-primary">Return to Dashboard</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Student Dashboard Charts
+        {% if user.student_profile %}
+        // Monthly Attendance Line Chart
+        const attendanceCtx = document.getElementById('attendanceChart').getContext('2d');
+        const attendanceChart = new Chart(attendanceCtx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                datasets: [{
+                    label: 'Attendance Percentage',
+                    data: [85, 78, 90, 82, 88, 92, 85, 80, 87, 90, 88, 91],
+                    borderColor: '#65a0f9',
+                    backgroundColor: 'rgba(101, 160, 249, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Attendance Distribution Pie Chart
+        const pieCtx = document.getElementById('attendancePieChart').getContext('2d');
+        const pieChart = new Chart(pieCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Present', 'Absent', 'Late', 'Half Day', 'Leave'],
+                datasets: [{
+                    data: [65, 10, 15, 5, 5],
+                    backgroundColor: [
+                        '#28a745',
+                        '#dc3545',
+                        '#ffc107',
+                        '#17a2b8',
+                        '#6c757d'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+        {% endif %}
+        
+        // Admin Dashboard Chart
+        {% if user.is_staff %}
+        const adminCtx = document.getElementById('adminAttendanceChart').getContext('2d');
+        const adminChart = new Chart(adminCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8'],
+                datasets: [{
+                    label: 'Attendance Rate (%)',
+                    data: [92, 85, 78, 88, 95, 82, 90, 87],
+                    backgroundColor: '#65a0f9',
+                    borderColor: '#4a8ae8',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endif %}
+        
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+</script>
+{% endblock %}

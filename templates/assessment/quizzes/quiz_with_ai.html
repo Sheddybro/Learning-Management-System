@@ -1,0 +1,346 @@
+{% extends 'base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Create Quiz with AI" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="bi bi-robot me-2"></i>{% trans "AI-Powered Quiz Creation" %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- AI Generation Form -->
+                    <form method="post" id="ai-quiz-form">
+                        {% csrf_token %}
+
+                        <div class="row">
+                            <!-- Left Column - Quiz Settings -->
+                            <div class="col-lg-6">
+                                <div class="card mb-4">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">{% trans "Quiz Configuration" %}</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <!-- Basic Quiz Info -->
+                                        <div class="mb-3">
+                                            <label for="id_name" class="form-label">
+                                                {% trans "Quiz Name" %} <span class="text-danger">*</span>
+                                            </label>
+                                            <input type="text" name="name" id="id_name" class="form-control"
+                                                   placeholder="{% trans 'e.g., Algebra Fundamentals Quiz' %}" required>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="id_subject" class="form-label">
+                                                        {% trans "Subject" %} <span class="text-danger">*</span>
+                                                    </label>
+                                                    <select name="subject" id="id_subject" class="form-select" required>
+                                                        <option value="">{% trans "Choose subject..." %}</option>
+                                                        {% for subject in subjects %}
+                                                        <option value="{{ subject.id }}">{{ subject.name }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="id_academic_class" class="form-label">
+                                                        {% trans "Class" %} <span class="text-danger">*</span>
+                                                    </label>
+                                                    <select name="academic_class" id="id_academic_class" class="form-select" required>
+                                                        <option value="">{% trans "Choose class..." %}</option>
+                                                        {% for class_obj in classes %}
+                                                        <option value="{{ class_obj.id }}">{{ class_obj.name }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Quiz Behavior -->
+                                        <div class="mb-3">
+                                            <label class="form-label">{% trans "Quiz Settings" %}</label>
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="random_order" id="id_random_order">
+                                                        <label class="form-check-label" for="id_random_order">
+                                                            {% trans "Random Order" %}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="answers_at_end" id="id_answers_at_end" checked>
+                                                        <label class="form-check-label" for="id_answers_at_end">
+                                                            {% trans "Show Answers at End" %}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right Column - AI Parameters -->
+                            <div class="col-lg-6">
+                                <div class="card mb-4">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">{% trans "AI Generation Settings" %}</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <!-- Topic Input -->
+                                        <div class="mb-3">
+                                            <label for="id_topic" class="form-label">
+                                                {% trans "Topic" %} <span class="text-danger">*</span>
+                                            </label>
+                                            <input type="text" name="topic" id="id_topic" class="form-control"
+                                                   placeholder="{% trans 'e.g., Photosynthesis, World War II, Quadratic Equations' %}" required>
+                                            <div class="form-text">
+                                                {% trans "Enter the specific topic you want questions about." %}
+                                            </div>
+                                        </div>
+
+                                        <!-- Number of Questions -->
+                                        <div class="mb-3">
+                                            <label for="id_count" class="form-label">
+                                                {% trans "Number of Questions" %}
+                                            </label>
+                                            <select name="count" id="id_count" class="form-select">
+                                                <option value="5">5 Questions</option>
+                                                <option value="10" selected>10 Questions</option>
+                                                <option value="15">15 Questions</option>
+                                                <option value="20">20 Questions</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Difficulty Level -->
+                                        <div class="mb-3">
+                                            <label for="id_difficulty" class="form-label">
+                                                {% trans "Difficulty Level" %}
+                                            </label>
+                                            <select name="difficulty" id="id_difficulty" class="form-select">
+                                                <option value="easy">{% trans "Easy" %}</option>
+                                                <option value="medium" selected>{% trans "Medium" %}</option>
+                                                <option value="hard">{% trans "Hard" %}</option>
+                                                <option value="expert">{% trans "Expert" %}</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Question Types -->
+                                        <div class="mb-3">
+                                            <label class="form-label">{% trans "Question Types" %}</label>
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="question_types"
+                                                               id="type_mc" value="multiple_choice" checked>
+                                                        <label class="form-check-label" for="type_mc">
+                                                            {% trans "Multiple Choice" %}
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="question_types"
+                                                               id="type_tf" value="true_false">
+                                                        <label class="form-check-label" for="type_tf">
+                                                            {% trans "True/False" %}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="question_types"
+                                                               id="type_sa" value="short_answer">
+                                                        <label class="form-check-label" for="type_sa">
+                                                            {% trans "Short Answer" %}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Additional Instructions -->
+                                        <div class="mb-3">
+                                            <label for="id_instructions" class="form-label">
+                                                {% trans "Additional Instructions" %}
+                                            </label>
+                                            <textarea name="instructions" id="id_instructions" class="form-control" rows="3"
+                                                      placeholder="{% trans 'Optional: Any specific instructions for AI generation...' %}"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Generation Preview/Status -->
+                        <div id="generation-status" class="card mb-4" style="display: none;">
+                            <div class="card-header">
+                                <h6 class="mb-0">{% trans "Generation Status" %}</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm me-3" role="status">
+                                        <span class="visually-hidden">{% trans "Generating..." %}</span>
+                                    </div>
+                                    <div>
+                                        <strong>{% trans "Generating quiz with AI..." %}</strong>
+                                        <br>
+                                        <small class="text-muted">{% trans "This may take a few minutes." %}</small>
+                                    </div>
+                                </div>
+                                <div class="progress mt-3" style="height: 6px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                         style="width: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{% url 'assessment:quiz_bank_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i>{% trans "Back to Quizzes" %}
+                            </a>
+                            <div>
+                                <button type="button" id="preview-btn" class="btn btn-outline-info me-2">
+                                    <i class="bi bi-eye me-1"></i>{% trans "Preview" %}
+                                </button>
+                                <button type="submit" id="generate-btn" class="btn btn-primary">
+                                    <i class="bi bi-robot me-1"></i>{% trans "Generate with AI" %}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Help Section -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">{% trans "AI Generation Tips" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>{% trans "Best Practices" %}</h6>
+                            <ul class="mb-0">
+                                <li>{% trans "Use specific topic names (e.g., 'Pythagorean Theorem' instead of 'Math')" %}</li>
+                                <li>{% trans "Choose appropriate difficulty for your students" %}</li>
+                                <li>{% trans "Mix question types for better assessment" %}</li>
+                                <li>{% trans "Review AI-generated questions before publishing" %}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>{% trans "Question Types" %}</h6>
+                            <ul class="mb-0">
+                                <li><strong>{% trans "Multiple Choice:" %}</strong> {% trans "Best for testing knowledge recall" %}</li>
+                                <li><strong>{% trans "True/False:" %}</strong> {% trans "Good for quick concept checks" %}</li>
+                                <li><strong>{% trans "Short Answer:" %}</strong> {% trans "Requires manual grading" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('ai-quiz-form');
+    const generateBtn = document.getElementById('generate-btn');
+    const previewBtn = document.getElementById('preview-btn');
+    const statusDiv = document.getElementById('generation-status');
+
+    // Preview functionality
+    previewBtn.addEventListener('click', function() {
+        const topic = document.getElementById('id_topic').value;
+        const count = document.getElementById('id_count').value;
+        const difficulty = document.getElementById('id_difficulty').value;
+        const questionTypes = Array.from(document.querySelectorAll('input[name="question_types"]:checked'))
+            .map(cb => cb.value);
+
+        if (!topic.trim()) {
+            alert('{% trans "Please enter a topic first." %}');
+            return;
+        }
+
+        // Show preview modal or alert
+        let previewText = `{% trans "Preview:" %}\n\n`;
+        previewText += `{% trans "Topic:" %} ${topic}\n`;
+        previewText += `{% trans "Questions:" %} ${count}\n`;
+        previewText += `{% trans "Difficulty:" %} ${difficulty}\n`;
+        previewText += `{% trans "Types:" %} ${questionTypes.join(', ')}\n\n`;
+        previewText += `{% trans "Click Generate to create the quiz." %}`;
+
+        alert(previewText);
+    });
+
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        // Show loading state
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>{% trans "Generating..." %}';
+        statusDiv.style.display = 'block';
+
+        // Basic validation
+        const topic = document.getElementById('id_topic').value;
+        const subject = document.getElementById('id_subject').value;
+        const academicClass = document.getElementById('id_academic_class').value;
+        const questionTypes = document.querySelectorAll('input[name="question_types"]:checked');
+
+        if (!topic.trim()) {
+            e.preventDefault();
+            alert('{% trans "Please enter a topic." %}');
+            resetForm();
+            return;
+        }
+
+        if (!subject) {
+            e.preventDefault();
+            alert('{% trans "Please select a subject." %}');
+            resetForm();
+            return;
+        }
+
+        if (!academicClass) {
+            e.preventDefault();
+            alert('{% trans "Please select a class." %}');
+            resetForm();
+            return;
+        }
+
+        if (questionTypes.length === 0) {
+            e.preventDefault();
+            alert('{% trans "Please select at least one question type." %}');
+            resetForm();
+            return;
+        }
+    });
+
+    function resetForm() {
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = '<i class="bi bi-robot me-1"></i>{% trans "Generate with AI" %}';
+        statusDiv.style.display = 'none';
+    }
+
+    // Auto-suggest topics based on subject (could be enhanced with AJAX)
+    document.getElementById('id_subject').addEventListener('change', function() {
+        const subjectSelect = this;
+        const topicInput = document.getElementById('id_topic');
+
+        // Clear topic if subject changes
+        if (topicInput.value && !confirm('{% trans "Keep current topic?" %}')) {
+            topicInput.value = '';
+        }
+    });
+});
+</script>
+{% endblock %}

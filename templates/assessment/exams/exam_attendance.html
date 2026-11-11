@@ -1,0 +1,1302 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Exam Attendance - {{ exam.name }}{% endblock %}
+
+{% block page_title %}
+    Exam Attendance - {{ exam.name }}
+{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'assessment:exam_list' %}">Exams</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'assessment:exam_detail' exam.id %}">{{ exam.name }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Attendance</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'assessment:exam_detail' exam.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Exam
+        </a>
+        <button type="button" class="btn btn-outline-primary" id="saveDraftBtn">
+            <i class="bi bi-file-earmark me-1"></i> Save Draft
+        </button>
+        <button type="button" class="btn btn-success" id="finalizeAttendanceBtn">
+            <i class="bi bi-send-check me-1"></i> Finalize Attendance
+        </button>
+        <button type="button" class="btn btn-info" id="printAttendanceBtn">
+            <i class="bi bi-printer me-1"></i> Print
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="exam-attendance-container">
+    <div class="row">
+        <!-- Main Attendance Table -->
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clipboard-check me-2"></i>
+                        Exam Attendance - {{ exam.name }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Exam Summary -->
+                    <div class="exam-summary mb-4 p-3 bg-light rounded">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <strong>Class:</strong> {{ exam.academic_class.name }}
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Subject:</strong> {{ exam.subject.name }}
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Date:</strong> {{ exam.exam_date }}
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Time:</strong> {{ exam.start_time }} - {{ exam.end_time }}
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-6">
+                                <strong>Venue:</strong> {{ exam.venue|default:"Not specified" }}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Total Students:</strong> <span id="totalStudents">{{ students|length }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="bulk-actions mb-4 p-3 bg-light rounded">
+                        <h6 class="mb-3">
+                            <i class="bi bi-lightning me-2"></i>Quick Actions
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <button type="button" class="btn btn-outline-success w-100" id="markAllPresentBtn">
+                                    <i class="bi bi-check-circle me-1"></i> Mark All Present
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button type="button" class="btn btn-outline-warning w-100" id="markAllAbsentBtn">
+                                    <i class="bi bi-x-circle me-1"></i> Mark All Absent
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button type="button" class="btn btn-outline-info w-100" id="clearAllBtn">
+                                    <i class="bi bi-arrow-clockwise me-1"></i> Clear All
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="bulkLateInput" placeholder="Late mins" min="0">
+                                    <button type="button" class="btn btn-outline-secondary" id="applyBulkLateBtn">
+                                        Apply
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Attendance Table -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="attendanceTable">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th width="5%">#</th>
+                                    <th width="25%">Student Name</th>
+                                    <th width="15%">Roll Number</th>
+                                    <th width="15%">Attendance Status</th>
+                                    <th width="15%">Late Minutes</th>
+                                    <th width="20%">Remarks</th>
+                                    <th width="5%">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in students %}
+                                {% with attendance=attendance_records|get_item:student.student.id %}
+                                <tr class="attendance-row" data-student-id="{{ student.student.id }}">
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <strong>{{ student.student.user.get_full_name }}</strong>
+                                    </td>
+                                    <td>{{ student.student.roll_number|default:"-" }}</td>
+                                    <td>
+                                        <div class="attendance-status">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input present-radio" 
+                                                       type="radio" 
+                                                       name="attendance_{{ student.student.id }}" 
+                                                       id="present_{{ student.student.id }}" 
+                                                       value="present"
+                                                       {% if not attendance or attendance.is_present %}checked{% endif %}>
+                                                <label class="form-check-label" for="present_{{ student.student.id }}">
+                                                    Present
+                                                </label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input absent-radio" 
+                                                       type="radio" 
+                                                       name="attendance_{{ student.student.id }}" 
+                                                       id="absent_{{ student.student.id }}" 
+                                                       value="absent"
+                                                       {% if attendance and not attendance.is_present %}checked{% endif %}>
+                                                <label class="form-check-label" for="absent_{{ student.student.id }}">
+                                                    Absent
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <input type="number" 
+                                               class="form-control late-minutes-input" 
+                                               name="late_{{ student.student.id }}" 
+                                               value="{% if attendance %}{{ attendance.late_minutes }}{% else %}0{% endif %}"
+                                               min="0" 
+                                               max="240"
+                                               {% if attendance and not attendance.is_present %}disabled{% endif %}>
+                                        <small class="form-text text-muted">Max: 240 mins</small>
+                                    </td>
+                                    <td>
+                                        <input type="text" 
+                                               class="form-control remarks-input" 
+                                               name="remarks_{{ student.student.id }}" 
+                                               value="{% if attendance %}{{ attendance.remarks }}{% endif %}"
+                                               placeholder="Optional remarks">
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-primary quick-present-btn" title="Mark Present">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-warning quick-absent-btn" title="Mark Absent">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endwith %}
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        <i class="bi bi-people display-4 d-block mb-2"></i>
+                                        No students found in this class.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mt-4">
+    <div class="col-lg-3 col-md-6">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="stat-value" id="presentCount">0</div>
+                        <div class="stat-label">Present</div>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-check-circle display-4 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="stat-value" id="absentCount">0</div>
+                        <div class="stat-label">Absent</div>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-x-circle display-4 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="stat-value" id="lateCount">0</div>
+                        <div class="stat-label">Late Arrivals</div>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-clock display-4 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="stat-value" id="attendanceRate">0%</div>
+                        <div class="stat-label">Attendance Rate</div>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-graph-up display-4 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions Sidebar -->
+<div class="row mt-4">
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-speedometer2 me-2"></i>Attendance Summary
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="attendance-summary">
+                    <div class="summary-item mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Total Students:</span>
+                            <strong id="summaryTotalStudents">0</strong>
+                        </div>
+                    </div>
+                    <div class="summary-item mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Present Students:</span>
+                            <strong id="summaryPresent">0</strong>
+                        </div>
+                    </div>
+                    <div class="summary-item mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Absent Students:</span>
+                            <strong id="summaryAbsent">0</strong>
+                        </div>
+                    </div>
+                    <div class="summary-item mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Attendance Rate:</span>
+                            <strong id="summaryRate">0%</strong>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Average Late:</span>
+                            <strong id="summaryAvgLate">0 mins</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="progress mt-3" style="height: 12px;">
+                    <div class="progress-bar bg-success" id="attendanceProgress" style="width: 0%"></div>
+                </div>
+                <small class="text-muted" id="attendanceText">No attendance recorded yet</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-clock-history me-2"></i>Late Arrivals
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="late-arrivals-list" id="lateArrivalsList">
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-clock display-4 d-block mb-2"></i>
+                        No late arrivals recorded
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-lightning me-2"></i>Quick Tools
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-primary" id="validateAttendanceBtn">
+                        <i class="bi bi-check-circle me-1"></i> Validate Attendance
+                    </button>
+                    <button type="button" class="btn btn-outline-warning" id="exportAttendanceBtn">
+                        <i class="bi bi-download me-1"></i> Export to Excel
+                    </button>
+                    <button type="button" class="btn btn-outline-info" id="generateReportBtn">
+                        <i class="bi bi-file-earmark-text me-1"></i> Generate Report
+                    </button>
+                </div>
+                
+                <hr>
+                
+                <div class="form-group">
+                    <label class="form-label">Search Student</label>
+                    <input type="text" class="form-control" id="searchStudentInput" placeholder="Enter student name...">
+                </div>
+                
+                <div class="form-group mt-3">
+                    <label class="form-label">Filter by Status</label>
+                    <select class="form-select" id="statusFilter">
+                        <option value="all">All Students</option>
+                        <option value="present">Present Only</option>
+                        <option value="absent">Absent Only</option>
+                        <option value="late">Late Arrivals</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Save Options Modal -->
+<div class="modal fade" id="saveOptionsModal" tabindex="-1" aria-labelledby="saveOptionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="saveOptionsModalLabel">Save Attendance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>How would you like to save the attendance?</p>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="saveOption" id="saveDraftOption" value="draft" checked>
+                    <label class="form-check-label" for="saveDraftOption">
+                        <strong>Save as Draft</strong><br>
+                        <small class="text-muted">Save without finalizing. You can make changes later.</small>
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="saveOption" id="saveFinalOption" value="final">
+                    <label class="form-check-label" for="saveFinalOption">
+                        <strong>Save and Finalize</strong><br>
+                        <small class="text-muted">Finalize attendance. Changes will be restricted.</small>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print Preview Modal -->
+<div class="modal fade" id="printPreviewModal" tabindex="-1" aria-labelledby="printPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="printPreviewModalLabel">Attendance Print Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="printPreviewContent">
+                <!-- Print content will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="window.print()">
+                    <i class="bi bi-printer me-1"></i> Print
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.exam-attendance-container {
+    max-width: 100%;
+}
+
+.exam-summary {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-left: 4px solid #0d6efd;
+}
+
+.bulk-actions {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+}
+
+.table th {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.attendance-row:hover {
+    background-color: #f8f9fa !important;
+}
+
+.attendance-status .form-check-label {
+    font-weight: 500;
+}
+
+.late-minutes-input:focus, .remarks-input:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Statistics Cards */
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Summary Items */
+.summary-item {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.summary-item:last-child {
+    border-bottom: none;
+}
+
+/* Late Arrivals List */
+.late-arrivals-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.late-student-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border-bottom: 1px solid #f8f9fa;
+    font-size: 0.875rem;
+}
+
+.late-student-item:last-child {
+    border-bottom: none;
+}
+
+.late-minutes-badge {
+    font-size: 0.75rem;
+}
+
+/* Progress Bar */
+.progress {
+    background-color: #e9ecef;
+}
+
+.progress-bar {
+    transition: width 0.3s ease;
+}
+
+/* Form Validation States */
+.is-valid {
+    border-color: #198754;
+}
+
+.is-invalid {
+    border-color: #dc3545;
+}
+
+/* Custom radio button styling */
+.form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.form-check-input:focus {
+    border-color: #86b7fe;
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Quick action buttons */
+.quick-present-btn:hover {
+    background-color: #198754;
+    border-color: #198754;
+    color: white;
+}
+
+.quick-absent-btn:hover {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: black;
+}
+
+/* Row status highlighting */
+.row-present {
+    border-left: 4px solid #198754;
+}
+
+.row-absent {
+    border-left: 4px solid #ffc107;
+}
+
+.row-late {
+    background-color: #fff3cd !important;
+}
+
+/* Print styles */
+@media print {
+    .page-actions,
+    .bulk-actions,
+    .card-header .btn-close,
+    .quick-tools-card {
+        display: none !important;
+    }
+    
+    .attendance-table-print {
+        font-size: 12px;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .bulk-actions .row {
+        flex-direction: column;
+    }
+    
+    .bulk-actions .col-md-3 {
+        margin-bottom: 0.5rem;
+    }
+    
+    .attendance-status {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+    }
+}
+
+/* Animation for status updates */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.status-update {
+    animation: pulse 0.5s ease-in-out;
+}
+
+/* Search highlight */
+.search-highlight {
+    background-color: #fff3cd;
+    font-weight: 600;
+}
+
+/* Filter states */
+.row-hidden {
+    display: none;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const saveDraftBtn = document.getElementById('saveDraftBtn');
+    const finalizeAttendanceBtn = document.getElementById('finalizeAttendanceBtn');
+    const printAttendanceBtn = document.getElementById('printAttendanceBtn');
+    const saveOptionsModal = new bootstrap.Modal(document.getElementById('saveOptionsModal'));
+    const printPreviewModal = new bootstrap.Modal(document.getElementById('printPreviewModal'));
+    const confirmSaveBtn = document.getElementById('confirmSaveBtn');
+    
+    // Bulk action elements
+    const markAllPresentBtn = document.getElementById('markAllPresentBtn');
+    const markAllAbsentBtn = document.getElementById('markAllAbsentBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const bulkLateInput = document.getElementById('bulkLateInput');
+    const applyBulkLateBtn = document.getElementById('applyBulkLateBtn');
+    
+    // Tool buttons
+    const validateAttendanceBtn = document.getElementById('validateAttendanceBtn');
+    const exportAttendanceBtn = document.getElementById('exportAttendanceBtn');
+    const generateReportBtn = document.getElementById('generateReportBtn');
+    
+    // Filter elements
+    const searchStudentInput = document.getElementById('searchStudentInput');
+    const statusFilter = document.getElementById('statusFilter');
+    
+    // Initialize
+    initializeAttendanceForm();
+    updateStatistics();
+    
+    // Initialize event listeners
+    initializeEventListeners();
+    
+    // Auto-save every 30 seconds
+    setInterval(autoSaveDraft, 30000);
+
+    function initializeAttendanceForm() {
+        // Add event listeners to all input fields
+        const lateInputs = document.querySelectorAll('.late-minutes-input');
+        lateInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                validateLateMinutes(this);
+                updateStudentRowStatus(this);
+                updateStatistics();
+            });
+        });
+        
+        const remarksInputs = document.querySelectorAll('.remarks-input');
+        remarksInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                updateStudentRowStatus(this);
+            });
+        });
+        
+        // Add event listeners to radio buttons
+        const presentRadios = document.querySelectorAll('.present-radio');
+        presentRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                handleAttendanceChange(this);
+                updateStudentRowStatus(this);
+                updateStatistics();
+            });
+        });
+        
+        const absentRadios = document.querySelectorAll('.absent-radio');
+        absentRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                handleAttendanceChange(this);
+                updateStudentRowStatus(this);
+                updateStatistics();
+            });
+        });
+        
+        // Add event listeners to quick action buttons
+        const quickPresentBtns = document.querySelectorAll('.quick-present-btn');
+        quickPresentBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                markStudentPresent(this);
+            });
+        });
+        
+        const quickAbsentBtns = document.querySelectorAll('.quick-absent-btn');
+        quickAbsentBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                markStudentAbsent(this);
+            });
+        });
+        
+        // Initialize student row status
+        document.querySelectorAll('.attendance-row').forEach(row => {
+            updateStudentRowStatus(row);
+        });
+    }
+
+    function initializeEventListeners() {
+        // Save buttons
+        saveDraftBtn.addEventListener('click', function() {
+            showSaveOptions('draft');
+        });
+        
+        finalizeAttendanceBtn.addEventListener('click', function() {
+            showSaveOptions('final');
+        });
+        
+        printAttendanceBtn.addEventListener('click', showPrintPreview);
+        
+        // Bulk actions
+        markAllPresentBtn.addEventListener('click', markAllPresent);
+        markAllAbsentBtn.addEventListener('click', markAllAbsent);
+        clearAllBtn.addEventListener('click', clearAllAttendance);
+        applyBulkLateBtn.addEventListener('click', applyBulkLateMinutes);
+        
+        // Tool buttons
+        validateAttendanceBtn.addEventListener('click', validateAllAttendance);
+        exportAttendanceBtn.addEventListener('click', exportAttendance);
+        generateReportBtn.addEventListener('click', generateReport);
+        
+        // Filter events
+        searchStudentInput.addEventListener('input', filterStudents);
+        statusFilter.addEventListener('change', filterStudents);
+        
+        // Confirm save button
+        confirmSaveBtn.addEventListener('click', confirmSave);
+    }
+
+    function validateLateMinutes(input) {
+        const value = parseInt(input.value) || 0;
+        const maxLate = parseInt(input.max) || 240;
+        
+        input.classList.remove('is-invalid', 'is-valid');
+        
+        if (value < 0 || value > maxLate) {
+            input.classList.add('is-invalid');
+            return false;
+        }
+        
+        if (value > 0) {
+            input.classList.add('is-valid');
+        }
+        
+        return true;
+    }
+
+    function handleAttendanceChange(radio) {
+        const studentRow = radio.closest('.attendance-row');
+        const lateInput = studentRow.querySelector('.late-minutes-input');
+        const isPresent = radio.value === 'present';
+        
+        if (isPresent) {
+            lateInput.disabled = false;
+            studentRow.classList.remove('row-absent');
+            studentRow.classList.add('row-present');
+        } else {
+            lateInput.disabled = true;
+            lateInput.value = '0';
+            studentRow.classList.remove('row-present', 'row-late');
+            studentRow.classList.add('row-absent');
+        }
+        
+        validateLateMinutes(lateInput);
+    }
+
+    function updateStudentRowStatus(element) {
+        const studentRow = element.closest('.attendance-row');
+        const isPresent = studentRow.querySelector('.present-radio').checked;
+        const lateMinutes = parseInt(studentRow.querySelector('.late-minutes-input').value) || 0;
+        
+        // Update row classes
+        studentRow.classList.remove('row-present', 'row-absent', 'row-late');
+        
+        if (isPresent) {
+            studentRow.classList.add('row-present');
+            if (lateMinutes > 0) {
+                studentRow.classList.add('row-late');
+            }
+        } else {
+            studentRow.classList.add('row-absent');
+        }
+    }
+
+    function markStudentPresent(button) {
+        const studentRow = button.closest('.attendance-row');
+        const presentRadio = studentRow.querySelector('.present-radio');
+        presentRadio.checked = true;
+        handleAttendanceChange(presentRadio);
+        updateStatistics();
+    }
+
+    function markStudentAbsent(button) {
+        const studentRow = button.closest('.attendance-row');
+        const absentRadio = studentRow.querySelector('.absent-radio');
+        absentRadio.checked = true;
+        handleAttendanceChange(absentRadio);
+        updateStatistics();
+    }
+
+    function updateStatistics() {
+        const studentRows = document.querySelectorAll('.attendance-row');
+        let total = studentRows.length;
+        let present = 0;
+        let absent = 0;
+        let late = 0;
+        let totalLateMinutes = 0;
+        let lateStudents = [];
+        
+        studentRows.forEach(row => {
+            const isPresent = row.querySelector('.present-radio').checked;
+            const lateMinutes = parseInt(row.querySelector('.late-minutes-input').value) || 0;
+            
+            if (isPresent) {
+                present++;
+                if (lateMinutes > 0) {
+                    late++;
+                    totalLateMinutes += lateMinutes;
+                    const studentName = row.querySelector('td:nth-child(2) strong').textContent;
+                    lateStudents.push({
+                        name: studentName,
+                        minutes: lateMinutes
+                    });
+                }
+            } else {
+                absent++;
+            }
+        });
+        
+        // Update statistics cards
+        document.getElementById('presentCount').textContent = present;
+        document.getElementById('absentCount').textContent = absent;
+        document.getElementById('lateCount').textContent = late;
+        
+        const attendanceRate = total > 0 ? Math.round((present / total) * 100) : 0;
+        document.getElementById('attendanceRate').textContent = `${attendanceRate}%`;
+        
+        // Update summary
+        document.getElementById('summaryTotalStudents').textContent = total;
+        document.getElementById('summaryPresent').textContent = present;
+        document.getElementById('summaryAbsent').textContent = absent;
+        document.getElementById('summaryRate').textContent = `${attendanceRate}%`;
+        
+        const avgLate = late > 0 ? Math.round(totalLateMinutes / late) : 0;
+        document.getElementById('summaryAvgLate').textContent = `${avgLate} mins`;
+        
+        // Update progress bar
+        const attendanceProgress = document.getElementById('attendanceProgress');
+        attendanceProgress.style.width = `${attendanceRate}%`;
+        document.getElementById('attendanceText').textContent = `${present} of ${total} students present`;
+        
+        // Update progress bar color
+        if (attendanceRate >= 90) {
+            attendanceProgress.className = 'progress-bar bg-success';
+        } else if (attendanceRate >= 75) {
+            attendanceProgress.className = 'progress-bar bg-warning';
+        } else {
+            attendanceProgress.className = 'progress-bar bg-danger';
+        }
+        
+        // Update late arrivals list
+        updateLateArrivalsList(lateStudents);
+    }
+
+    function updateLateArrivalsList(lateStudents) {
+        const lateArrivalsList = document.getElementById('lateArrivalsList');
+        
+        if (lateStudents.length === 0) {
+            lateArrivalsList.innerHTML = `
+                <div class="text-center text-muted py-3">
+                    <i class="bi bi-clock display-4 d-block mb-2"></i>
+                    No late arrivals recorded
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        lateStudents.forEach(student => {
+            html += `
+                <div class="late-student-item">
+                    <span class="student-name">${student.name}</span>
+                    <span class="badge bg-warning late-minutes-badge">${student.minutes} mins</span>
+                </div>
+            `;
+        });
+        
+        lateArrivalsList.innerHTML = html;
+    }
+
+    function markAllPresent() {
+        document.querySelectorAll('.present-radio').forEach(radio => {
+            radio.checked = true;
+            handleAttendanceChange(radio);
+        });
+        updateStatistics();
+        showToast('All students marked as present', 'success');
+    }
+
+    function markAllAbsent() {
+        document.querySelectorAll('.absent-radio').forEach(radio => {
+            radio.checked = true;
+            handleAttendanceChange(radio);
+        });
+        updateStatistics();
+        showToast('All students marked as absent', 'warning');
+    }
+
+    function clearAllAttendance() {
+        if (confirm('Are you sure you want to clear all attendance data? This action cannot be undone.')) {
+            document.querySelectorAll('.present-radio').forEach(radio => {
+                radio.checked = true;
+            });
+            document.querySelectorAll('.late-minutes-input').forEach(input => {
+                input.value = '0';
+                input.classList.remove('is-valid', 'is-invalid');
+            });
+            document.querySelectorAll('.remarks-input').forEach(input => {
+                input.value = '';
+            });
+            document.querySelectorAll('.attendance-row').forEach(row => {
+                handleAttendanceChange(row.querySelector('.present-radio'));
+            });
+            updateStatistics();
+            showToast('All attendance data cleared', 'info');
+        }
+    }
+
+    function applyBulkLateMinutes() {
+        const lateValue = bulkLateInput.value.trim();
+        if (!lateValue) {
+            showToast('Please enter late minutes value', 'error');
+            return;
+        }
+        
+        const lateMinutes = parseInt(lateValue);
+        if (lateMinutes < 0 || lateMinutes > 240) {
+            showToast('Late minutes must be between 0 and 240', 'error');
+            return;
+        }
+        
+        document.querySelectorAll('.attendance-row').forEach(row => {
+            const isPresent = row.querySelector('.present-radio').checked;
+            const lateInput = row.querySelector('.late-minutes-input');
+            
+            if (isPresent) {
+                lateInput.value = lateMinutes;
+                validateLateMinutes(lateInput);
+                updateStudentRowStatus(lateInput);
+            }
+        });
+        
+        updateStatistics();
+        showToast(`Applied ${lateMinutes} late minutes to all present students`, 'success');
+    }
+
+    function validateAllAttendance() {
+        let isValid = true;
+        const lateInputs = document.querySelectorAll('.late-minutes-input:not(:disabled)');
+        
+        lateInputs.forEach(input => {
+            if (!validateLateMinutes(input)) {
+                isValid = false;
+            }
+        });
+        
+        if (isValid) {
+            showToast('All attendance data is valid!', 'success');
+        } else {
+            showToast('Please fix the errors in the attendance data', 'error');
+        }
+        
+        return isValid;
+    }
+
+    function filterStudents() {
+        const searchTerm = searchStudentInput.value.toLowerCase();
+        const statusFilterValue = statusFilter.value;
+        
+        document.querySelectorAll('.attendance-row').forEach(row => {
+            const studentName = row.querySelector('td:nth-child(2) strong').textContent.toLowerCase();
+            const isPresent = row.querySelector('.present-radio').checked;
+            const lateMinutes = parseInt(row.querySelector('.late-minutes-input').value) || 0;
+            const isLate = lateMinutes > 0;
+            
+            let matchesSearch = studentName.includes(searchTerm);
+            let matchesStatus = true;
+            
+            if (statusFilterValue === 'present') {
+                matchesStatus = isPresent;
+            } else if (statusFilterValue === 'absent') {
+                matchesStatus = !isPresent;
+            } else if (statusFilterValue === 'late') {
+                matchesStatus = isPresent && isLate;
+            }
+            
+            if (matchesSearch && matchesStatus) {
+                row.classList.remove('row-hidden');
+                
+                // Highlight search term
+                if (searchTerm) {
+                    const nameElement = row.querySelector('td:nth-child(2) strong');
+                    const originalText = nameElement.textContent;
+                    const highlightedText = originalText.replace(
+                        new RegExp(searchTerm, 'gi'),
+                        match => `<span class="search-highlight">${match}</span>`
+                    );
+                    nameElement.innerHTML = highlightedText;
+                }
+            } else {
+                row.classList.add('row-hidden');
+            }
+        });
+    }
+
+    function showSaveOptions(defaultOption) {
+        if (!validateAllAttendance()) {
+            return;
+        }
+
+        // Set the default option
+        document.getElementById(`save${defaultOption.charAt(0).toUpperCase() + defaultOption.slice(1)}Option`).checked = true;
+
+        // Ensure modal is properly initialized and show it
+        const modalElement = document.getElementById('saveOptionsModal');
+        if (modalElement) {
+            const bsModal = new bootstrap.Modal(modalElement, {
+                backdrop: 'static',
+                keyboard: false
+            });
+            bsModal.show();
+        }
+    }
+
+    function confirmSave() {
+        const saveOption = document.querySelector('input[name="saveOption"]:checked').value;
+        const isFinal = saveOption === 'final';
+        
+        // Collect attendance data
+        const attendanceData = {};
+        document.querySelectorAll('.attendance-row').forEach(row => {
+            const studentId = row.dataset.studentId;
+            const isPresent = row.querySelector('.present-radio').checked;
+            const lateMinutes = parseInt(row.querySelector('.late-minutes-input').value) || 0;
+            const remarks = row.querySelector('.remarks-input').value;
+            
+            attendanceData[studentId] = {
+                is_present: isPresent,
+                late_minutes: lateMinutes,
+                remarks: remarks
+            };
+        });
+        
+        // Submit via AJAX
+        fetch('{% url "assessment:exam_attendance" exam.id %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams({
+                'csrfmiddlewaretoken': '{{ csrf_token }}',
+                'attendance_data': JSON.stringify(attendanceData),
+                'is_final': isFinal
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                saveOptionsModal.hide();
+                showToast(`Attendance ${isFinal ? 'finalized' : 'saved'} successfully!`, 'success');
+                
+                if (isFinal) {
+                    // Disable form if finalized
+                    document.querySelectorAll('input, button').forEach(element => {
+                        if (element.id !== 'printAttendanceBtn') {
+                            element.disabled = true;
+                        }
+                    });
+                    finalizeAttendanceBtn.disabled = true;
+                }
+            } else {
+                showToast('Error saving attendance', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error saving attendance', 'error');
+        });
+    }
+
+    function showPrintPreview() {
+        const printContent = document.getElementById('printPreviewContent');
+        printContent.innerHTML = generatePrintContent();
+        printPreviewModal.show();
+    }
+
+    function generatePrintContent() {
+        const presentCount = document.getElementById('presentCount').textContent;
+        const absentCount = document.getElementById('absentCount').textContent;
+        const attendanceRate = document.getElementById('attendanceRate').textContent;
+        
+        let tableContent = '';
+        document.querySelectorAll('.attendance-row').forEach((row, index) => {
+            if (!row.classList.contains('row-hidden')) {
+                const cells = row.querySelectorAll('td');
+                const studentName = cells[1].querySelector('strong').textContent;
+                const rollNumber = cells[2].textContent;
+                const isPresent = row.querySelector('.present-radio').checked;
+                const status = isPresent ? 'Present' : 'Absent';
+                const lateMinutes = cells[4].querySelector('input').value;
+                const remarks = cells[5].querySelector('input').value;
+                
+                tableContent += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${studentName}</td>
+                        <td>${rollNumber}</td>
+                        <td>${status}</td>
+                        <td>${lateMinutes}</td>
+                        <td>${remarks}</td>
+                    </tr>
+                `;
+            }
+        });
+        
+        return `
+            <div class="print-preview">
+                <div class="text-center mb-4">
+                    <h4>Exam Attendance Report</h4>
+                    <h5>{{ exam.name }}</h5>
+                    <p class="mb-1"><strong>Class:</strong> {{ exam.academic_class.name }} | <strong>Subject:</strong> {{ exam.subject.name }}</p>
+                    <p class="mb-1"><strong>Date:</strong> {{ exam.exam_date }} | <strong>Time:</strong> {{ exam.start_time }} - {{ exam.end_time }}</p>
+                    <p><strong>Venue:</strong> {{ exam.venue|default:"Not specified" }}</p>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-3 text-center">
+                        <div class="border p-2">
+                            <strong>Total Students</strong><br>
+                            <span class="h4">{{ students|length }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="border p-2">
+                            <strong>Present</strong><br>
+                            <span class="h4 text-success">${presentCount}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="border p-2">
+                            <strong>Absent</strong><br>
+                            <span class="h4 text-warning">${absentCount}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="border p-2">
+                            <strong>Attendance Rate</strong><br>
+                            <span class="h4 text-primary">${attendanceRate}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered attendance-table-print">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>#</th>
+                                <th>Student Name</th>
+                                <th>Roll Number</th>
+                                <th>Status</th>
+                                <th>Late (mins)</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableContent}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <p><strong>Teacher's Signature:</strong></p>
+                        <p class="border-bottom" style="min-height: 50px;"></p>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function exportAttendance() {
+        // In a real implementation, this would generate and download an Excel file
+        showToast('Exporting attendance data to Excel...', 'info');
+        // Simulate export
+        setTimeout(() => {
+            showToast('Attendance data exported successfully!', 'success');
+        }, 1500);
+    }
+
+    function generateReport() {
+        // In a real implementation, this would generate a detailed report
+        showToast('Generating attendance report...', 'info');
+        // Simulate report generation
+        setTimeout(() => {
+            showToast('Attendance report generated successfully!', 'success');
+        }, 1500);
+    }
+
+    function autoSaveDraft() {
+        // Check if there are any changes
+        const hasChanges = document.querySelectorAll('.row-present, .row-absent').length > 0;
+        if (!hasChanges) {
+            return;
+        }
+        
+        // Auto-save draft
+        console.log('Auto-saving attendance draft...');
+        // In a real implementation, this would save the draft via AJAX
+    }
+
+    function showToast(message, type = 'info') {
+        // Create unique container for each toast to avoid z-index conflicts
+        const containerId = `toast-container-${Date.now()}`;
+        const toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '1060'; // Higher than modals but below tooltips
+        toastContainer.id = containerId;
+
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type} border-0 fade`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+
+        toastContainer.appendChild(toast);
+        document.body.appendChild(toastContainer);
+
+        const bsToast = new bootstrap.Toast(toast, {
+            autohide: true,
+            delay: 3000
+        });
+
+        // Show the toast
+        bsToast.show();
+
+        // Clean up after hide
+        toast.addEventListener('hidden.bs.toast', function() {
+            toastContainer.remove();
+        });
+    }
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + S to save
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        document.getElementById('saveDraftBtn').click();
+    }
+    
+    // Ctrl/Cmd + P to print
+    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        document.getElementById('printAttendanceBtn').click();
+    }
+});
+</script>
+{% endblock %}

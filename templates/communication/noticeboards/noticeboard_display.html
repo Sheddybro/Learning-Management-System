@@ -1,0 +1,972 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ notice_board.name }} - Notice Board{% endblock %}
+
+{% block extra_css %}
+<style>
+.noticeboard-display {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #f8f9fa;
+    min-height: 100vh;
+}
+
+/* Notice Board Header */
+.noticeboard-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 3rem 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.noticeboard-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.1);
+}
+
+.header-content {
+    position: relative;
+    z-index: 2;
+}
+
+.board-name {
+    font-size: 3rem;
+    font-weight: 700;
+    margin: 0 0 1rem 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.board-description {
+    font-size: 1.25rem;
+    margin: 0 0 2rem 0;
+    opacity: 0.9;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.board-meta {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255,255,255,0.2);
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    backdrop-filter: blur(10px);
+}
+
+/* Announcements Container */
+.announcements-container {
+    padding: 2rem;
+}
+
+.announcements-grid {
+    display: grid;
+    gap: 2rem;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+/* Announcement Cards */
+.announcement-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.announcement-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+}
+
+.announcement-card.pinned {
+    border: 3px solid #ffd700;
+    background: linear-gradient(135deg, #fff9e6 0%, #ffffff 100%);
+}
+
+.announcement-card.urgent {
+    border: 3px solid #dc3545;
+    background: linear-gradient(135deg, #ffe6e6 0%, #ffffff 100%);
+}
+
+.announcement-card.high-priority {
+    border: 3px solid #fd7e14;
+}
+
+/* Card Header */
+.card-header {
+    padding: 1.5rem 2rem 1rem;
+    position: relative;
+}
+
+.announcement-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0 0 1rem 0;
+    line-height: 1.3;
+}
+
+.announcement-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+}
+
+.announcement-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.badge-type {
+    background: #e8f4fd;
+    color: #3498db;
+    border: 1px solid #b3d9ff;
+}
+
+.badge-priority {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.badge-priority.high {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f1b0b7;
+}
+
+.badge-priority.urgent {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f1b0b7;
+    animation: pulse 2s infinite;
+}
+
+.badge-audience {
+    background: #e7f3ff;
+    color: #0066cc;
+    border: 1px solid #b3d9ff;
+}
+
+.pin-indicator {
+    position: absolute;
+    top: 1rem;
+    right: 2rem;
+    color: #ffd700;
+    font-size: 1.5rem;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* Banner Image */
+.banner-section {
+    margin: 0;
+}
+
+.announcement-banner {
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+}
+
+/* Card Content */
+.card-content {
+    padding: 1.5rem 2rem;
+}
+
+.announcement-content {
+    line-height: 1.7;
+    color: #555;
+    font-size: 1.1rem;
+}
+
+.announcement-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.announcement-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+.announcement-content table th,
+.announcement-content table td {
+    padding: 0.75rem;
+    border: 1px solid #dee2e6;
+    text-align: left;
+}
+
+.announcement-content table th {
+    background: #f8f9fa;
+    font-weight: 600;
+}
+
+/* Card Footer */
+.card-footer {
+    padding: 1rem 2rem 1.5rem;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.author-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.author-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.author-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.author-name {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.post-date {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.announcement-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Controls */
+.controls-section {
+    background: white;
+    padding: 1.5rem 2rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.refresh-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.refresh-info {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.display-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+/* Fullscreen Mode */
+.noticeboard-display.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    background: #f8f9fa;
+}
+
+.fullscreen-controls {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 10000;
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #6c757d;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+/* Countdown Timer */
+.countdown-timer {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 25px;
+    font-size: 0.875rem;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+}
+
+/* Slideshow Animation */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.announcement-card {
+    animation: slideIn 0.6s ease-out;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .noticeboard-header {
+        padding: 2rem 1rem;
+    }
+    
+    .board-name {
+        font-size: 2rem;
+    }
+    
+    .board-description {
+        font-size: 1rem;
+    }
+    
+    .board-meta {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .announcements-container {
+        padding: 1rem;
+    }
+    
+    .card-header,
+    .card-content,
+    .card-footer {
+        padding: 1rem 1.5rem;
+    }
+    
+    .announcement-title {
+        font-size: 1.25rem;
+    }
+    
+    .controls-section {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .display-controls {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .announcement-meta {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .card-footer {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .announcement-actions {
+        align-self: stretch;
+        justify-content: center;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .controls-section,
+    .fullscreen-controls,
+    .countdown-timer {
+        display: none !important;
+    }
+    
+    .noticeboard-header {
+        background: #f8f9fa !important;
+        color: #000 !important;
+        padding: 1rem !important;
+    }
+    
+    .announcement-card {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+        margin-bottom: 1rem !important;
+    }
+}
+
+/* Dark mode support */
+[data-bs-theme="dark"] .noticeboard-display {
+    background: #1a202c;
+}
+
+[data-bs-theme="dark"] .announcement-card {
+    background: #2d3748;
+    color: #e2e8f0;
+}
+
+[data-bs-theme="dark"] .announcement-title {
+    color: #e2e8f0;
+}
+
+[data-bs-theme="dark"] .announcement-content {
+    color: #a0aec0;
+}
+
+[data-bs-theme="dark"] .card-footer {
+    border-top-color: #4a5568;
+}
+
+[data-bs-theme="dark"] .author-name {
+    color: #e2e8f0;
+}
+
+[data-bs-theme="dark"] .controls-section {
+    background: #2d3748;
+}
+
+[data-bs-theme="dark"] .empty-state {
+    color: #a0aec0;
+}
+
+[data-bs-theme="dark"] .announcement-content table th,
+[data-bs-theme="dark"] .announcement-content table td {
+    border-color: #4a5568;
+}
+
+[data-bs-theme="dark"] .announcement-content table th {
+    background: #4a5568;
+    color: #e2e8f0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="noticeboard-display" id="noticeboardDisplay">
+    <!-- Notice Board Header -->
+    <div class="noticeboard-header">
+        <div class="header-content">
+            <h1 class="board-name">{{ notice_board.name }}</h1>
+            {% if notice_board.description %}
+            <p class="board-description">{{ notice_board.description }}</p>
+            {% endif %}
+            <div class="board-meta">
+                <div class="meta-item">
+                    <i class="bi bi-geo-alt"></i>
+                    <span>{{ notice_board.location|default:"Main Display" }}</span>
+                </div>
+                <div class="meta-item">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    <span>Refresh every {{ notice_board.refresh_interval }} seconds</span>
+                </div>
+                <div class="meta-item">
+                    <i class="bi bi-card-checklist"></i>
+                    <span>{{ active_announcements|length }} active announcements</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls Section -->
+    <div class="controls-section">
+        <div class="refresh-controls">
+            <button class="btn btn-outline-primary btn-sm" id="refreshBtn">
+                <i class="bi bi-arrow-clockwise me-2"></i>
+                Refresh Now
+            </button>
+            <span class="refresh-info" id="refreshInfo">
+                Last updated: <span id="lastUpdated">{% now "H:i:s" %}</span>
+            </span>
+        </div>
+        <div class="display-controls">
+            <button class="btn btn-outline-secondary btn-sm" id="fullscreenBtn">
+                <i class="bi bi-arrows-fullscreen me-2"></i>
+                Fullscreen
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                <i class="bi bi-printer me-2"></i>
+                Print
+            </button>
+        </div>
+    </div>
+
+    <!-- Announcements Container -->
+    <div class="announcements-container">
+        {% if active_announcements %}
+            <div class="announcements-grid" id="announcementsGrid">
+                {% for announcement in active_announcements %}
+                <div class="announcement-card {% if announcement.is_pinned %}pinned{% endif %} {% if announcement.priority == 'urgent' %}urgent{% endif %} {% if announcement.priority == 'high' %}high-priority{% endif %}"
+                     data-announcement-id="{{ announcement.id }}"
+                     data-display-duration="{{ announcement.noticeboarditem_set.first.display_duration|default:10 }}">
+                    
+                    <!-- Pin Indicator -->
+                    {% if announcement.is_pinned %}
+                    <div class="pin-indicator">
+                        <i class="bi bi-pin-angle-fill" title="Pinned Announcement"></i>
+                    </div>
+                    {% endif %}
+
+                    <!-- Card Header -->
+                    <div class="card-header">
+                        <h2 class="announcement-title">{{ announcement.title }}</h2>
+                        <div class="announcement-meta">
+                            <span class="announcement-badge badge-type">
+                                <i class="bi bi-tag"></i>
+                                {{ announcement.get_announcement_type_display }}
+                            </span>
+                            
+                            {% if announcement.priority != 'normal' %}
+                            <span class="announcement-badge badge-priority {{ announcement.priority }}">
+                                <i class="bi bi-flag"></i>
+                                {{ announcement.get_priority_display }}
+                            </span>
+                            {% endif %}
+                            
+                            <span class="announcement-badge badge-audience">
+                                <i class="bi bi-people"></i>
+                                {{ announcement.get_target_audience_display }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Banner Image -->
+                    {% if announcement.banner_image %}
+                    <div class="banner-section">
+                        <img src="{{ announcement.banner_image.url }}" 
+                             alt="{{ announcement.title }}" 
+                             class="announcement-banner">
+                    </div>
+                    {% endif %}
+
+                    <!-- Card Content -->
+                    <div class="card-content">
+                        <div class="announcement-content">
+                            {{ announcement.content|linebreaks }}
+                        </div>
+                    </div>
+
+                    <!-- Card Footer -->
+                    <div class="card-footer">
+                        <div class="author-info">
+                            <div class="author-avatar">
+                                {{ announcement.author.get_full_name|default:announcement.author.username|make_list|first|upper }}
+                            </div>
+                            <div class="author-details">
+                                <span class="author-name">
+                                    {{ announcement.author.get_full_name|default:announcement.author.username }}
+                                </span>
+                                <span class="post-date">
+                                    {% if announcement.published_at %}
+                                        Published {{ announcement.published_at|date:"M d, Y" }}
+                                    {% else %}
+                                        Created {{ announcement.created_at|date:"M d, Y" }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="announcement-actions">
+                            {% if announcement.attachments %}
+                            <button class="btn btn-outline-primary btn-sm" 
+                                    onclick="downloadAttachment('{{ announcement.attachments.url }}', '{{ announcement.title|slugify }}')">
+                                <i class="bi bi-download"></i>
+                            </button>
+                            {% endif %}
+                            
+                            {% if user.is_authenticated and user.has_perm('communication.change_announcement') %}
+                            <a href="{% url 'communication:announcement_update' announcement.pk %}"
+                               class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- Empty State -->
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="bi bi-megaphone"></i>
+                </div>
+                <h3>No Active Announcements</h3>
+                <p class="mb-4">There are currently no announcements scheduled for display on this notice board.</p>
+                {% if user.is_authenticated and user.has_perm('communication.add_announcement') %}
+                <a href="{% url 'communication:announcement_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-2"></i>
+                    Create Announcement
+                </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Fullscreen Controls -->
+    <div class="fullscreen-controls" style="display: none;">
+        <button class="btn btn-light btn-sm" id="exitFullscreenBtn">
+            <i class="bi bi-fullscreen-exit"></i>
+        </button>
+    </div>
+
+    <!-- Countdown Timer -->
+    <div class="countdown-timer" id="countdownTimer" style="display: none;">
+        <i class="bi bi-clock me-2"></i>
+        Next refresh in: <span id="countdown">00</span>s
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // DOM Elements
+    const noticeboardDisplay = document.getElementById('noticeboardDisplay');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const exitFullscreenBtn = document.getElementById('exitFullscreenBtn');
+    const fullscreenControls = document.querySelector('.fullscreen-controls');
+    const countdownTimer = document.getElementById('countdownTimer');
+    const countdownDisplay = document.getElementById('countdown');
+    const lastUpdated = document.getElementById('lastUpdated');
+    const announcementsGrid = document.getElementById('announcementsGrid');
+
+    // Configuration
+    const REFRESH_INTERVAL = {{ notice_board.refresh_interval|default:30 }} * 1000; // Convert to milliseconds
+    let refreshCountdown = REFRESH_INTERVAL / 1000;
+    let refreshTimer;
+    let countdownTimerInterval;
+
+    // Initialize
+    startAutoRefresh();
+    updateLastUpdatedTime();
+
+    // Refresh functionality
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            refreshAnnouncements();
+        });
+    }
+
+    // Fullscreen functionality
+    if (fullscreenBtn) {
+        fullscreenBtn.addEventListener('click', function() {
+            enterFullscreen();
+        });
+    }
+
+    if (exitFullscreenBtn) {
+        exitFullscreenBtn.addEventListener('click', function() {
+            exitFullscreen();
+        });
+    }
+
+    // Keyboard shortcuts for fullscreen
+    document.addEventListener('keydown', function(e) {
+        // F11 for fullscreen
+        if (e.key === 'F11') {
+            e.preventDefault();
+            if (document.fullscreenElement) {
+                exitFullscreen();
+            } else {
+                enterFullscreen();
+            }
+        }
+        
+        // Escape to exit fullscreen
+        if (e.key === 'Escape' && document.fullscreenElement) {
+            exitFullscreen();
+        }
+        
+        // R to refresh
+        if (e.key === 'r' && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            refreshAnnouncements();
+        }
+    });
+
+    function startAutoRefresh() {
+        // Start countdown timer
+        startCountdownTimer();
+        
+        // Set up auto-refresh interval
+        refreshTimer = setInterval(() => {
+            refreshAnnouncements();
+        }, REFRESH_INTERVAL);
+    }
+
+    function startCountdownTimer() {
+        refreshCountdown = REFRESH_INTERVAL / 1000;
+        countdownTimer.style.display = 'block';
+        
+        countdownTimerInterval = setInterval(() => {
+            refreshCountdown--;
+            countdownDisplay.textContent = refreshCountdown.toString().padStart(2, '0');
+            
+            if (refreshCountdown <= 0) {
+                refreshCountdown = REFRESH_INTERVAL / 1000;
+            }
+        }, 1000);
+    }
+
+    function refreshAnnouncements() {
+        // Show loading state
+        const originalText = refreshBtn.innerHTML;
+        refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-2 spin"></i>Refreshing...';
+        refreshBtn.disabled = true;
+
+        // Simulate API call (in real implementation, this would fetch new data)
+        setTimeout(() => {
+            // Reset refresh button
+            refreshBtn.innerHTML = originalText;
+            refreshBtn.disabled = false;
+            
+            // Update last updated time
+            updateLastUpdatedTime();
+            
+            // Reset countdown
+            refreshCountdown = REFRESH_INTERVAL / 1000;
+            
+            // Show success feedback
+            showToast('Notice board refreshed successfully', 'success');
+            
+            // In a real implementation, you would update the announcements here
+            // For now, we'll just add a visual refresh effect
+            if (announcementsGrid) {
+                announcementsGrid.style.opacity = '0.7';
+                setTimeout(() => {
+                    announcementsGrid.style.opacity = '1';
+                }, 300);
+            }
+        }, 1000);
+    }
+
+    function updateLastUpdatedTime() {
+        const now = new Date();
+        lastUpdated.textContent = now.toLocaleTimeString();
+    }
+
+    function enterFullscreen() {
+        if (noticeboardDisplay.requestFullscreen) {
+            noticeboardDisplay.requestFullscreen();
+        } else if (noticeboardDisplay.webkitRequestFullscreen) {
+            noticeboardDisplay.webkitRequestFullscreen();
+        } else if (noticeboardDisplay.msRequestFullscreen) {
+            noticeboardDisplay.msRequestFullscreen();
+        }
+        
+        noticeboardDisplay.classList.add('fullscreen');
+        fullscreenControls.style.display = 'flex';
+        fullscreenBtn.style.display = 'none';
+    }
+
+    function exitFullscreen() {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
+        
+        noticeboardDisplay.classList.remove('fullscreen');
+        fullscreenControls.style.display = 'none';
+        fullscreenBtn.style.display = 'inline-block';
+    }
+
+    // Handle fullscreen change events
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('msfullscreenchange', handleFullscreenChange);
+
+    function handleFullscreenChange() {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+            noticeboardDisplay.classList.remove('fullscreen');
+            fullscreenControls.style.display = 'none';
+            fullscreenBtn.style.display = 'inline-block';
+        }
+    }
+
+    // Slideshow functionality for announcements
+    function startSlideshow() {
+        const announcementCards = document.querySelectorAll('.announcement-card');
+        let currentIndex = 0;
+
+        // Hide all cards initially
+        announcementCards.forEach(card => {
+            card.style.display = 'none';
+        });
+
+        // Show first card
+        if (announcementCards.length > 0) {
+            announcementCards[0].style.display = 'block';
+        }
+
+        // Set up slideshow interval
+        setInterval(() => {
+            // Hide current card
+            announcementCards[currentIndex].style.display = 'none';
+            
+            // Move to next card
+            currentIndex = (currentIndex + 1) % announcementCards.length;
+            
+            // Show next card with animation
+            announcementCards[currentIndex].style.display = 'block';
+            announcementCards[currentIndex].style.animation = 'slideIn 0.6s ease-out';
+        }, 10000); // Change slide every 10 seconds
+    }
+
+    // Auto-start slideshow if there are multiple announcements
+    const announcementCards = document.querySelectorAll('.announcement-card');
+    if (announcementCards.length > 1) {
+        // Uncomment the line below to enable automatic slideshow
+        // startSlideshow();
+    }
+
+    // Add spinning animation for refresh button
+    const style = document.createElement('style');
+    style.textContent = `
+        .spin {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    `;
+    document.head.appendChild(style);
+});
+
+// Global functions
+function downloadAttachment(url, filename) {
+    // Create a temporary link to trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast('Attachment download started', 'success');
+}
+
+function showToast(message, type = 'info') {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-bg-${type} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+    
+    // Add to container
+    const container = document.getElementById('toastContainer') || createToastContainer();
+    container.appendChild(toast);
+    
+    // Initialize and show
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    // Remove after hide
+    toast.addEventListener('hidden.bs.toast', () => {
+        toast.remove();
+    });
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+    container.style.zIndex = '9999';
+    document.body.appendChild(container);
+    return container;
+}
+
+// Handle visibility change for performance
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        // Page is hidden, pause intensive operations
+        console.log('Notice board backgrounded, pausing animations');
+    } else {
+        // Page is visible, resume operations
+        console.log('Notice board foregrounded, resuming operations');
+    }
+});
+</script>
+{% endblock %}

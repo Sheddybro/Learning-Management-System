@@ -1,0 +1,1049 @@
+<!-- templates/academics/materials/material_form.html -->
+{% extends 'academics/base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        {% trans "Edit" %} {{ form.instance.title }}
+    {% else %}
+        {% trans "Create New Material" %}
+    {% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Material" %}
+    {% else %}
+        {% trans "Create New Material" %}
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'academics:dashboard' %}">{% trans "Academics" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'academics:material_list' %}">{% trans "Materials" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if form.instance.pk %}
+        {% trans "Edit Material" %}
+    {% else %}
+        {% trans "Create Material" %}
+    {% endif %}
+</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'academics:material_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> {% trans "Back to Materials" %}
+        </a>
+        {% if form.instance.pk %}
+        <a href="{% url 'academics:material_detail' form.instance.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-eye me-1"></i> {% trans "View Material" %}
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+.material-form-container {
+    font-family: 'Inter', sans-serif;
+}
+
+.form-section {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.section-title {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e9ecef;
+    display: flex;
+    align-items: center;
+}
+
+.section-title i {
+    margin-right: 0.5rem;
+}
+
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.upload-area:hover {
+    border-color: #0d6efd;
+    background: #e7f1ff;
+}
+
+.upload-area.dragover {
+    border-color: #0d6efd;
+    background: #d1e7ff;
+}
+
+.upload-icon {
+    font-size: 3rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.upload-area:hover .upload-icon {
+    color: #0d6efd;
+}
+
+.file-input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    cursor: pointer;
+}
+
+.file-preview {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 0.375rem;
+    border: 1px solid #e9ecef;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.file-icon {
+    font-size: 2rem;
+    color: #495057;
+}
+
+.file-details {
+    flex-grow: 1;
+}
+
+.file-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.file-meta {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.file-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.preview-container {
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.preview-image {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: 0.375rem;
+    border: 1px solid #dee2e6;
+}
+
+.preview-document {
+    font-size: 4rem;
+    color: #6c757d;
+}
+
+.required-field::after {
+    content: " *";
+    color: #dc3545;
+}
+
+.character-count {
+    font-size: 0.875rem;
+    color: #6c757d;
+    text-align: right;
+}
+
+.character-count.warning {
+    color: #fd7e14;
+}
+
+.character-count.error {
+    color: #dc3545;
+}
+
+.is-invalid {
+    border-color: #dc3545 !important;
+}
+
+.invalid-feedback {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875em;
+    color: #dc3545;
+}
+</style>
+
+<div class="material-form-container">
+    <div class="row">
+        <div class="col-lg-8">
+            <form method="post" enctype="multipart/form-data" id="material-form" novalidate>
+                {% csrf_token %}
+                
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                        <p class="mb-0">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Basic Information Section -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="bi bi-info-circle"></i> {% trans "Basic Information" %}
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="{{ form.title.id_for_label }}" class="form-label required-field">
+                                    {{ form.title.label }}
+                                </label>
+                                {{ form.title }}
+                                {% if form.title.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.title.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                <div class="character-count" id="title-count">0/200</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.material_type.id_for_label }}" class="form-label required-field">
+                                    {{ form.material_type.label }}
+                                </label>
+                                {{ form.material_type }}
+                                {% if form.material_type.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.material_type.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">
+                            {{ form.description.label }}
+                        </label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.description.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        <div class="character-count" id="description-count">0/1000</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.subject.id_for_label }}" class="form-label required-field">
+                                    {{ form.subject.label }}
+                                </label>
+                                {{ form.subject }}
+                                {% if form.subject.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.subject.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.class_assigned.id_for_label }}" class="form-label required-field">
+                                    {{ form.class_assigned.label }}
+                                </label>
+                                {{ form.class_assigned }}
+                                {% if form.class_assigned.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.class_assigned.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File Upload Section - FIXED -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="bi bi-cloud-upload"></i> {% trans "File & Content" %}
+                    </h5>
+                    
+                    <div class="upload-area" id="upload-area">
+                        <div class="upload-icon">
+                            <i class="bi bi-cloud-arrow-up"></i>
+                        </div>
+                        <h5>{% trans "Upload Material File" %}</h5>
+                        <p class="text-muted mb-3">
+                            {% trans "Drag & drop your file here or click to browse" %}
+                        </p>
+                        <button type="button" class="btn btn-primary" id="browse-btn">
+                            <i class="bi bi-folder2-open me-1"></i> {% trans "Browse Files" %}
+                        </button>
+
+                        <!-- FIXED: Proper file input integration -->
+                        {{ form.file }}
+                        {% if form.file.errors %}
+                        <div class="invalid-feedback d-block mt-2">
+                            {% for error in form.file.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                {% trans "Supported formats: PDF, DOC, DOCX, PPT, PPTX, XLSX, JPG, PNG, MP4, MP3, ZIP, TXT" %}
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- File Preview -->
+                    <div id="file-preview" class="file-preview" style="display: none;">
+                        <div class="file-info">
+                            <div class="file-icon">
+                                <i class="bi bi-file-earmark" id="file-icon"></i>
+                            </div>
+                            <div class="file-details">
+                                <div class="file-name" id="file-name"></div>
+                                <div class="file-meta" id="file-meta"></div>
+                            </div>
+                            <div class="file-actions">
+                                <button type="button" class="btn btn-outline-danger btn-sm" id="remove-file">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="preview-container" id="preview-container"></div>
+                    </div>
+
+                    <!-- External URL -->
+                    <div class="mt-3">
+                        <label for="{{ form.external_url.id_for_label }}" class="form-label">
+                            {{ form.external_url.label }}
+                        </label>
+                        {{ form.external_url }}
+                        {% if form.external_url.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.external_url.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        <div class="form-text">
+                            {% trans "Provide a URL for online resources (YouTube, Google Drive, etc.)" %}
+                        </div>
+                    </div>
+
+                    <!-- Thumbnail Upload -->
+                    <div class="mt-3">
+                        <label for="{{ form.thumbnail.id_for_label }}" class="form-label">
+                            {{ form.thumbnail.label }}
+                        </label>
+                        {{ form.thumbnail }}
+                        {% if form.thumbnail.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.thumbnail.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        <div class="form-text">
+                            {% trans "Optional thumbnail image for better presentation" %}
+                        </div>
+                        
+                        {% if form.instance.thumbnail %}
+                        <div class="mt-2">
+                            <img src="{{ form.instance.thumbnail.url }}" class="thumbnail-preview" 
+                                 alt="{% trans 'Current thumbnail' %}" id="current-thumbnail">
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Access Control Section -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="bi bi-shield-lock"></i> {% trans "Access Control" %}
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.access_level.id_for_label }}" class="form-label required-field">
+                                    {{ form.access_level.label }}
+                                </label>
+                                {{ form.access_level }}
+                                {% if form.access_level.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.access_level.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    {{ form.requires_acknowledgment.label }}
+                                </label>
+                                <div class="form-check form-switch">
+                                    {{ form.requires_acknowledgment }}
+                                </div>
+                                {% if form.requires_acknowledgment.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.requires_acknowledgment.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    {{ form.is_public.label }}
+                                </label>
+                                <div class="form-check form-switch">
+                                    {{ form.is_public }}
+                                </div>
+                                {% if form.is_public.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.is_public.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    {{ form.is_featured.label }}
+                                </label>
+                                <div class="form-check form-switch">
+                                    {{ form.is_featured }}
+                                </div>
+                                {% if form.is_featured.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.is_featured.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Publishing & Organization -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="bi bi-calendar-event"></i> {% trans "Publishing & Organization" %}
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.publish_date.id_for_label }}" class="form-label required-field">
+                                    {{ form.publish_date.label }}
+                                </label>
+                                {{ form.publish_date }}
+                                {% if form.publish_date.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.publish_date.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.expiry_date.id_for_label }}" class="form-label">
+                                    {{ form.expiry_date.label }}
+                                </label>
+                                {{ form.expiry_date }}
+                                {% if form.expiry_date.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.expiry_date.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.display_order.id_for_label }}" class="form-label">
+                                    {{ form.display_order.label }}
+                                </label>
+                                {{ form.display_order }}
+                                {% if form.display_order.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.display_order.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">
+                                    {% trans "Lower numbers appear first" %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.tags.id_for_label }}" class="form-label">
+                                    {{ form.tags.label }}
+                                </label>
+                                {{ form.tags }}
+                                {% if form.tags.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.tags.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">
+                                    {% trans "Separate tags with commas" %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-section">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <a href="{% url 'academics:material_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle me-1"></i> {% trans "Cancel" %}
+                            </a>
+                        </div>
+                        <div class="btn-group">
+                            <button type="submit" name="save" class="btn btn-primary" id="submit-btn">
+                                <i class="bi bi-check-circle me-1"></i>
+                                {% if form.instance.pk %}
+                                    {% trans "Update Material" %}
+                                {% else %}
+                                    {% trans "Create Material" %}
+                                {% endif %}
+                            </button>
+                            {% if not form.instance.pk %}
+                            <button type="submit" name="save_and_add_another" class="btn btn-outline-primary">
+                                <i class="bi bi-plus-circle me-1"></i> {% trans "Save & Add Another" %}
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Preview Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-eye me-2"></i> {% trans "Material Preview" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center" id="material-preview">
+                        <div class="material-type-icon type-other mx-auto mb-3" id="preview-icon">
+                            <i class="bi bi-file-earmark"></i>
+                        </div>
+                        <h6 id="preview-title" class="mb-1">{% trans "Material Title" %}</h6>
+                        <p class="text-muted small mb-2" id="preview-type">{% trans "Material Type" %}</p>
+                        <p class="text-muted small mb-3" id="preview-description">
+                            {% trans "Material description will appear here" %}
+                        </p>
+                        <div class="preview-meta">
+                            <span class="badge bg-secondary me-1" id="preview-access">{% trans "Public" %}</span>
+                            <span class="badge bg-info" id="preview-class">{% trans "Class" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Help -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-question-circle me-2"></i> {% trans "Quick Help" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <h6>{% trans "File Upload Tips" %}</h6>
+                    <ul class="small text-muted mb-3">
+                        <li>{% trans "Click the upload area or 'Browse Files' button" %}</li>
+                        <li>{% trans "Drag and drop files directly onto the upload area" %}</li>
+                        <li>{% trans "Maximum file size: 50MB" %}</li>
+                        <li>{% trans "Supported formats: PDF, DOC, PPT, Images, Video, Audio" %}</li>
+                    </ul>
+
+                    <h6>{% trans "Access Levels" %}</h6>
+                    <ul class="small text-muted mb-3">
+                        <li><strong>{% trans "Public:" %}</strong> {% trans "All students in class" %}</li>
+                        <li><strong>{% trans "Restricted:" %}</strong> {% trans "Specific students only" %}</li>
+                        <li><strong>{% trans "Private:" %}</strong> {% trans "Teacher only" %}</li>
+                    </ul>
+
+                    <div class="alert alert-info mt-3 small">
+                        <i class="bi bi-lightbulb me-1"></i>
+                        {% trans "Make sure to set appropriate publish dates for when students can access the material." %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class MaterialForm {
+    constructor() {
+        this.init();
+    }
+
+    init() {
+        this.setupEventListeners();
+        this.setupFileUpload();
+        this.setupCharacterCounters();
+        this.updatePreview();
+        
+        // Initialize with any existing file
+        this.checkExistingFile();
+    }
+
+    setupEventListeners() {
+        // Form field changes
+        document.getElementById('id_title').addEventListener('input', () => this.updatePreview());
+        document.getElementById('id_material_type').addEventListener('change', () => this.updatePreview());
+        document.getElementById('id_description').addEventListener('input', () => this.updatePreview());
+        document.getElementById('id_class_assigned').addEventListener('change', () => this.updatePreview());
+        document.getElementById('id_access_level').addEventListener('change', () => this.updatePreview());
+        
+        // File actions
+        document.getElementById('browse-btn').addEventListener('click', () => {
+            document.getElementById('id_file').click();
+        });
+
+        // Form submission
+        document.getElementById('material-form').addEventListener('submit', (e) => {
+            if (!this.validateForm()) {
+                e.preventDefault();
+                this.showError('{% trans "Please fix the errors in the form before submitting." %}');
+            }
+        });
+    }
+
+    setupFileUpload() {
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('id_file');
+
+        // Style the file input to be invisible but functional
+        fileInput.style.position = 'absolute';
+        fileInput.style.opacity = '0';
+        fileInput.style.width = '100%';
+        fileInput.style.height = '100%';
+        fileInput.style.top = '0';
+        fileInput.style.left = '0';
+        fileInput.style.cursor = 'pointer';
+
+        // Ensure file input is inside upload area
+        uploadArea.style.position = 'relative';
+        uploadArea.appendChild(fileInput);
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                this.handleFileSelect(files[0]);
+                // Update the file input
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(files[0]);
+                fileInput.files = dataTransfer.files;
+            }
+        });
+    }
+
+    setupCharacterCounters() {
+        const titleInput = document.getElementById('id_title');
+        const descriptionInput = document.getElementById('id_description');
+        
+        titleInput.addEventListener('input', () => {
+            this.updateCharacterCount('title-count', titleInput.value.length, 200);
+        });
+        
+        descriptionInput.addEventListener('input', () => {
+            this.updateCharacterCount('description-count', descriptionInput.value.length, 1000);
+        });
+
+        // Initialize counts
+        this.updateCharacterCount('title-count', titleInput.value.length, 200);
+        this.updateCharacterCount('description-count', descriptionInput.value.length, 1000);
+    }
+
+    updateCharacterCount(elementId, count, max) {
+        const element = document.getElementById(elementId);
+        element.textContent = `${count}/${max}`;
+        
+        element.classList.remove('warning', 'error');
+        if (count > max) {
+            element.classList.add('error');
+        } else if (count > max * 0.8) {
+            element.classList.add('warning');
+        }
+    }
+
+    checkExistingFile() {
+        const fileInput = document.getElementById('id_file');
+        if (fileInput.files.length > 0) {
+            this.handleFileSelect(fileInput.files[0]);
+        }
+    }
+
+    handleFileSelect(file) {
+        if (!this.validateFile(file)) return;
+
+        this.displayFileInfo(file);
+    }
+
+    validateFile(file) {
+        const validExtensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xlsx', '.jpg', '.jpeg', '.png', '.mp4', '.mp3', '.zip', '.txt'];
+        const maxSize = 50 * 1024 * 1024; // 50MB
+
+        const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+        if (!validExtensions.includes(fileExtension)) {
+            this.showError('{% trans "Please upload a supported file type: PDF, DOC, DOCX, PPT, PPTX, XLSX, JPG, PNG, MP4, MP3, ZIP, TXT" %}');
+            return false;
+        }
+
+        if (file.size > maxSize) {
+            this.showError('{% trans "File size must be less than 50MB" %}');
+            return false;
+        }
+
+        return true;
+    }
+
+    displayFileInfo(file) {
+        const fileInfo = {
+            name: file.name,
+            size: this.formatFileSize(file.size),
+            type: this.getFileType(file.name),
+            icon: this.getFileIcon(file.name)
+        };
+
+        document.getElementById('file-name').textContent = fileInfo.name;
+        document.getElementById('file-meta').textContent = `${fileInfo.size} • ${fileInfo.type}`;
+        document.getElementById('file-icon').className = `bi ${fileInfo.icon}`;
+        
+        // Show preview based on file type
+        this.showFilePreview(file, fileInfo.type);
+        
+        document.getElementById('file-preview').style.display = 'block';
+
+        // Setup remove file button
+        const removeBtn = document.getElementById('remove-file');
+        removeBtn.onclick = () => this.removeFile();
+    }
+
+    showFilePreview(file, fileType) {
+        const previewContainer = document.getElementById('preview-container');
+        previewContainer.innerHTML = '';
+
+        if (fileType === 'image') {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewContainer.innerHTML = `<img src="${e.target.result}" class="preview-image" alt="Preview">`;
+            };
+            reader.readAsDataURL(file);
+        } else {
+            const iconClass = this.getPreviewIcon(fileType);
+            previewContainer.innerHTML = `<div class="preview-document"><i class="bi ${iconClass}"></i></div>`;
+        }
+    }
+
+    getFileType(filename) {
+        const extension = filename.split('.').pop().toLowerCase();
+        const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'bmp'];
+        const videoTypes = ['mp4', 'avi', 'mov', 'wmv'];
+        const audioTypes = ['mp3', 'wav', 'ogg'];
+        const documentTypes = ['pdf', 'doc', 'docx', 'txt'];
+        const presentationTypes = ['ppt', 'pptx'];
+        const spreadsheetTypes = ['xls', 'xlsx'];
+
+        if (imageTypes.includes(extension)) return 'image';
+        if (videoTypes.includes(extension)) return 'video';
+        if (audioTypes.includes(extension)) return 'audio';
+        if (documentTypes.includes(extension)) return 'document';
+        if (presentationTypes.includes(extension)) return 'presentation';
+        if (spreadsheetTypes.includes(extension)) return 'spreadsheet';
+        return 'other';
+    }
+
+    getFileIcon(filename) {
+        const type = this.getFileType(filename);
+        switch(type) {
+            case 'image': return 'bi-file-image';
+            case 'video': return 'bi-file-play';
+            case 'audio': return 'bi-file-music';
+            case 'document': return 'bi-file-text';
+            case 'presentation': return 'bi-file-slides';
+            case 'spreadsheet': return 'bi-file-spreadsheet';
+            default: return 'bi-file-earmark';
+        }
+    }
+
+    getPreviewIcon(fileType) {
+        switch(fileType) {
+            case 'image': return 'bi-file-image';
+            case 'video': return 'bi-file-play';
+            case 'audio': return 'bi-file-music';
+            case 'document': return 'bi-file-text';
+            case 'presentation': return 'bi-file-slides';
+            case 'spreadsheet': return 'bi-file-spreadsheet';
+            default: return 'bi-file-earmark';
+        }
+    }
+
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    removeFile() {
+        const fileInput = document.getElementById('id_file');
+        fileInput.value = '';
+        document.getElementById('file-preview').style.display = 'none';
+    }
+
+    updatePreview() {
+        const title = document.getElementById('id_title').value || '{% trans "Material Title" %}';
+        const materialType = document.getElementById('id_material_type').value || 'other';
+        const description = document.getElementById('id_description').value || '{% trans "Material description will appear here" %}';
+        const accessLevel = document.getElementById('id_access_level').value || 'public';
+        const classAssigned = document.getElementById('id_class_assigned');
+        const className = classAssigned.options[classAssigned.selectedIndex]?.text || '{% trans "Class" %}';
+
+        // Update preview elements
+        document.getElementById('preview-title').textContent = title;
+        document.getElementById('preview-type').textContent = this.getMaterialTypeText(materialType);
+        document.getElementById('preview-description').textContent = description.length > 100 ? description.substring(0, 100) + '...' : description;
+        document.getElementById('preview-access').textContent = this.getAccessLevelText(accessLevel);
+        document.getElementById('preview-class').textContent = className;
+
+        // Update icon
+        const previewIcon = document.getElementById('preview-icon');
+        previewIcon.className = `material-type-icon type-${materialType} mx-auto mb-3`;
+        previewIcon.innerHTML = `<i class="bi ${this.getMaterialTypeIcon(materialType)}"></i>`;
+    }
+
+    getMaterialTypeText(type) {
+        const types = {
+            'textbook': '{% trans "Textbook" %}',
+            'worksheet': '{% trans "Worksheet" %}',
+            'presentation': '{% trans "Presentation" %}',
+            'video': '{% trans "Video" %}',
+            'audio': '{% trans "Audio" %}',
+            'document': '{% trans "Document" %}',
+            'link': '{% trans "Link" %}',
+            'quiz': '{% trans "Quiz" %}',
+            'assignment': '{% trans "Assignment" %}',
+            'syllabus': '{% trans "Syllabus" %}',
+            'other': '{% trans "Other" %}'
+        };
+        return types[type] || '{% trans "Material" %}';
+    }
+
+    getAccessLevelText(level) {
+        const levels = {
+            'public': '{% trans "Public" %}',
+            'restricted': '{% trans "Restricted" %}',
+            'private': '{% trans "Private" %}'
+        };
+        return levels[level] || '{% trans "Public" %}';
+    }
+
+    getMaterialTypeIcon(type) {
+        const icons = {
+            'textbook': 'bi-journal-text',
+            'worksheet': 'bi-file-earmark-spreadsheet',
+            'presentation': 'bi-easel',
+            'video': 'bi-play-circle',
+            'audio': 'bi-mic',
+            'document': 'bi-file-text',
+            'link': 'bi-link',
+            'quiz': 'bi-question-circle',
+            'assignment': 'bi-pencil',
+            'syllabus': 'bi-journal-bookmark',
+            'other': 'bi-file-earmark'
+        };
+        return icons[type] || 'bi-file-earmark';
+    }
+
+    validateForm() {
+        let isValid = true;
+        const title = document.getElementById('id_title').value.trim();
+        const materialType = document.getElementById('id_material_type').value;
+        const subject = document.getElementById('id_subject').value;
+        const classAssigned = document.getElementById('id_class_assigned').value;
+        const publishDate = document.getElementById('id_publish_date').value;
+        const fileInput = document.getElementById('id_file');
+        const externalUrl = document.getElementById('id_external_url').value.trim();
+
+        // Clear previous errors
+        this.clearErrors();
+
+        if (!title) {
+            this.showFieldError('id_title', '{% trans "Title is required" %}');
+            isValid = false;
+        }
+
+        if (!materialType) {
+            this.showFieldError('id_material_type', '{% trans "Material type is required" %}');
+            isValid = false;
+        }
+
+        if (!subject) {
+            this.showFieldError('id_subject', '{% trans "Subject is required" %}');
+            isValid = false;
+        }
+
+        if (!classAssigned) {
+            this.showFieldError('id_class_assigned', '{% trans "Class is required" %}');
+            isValid = false;
+        }
+
+        if (!publishDate) {
+            this.showFieldError('id_publish_date', '{% trans "Publish date is required" %}');
+            isValid = false;
+        }
+
+        // Either file or external URL is required
+        if (fileInput.files.length === 0 && !externalUrl) {
+            this.showError('{% trans "Either a file or external URL is required" %}');
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
+    clearErrors() {
+        document.querySelectorAll('.is-invalid').forEach(el => {
+            el.classList.remove('is-invalid');
+        });
+    }
+
+    showFieldError(fieldId, message) {
+        const field = document.getElementById(fieldId);
+        field.classList.add('is-invalid');
+        
+        let feedback = field.nextElementSibling;
+        if (!feedback || !feedback.classList.contains('invalid-feedback')) {
+            feedback = document.createElement('div');
+            feedback.className = 'invalid-feedback';
+            field.parentNode.appendChild(feedback);
+        }
+        feedback.textContent = message;
+    }
+
+    showError(message) {
+        // Create a temporary alert
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger alert-dismissible fade show';
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        const form = document.getElementById('material-form');
+        form.insertBefore(alert, form.firstChild);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+}
+
+// Initialize when document is ready
+document.addEventListener('DOMContentLoaded', function() {
+    window.materialForm = new MaterialForm();
+});
+</script>
+{% endblock %}

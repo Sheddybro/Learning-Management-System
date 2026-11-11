@@ -1,0 +1,831 @@
+<!-- templates/transport/routeschedules/routeschedule_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if object %}{% trans "Update Route Schedule" %}{% else %}{% trans "Create Route Schedule" %}{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if object %}{% trans "Update Route Schedule" %}{% else %}{% trans "Create Route Schedule" %}{% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:routeschedule_list' %}">{% trans "Route Schedules" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if object %}{% trans "Update Schedule" %}{% else %}{% trans "Create Schedule" %}{% endif %}
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .schedule-form-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .form-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .form-section h5 {
+        color: #0d6efd;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .form-section h5 i {
+        margin-right: 0.5rem;
+    }
+    
+    .time-input-group {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .time-input-group .form-label {
+        min-width: 120px;
+        margin-bottom: 0;
+    }
+    
+    .days-selector {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    
+    .day-checkbox {
+        display: none;
+    }
+    
+    .day-label {
+        padding: 0.5rem 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 500;
+        text-align: center;
+        min-width: 80px;
+    }
+    
+    .day-checkbox:checked + .day-label {
+        background-color: #0d6efd;
+        color: white;
+        border-color: #0d6efd;
+    }
+    
+    .resource-card {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .resource-card:hover {
+        border-color: #0d6efd;
+        background-color: #f8f9ff;
+    }
+    
+    .resource-card.selected {
+        border-color: #0d6efd;
+        background-color: #e7f1ff;
+    }
+    
+    .resource-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        margin-right: 1rem;
+    }
+    
+    .vehicle-icon {
+        background-color: #e7f1ff;
+        color: #0d6efd;
+    }
+    
+    .driver-icon {
+        background-color: #e8f5e8;
+        color: #198754;
+    }
+    
+    .attendant-icon {
+        background-color: #fef7e6;
+        color: #fd7e14;
+    }
+    
+    .availability-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .schedule-preview {
+        background-color: #fff;
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-top: 1.5rem;
+    }
+    
+    .preview-item {
+        display: flex;
+        justify-content: between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .preview-item:last-child {
+        border-bottom: none;
+    }
+    
+    .preview-label {
+        font-weight: 600;
+        color: #6c757d;
+        min-width: 150px;
+    }
+    
+    .conflict-alert {
+        border-left: 4px solid #dc3545;
+        background-color: #f8d7da;
+    }
+    
+    .success-alert {
+        border-left: 4px solid #198754;
+        background-color: #d1e7dd;
+    }
+    
+    .btn-submit {
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        border-radius: 8px;
+        min-width: 150px;
+    }
+    
+    .time-validation {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    .capacity-warning {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    .resource-details {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="route-schedule-form">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card schedule-form-card">
+                <div class="card-body">
+                    <form method="post" id="scheduleForm">
+                        {% csrf_token %}
+                        
+                        <!-- Basic Information Section -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-info-circle"></i> {% trans "Basic Information" %}</h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.route.id_for_label }}" class="form-label">
+                                        {% trans "Route" %} *
+                                    </label>
+                                    {{ form.route }}
+                                    {% if form.route.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ form.route.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.academic_session.id_for_label }}" class="form-label">
+                                        {% trans "Academic Session" %} *
+                                    </label>
+                                    {{ form.academic_session }}
+                                    {% if form.academic_session.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ form.academic_session.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Status" %}</label>
+                                {{ form.status }}
+                                {% if form.status.errors %}
+                                <div class="text-danger small mt-1">
+                                    {{ form.status.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Timing Information Section -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-clock"></i> {% trans "Timing Information" %}</h5>
+                            
+                            <!-- Morning Schedule -->
+                            <div class="mb-4">
+                                <h6 class="text-primary">{% trans "Morning Schedule" %}</h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.morning_start_time.id_for_label }}" class="form-label">
+                                            {% trans "Start Time" %} *
+                                        </label>
+                                        {{ form.morning_start_time }}
+                                        {% if form.morning_start_time.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {{ form.morning_start_time.errors }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.morning_end_time.id_for_label }}" class="form-label">
+                                            {% trans "End Time" %} *
+                                        </label>
+                                        {{ form.morning_end_time }}
+                                        {% if form.morning_end_time.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {{ form.morning_end_time.errors }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Evening Schedule -->
+                            <div class="mb-3">
+                                <h6 class="text-primary">{% trans "Evening Schedule (Optional)" %}</h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.evening_start_time.id_for_label }}" class="form-label">
+                                            {% trans "Start Time" %}
+                                        </label>
+                                        {{ form.evening_start_time }}
+                                        {% if form.evening_start_time.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {{ form.evening_start_time.errors }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.evening_end_time.id_for_label }}" class="form-label">
+                                            {% trans "End Time" %}
+                                        </label>
+                                        {{ form.evening_end_time }}
+                                        {% if form.evening_end_time.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {{ form.evening_end_time.errors }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Days of Week -->
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Operating Days" %} *</label>
+                                <div class="days-selector">
+                                    {% for day_num, day_name in day_choices %}
+                                    <input type="checkbox" 
+                                           name="days" 
+                                           value="{{ day_num }}" 
+                                           id="day_{{ day_num }}" 
+                                           class="day-checkbox"
+                                           {% if day_num|stringformat:"i" in form.days_of_week.value %}checked{% endif %}>
+                                    <label for="day_{{ day_num }}" class="day-label">
+                                        {{ day_name }}
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                <input type="hidden" name="days_of_week" id="id_days_of_week" value="{{ form.days_of_week.value }}">
+                                {% if form.days_of_week.errors %}
+                                <div class="text-danger small mt-1">
+                                    {{ form.days_of_week.errors }}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">{% trans "Select all days when this schedule operates" %}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Resource Assignment Section -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-users"></i> {% trans "Resource Assignment" %}</h5>
+                            
+                            <!-- Vehicle Selection -->
+                            <div class="mb-4">
+                                <label class="form-label">{% trans "Select Vehicle" %} *</label>
+                                <div id="vehicle-selection">
+                                    {% for vehicle in available_vehicles %}
+                                    <div class="resource-card vehicle-card" data-vehicle-id="{{ vehicle.id }}">
+                                        <div class="d-flex align-items-center">
+                                            <div class="resource-icon vehicle-icon">
+                                                <i class="fas fa-bus"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1">{{ vehicle.vehicle_number }}</h6>
+                                                <p class="resource-details mb-1">
+                                                    {{ vehicle.make }} {{ vehicle.model }} • 
+                                                    {{ vehicle.seating_capacity }} {% trans "seats" %} • 
+                                                    {{ vehicle.available_seats }} {% trans "available" %}
+                                                </p>
+                                                <div>
+                                                    <span class="badge bg-primary availability-badge">{{ vehicle.get_vehicle_type_display }}</span>
+                                                    <span class="badge bg-success availability-badge">{{ vehicle.get_fuel_type_display }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="vehicle" value="{{ vehicle.id }}" 
+                                                       id="vehicle_{{ vehicle.id }}" 
+                                                       {% if form.vehicle.value == vehicle.id %}checked{% endif %}>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% empty %}
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        {% trans "No available vehicles found. Please add vehicles first." %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {{ form.vehicle }}
+                                {% if form.vehicle.errors %}
+                                <div class="text-danger small mt-1">
+                                    {{ form.vehicle.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Driver Selection -->
+                            <div class="mb-4">
+                                <label class="form-label">{% trans "Select Driver" %} *</label>
+                                <div id="driver-selection">
+                                    {% for driver in available_drivers %}
+                                    <div class="resource-card driver-card" data-driver-id="{{ driver.id }}">
+                                        <div class="d-flex align-items-center">
+                                            <div class="resource-icon driver-icon">
+                                                <i class="fas fa-id-card"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1">{{ driver.user.get_full_name }}</h6>
+                                                <p class="resource-details mb-1">
+                                                    {{ driver.employee_id }} • 
+                                                    {{ driver.get_license_type_display }} •
+                                                    {% trans "License expires:" %} {{ driver.license_expiry }}
+                                                </p>
+                                                <div>
+                                                    <span class="badge bg-success availability-badge">
+                                                        {{ driver.get_status_display }}
+                                                    </span>
+                                                    {% if driver.is_license_expired %}
+                                                    <span class="badge bg-danger availability-badge">{% trans "License Expired" %}</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="driver" value="{{ driver.id }}" 
+                                                       id="driver_{{ driver.id }}"
+                                                       {% if form.driver.value == driver.id %}checked{% endif %}>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% empty %}
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        {% trans "No available drivers found. Please add drivers first." %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {{ form.driver }}
+                                {% if form.driver.errors %}
+                                <div class="text-danger small mt-1">
+                                    {{ form.driver.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Attendant Selection -->
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Select Attendant (Optional)" %}</label>
+                                <div id="attendant-selection">
+                                    <div class="resource-card attendant-card" data-attendant-id="">
+                                        <div class="d-flex align-items-center">
+                                            <div class="resource-icon attendant-icon">
+                                                <i class="fas fa-user-friends"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1">{% trans "No Attendant" %}</h6>
+                                                <p class="resource-details mb-0">
+                                                    {% trans "Schedule without attendant" %}
+                                                </p>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="attendant" value="" 
+                                                       id="attendant_none" {% if not form.attendant.value %}checked{% endif %}>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {% for attendant in available_attendants %}
+                                    <div class="resource-card attendant-card" data-attendant-id="{{ attendant.id }}">
+                                        <div class="d-flex align-items-center">
+                                            <div class="resource-icon attendant-icon">
+                                                <i class="fas fa-user-friends"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1">{{ attendant.user.get_full_name }}</h6>
+                                                <p class="resource-details mb-1">
+                                                    {{ attendant.employee_id }} • 
+                                                    {{ attendant.responsibilities|truncatewords:5 }}
+                                                </p>
+                                                <span class="badge bg-success availability-badge">
+                                                    {{ attendant.get_status_display }}
+                                                </span>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="attendant" value="{{ attendant.id }}" 
+                                                       id="attendant_{{ attendant.id }}"
+                                                       {% if form.attendant.value == attendant.id %}checked{% endif %}>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {{ form.attendant }}
+                                {% if form.attendant.errors %}
+                                <div class="text-danger small mt-1">
+                                    {{ form.attendant.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Validation and Preview -->
+                        <div id="validation-section" style="display: none;">
+                            <div class="alert" id="validation-alert">
+                                <!-- Validation messages will appear here -->
+                            </div>
+                            
+                            <div class="schedule-preview">
+                                <h6>{% trans "Schedule Preview" %}</h6>
+                                <div class="preview-item">
+                                    <span class="preview-label">{% trans "Route:" %}</span>
+                                    <span id="preview-route">-</span>
+                                </div>
+                                <div class="preview-item">
+                                    <span class="preview-label">{% trans "Vehicle:" %}</span>
+                                    <span id="preview-vehicle">-</span>
+                                </div>
+                                <div class="preview-item">
+                                    <span class="preview-label">{% trans "Driver:" %}</span>
+                                    <span id="preview-driver">-</span>
+                                </div>
+                                <div class="preview-item">
+                                    <span class="preview-label">{% trans "Operating Days:" %}</span>
+                                    <span id="preview-days">-</span>
+                                </div>
+                                <div class="preview-item">
+                                    <span class="preview-label">{% trans "Morning Timings:" %}</span>
+                                    <span id="preview-morning">-</span>
+                                </div>
+                                <div class="preview-item">
+                                    <span class="preview-label">{% trans "Evening Timings:" %}</span>
+                                    <span id="preview-evening">-</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="d-flex justify-content-between align-items-center mt-4">
+                            <a href="{% url 'transport:routeschedule_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                {% trans "Back to List" %}
+                            </a>
+                            
+                            <div class="d-flex gap-2">
+                                {% if object %}
+                                <a href="{% url 'transport:routeschedule_detail' object.pk %}" class="btn btn-outline-info">
+                                    <i class="fas fa-eye me-2"></i>
+                                    {% trans "View Details" %}
+                                </a>
+                                {% endif %}
+                                
+                                <button type="submit" class="btn btn-primary btn-submit">
+                                    <i class="fas fa-save me-2"></i>
+                                    {% if object %}{% trans "Update Schedule" %}{% else %}{% trans "Create Schedule" %}{% endif %}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Help Section -->
+        <div class="col-lg-4">
+            <div class="card schedule-form-card">
+                <div class="card-body">
+                    <h5 class="card-title">{% trans "Schedule Guidelines" %}</h5>
+                    
+                    <div class="mb-3">
+                        <h6><i class="fas fa-lightbulb text-warning me-2"></i>{% trans "Best Practices" %}</h6>
+                        <ul class="small text-muted">
+                            <li>{% trans "Ensure morning and evening schedules don't overlap" %}</li>
+                            <li>{% trans "Check vehicle availability for selected days" %}</li>
+                            <li>{% trans "Verify driver's license validity" %}</li>
+                            <li>{% trans "Consider traffic patterns for timing" %}</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6><i class="fas fa-exclamation-triangle text-danger me-2"></i>{% trans "Common Issues" %}</h6>
+                        <ul class="small text-muted">
+                            <li>{% trans "Scheduling conflicts with existing routes" %}</li>
+                            <li>{% trans "Vehicle maintenance during operation days" %}</li>
+                            <li>{% trans "Driver availability conflicts" %}</li>
+                            <li>{% trans "Insufficient seating capacity" %}</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6><i class="fas fa-question-circle text-info me-2"></i>{% trans "Need Help?" %}</h6>
+                        <p class="small text-muted mb-2">
+                            {% trans "Check the route optimization page for better scheduling suggestions." %}
+                        </p>
+                        <a href="{% url 'transport:route_optimization' %}" class="btn btn-sm btn-outline-info">
+                            <i class="fas fa-magic me-1"></i> {% trans "Optimize Routes" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="card schedule-form-card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title">{% trans "Quick Actions" %}</h5>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'transport:vehicle_create' %}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-plus me-1"></i> {% trans "Add Vehicle" %}
+                        </a>
+                        <a href="{% url 'transport:driver_create' %}" class="btn btn-outline-success btn-sm">
+                            <i class="fas fa-plus me-1"></i> {% trans "Add Driver" %}
+                        </a>
+                        <a href="{% url 'transport:attendant_create' %}" class="btn btn-outline-warning btn-sm">
+                            <i class="fas fa-plus me-1"></i> {% trans "Add Attendant" %}
+                        </a>
+                        <a href="{% url 'transport:route_create' %}" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-plus me-1"></i> {% trans "Create Route" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Days of week selection
+        const dayCheckboxes = document.querySelectorAll('.day-checkbox');
+        const daysHiddenInput = document.getElementById('id_days_of_week');
+        
+        function updateDaysOfWeek() {
+            const selectedDays = Array.from(dayCheckboxes)
+                .filter(checkbox => checkbox.checked)
+                .map(checkbox => checkbox.value)
+                .sort();
+            daysHiddenInput.value = selectedDays.join(',');
+            updatePreview();
+        }
+        
+        dayCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateDaysOfWeek);
+        });
+        
+        // Resource card selection
+        function setupResourceSelection(selector, inputName) {
+            const cards = document.querySelectorAll(selector);
+            cards.forEach(card => {
+                card.addEventListener('click', function(e) {
+                    if (!e.target.matches('input[type="radio"]')) {
+                        const radio = this.querySelector('input[type="radio"]');
+                        if (radio) {
+                            radio.checked = true;
+                            // Trigger change event
+                            radio.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
+                    
+                    // Update card styles
+                    cards.forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+                
+                // Also handle radio change
+                const radio = card.querySelector('input[type="radio"]');
+                if (radio) {
+                    radio.addEventListener('change', function() {
+                        if (this.checked) {
+                            cards.forEach(c => c.classList.remove('selected'));
+                            card.classList.add('selected');
+                            updatePreview();
+                            validateSchedule();
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Initialize resource selection
+        setupResourceSelection('.vehicle-card', 'vehicle');
+        setupResourceSelection('.driver-card', 'driver');
+        setupResourceSelection('.attendant-card', 'attendant');
+        
+        // Time validation
+        const morningStart = document.getElementById('{{ form.morning_start_time.id_for_label }}');
+        const morningEnd = document.getElementById('{{ form.morning_end_time.id_for_label }}');
+        const eveningStart = document.getElementById('{{ form.evening_start_time.id_for_label }}');
+        const eveningEnd = document.getElementById('{{ form.evening_end_time.id_for_label }}');
+        
+        function validateTimes() {
+            let isValid = true;
+            const messages = [];
+            
+            // Morning time validation
+            if (morningStart.value && morningEnd.value) {
+                if (morningEnd.value <= morningStart.value) {
+                    isValid = false;
+                    messages.push('{% trans "Morning end time must be after start time" %}');
+                }
+            }
+            
+            // Evening time validation
+            if (eveningStart.value && eveningEnd.value) {
+                if (eveningEnd.value <= eveningStart.value) {
+                    isValid = false;
+                    messages.push('{% trans "Evening end time must be after start time" %}');
+                }
+                
+                // Check if evening starts after morning ends
+                if (morningEnd.value && eveningStart.value <= morningEnd.value) {
+                    isValid = false;
+                    messages.push('{% trans "Evening start time must be after morning end time" %}');
+                }
+            }
+            
+            return { isValid, messages };
+        }
+        
+        // Update preview function
+        function updatePreview() {
+            // Route
+            const routeSelect = document.getElementById('{{ form.route.id_for_label }}');
+            const selectedRoute = routeSelect.options[routeSelect.selectedIndex];
+            document.getElementById('preview-route').textContent = selectedRoute.text;
+            
+            // Vehicle
+            const selectedVehicle = document.querySelector('input[name="vehicle"]:checked');
+            if (selectedVehicle) {
+                const vehicleCard = document.querySelector(`[data-vehicle-id="${selectedVehicle.value}"]`);
+                if (vehicleCard) {
+                    const vehicleName = vehicleCard.querySelector('h6').textContent;
+                    document.getElementById('preview-vehicle').textContent = vehicleName;
+                }
+            }
+            
+            // Driver
+            const selectedDriver = document.querySelector('input[name="driver"]:checked');
+            if (selectedDriver) {
+                const driverCard = document.querySelector(`[data-driver-id="${selectedDriver.value}"]`);
+                if (driverCard) {
+                    const driverName = driverCard.querySelector('h6').textContent;
+                    document.getElementById('preview-driver').textContent = driverName;
+                }
+            }
+            
+            // Days
+            const selectedDays = Array.from(dayCheckboxes)
+                .filter(cb => cb.checked)
+                .map(cb => cb.nextElementSibling.textContent)
+                .join(', ');
+            document.getElementById('preview-days').textContent = selectedDays || '-';
+            
+            // Timings
+            document.getElementById('preview-morning').textContent = 
+                `${morningStart.value || '-'} to ${morningEnd.value || '-'}`;
+            document.getElementById('preview-evening').textContent = 
+                `${eveningStart.value || '-'} to ${eveningEnd.value || '-'}`;
+        }
+        
+        // Schedule validation
+        function validateSchedule() {
+            const timeValidation = validateTimes();
+            const validationSection = document.getElementById('validation-section');
+            const validationAlert = document.getElementById('validation-alert');
+            
+            if (!timeValidation.isValid || !checkResourceAvailability()) {
+                validationSection.style.display = 'block';
+                validationAlert.className = 'alert alert-danger conflict-alert';
+                validationAlert.innerHTML = `
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>{% trans "Schedule Issues Found:" %}</strong>
+                    <ul class="mb-0 mt-2">
+                        ${timeValidation.messages.map(msg => `<li>${msg}</li>`).join('')}
+                    </ul>
+                `;
+                return false;
+            } else {
+                validationSection.style.display = 'block';
+                validationAlert.className = 'alert alert-success success-alert';
+                validationAlert.innerHTML = `
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>{% trans "Schedule looks good!" %}</strong>
+                    <p class="mb-0 mt-1">{% trans "All validations passed. You can save this schedule." %}</p>
+                `;
+                return true;
+            }
+        }
+        
+        // Resource availability check (simplified)
+        function checkResourceAvailability() {
+            // This would typically make API calls to check for conflicts
+            return true;
+        }
+        
+        // Event listeners for real-time validation
+        [morningStart, morningEnd, eveningStart, eveningEnd].forEach(input => {
+            if (input) {
+                input.addEventListener('change', function() {
+                    validateSchedule();
+                    updatePreview();
+                });
+            }
+        });
+        
+        document.getElementById('{{ form.route.id_for_label }}').addEventListener('change', function() {
+            updatePreview();
+            validateSchedule();
+        });
+        
+        // Initialize
+        updateDaysOfWeek();
+        updatePreview();
+        validateSchedule();
+        
+        // Form submission validation
+        document.getElementById('scheduleForm').addEventListener('submit', function(e) {
+            if (!validateSchedule()) {
+                e.preventDefault();
+                alert('{% trans "Please fix the validation errors before submitting." %}');
+            }
+        });
+        
+        // Auto-select first available resources if none selected (for new schedules)
+        {% if not object %}
+        setTimeout(() => {
+            const firstVehicle = document.querySelector('.vehicle-card input[type="radio"]');
+            const firstDriver = document.querySelector('.driver-card input[type="radio"]');
+            
+            if (firstVehicle && !document.querySelector('input[name="vehicle"]:checked')) {
+                firstVehicle.checked = true;
+                firstVehicle.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            
+            if (firstDriver && !document.querySelector('input[name="driver"]:checked')) {
+                firstDriver.checked = true;
+                firstDriver.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, 100);
+        {% endif %}
+    });
+</script>
+{% endblock %}

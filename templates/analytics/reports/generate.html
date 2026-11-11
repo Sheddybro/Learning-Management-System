@@ -1,0 +1,800 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Generate Report" %}{% endblock %}
+
+{% block body_class %}analytics-reports-generate{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'analytics:dashboard' %}">{% trans "Analytics" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'analytics:report_list' %}">{% trans "Reports" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Generate" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'analytics:report_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>{% trans "Back to Reports" %}
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.report-generate-container {
+    max-width: 100%;
+}
+
+.generation-hero {
+    background: linear-gradient(135deg, var(--bs-primary), #0d6efd);
+    color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.generation-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 250px;
+    height: 250px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    transform: translate(50%, -50%);
+}
+
+.form-section {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.form-section:hover {
+    border-color: var(--bs-primary);
+}
+
+.section-title {
+    color: var(--bs-primary);
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    border-bottom: 2px solid var(--bs-light);
+    padding-bottom: 0.5rem;
+}
+
+.section-title i {
+    margin-right: 0.75rem;
+    color: var(--bs-primary);
+}
+
+.form-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--bs-dark);
+}
+
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 2px solid var(--bs-border-color);
+    transition: all 0.3s ease;
+    padding: 0.75rem;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    transform: translateY(-1px);
+}
+
+.form-text {
+    color: var(--bs-secondary);
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+}
+
+.checkbox-group {
+    background: var(--bs-light);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+}
+
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.checkbox-item {
+    background: white;
+    border-radius: 6px;
+    padding: 1rem;
+    border: 2px solid var(--bs-border-color);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.checkbox-item:hover {
+    border-color: var(--bs-primary);
+    transform: translateY(-1px);
+}
+
+.checkbox-item.selected {
+    border-color: var(--bs-primary);
+    background: var(--bs-primary);
+    color: white;
+}
+
+.checkbox-item .form-check-input {
+    margin-right: 0.75rem;
+}
+
+.preview-section {
+    background: var(--bs-light);
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.preview-report {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid var(--bs-border-color);
+}
+
+.generation-progress {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.progress-spinner {
+    width: 4rem;
+    height: 4rem;
+    border: 6px solid var(--bs-light);
+    border-top: 6px solid var(--bs-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1.5rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.btn-generate {
+    background: linear-gradient(135deg, var(--bs-success), #28a745);
+    border: none;
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+}
+
+.btn-generate:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+    background: linear-gradient(135deg, #218838, #1e7e34);
+}
+
+.btn-generate:disabled {
+    background: var(--bs-secondary);
+    transform: none;
+    box-shadow: none;
+}
+
+@media (max-width: 768px) {
+    .generation-hero {
+        padding: 1.5rem;
+    }
+
+    .form-section {
+        padding: 1.5rem;
+    }
+
+    .checkbox-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .btn-generate {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="report-generate-container">
+    <!-- Generation Hero Section -->
+    <div class="generation-hero">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <h1 class="display-5 fw-bold mb-3">
+                    <i class="bi bi-file-earmark-plus me-3"></i>
+                    {% trans "Generate Analytics Report" %}
+                </h1>
+                <p class="lead mb-0 opacity-90">
+                    {% trans "Create comprehensive reports with custom parameters and data visualizations." %}
+                </p>
+            </div>
+            <div class="col-lg-4 text-center">
+                <div class="bg-white bg-opacity-20 rounded p-4 d-inline-block">
+                    <i class="bi bi-graph-up display-1 text-white"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Generation Form -->
+    <form method="post" id="reportGenerationForm" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {% for error in form.non_field_errors %}
+                <p class="mb-0">{{ error }}</p>
+            {% endfor %}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endif %}
+
+        <!-- Basic Information Section -->
+        <div class="form-section">
+            <h5 class="section-title">
+                <i class="bi bi-info-circle"></i>{% trans "Report Configuration" %}
+            </h5>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.name.id_for_label }}" class="form-label">{{ form.name.label }} *</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}
+                        <div class="invalid-feedback">{{ form.name.errors.0 }}</div>
+                    {% endif %}
+                    <div class="form-text">{% trans "Enter a descriptive name for your report" %}</div>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.report_type.id_for_label }}" class="form-label">{{ form.report_type.label }} *</label>
+                    {{ form.report_type }}
+                    {% if form.report_type.errors %}
+                        <div class="invalid-feedback">{{ form.report_type.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.academic_session.id_for_label }}" class="form-label">{{ form.academic_session.label }} *</label>
+                    {{ form.academic_session }}
+                    {% if form.academic_session.errors %}
+                        <div class="invalid-feedback">{{ form.academic_session.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.format.id_for_label }}" class="form-label">{{ form.format.label }} *</label>
+                    {{ form.format }}
+                    {% if form.format.errors %}
+                        <div class="invalid-feedback">{{ form.format.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="{{ form.description.id_for_label }}" class="form-label">{{ form.description.label }}</label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                    <div class="invalid-feedback">{{ form.description.errors.0 }}</div>
+                {% endif %}
+                <div class="form-text">{% trans "Provide additional context for this report" %}</div>
+            </div>
+        </div>
+
+        <!-- Data Filters Section -->
+        <div class="form-section">
+            <h5 class="section-title">
+                <i class="bi bi-funnel"></i>{% trans "Data Filters" %}
+            </h5>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.date_from.id_for_label }}" class="form-label">{{ form.date_from.label }}</label>
+                    {{ form.date_from }}
+                    {% if form.date_from.errors %}
+                        <div class="invalid-feedback">{{ form.date_from.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.date_to.id_for_label }}" class="form-label">{{ form.date_to.label }}</label>
+                    {{ form.date_to }}
+                    {% if form.date_to.errors %}
+                        <div class="invalid-feedback">{{ form.date_to.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.subject.id_for_label }}" class="form-label">{{ form.subject.label }}</label>
+                    {{ form.subject }}
+                    {% if form.subject.errors %}
+                        <div class="invalid-feedback">{{ form.subject.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.academic_class.id_for_label }}" class="form-label">{{ form.academic_class.label }}</label>
+                    {{ form.academic_class }}
+                    {% if form.academic_class.errors %}
+                        <div class="invalid-feedback">{{ form.academic_class.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Options Section -->
+        <div class="form-section">
+            <h5 class="section-title">
+                <i class="bi bi-gear"></i>{% trans "Report Options" %}
+            </h5>
+
+            <div class="checkbox-group">
+                <h6 class="mb-3">{% trans "Include the following data:" %}</h6>
+                <div class="checkbox-grid">
+                    <div class="checkbox-item" data-field="performance">
+                        <div class="form-check">
+                            {{ form.include_performance }}
+                            <label class="form-check-label" for="{{ form.include_performance.id_for_label }}">
+                                <strong>{% trans "Performance Data" %}</strong>
+                                <br>
+                                <small>{% trans "Student grades and assessment results" %}</small>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="checkbox-item" data-field="attendance">
+                        <div class="form-check">
+                            {{ form.include_attendance }}
+                            <label class="form-check-label" for="{{ form.include_attendance.id_for_label }}">
+                                <strong>{% trans "Attendance Records" %}</strong>
+                                <br>
+                                <small>{% trans "Student attendance statistics" %}</small>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="checkbox-item" data-field="activities">
+                        <div class="form-check">
+                            {{ form.include_activities }}
+                            <label class="form-check-label" for="{{ form.include_activities.id_for_label }}">
+                                <strong>{% trans "Activity Participation" %}</strong>
+                                <br>
+                                <small>{% trans "Extracurricular activities data" %}</small>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="checkbox-item" data-field="trends">
+                        <div class="form-check">
+                            {{ form.include_trends }}
+                            <label class="form-check-label" for="{{ form.include_trends.id_for_label }}">
+                                <strong>{% trans "Trend Analysis" %}</strong>
+                                <br>
+                                <small>{% trans "Performance trends over time" %}</small>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                        {{ form.include_charts }}
+                        <label class="form-check-label" for="{{ form.include_charts.id_for_label }}">
+                            {{ form.include_charts.label }}
+                        </label>
+                    </div>
+                    <div class="form-text">{% trans "Include charts and visualizations in the report" %}</div>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                        {{ form.include_summary }}
+                        <label class="form-check-label" for="{{ form.include_summary.id_for_label }}">
+                            {{ form.include_summary.label }}
+                        </label>
+                    </div>
+                    <div class="form-text">{% trans "Include executive summary and key insights" %}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview Section -->
+        <div class="preview-section" id="previewSection" style="display: none;">
+            <h5 class="mb-3">
+                <i class="bi bi-eye me-2 text-primary"></i>{% trans "Report Preview" %}
+            </h5>
+            <div class="preview-report" id="reportPreview">
+                <!-- Preview content will be inserted here -->
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex justify-content-between align-items-center">
+            <a href="{% url 'analytics:report_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>{% trans "Cancel" %}
+            </a>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-primary" id="previewBtn">
+                    <i class="bi bi-eye me-2"></i>{% trans "Preview" %}
+                </button>
+                <button type="submit" class="btn btn-generate" id="generateBtn">
+                    <i class="bi bi-play-circle me-2"></i>{% trans "Generate Report" %}
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Generation Progress Modal -->
+<div class="modal fade" id="generationModal" tabindex="-1" aria-labelledby="generationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center p-4">
+                <div class="generation-progress">
+                    <div class="progress-spinner"></div>
+                    <h5 class="mb-3">{% trans "Generating Your Report" %}</h5>
+                    <p class="mb-0 text-muted">{% trans "Please wait while we process your data and create the report..." %}</p>
+                    <div class="mt-3">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                 id="generationProgress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const reportForm = document.getElementById('reportGenerationForm');
+    const previewBtn = document.getElementById('previewBtn');
+    const generateBtn = document.getElementById('generateBtn');
+    const previewSection = document.getElementById('previewSection');
+    const reportPreview = document.getElementById('reportPreview');
+    const generationModal = new bootstrap.Modal(document.getElementById('generationModal'));
+    const generationProgress = document.getElementById('generationProgress');
+
+    // Initialize form
+    initializeForm();
+
+    // Initialize event listeners
+    initializeEventListeners();
+
+    function initializeForm() {
+        // Add Bootstrap classes to form inputs
+        const formInputs = reportForm.querySelectorAll('input, select, textarea');
+        formInputs.forEach(input => {
+            input.classList.add('form-control');
+
+            // Add validation on blur
+            input.addEventListener('blur', function() {
+                validateField(this);
+            });
+        });
+
+        // Special handling for checkboxes
+        const checkboxes = reportForm.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.classList.remove('form-control');
+            checkbox.classList.add('form-check-input');
+        });
+
+        // Initialize checkbox selection
+        initializeCheckboxSelection();
+    }
+
+    function initializeCheckboxSelection() {
+        const checkboxItems = document.querySelectorAll('.checkbox-item');
+
+        checkboxItems.forEach(item => {
+            const checkbox = item.querySelector('input[type="checkbox"]');
+
+            // Set initial state
+            if (checkbox.checked) {
+                item.classList.add('selected');
+            }
+
+            // Add click handler
+            item.addEventListener('click', function() {
+                if (!checkbox.disabled) {
+                    checkbox.checked = !checkbox.checked;
+                    updateCheckboxVisual(this, checkbox.checked);
+                    checkbox.dispatchEvent(new Event('change'));
+                }
+            });
+
+            // Handle checkbox changes
+            checkbox.addEventListener('change', function() {
+                updateCheckboxVisual(item, this.checked);
+            });
+        });
+    }
+
+    function updateCheckboxVisual(item, isChecked) {
+        if (isChecked) {
+            item.classList.add('selected');
+        } else {
+            item.classList.remove('selected');
+        }
+    }
+
+    function initializeEventListeners() {
+        // Preview button
+        previewBtn.addEventListener('click', function() {
+            if (validateForm()) {
+                previewReport();
+            }
+        });
+
+        // Generate button
+        generateBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (validateForm()) {
+                generateReport();
+            }
+        });
+
+        // Date validation
+        const dateFrom = document.getElementById('id_date_from');
+        const dateTo = document.getElementById('id_date_to');
+
+        if (dateFrom && dateTo) {
+            dateFrom.addEventListener('change', validateDates);
+            dateTo.addEventListener('change', validateDates);
+        }
+    }
+
+    function validateField(field) {
+        const value = field.value.trim();
+        const fieldName = field.name;
+
+        // Clear previous validation
+        field.classList.remove('is-invalid', 'is-valid');
+
+        // Required field validation
+        if (field.hasAttribute('required') && !value) {
+            field.classList.add('is-invalid');
+            return false;
+        }
+
+        // Field-specific validation
+        switch(fieldName) {
+            case 'name':
+                if (value && value.length < 3) {
+                    field.classList.add('is-invalid');
+                    return false;
+                }
+                break;
+        }
+
+        // If we made it here, field is valid
+        if (value || !field.hasAttribute('required')) {
+            field.classList.add('is-valid');
+        }
+        return true;
+    }
+
+    function validateDates() {
+        const dateFrom = document.getElementById('id_date_from');
+        const dateTo = document.getElementById('id_date_to');
+
+        if (dateFrom.value && dateTo.value) {
+            const fromDate = new Date(dateFrom.value);
+            const toDate = new Date(dateTo.value);
+
+            if (toDate < fromDate) {
+                dateTo.classList.add('is-invalid');
+                return false;
+            } else {
+                dateTo.classList.remove('is-invalid');
+                dateTo.classList.add('is-valid');
+            }
+        }
+        return true;
+    }
+
+    function validateForm() {
+        let isValid = true;
+        const formInputs = reportForm.querySelectorAll('input[required], select[required], textarea[required]');
+
+        formInputs.forEach(input => {
+            if (!validateField(input)) {
+                isValid = false;
+            }
+        });
+
+        // Validate dates
+        if (!validateDates()) {
+            isValid = false;
+        }
+
+        // Check if at least one data option is selected
+        const dataCheckboxes = reportForm.querySelectorAll('input[name="include_performance"], input[name="include_attendance"], input[name="include_activities"], input[name="include_trends"]');
+        const hasDataSelection = Array.from(dataCheckboxes).some(cb => cb.checked);
+
+        if (!hasDataSelection) {
+            showToast('{% trans "Please select at least one type of data to include in the report" %}', 'warning');
+            isValid = false;
+        }
+
+        if (isValid) {
+            showToast('{% trans "Form validation passed!" %}', 'success');
+        } else {
+            showToast('{% trans "Please fix the errors in the form" %}', 'error');
+
+            // Scroll to first error
+            const firstError = reportForm.querySelector('.is-invalid');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                firstError.focus();
+            }
+        }
+
+        return isValid;
+    }
+
+    function previewReport() {
+        const formData = new FormData(reportForm);
+
+        // Generate preview content
+        const previewContent = generatePreviewContent(formData);
+        reportPreview.innerHTML = previewContent;
+        previewSection.style.display = 'block';
+
+        // Scroll to preview
+        previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        showToast('{% trans "Report preview generated" %}', 'success');
+    }
+
+    function generatePreviewContent(formData) {
+        const name = formData.get('name') || '{% trans "Report Name" %}';
+        const type = formData.get('report_type') || '{% trans "Report Type" %}';
+        const format = formData.get('format') || 'PDF';
+        const session = formData.get('academic_session') || '{% trans "Academic Session" %}';
+
+        return `
+            <div class="report-header mb-4">
+                <h4 class="text-primary">${name}</h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>{% trans "Type:" %}</strong> ${type}</p>
+                        <p><strong>{% trans "Format:" %}</strong> ${format.toUpperCase()}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>{% trans "Session:" %}</strong> ${session}</p>
+                        <p><strong>{% trans "Generated:" %}</strong> {% now "M j, Y \a\t g:i A" %}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                {% trans "This is a preview of your report. The actual report will contain real data based on your selected parameters." %}
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="card border-primary">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">📊 {% trans "Data Summary" %}</h6>
+                            <p class="card-text">{% trans "Performance metrics, attendance records, and activity participation data will be included." %}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-success">
+                        <div class="card-body">
+                            <h6 class="card-title text-success">📈 {% trans "Visualizations" %}</h6>
+                            <p class="card-text">{% trans "Charts and graphs will visualize trends and patterns in the data." %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function generateReport() {
+        // Show generation modal
+        generationModal.show();
+
+        // Simulate progress
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 90) progress = 90;
+            generationProgress.style.width = `${progress}%`;
+
+            if (progress >= 90) {
+                clearInterval(progressInterval);
+            }
+        }, 1000);
+
+        // Submit form
+        setTimeout(() => {
+            reportForm.submit();
+        }, 3000);
+    }
+
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : 'success'} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+
+        let toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+
+        toastContainer.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+
+        toast.addEventListener('hidden.bs.toast', function() {
+            toast.remove();
+        });
+    }
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + Enter to generate
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('generateBtn').click();
+    }
+
+    // Ctrl/Cmd + P to preview
+    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        document.getElementById('previewBtn').click();
+    }
+});
+</script>
+{% endblock %}

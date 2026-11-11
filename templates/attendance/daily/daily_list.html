@@ -1,0 +1,699 @@
+<!-- templates/attendance/daily/daily_list.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Daily Attendance - School Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+.attendance-filter-card {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+.status-badge-present {
+    background-color: #28a745;
+}
+.status-badge-absent {
+    background-color: #dc3545;
+}
+.status-badge-late {
+    background-color: #ffc107;
+    color: #212529;
+}
+.status-badge-half_day {
+    background-color: #fd7e14;
+}
+.status-badge-leave {
+    background-color: #17a2b8;
+}
+.attendance-table th {
+    border-top: none;
+    font-weight: 600;
+}
+.hover-row:hover {
+    background-color: #f8f9fa;
+}
+.export-btn-group .btn {
+    border-radius: 0;
+}
+.export-btn-group .btn:first-child {
+    border-top-left-radius: 0.375rem;
+    border-bottom-left-radius: 0.375rem;
+}
+.export-btn-group .btn:last-child {
+    border-top-right-radius: 0.375rem;
+    border-bottom-right-radius: 0.375rem;
+}
+.filter-toggle {
+    cursor: pointer;
+}
+.filter-collapse {
+    transition: all 0.3s ease;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-2">Daily Attendance Records</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'attendance:dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item active">Daily Attendance</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div class="d-flex gap-2">
+                    {% if perms.attendance.add_dailyattendance %}
+                    <a href="{% url 'attendance:daily_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i> New Record
+                    </a>
+                    {% endif %}
+                    <div class="btn-group export-btn-group">
+                        <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-download me-1"></i> Export
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'attendance:export_report' %}?{{ request.GET.urlencode }}">CSV</a></li>
+                            <li><a class="dropdown-item" href="#">PDF</a></li>
+                            <li><a class="dropdown-item" href="#">Excel</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Card -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Filters</h6>
+                <span class="filter-toggle" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+                    <i class="fas fa-chevron-down"></i>
+                </span>
+            </div>
+        </div>
+        <div class="collapse show" id="filterCollapse">
+            <div class="card-body">
+                <form method="get" id="attendanceFilterForm">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label for="student" class="form-label">Student</label>
+                            <select name="student" id="student" class="form-select">
+                                <option value="">All Students</option>
+                                {% for student in students %}
+                                <option value="{{ student.id }}" {% if request.GET.student == student.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ student.user.get_full_name }} ({{ student.admission_number }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="date_from" class="form-label">From Date</label>
+                            <input type="date" name="date_from" id="date_from" 
+                                   class="form-control" 
+                                   value="{{ request.GET.date_from }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="date_to" class="form-label">To Date</label>
+                            <input type="date" name="date_to" id="date_to" 
+                                   class="form-control" 
+                                   value="{{ request.GET.date_to }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="status" class="form-label">Status</label>
+                            <select name="status" id="status" class="form-select">
+                                <option value="">All Status</option>
+                                {% for status_value, status_label in status_choices %}
+                                <option value="{{ status_value }}" {% if request.GET.status == status_value %}selected{% endif %}>
+                                    {{ status_label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="attendance_session" class="form-label">Session</label>
+                            <select name="attendance_session" id="attendance_session" class="form-select">
+                                <option value="">All Sessions</option>
+                                {% for session in attendance_sessions %}
+                                <option value="{{ session.id }}" {% if request.GET.attendance_session == session.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ session.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-filter me-1"></i> Apply Filters
+                                </button>
+                                <a href="{% url 'attendance:daily_list' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-redo me-1"></i> Reset
+                                </a>
+                                <div class="form-check mt-2 ms-3">
+                                    <input type="checkbox" class="form-check-input" id="include_late" name="include_late" value="true" 
+                                           {% if request.GET.include_late != 'false' %}checked{% endif %}>
+                                    <label class="form-check-label" for="include_late">Include Late Arrivals</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Summary -->
+    <div class="row mb-4">
+        <div class="col-xl-2 col-md-4 col-6">
+            <div class="card border-start border-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Records
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ page_obj.paginator.count }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-6">
+            <div class="card border-start border-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Present
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="presentCount">
+                                {{ present_count }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-6">
+            <div class="card border-start border-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Absent
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="absentCount">
+                                {{ absent_count }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-times-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-6">
+            <div class="card border-start border-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Late
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="lateCount">
+                                {{ late_count }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-6">
+            <div class="card border-start border-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                On Leave
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="leaveCount">
+                                {{ leave_count }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-minus fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-6">
+            <div class="card border-start border-secondary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">
+                                Attendance Rate
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="attendanceRate">
+                                {{ attendance_rate }}%
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Records Table -->
+    <div class="card shadow">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Attendance Records</h6>
+        </div>
+        <div class="card-body">
+            {% if attendances %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover attendance-table" id="attendanceTable">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Student</th>
+                            <th>Date</th>
+                            <th>Session</th>
+                            <th>Status</th>
+                            <th>Check-in</th>
+                            <th>Check-out</th>
+                            <th>Total Hours</th>
+                            <th>Late Minutes</th>
+                            <th>Marked By</th>
+                            <th>Remarks</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attendance in attendances %}
+                        <tr class="hover-row">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-shrink-0">
+                                        <img src="{% if attendance.student.user.profile_picture %}{{ attendance.student.user.profile_picture.url }}{% else %}{% static 'img/default-avatar.png' %}{% endif %}" 
+                                             alt="{{ attendance.student.user.get_full_name }}" 
+                                             class="rounded-circle" width="32" height="32">
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <strong>{{ attendance.student.user.get_full_name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ attendance.student.admission_number }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ attendance.date }}</td>
+                            <td>{{ attendance.attendance_session.name }}</td>
+                            <td>
+                                <span class="badge status-badge-{{ attendance.status }}">
+                                    {{ attendance.get_status_display }}
+                                </span>
+                                {% if attendance.is_late %}
+                                <i class="fas fa-clock text-warning ms-1" title="Late Arrival"></i>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if attendance.check_in_time %}
+                                    {{ attendance.check_in_time|time }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if attendance.check_out_time %}
+                                    {{ attendance.check_out_time|time }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if attendance.total_hours %}
+                                    <span class="badge bg-light text-dark">{{ attendance.total_hours }}h</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if attendance.late_minutes %}
+                                    <span class="badge bg-warning text-dark">{{ attendance.late_minutes }}m</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if attendance.marked_by %}
+                                    {{ attendance.marked_by.get_full_name }}
+                                {% else %}
+                                    <span class="text-muted">System</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if attendance.remarks %}
+                                    <span class="d-inline-block text-truncate" style="max-width: 150px;" 
+                                          title="{{ attendance.remarks }}">
+                                        {{ attendance.remarks }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'attendance:daily_edit' attendance.pk %}" 
+                                       class="btn btn-outline-primary" 
+                                       title="Edit Attendance">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button type="button" 
+                                            class="btn btn-outline-info view-details" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#attendanceModal"
+                                            data-attendance-id="{{ attendance.id }}"
+                                            title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    {% if perms.attendance.delete_dailyattendance %}
+                                    <button type="button" 
+                                            class="btn btn-outline-danger delete-attendance" 
+                                            data-attendance-id="{{ attendance.id }}"
+                                            data-student-name="{{ attendance.student.user.get_full_name }}"
+                                            data-date="{{ attendance.date }}"
+                                            title="Delete Record">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+            <nav aria-label="Attendance pagination">
+                <ul class="pagination justify-content-center mt-4">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">First</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Previous</a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Last</a>
+                    </li>
+                    {% endif %}
+                </ul>
+                <div class="text-center text-muted mt-2">
+                    Showing {{ page_obj.start_index }} - {{ page_obj.end_index }} of {{ page_obj.paginator.count }} records
+                </div>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">No Attendance Records Found</h4>
+                <p class="text-muted">Try adjusting your filters or create a new attendance record.</p>
+                {% if perms.attendance.add_dailyattendance %}
+                <a href="{% url 'attendance:daily_create' %}" class="btn btn-primary mt-2">
+                    <i class="fas fa-plus me-1"></i> Create First Record
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Attendance Details Modal -->
+<div class="modal fade" id="attendanceModal" tabindex="-1" aria-labelledby="attendanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="attendanceModalLabel">Attendance Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="attendanceDetails">
+                <!-- Details will be loaded via AJAX -->
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the attendance record for <strong id="deleteStudentName"></strong> on <strong id="deleteDate"></strong>?</p>
+                <p class="text-danger"><small>This action cannot be undone.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete Record</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter form handling
+    const filterForm = document.getElementById('attendanceFilterForm');
+    const filterToggle = document.querySelector('.filter-toggle');
+    
+    if (filterToggle) {
+        filterToggle.addEventListener('click', function() {
+            const icon = this.querySelector('i');
+            if (icon.classList.contains('fa-chevron-down')) {
+                icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+            } else {
+                icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+            }
+        });
+    }
+
+    // Date validation
+    const dateFrom = document.getElementById('date_from');
+    const dateTo = document.getElementById('date_to');
+    
+    if (dateFrom && dateTo) {
+        dateFrom.addEventListener('change', function() {
+            if (dateTo.value && this.value > dateTo.value) {
+                dateTo.value = this.value;
+            }
+        });
+        
+        dateTo.addEventListener('change', function() {
+            if (dateFrom.value && this.value < dateFrom.value) {
+                dateFrom.value = this.value;
+            }
+        });
+    }
+
+    // View attendance details
+    const viewButtons = document.querySelectorAll('.view-details');
+    viewButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const attendanceId = this.getAttribute('data-attendance-id');
+            loadAttendanceDetails(attendanceId);
+        });
+    });
+
+    // Delete attendance record
+    const deleteButtons = document.querySelectorAll('.delete-attendance');
+    const deleteForm = document.getElementById('deleteForm');
+    const deleteStudentName = document.getElementById('deleteStudentName');
+    const deleteDate = document.getElementById('deleteDate');
+    
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const attendanceId = this.getAttribute('data-attendance-id');
+            const studentName = this.getAttribute('data-student-name');
+            const date = this.getAttribute('data-date');
+            
+            deleteStudentName.textContent = studentName;
+            deleteDate.textContent = date;
+            deleteForm.action = `/attendance/daily/${attendanceId}/delete/`;
+            
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            deleteModal.show();
+        });
+    });
+
+    // Quick status filter
+    const statusFilter = document.getElementById('status');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+            if (this.value) {
+                filterForm.submit();
+            }
+        });
+    }
+
+    // Auto-submit form when certain filters change
+    const autoSubmitFields = ['student', 'attendance_session'];
+    autoSubmitFields.forEach(fieldName => {
+        const field = document.querySelector(`[name="${fieldName}"]`);
+        if (field) {
+            field.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        }
+    });
+});
+
+function loadAttendanceDetails(attendanceId) {
+    const detailsContainer = document.getElementById('attendanceDetails');
+    
+    // Show loading spinner
+    detailsContainer.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+    
+    // Fetch attendance details via AJAX
+    fetch(`/attendance/api/attendance-details/${attendanceId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                detailsContainer.innerHTML = data.html;
+            } else {
+                detailsContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Error loading attendance details.
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            detailsContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error loading attendance details.
+                </div>
+            `;
+        });
+}
+
+// Quick actions
+function markAsPresent(attendanceId) {
+    updateAttendanceStatus(attendanceId, 'present');
+}
+
+function markAsAbsent(attendanceId) {
+    updateAttendanceStatus(attendanceId, 'absent');
+}
+
+function updateAttendanceStatus(attendanceId, status) {
+    fetch('/attendance/api/update-attendance-status/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            attendance_id: attendanceId,
+            status: status
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error updating attendance: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating attendance status.');
+    });
+}
+
+// Utility function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

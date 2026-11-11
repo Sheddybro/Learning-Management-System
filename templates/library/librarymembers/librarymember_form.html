@@ -1,0 +1,692 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Library Member" %} - {{ form.instance.user.get_full_name|default:form.instance.user.username }}
+    {% else %}
+        {% trans "Add New Library Member" %}
+    {% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Library Member" %}
+    {% else %}
+        {% trans "Add New Library Member" %}
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:librarymember_list' %}">{% trans "Library Members" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if form.instance.pk %}
+        {% trans "Edit" %} {{ form.instance.user.get_full_name|default:form.instance.user.username }}
+    {% else %}
+        {% trans "Add New Member" %}
+    {% endif %}
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Library Member Form Specific Styles */
+    .form-section {
+        background: #fff;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+    
+    .form-section-header {
+        background: linear-gradient(135deg, #65a0f9 0%, #4a7df6 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    
+    .form-section-body {
+        padding: 1.5rem;
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .form-help-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .member-type-card {
+        border: 2px solid #e9ecef;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 1rem;
+    }
+    
+    .member-type-card:hover {
+        border-color: #65a0f9;
+        background-color: rgba(101, 160, 249, 0.05);
+    }
+    
+    .member-type-card.selected {
+        border-color: #65a0f9;
+        background-color: rgba(101, 160, 249, 0.1);
+    }
+    
+    .member-type-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        color: #65a0f9;
+    }
+    
+    .student-card .member-type-icon { color: #28a745; }
+    .teacher-card .member-type-icon { color: #ffc107; }
+    .staff-card .member-type-icon { color: #17a2b8; }
+    .parent-card .member-type-icon { color: #6f42c1; }
+    .external-card .member-type-icon { color: #6c757d; }
+    
+    .academic-fields {
+        display: none;
+        background-color: #f8f9fa;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-top: 1rem;
+        border-left: 4px solid #28a745;
+    }
+    
+    .form-actions {
+        background: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .user-search-container {
+        position: relative;
+    }
+    
+    .user-search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        max-height: 200px;
+        overflow-y: auto;
+        display: none;
+    }
+    
+    .user-search-item {
+        padding: 0.5rem 1rem;
+        border-bottom: 1px solid #f8f9fa;
+        cursor: pointer;
+    }
+    
+    .user-search-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .user-search-item:last-child {
+        border-bottom: none;
+    }
+    
+    .form-preview-card {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .preview-field {
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .preview-field:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    
+    .preview-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.25rem;
+    }
+    
+    .preview-value {
+        color: #6c757d;
+    }
+    
+    @media (max-width: 768px) {
+        .form-section-body {
+            padding: 1rem;
+        }
+        
+        .form-actions {
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .form-actions .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-xl-8">
+            <form method="post" id="libraryMemberForm" novalidate>
+                {% csrf_token %}
+                
+                <!-- User Selection Section -->
+                <div class="form-section">
+                    <h3 class="form-section-header">
+                        <i class="bi bi-person-plus me-2"></i>{% trans "User Selection" %}
+                    </h3>
+                    <div class="form-section-body">
+                        {% if form.user.errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.user.errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row">
+                            <div class="col-md-8">
+                                <label for="{{ form.user.id_for_label }}" class="form-label required-field">{% trans "Select User" %}</label>
+                                {{ form.user }}
+                                <div class="form-help-text">{% trans "Search and select an existing user to make them a library member" %}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-grid">
+                                    <button type="button" class="btn btn-outline-primary mt-4" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                                        <i class="bi bi-person-plus me-2"></i>{% trans "Create New User" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- User Preview -->
+                        <div id="userPreview" class="form-preview-card" style="display: none;">
+                            <h6 class="mb-3">{% trans "Selected User" %}</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="preview-field">
+                                        <div class="preview-label">{% trans "Full Name" %}</div>
+                                        <div class="preview-value" id="previewFullName">-</div>
+                                    </div>
+                                    <div class="preview-field">
+                                        <div class="preview-label">{% trans "Username" %}</div>
+                                        <div class="preview-value" id="previewUsername">-</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="preview-field">
+                                        <div class="preview-label">{% trans "Email" %}</div>
+                                        <div class="preview-value" id="previewEmail">-</div>
+                                    </div>
+                                    <div class="preview-field">
+                                        <div class="preview-label">{% trans "User Type" %}</div>
+                                        <div class="preview-value" id="previewUserType">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Member Information Section -->
+                <div class="form-section">
+                    <h3 class="form-section-header">
+                        <i class="bi bi-person-vcard me-2"></i>{% trans "Member Information" %}
+                    </h3>
+                    <div class="form-section-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.member_id.id_for_label }}" class="form-label required-field">{% trans "Member ID" %}</label>
+                                    {{ form.member_id }}
+                                    {% if form.member_id.help_text %}
+                                    <div class="form-help-text">{{ form.member_id.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.member_id.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.member_id.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label required-field">{% trans "Member Type" %}</label>
+                                    <div class="row">
+                                        {% for choice in form.member_type.field.choices %}
+                                        <div class="col-sm-6 col-lg-4">
+                                            <div class="member-type-card {{ choice.0 }}-card" data-member-type="{{ choice.0 }}">
+                                                <div class="text-center">
+                                                    <i class="bi 
+                                                        {% if choice.0 == 'student' %}bi-person-badge 
+                                                        {% elif choice.0 == 'teacher' %}bi-person-check 
+                                                        {% elif choice.0 == 'staff' %}bi-person-gear 
+                                                        {% elif choice.0 == 'parent' %}bi-people 
+                                                        {% else %}bi-person 
+                                                        {% endif %} 
+                                                        member-type-icon"></i>
+                                                    <div class="fw-bold">{{ choice.1 }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {{ form.member_type }}
+                                    {% if form.member_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.member_type.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Academic Fields (Conditional) -->
+                        <div id="academicFields">
+                            <div class="row">
+                                <div class="col-md-6" id="studentField" style="display: none;">
+                                    <div class="mb-3">
+                                        <label for="{{ form.student.id_for_label }}" class="form-label">{% trans "Student" %}</label>
+                                        {{ form.student }}
+                                        {% if form.student.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.student.errors %}
+                                            {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-6" id="teacherField" style="display: none;">
+                                    <div class="mb-3">
+                                        <label for="{{ form.teacher.id_for_label }}" class="form-label">{% trans "Teacher" %}</label>
+                                        {{ form.teacher }}
+                                        {% if form.teacher.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.teacher.errors %}
+                                            {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.membership_date.id_for_label }}" class="form-label required-field">{% trans "Membership Date" %}</label>
+                                    {{ form.membership_date }}
+                                    {% if form.membership_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.membership_date.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.expiry_date.id_for_label }}" class="form-label required-field">{% trans "Membership Expiry Date" %}</label>
+                                    {{ form.expiry_date }}
+                                    {% if form.expiry_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.expiry_date.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.max_borrow_limit.id_for_label }}" class="form-label required-field">{% trans "Maximum Borrow Limit" %}</label>
+                                    {{ form.max_borrow_limit }}
+                                    {% if form.max_borrow_limit.help_text %}
+                                    <div class="form-help-text">{{ form.max_borrow_limit.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.max_borrow_limit.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.max_borrow_limit.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.status.id_for_label }}" class="form-label">{% trans "Status" %}</label>
+                                    {{ form.status }}
+                                    {% if form.status.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.status.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Membership Preview Section -->
+                <div class="form-section">
+                    <h3 class="form-section-header">
+                        <i class="bi bi-eye me-2"></i>{% trans "Membership Preview" %}
+                    </h3>
+                    <div class="form-section-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="preview-field">
+                                    <div class="preview-label">{% trans "Member ID" %}</div>
+                                    <div class="preview-value" id="previewMemberId">-</div>
+                                </div>
+                                <div class="preview-field">
+                                    <div class="preview-label">{% trans "Member Type" %}</div>
+                                    <div class="preview-value" id="previewMemberType">-</div>
+                                </div>
+                                <div class="preview-field">
+                                    <div class="preview-label">{% trans "Membership Period" %}</div>
+                                    <div class="preview-value" id="previewMembershipPeriod">-</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="preview-field">
+                                    <div class="preview-label">{% trans "Borrowing Limit" %}</div>
+                                    <div class="preview-value" id="previewBorrowLimit">-</div>
+                                </div>
+                                <div class="preview-field">
+                                    <div class="preview-label">{% trans "Membership Status" %}</div>
+                                    <div class="preview-value" id="previewMembershipStatus">-</div>
+                                </div>
+                                <div class="preview-field">
+                                    <div class="preview-label">{% trans "Academic Relation" %}</div>
+                                    <div class="preview-value" id="previewAcademicRelation">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <div>
+                        <a href="{% url 'library:librarymember_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>{% trans "Back to List" %}
+                        </a>
+                    </div>
+                    <div class="d-flex gap-2">
+                        {% if form.instance.pk %}
+                        <a href="{% url 'library:librarymember_detail' form.instance.pk %}" class="btn btn-outline-info">
+                            <i class="bi bi-eye me-2"></i>{% trans "View Details" %}
+                        </a>
+                        {% endif %}
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-2"></i>
+                            {% if form.instance.pk %}
+                                {% trans "Update Member" %}
+                            {% else %}
+                                {% trans "Create Member" %}
+                            {% endif %}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createUserModalLabel">{% trans "Create New User" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    {% trans "This feature will redirect you to the user creation page. After creating the user, return to this form to complete the library member registration." %}
+                </div>
+                <div class="text-center py-4">
+                    <i class="bi bi-person-plus display-1 text-muted"></i>
+                    <p class="mt-3 text-muted">{% trans "Create a new user account first, then assign library membership" %}</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <a href="{% url 'users:user_create' %}?next={{ request.path }}" class="btn btn-primary">
+                    <i class="bi bi-person-plus me-2"></i>{% trans "Go to User Creation" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const memberTypeCards = document.querySelectorAll('.member-type-card');
+        const memberTypeField = document.getElementById('{{ form.member_type.id_for_label }}');
+        const studentField = document.getElementById('studentField');
+        const teacherField = document.getElementById('teacherField');
+        const userField = document.getElementById('{{ form.user.id_for_label }}');
+        const userPreview = document.getElementById('userPreview');
+        
+        // Initialize member type selection
+        function initializeMemberType() {
+            // Set initial selection
+            if (memberTypeField.value) {
+                selectMemberType(memberTypeField.value);
+            }
+            
+            // Add click listeners to member type cards
+            memberTypeCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    const memberType = this.getAttribute('data-member-type');
+                    selectMemberType(memberType);
+                    memberTypeField.value = memberType;
+                    updatePreview();
+                });
+            });
+            
+            // Update when member type field changes (for form validation)
+            memberTypeField.addEventListener('change', function() {
+                selectMemberType(this.value);
+                updatePreview();
+            });
+        }
+        
+        // Select member type and show/hide academic fields
+        function selectMemberType(memberType) {
+            // Remove selected class from all cards
+            memberTypeCards.forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked card
+            const selectedCard = document.querySelector(`.member-type-card[data-member-type="${memberType}"]`);
+            if (selectedCard) {
+                selectedCard.classList.add('selected');
+            }
+            
+            // Show/hide academic fields based on member type
+            if (memberType === 'student') {
+                studentField.style.display = 'block';
+                teacherField.style.display = 'none';
+            } else if (memberType === 'teacher') {
+                studentField.style.display = 'none';
+                teacherField.style.display = 'block';
+            } else {
+                studentField.style.display = 'none';
+                teacherField.style.display = 'none';
+            }
+        }
+        
+        // Update form preview
+        function updatePreview() {
+            // Member ID
+            const memberIdField = document.getElementById('{{ form.member_id.id_for_label }}');
+            document.getElementById('previewMemberId').textContent = memberIdField.value || '-';
+            
+            // Member Type
+            const memberTypeText = memberTypeField.options[memberTypeField.selectedIndex]?.text || '-';
+            document.getElementById('previewMemberType').textContent = memberTypeText;
+            
+            // Membership Period
+            const membershipDate = document.getElementById('{{ form.membership_date.id_for_label }}').value;
+            const expiryDate = document.getElementById('{{ form.expiry_date.id_for_label }}').value;
+            document.getElementById('previewMembershipPeriod').textContent = 
+                (membershipDate && expiryDate) ? `${membershipDate} to ${expiryDate}` : '-';
+            
+            // Borrow Limit
+            const borrowLimit = document.getElementById('{{ form.max_borrow_limit.id_for_label }}').value;
+            document.getElementById('previewBorrowLimit').textContent = borrowLimit ? `${borrowLimit} books` : '-';
+            
+            // Status
+            const statusField = document.getElementById('{{ form.status.id_for_label }}');
+            const statusText = statusField.options[statusField.selectedIndex]?.text || '-';
+            document.getElementById('previewMembershipStatus').textContent = statusText;
+            
+            // Academic Relation
+            let academicRelation = '-';
+            if (memberTypeField.value === 'student' && document.getElementById('{{ form.student.id_for_label }}').value) {
+                const studentField = document.getElementById('{{ form.student.id_for_label }}');
+                academicRelation = studentField.options[studentField.selectedIndex]?.text || '-';
+            } else if (memberTypeField.value === 'teacher' && document.getElementById('{{ form.teacher.id_for_label }}').value) {
+                const teacherField = document.getElementById('{{ form.teacher.id_for_label }}');
+                academicRelation = teacherField.options[teacherField.selectedIndex]?.text || '-';
+            }
+            document.getElementById('previewAcademicRelation').textContent = academicRelation;
+        }
+        
+        // Initialize user field with Select2-like functionality
+        function initializeUserField() {
+            // Show user preview when user is selected
+            userField.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption.value) {
+                    // In a real implementation, you would fetch user details via AJAX
+                    // For now, we'll use the displayed text
+                    const userText = selectedOption.text;
+                    const parts = userText.split(' - ');
+                    
+                    document.getElementById('previewFullName').textContent = parts[0] || '-';
+                    document.getElementById('previewUsername').textContent = parts[1] || '-';
+                    document.getElementById('previewEmail').textContent = parts[2] || '-';
+                    document.getElementById('previewUserType').textContent = 'User'; // This would come from backend
+                    
+                    userPreview.style.display = 'block';
+                } else {
+                    userPreview.style.display = 'none';
+                }
+            });
+            
+            // Trigger change on page load if user is already selected
+            if (userField.value) {
+                userField.dispatchEvent(new Event('change'));
+            }
+        }
+        
+        // Add event listeners to form fields for real-time preview
+        const previewFields = [
+            '{{ form.member_id.id_for_label }}',
+            '{{ form.membership_date.id_for_label }}',
+            '{{ form.expiry_date.id_for_label }}',
+            '{{ form.max_borrow_limit.id_for_label }}',
+            '{{ form.status.id_for_label }}',
+            '{{ form.student.id_for_label }}',
+            '{{ form.teacher.id_for_label }}'
+        ];
+        
+        previewFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.addEventListener('change', updatePreview);
+                field.addEventListener('input', updatePreview);
+            }
+        });
+        
+        // Form validation
+        const form = document.getElementById('libraryMemberForm');
+        form.addEventListener('submit', function(event) {
+            let isValid = true;
+            
+            // Basic validation
+            if (!userField.value) {
+                alert('{% trans "Please select a user" %}');
+                isValid = false;
+            }
+            
+            if (!memberTypeField.value) {
+                alert('{% trans "Please select a member type" %}');
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        });
+        
+        // Initialize everything
+        initializeMemberType();
+        initializeUserField();
+        updatePreview();
+        
+        // Add Bootstrap form validation
+        const forms = document.querySelectorAll('.needs-validation');
+        Array.from(forms).forEach(form => {
+            form.addEventListener('submit', event => {
+                if (!form.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    });
+</script>
+{% endblock %}

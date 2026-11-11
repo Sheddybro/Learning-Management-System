@@ -1,0 +1,585 @@
+<!-- templates/hostels/allocation_transfer.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Transfer Student Allocation - Hostel Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .transfer-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .transfer-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .transfer-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+        padding: 1.5rem;
+    }
+    
+    .current-allocation {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #667eea;
+    }
+    
+    .bed-card {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .bed-card:hover {
+        border-color: #667eea;
+        background: #f8f9ff;
+    }
+    
+    .bed-card.selected {
+        border-color: #28a745;
+        background: #f0fff4;
+    }
+    
+    .bed-features {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .availability-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+    }
+    
+    .hostel-section {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .floor-section {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .room-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .search-box {
+        background: #e7f3ff;
+        border: 1px solid #b3d9ff;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .student-avatar {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 1.2rem;
+    }
+    
+    .transfer-reason {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .action-buttons {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        position: sticky;
+        bottom: 0;
+        margin-top: 2rem;
+    }
+    
+    .bed-type-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .bed-type-single { background: #28a745; }
+    .bed-type-bunk { background: #ffc107; }
+    .bed-type-double { background: #17a2b8; }
+    .bed-type-cot { background: #6c757d; }
+</style>
+{% endblock %}
+
+{% block page_title %}
+<i class="bi bi-arrow-left-right me-2"></i>Transfer Student Allocation
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:dashboard' %}">Hostel Dashboard</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:allocation_list' %}">Allocations</a></li>
+<li class="breadcrumb-item active" aria-current="page">Transfer Allocation</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card transfer-card">
+                <div class="transfer-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-2">Transfer Student Allocation</h2>
+                            <p class="mb-0 opacity-90">Move student to a different bed within the same hostel</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <span class="badge bg-light text-dark fs-6">
+                                <i class="bi bi-arrow-repeat me-2"></i>Transfer Process
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Current Allocation Details -->
+                    <div class="current-allocation">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <div class="student-avatar">
+                                    {{ allocation.student.user.first_name|first }}{{ allocation.student.user.last_name|first }}
+                                </div>
+                            </div>
+                            <div class="col">
+                                <h4 class="mb-1">{{ allocation.student.user.get_full_name }}</h4>
+                                <p class="text-muted mb-1">
+                                    {{ allocation.student.admission_number }} • 
+                                    {{ allocation.class_enrolled.name|default:"Class not specified" }}
+                                </p>
+                                <div class="d-flex flex-wrap gap-3">
+                                    <span class="badge bg-primary">
+                                        <i class="bi bi-house me-1"></i>{{ allocation.bed.room.hostel.name }}
+                                    </span>
+                                    <span class="badge bg-secondary">
+                                        <i class="bi bi-door-closed me-1"></i>Room {{ allocation.bed.room.room_number }}
+                                    </span>
+                                    <span class="badge bg-info">
+                                        <i class="bi bi-person-bed me-1"></i>Bed {{ allocation.bed.bed_number }}
+                                    </span>
+                                    <span class="badge bg-warning">
+                                        <i class="bi bi-calendar me-1"></i>Allocated: {{ allocation.allocation_date|date:"M d, Y" }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Transfer Form -->
+                    <form method="post" id="transferForm">
+                        {% csrf_token %}
+                        
+                        <!-- Transfer Reason -->
+                        <div class="transfer-reason mb-4">
+                            <h5 class="mb-3">
+                                <i class="bi bi-chat-text me-2"></i>Transfer Details
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label for="notes" class="form-label fw-semibold">
+                                        Reason for Transfer <span class="text-danger">*</span>
+                                    </label>
+                                    <textarea name="notes" id="notes" class="form-control" rows="3" 
+                                              placeholder="Please provide the reason for transferring this student to a different bed..."
+                                              required></textarea>
+                                    <div class="form-text">
+                                        This information will be recorded in the allocation history.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Available Beds Selection -->
+                        <div class="hostel-section">
+                            <div class="row align-items-center mb-4">
+                                <div class="col-md-8">
+                                    <h4 class="mb-0">
+                                        <i class="bi bi-search me-2"></i>Select New Bed
+                                    </h4>
+                                    <p class="text-muted mb-0">Choose an available bed from the same hostel</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="search-box">
+                                        <div class="input-group">
+                                            <span class="input-group-text">
+                                                <i class="bi bi-search"></i>
+                                            </span>
+                                            <input type="text" id="bedSearch" class="form-control" 
+                                                   placeholder="Search beds by room number...">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Filters -->
+                            <div class="row mb-4">
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Floor</label>
+                                    <select class="form-select" id="floorFilter">
+                                        <option value="">All Floors</option>
+                                        {% for floor in floors %}
+                                        <option value="{{ floor }}">Floor {{ floor }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Room Type</label>
+                                    <select class="form-select" id="roomTypeFilter">
+                                        <option value="">All Types</option>
+                                        {% for room_type in room_types %}
+                                        <option value="{{ room_type.0 }}">{{ room_type.1 }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Bed Type</label>
+                                    <select class="form-select" id="bedTypeFilter">
+                                        <option value="">All Types</option>
+                                        {% for bed_type in bed_types %}
+                                        <option value="{{ bed_type.0 }}">{{ bed_type.1 }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Sort By</label>
+                                    <select class="form-select" id="sortFilter">
+                                        <option value="room">Room Number</option>
+                                        <option value="floor">Floor</option>
+                                        <option value="type">Bed Type</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Available Beds Grid -->
+                            <div id="availableBedsContainer">
+                                {% if available_beds %}
+                                    <!-- Group by Floor -->
+                                    {% for floor, beds in available_beds_by_floor %}
+                                    <div class="floor-section" data-floor="{{ floor }}">
+                                        <h5 class="mb-3">
+                                            <i class="bi bi-building me-2"></i>Floor {{ floor }}
+                                            <span class="badge bg-primary ms-2">{{ beds|length }} beds available</span>
+                                        </h5>
+                                        
+                                        <div class="room-grid">
+                                            {% for bed in beds %}
+                                            <div class="bed-card" data-bed-id="{{ bed.id }}" 
+                                                 data-room-type="{{ bed.room.room_type }}"
+                                                 data-bed-type="{{ bed.bed_type }}"
+                                                 data-floor="{{ bed.room.floor }}">
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input bed-selector" 
+                                                           type="radio" 
+                                                           name="new_bed" 
+                                                           value="{{ bed.id }}" 
+                                                           id="bed_{{ bed.id }}"
+                                                           required>
+                                                    <label class="form-check-label fw-semibold" for="bed_{{ bed.id }}">
+                                                        {{ bed.room.hostel.name }} - Room {{ bed.room.room_number }}
+                                                    </label>
+                                                </div>
+                                                
+                                                <div class="row">
+                                                    <div class="col-8">
+                                                        <div class="mb-2">
+                                                            <span class="bed-type-indicator bed-type-{{ bed.bed_type }}"></span>
+                                                            <strong>Bed {{ bed.bed_number }}</strong>
+                                                            <span class="badge bg-secondary ms-2">{{ bed.get_bed_type_display }}</span>
+                                                        </div>
+                                                        <div class="bed-features">
+                                                            <div class="mb-1">
+                                                                <i class="bi bi-people me-1"></i>
+                                                                Room Type: {{ bed.room.get_room_type_display }}
+                                                            </div>
+                                                            <div class="mb-1">
+                                                                <i class="bi bi-person me-1"></i>
+                                                                Capacity: {{ bed.room.capacity }} students
+                                                            </div>
+                                                            {% if bed.features %}
+                                                            <div class="mb-1">
+                                                                <i class="bi bi-star me-1"></i>
+                                                                Features: {{ bed.features|truncatewords:5 }}
+                                                            </div>
+                                                            {% endif %}
+                                                            <div>
+                                                                <i class="bi bi-cash-coin me-1"></i>
+                                                                Rent: ₹{{ bed.room.effective_rent|floatformat:2 }}/month
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-4 text-end">
+                                                        <div class="availability-badge bg-success">
+                                                            <i class="bi bi-check-circle me-1"></i>Available
+                                                        </div>
+                                                        {% if bed.room.amenities %}
+                                                        <div class="mt-2">
+                                                            <small class="text-muted">
+                                                                <i class="bi bi-list-check"></i> Amenities
+                                                            </small>
+                                                        </div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="text-center py-5">
+                                        <i class="bi bi-person-x text-muted" style="font-size: 4rem;"></i>
+                                        <h4 class="text-muted mt-3">No Available Beds</h4>
+                                        <p class="text-muted">
+                                            There are no available beds in {{ allocation.bed.room.hostel.name }} at the moment.
+                                        </p>
+                                        <a href="{% url 'hostels:allocation_list' %}" class="btn btn-primary">
+                                            <i class="bi bi-arrow-left me-2"></i>Back to Allocations
+                                        </a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="action-buttons">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <div class="form-text">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        Review the transfer details before proceeding. This action cannot be undone.
+                                    </div>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <div class="btn-group">
+                                        <a href="{% url 'hostels:allocation_list' %}" class="btn btn-outline-secondary">
+                                            <i class="bi bi-x-circle me-2"></i>Cancel
+                                        </a>
+                                        <button type="submit" class="btn btn-primary" id="transferBtn" 
+                                                {% if not available_beds %}disabled{% endif %}>
+                                            <i class="bi bi-arrow-left-right me-2"></i>Transfer Student
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Transfer Guidelines -->
+            <div class="card transfer-card mt-4">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Transfer Guidelines
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Before Transferring:</h6>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                    Verify student's current allocation details
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                    Ensure new bed meets student requirements
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                    Check for any special needs or accommodations
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>After Transfer:</h6>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="bi bi-arrow-right-circle text-primary me-2"></i>
+                                    Old allocation will be marked as "Transferred"
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-arrow-right-circle text-primary me-2"></i>
+                                    New allocation record will be created
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-arrow-right-circle text-primary me-2"></i>
+                                    Student will be notified of the change
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Bed selection handling
+        const bedCards = document.querySelectorAll('.bed-card');
+        const transferBtn = document.getElementById('transferBtn');
+        
+        bedCards.forEach(card => {
+            card.addEventListener('click', function(e) {
+                // Don't trigger if clicking the radio button directly
+                if (e.target.type !== 'radio') {
+                    const radio = this.querySelector('.bed-selector');
+                    if (radio) {
+                        radio.checked = true;
+                        updateSelection();
+                    }
+                }
+            });
+        });
+
+        // Update visual selection state
+        function updateSelection() {
+            bedCards.forEach(card => {
+                const radio = card.querySelector('.bed-selector');
+                if (radio && radio.checked) {
+                    card.classList.add('selected');
+                    transferBtn.disabled = false;
+                } else {
+                    card.classList.remove('selected');
+                }
+            });
+        }
+
+        // Filter functionality
+        const floorFilter = document.getElementById('floorFilter');
+        const roomTypeFilter = document.getElementById('roomTypeFilter');
+        const bedTypeFilter = document.getElementById('bedTypeFilter');
+        const sortFilter = document.getElementById('sortFilter');
+        const bedSearch = document.getElementById('bedSearch');
+
+        [floorFilter, roomTypeFilter, bedTypeFilter, sortFilter, bedSearch].forEach(filter => {
+            if (filter) {
+                filter.addEventListener('change', applyFilters);
+                filter.addEventListener('input', applyFilters);
+            }
+        });
+
+        function applyFilters() {
+            const floorValue = floorFilter.value;
+            const roomTypeValue = roomTypeFilter.value;
+            const bedTypeValue = bedTypeFilter.value;
+            const searchValue = bedSearch.value.toLowerCase();
+            
+            bedCards.forEach(card => {
+                const floor = card.getAttribute('data-floor');
+                const roomType = card.getAttribute('data-room-type');
+                const bedType = card.getAttribute('data-bed-type');
+                const roomText = card.textContent.toLowerCase();
+                
+                const floorMatch = !floorValue || floor === floorValue;
+                const roomTypeMatch = !roomTypeValue || roomType === roomTypeValue;
+                const bedTypeMatch = !bedTypeValue || bedType === bedTypeValue;
+                const searchMatch = !searchValue || roomText.includes(searchValue);
+                
+                if (floorMatch && roomTypeMatch && bedTypeMatch && searchMatch) {
+                    card.style.display = 'block';
+                    card.parentElement.style.display = 'block';
+                    card.closest('.floor-section').style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            // Hide empty floor sections
+            document.querySelectorAll('.floor-section').forEach(section => {
+                const visibleBeds = section.querySelectorAll('.bed-card[style="display: block"]');
+                if (visibleBeds.length === 0) {
+                    section.style.display = 'none';
+                } else {
+                    section.style.display = 'block';
+                }
+            });
+        }
+
+        // Form submission handling
+        const transferForm = document.getElementById('transferForm');
+        if (transferForm) {
+            transferForm.addEventListener('submit', function(e) {
+                const selectedBed = document.querySelector('input[name="new_bed"]:checked');
+                const notes = document.getElementById('notes').value.trim();
+                
+                if (!selectedBed) {
+                    e.preventDefault();
+                    showNotification('Please select a bed to transfer to.', 'error');
+                    return;
+                }
+                
+                if (!notes) {
+                    e.preventDefault();
+                    showNotification('Please provide a reason for the transfer.', 'error');
+                    return;
+                }
+                
+                // Show loading state
+                transferBtn.disabled = true;
+                transferBtn.innerHTML = '<i class="bi bi-arrow-repeat spinner me-2"></i>Processing Transfer...';
+            });
+        }
+
+        // Notification function
+        function showNotification(message, type) {
+            const alertClass = type === 'error' ? 'alert-danger' : 'alert-success';
+            const notification = document.createElement('div');
+            notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        // Initialize filters
+        applyFilters();
+    });
+</script>
+{% endblock %}

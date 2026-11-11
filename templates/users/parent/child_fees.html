@@ -1,0 +1,526 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Fee Status" %} - {{ child.user.get_full_name }}{% endblock %}
+
+{% block page_title %}{% trans "Fee Status - " %}{{ child.user.get_full_name }}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Dashboard" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'users:parent_student_relationships' %}">{% trans "My Children" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Fees" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="child-fees">
+    <!-- Child Info Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar avatar-xl bg-warning text-white me-3">
+                                    {{ child.user.get_initials }}
+                                </div>
+                                <div>
+                                    <h4 class="mb-1">{{ child.user.get_full_name }}</h4>
+                                    <p class="text-muted mb-1">{{ child.student_id }}</p>
+                                    <small class="text-muted">
+                                        {% with current_class=child.current_class %}
+                                            {% if current_class %}
+                                                {% trans "Current Class" %}: {{ current_class.name }}
+                                            {% else %}
+                                                {% trans "Not currently enrolled" %}
+                                            {% endif %}
+                                        {% endwith %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <div class="btn-group">
+                                <a href="{% url 'users:child_records' child.id %}" class="btn btn-outline-primary">
+                                    <i class="bi bi-eye me-1"></i>{% trans "Academic Records" %}
+                                </a>
+                                <a href="{% url 'users:child_attendance' child.id %}" class="btn btn-outline-success">
+                                    <i class="bi bi-calendar-check me-1"></i>{% trans "Attendance" %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fee Summary Overview -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="avatar avatar-lg bg-danger text-white mx-auto mb-3">
+                        <i class="bi bi-cash fs-2"></i>
+                    </div>
+                    <h3 class="fw-bold text-danger mb-1">${{ total_pending|floatformat:2 }}</h3>
+                    <p class="text-muted small mb-0">{% trans "Total Pending" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="avatar avatar-lg bg-success text-white mx-auto mb-3">
+                        <i class="bi bi-check-circle fs-2"></i>
+                    </div>
+                    <h3 class="fw-bold text-success mb-1">${{ total_paid|floatformat:2 }}</h3>
+                    <p class="text-muted small mb-0">{% trans "Total Paid" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="avatar avatar-lg bg-primary text-white mx-auto mb-3">
+                        <i class="bi bi-receipt fs-2"></i>
+                    </div>
+                    <h3 class="fw-bold text-primary mb-1">${{ total_invoiced|floatformat:2 }}</h3>
+                    <p class="text-muted small mb-0">{% trans "Total Invoiced" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="avatar avatar-lg bg-info text-white mx-auto mb-3">
+                        <i class="bi bi-file-earmark-text fs-2"></i>
+                    </div>
+                    <h3 class="fw-bold text-info mb-1">{{ invoices|length }}</h3>
+                    <p class="text-muted small mb-0">{% trans "Invoices" %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Session Invoices -->
+    {% if invoices %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-receipt me-2"></i>
+                        {% trans "Current Session Invoices" %}
+                        {% if current_session %}
+                            - {{ current_session.name }}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Invoice #" %}</th>
+                                    <th>{% trans "Billing Period" %}</th>
+                                    <th>{% trans "Issue Date" %}</th>
+                                    <th>{% trans "Due Date" %}</th>
+                                    <th>{% trans "Total Amount" %}</th>
+                                    <th>{% trans "Amount Paid" %}</th>
+                                    <th>{% trans "Balance Due" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invoice in invoices %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ invoice.invoice_number }}</strong>
+                                    </td>
+                                    <td>{{ invoice.billing_period }}</td>
+                                    <td>{{ invoice.issue_date|date:"M d, Y" }}</td>
+                                    <td>
+                                        <span class="{% if invoice.is_overdue %}text-danger fw-bold{% endif %}">
+                                            {{ invoice.due_date|date:"M d, Y" }}
+                                        </span>
+                                        {% if invoice.is_overdue %}
+                                            <br>
+                                            <small class="text-danger">
+                                                <i class="bi bi-exclamation-triangle"></i>
+                                                {% trans "Overdue by" %} {{ invoice.days_overdue }} {% trans "days" %}
+                                            </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>${{ invoice.total_amount|floatformat:2 }}</td>
+                                    <td>
+                                        {% if invoice.amount_paid > 0 %}
+                                            <span class="text-success">${{ invoice.amount_paid|floatformat:2 }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if invoice.balance_due > 0 %}
+                                            <span class="text-danger fw-bold">${{ invoice.balance_due|floatformat:2 }}</span>
+                                        {% else %}
+                                            <span class="text-success">{% trans "Paid" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if invoice.status == 'paid' %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle me-1"></i>{% trans "Paid" %}
+                                            </span>
+                                        {% elif invoice.status == 'partial' %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="bi bi-dash-circle me-1"></i>{% trans "Partial" %}
+                                            </span>
+                                        {% elif invoice.status == 'overdue' %}
+                                            <span class="badge bg-danger">
+                                                <i class="bi bi-exclamation-triangle me-1"></i>{% trans "Overdue" %}
+                                            </span>
+                                        {% elif invoice.status == 'issued' %}
+                                            <span class="badge bg-info">
+                                                <i class="bi bi-clock me-1"></i>{% trans "Issued" %}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ invoice.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="viewInvoiceDetails('{{ invoice.id }}')">
+                                            <i class="bi bi-eye"></i> {% trans "Details" %}
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Payment History -->
+    {% if payments %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-credit-card me-2"></i>
+                        {% trans "Payment History" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Payment #" %}</th>
+                                    <th>{% trans "Date" %}</th>
+                                    <th>{% trans "Amount" %}</th>
+                                    <th>{% trans "Method" %}</th>
+                                    <th>{% trans "Reference" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                    <th>{% trans "Invoice" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in payments %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ payment.payment_number }}</strong>
+                                    </td>
+                                    <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+                                    <td>
+                                        <span class="text-success fw-bold">${{ payment.amount|floatformat:2 }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ payment.get_payment_method_display }}</span>
+                                    </td>
+                                    <td>
+                                        {% if payment.reference_number %}
+                                            {{ payment.reference_number }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if payment.status == 'completed' %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle me-1"></i>{% trans "Completed" %}
+                                            </span>
+                                        {% elif payment.status == 'pending' %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="bi bi-clock me-1"></i>{% trans "Pending" %}
+                                            </span>
+                                        {% elif payment.status == 'failed' %}
+                                            <span class="badge bg-danger">
+                                                <i class="bi bi-x-circle me-1"></i>{% trans "Failed" %}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ payment.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if payment.invoice %}
+                                            <a href="#" onclick="viewInvoiceDetails('{{ payment.invoice.id }}')" class="text-primary">
+                                                {{ payment.invoice.invoice_number }}
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Fee Structure Information -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        {% trans "Fee Structure Information" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>{% trans "Fee Structure Details:" %}</strong>
+                        {% trans "The fee structure includes tuition, transportation, hostel, library, laboratory, examination, sports, and development fees. Fees are billed according to the schedule set by the school administration." %}
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <h6 class="fw-bold mb-3">{% trans "Payment Methods" %}</h6>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="bi bi-cash text-success me-2"></i>
+                                    {% trans "Cash payment at school office" %}
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-credit-card text-primary me-2"></i>
+                                    {% trans "Credit/Debit card payments" %}
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-bank text-info me-2"></i>
+                                    {% trans "Bank transfer" %}
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-phone text-warning me-2"></i>
+                                    {% trans "Mobile payment options" %}
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-bold mb-3">{% trans "Important Notes" %}</h6>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                                    {% trans "Late fees apply after due date" %}
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-calendar-x text-danger me-2"></i>
+                                    {% trans "Outstanding fees may affect exam eligibility" %}
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-envelope text-info me-2"></i>
+                                    {% trans "Payment reminders sent via email/SMS" %}
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-telephone text-success me-2"></i>
+                                    {% trans "Contact school office for payment assistance" %}
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    {% if total_pending > 0 %}
+                    <div class="alert alert-warning mt-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>{% trans "Action Required:" %}</strong>
+                        {% trans "There are outstanding fees that need to be paid. Please contact the school administration or visit the school office to make payment arrangements." %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Invoice Details Modal -->
+<div class="modal fade" id="invoiceDetailsModal" tabindex="-1" aria-labelledby="invoiceDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="invoiceDetailsModalLabel">{% trans "Invoice Details" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="invoiceDetailsContent">
+                <!-- Content will be loaded via AJAX -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.child-fees {
+    background-color: #f8f9fa;
+}
+
+.avatar {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items-center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.avatar-xl {
+    width: 80px;
+    height: 80px;
+    font-size: 2rem;
+}
+
+.avatar-lg {
+    width: 64px;
+    height: 64px;
+    font-size: 1.5rem;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+    background-color: #f8f9fa;
+}
+
+.card-header {
+    border-bottom: none;
+}
+
+.alert {
+    border-radius: 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+
+    .btn-group {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .btn-group .btn {
+        border-radius: 0.375rem !important;
+    }
+}
+
+/* Dark theme support */
+[data-bs-theme="dark"] {
+    .child-fees {
+        background-color: #212529;
+    }
+
+    .table th {
+        background-color: #2d3338;
+        color: #adb5bd;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Add animation to stat cards
+    const statCards = document.querySelectorAll('.card-body.text-center');
+    statCards.forEach((card, index) => {
+        setTimeout(() => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 100);
+        }, index * 100);
+    });
+});
+
+// View invoice details (placeholder for AJAX implementation)
+function viewInvoiceDetails(invoiceId) {
+    const modalContent = document.getElementById('invoiceDetailsContent');
+    modalContent.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">{% trans "Loading..." %}</span>
+            </div>
+            <p class="mt-2">{% trans "Loading invoice details..." %}</p>
+        </div>
+    `;
+
+    const modal = new bootstrap.Modal(document.getElementById('invoiceDetailsModal'));
+    modal.show();
+
+    // Simulate AJAX call - replace with actual API call
+    setTimeout(() => {
+        modalContent.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                {% trans "Invoice details would be loaded here via AJAX in a real implementation." %}
+                <br>
+                <strong>{% trans "Invoice ID:" %}</strong> ${invoiceId}
+            </div>
+            <div class="mt-3">
+                <h6>{% trans "Invoice Items:" %}</h6>
+                <ul class="list-group">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>{% trans "Tuition Fee" %}</span>
+                        <span class="fw-bold">$500.00</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>{% trans "Transportation Fee" %}</span>
+                        <span class="fw-bold">$50.00</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>{% trans "Library Fee" %}</span>
+                        <span class="fw-bold">$20.00</span>
+                    </li>
+                </ul>
+            </div>
+        `;
+    }, 1000);
+}
+</script>
+{% endblock %}

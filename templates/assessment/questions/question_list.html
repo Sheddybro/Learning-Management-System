@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Questions{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Questions</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'assessment:question_create' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> Create Question
+                        </a>
+                        <a href="{% url 'assessment:question_bank_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Back to Banks
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="card-body border-bottom">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="question_bank_id" class="form-label">Question Bank</label>
+                            <select name="question_bank_id" id="question_bank_id" class="form-select">
+                                <option value="">All Banks</option>
+                                {% for bank in question_banks %}
+                                <option value="{{ bank.id }}" {% if request.GET.question_bank_id == bank.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ bank.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="question_type" class="form-label">Type</label>
+                            <select name="question_type" id="question_type" class="form-select">
+                                <option value="">All Types</option>
+                                <option value="multiple_choice" {% if request.GET.question_type == 'multiple_choice' %}selected{% endif %}>Multiple Choice</option>
+                                <option value="true_false" {% if request.GET.question_type == 'true_false' %}selected{% endif %}>True/False</option>
+                                <option value="short_answer" {% if request.GET.question_type == 'short_answer' %}selected{% endif %}>Short Answer</option>
+                                <option value="essay" {% if request.GET.question_type == 'essay' %}selected{% endif %}>Essay</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="difficulty" class="form-label">Difficulty</label>
+                            <select name="difficulty" id="difficulty" class="form-select">
+                                <option value="">All Levels</option>
+                                <option value="easy" {% if request.GET.difficulty == 'easy' %}selected{% endif %}>Easy</option>
+                                <option value="medium" {% if request.GET.difficulty == 'medium' %}selected{% endif %}>Medium</option>
+                                <option value="hard" {% if request.GET.difficulty == 'hard' %}selected{% endif %}>Hard</option>
+                                <option value="expert" {% if request.GET.difficulty == 'expert' %}selected{% endif %}>Expert</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-filter"></i> Filter
+                                </button>
+                                <a href="{% url 'assessment:question_list' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i> Clear
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card-body">
+                    {% if questions %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Question</th>
+                                        <th>Type</th>
+                                        <th>Bank</th>
+                                        <th>Difficulty</th>
+                                        <th>Marks</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for question in questions %}
+                                    <tr>
+                                        <td>
+                                            <div class="question-text">
+                                                {{ question.question_text|truncatechars:100 }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-{{ question.question_type|lower }}">
+                                                {% if question.question_type == 'multiple_choice' %}
+                                                    Multiple Choice
+                                                {% elif question.question_type == 'true_false' %}
+                                                    True/False
+                                                {% elif question.question_type == 'short_answer' %}
+                                                    Short Answer
+                                                {% elif question.question_type == 'essay' %}
+                                                    Essay
+                                                {% endif %}
+                                            </span>
+                                        </td>
+                                        <td>{{ question.question_bank.name }}</td>
+                                        <td>
+                                            <span class="badge badge-{{ question.difficulty_level|lower }}">
+                                                {{ question.difficulty_level }}
+                                            </span>
+                                        </td>
+                                        <td>{{ question.marks }}</td>
+                                        <td>
+                                            {% if question.is_active %}
+                                                <span class="badge badge-success">Active</span>
+                                            {% else %}
+                                                <span class="badge badge-secondary">Inactive</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-info" onclick="showQuestionDetails({{ question.id }})">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                            <a href="{% url 'assessment:question_create' %}?question_bank_id={{ question.question_bank.id }}&question_id={{ question.id }}"
+                                               class="btn btn-sm btn-warning">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        {% if is_paginated %}
+                        <div class="d-flex justify-content-center">
+                            <nav aria-label="Question pagination">
+                                <ul class="pagination">
+                                    {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Previous</a>
+                                    </li>
+                                    {% endif %}
+
+                                    {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                                    </li>
+                                    {% endif %}
+                                    {% endfor %}
+
+                                    {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next</a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-question-circle fa-3x text-muted mb-3"></i>
+                            <h4>No Questions Found</h4>
+                            <p>Get started by creating your first question.</p>
+                            <a href="{% url 'assessment:question_create' %}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Create Question
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Question Details Modal -->
+<div class="modal fade" id="questionModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Question Details</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="questionDetails">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showQuestionDetails(questionId) {
+    // This would typically make an AJAX call to get question details
+    // For now, we'll just show a placeholder
+    $('#questionDetails').html('<p>Loading question details...</p>');
+    $('#questionModal').modal('show');
+}
+</script>
+{% endblock %}

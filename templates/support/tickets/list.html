@@ -1,0 +1,204 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Support Tickets" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{% trans "Support Tickets" %}</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'support:contact' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> {% trans "Submit New Ticket" %}
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filter Tabs -->
+                    <ul class="nav nav-tabs mb-4" id="ticketTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab">
+                                {% trans "All Tickets" %} ({{ submissions|length }})
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="resolved-tab" data-bs-toggle="tab" data-bs-target="#resolved" type="button" role="tab">
+                                {% trans "Resolved" %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="unresolved-tab" data-bs-toggle="tab" data-bs-target="#unresolved" type="button" role="tab">
+                                {% trans "Unresolved" %}
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Tickets List -->
+                    <div class="tab-content" id="ticketTabsContent">
+                        <!-- All Tickets -->
+                        <div class="tab-pane fade show active" id="all" role="tabpanel">
+                            {% if submissions %}
+                                <div class="list-group">
+                                    {% for submission in submissions %}
+                                        <div class="list-group-item">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <div class="flex-grow-1">
+                                                    <h5 class="mb-1">
+                                                        <a href="{% url 'support:ticket_detail' submission.pk %}">{{ submission.subject }}</a>
+                                                        {% if submission.is_resolved %}
+                                                            <span class="badge bg-success ms-2">{% trans "Resolved" %}</span>
+                                                        {% else %}
+                                                            <span class="badge bg-warning ms-2">{% trans "Open" %}</span>
+                                                        {% endif %}
+                                                    </h5>
+                                                    <p class="mb-1 text-muted">{{ submission.message|truncatechars:150 }}</p>
+                                                    <small class="text-muted">
+                                                        {% trans "From" %} {{ submission.name }} ({{ submission.email }}) |
+                                                        {% trans "Submitted" %} {{ submission.created_at|date:"M d, Y H:i" }}
+                                                        {% if submission.resolved_at %}
+                                                            | {% trans "Resolved" %} {{ submission.resolved_at|date:"M d, Y H:i" }}
+                                                        {% endif %}
+                                                    </small>
+                                                </div>
+                                                <div class="flex-shrink-0 ms-3">
+                                                    {% if not submission.is_resolved %}
+                                                        <form method="post" action="{% url 'support:ticket_update' submission.pk %}" class="d-inline">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="is_resolved" value="True">
+                                                            <button type="submit" class="btn btn-sm btn-success">
+                                                                <i class="fas fa-check"></i> {% trans "Mark Resolved" %}
+                                                            </button>
+                                                        </form>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+
+                                <!-- Pagination -->
+                                {% if is_paginated %}
+                                    <nav aria-label="Page navigation" class="mt-4">
+                                        <ul class="pagination justify-content-center">
+                                            {% if page_obj.has_previous %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>
+                                                </li>
+                                            {% endif %}
+
+                                            {% for i in paginator.page_range %}
+                                                <li class="page-item {% if page_obj.number == i %}active{% endif %}">
+                                                    <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+                                                </li>
+                                            {% endfor %}
+
+                                            {% if page_obj.has_next %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>
+                                                </li>
+                                            {% endif %}
+                                        </ul>
+                                    </nav>
+                                {% endif %}
+                            {% else %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+                                    <h4>{% trans "No Support Tickets" %}</h4>
+                                    <p class="text-muted">{% trans "There are no support tickets at the moment." %}</p>
+                                    <a href="{% url 'support:contact' %}" class="btn btn-primary">
+                                        <i class="fas fa-plus"></i> {% trans "Submit First Ticket" %}
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Resolved Tickets -->
+                        <div class="tab-pane fade" id="resolved" role="tabpanel">
+                            {% with resolved_submissions=submissions|dictsortreversed:"resolved_at" %}
+                                {% if resolved_submissions %}
+                                    <div class="list-group">
+                                        {% for submission in resolved_submissions %}
+                                            {% if submission.is_resolved %}
+                                                <div class="list-group-item">
+                                                    <div class="d-flex w-100 justify-content-between">
+                                                        <div class="flex-grow-1">
+                                                            <h5 class="mb-1">
+                                                                <a href="{% url 'support:ticket_detail' submission.pk %}">{{ submission.subject }}</a>
+                                                                <span class="badge bg-success ms-2">{% trans "Resolved" %}</span>
+                                                            </h5>
+                                                            <p class="mb-1 text-muted">{{ submission.message|truncatechars:150 }}</p>
+                                                            <small class="text-muted">
+                                                                {% trans "From" %} {{ submission.name }} ({{ submission.email }}) |
+                                                                {% trans "Resolved" %} {{ submission.resolved_at|date:"M d, Y H:i" }}
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="text-center py-5">
+                                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                        <h4>{% trans "No Resolved Tickets" %}</h4>
+                                        <p class="text-muted">{% trans "All tickets are currently open." %}</p>
+                                    </div>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+
+                        <!-- Unresolved Tickets -->
+                        <div class="tab-pane fade" id="unresolved" role="tabpanel">
+                            {% if submissions %}
+                                {% for submission in submissions %}
+                                    {% if not submission.is_resolved %}
+                                        <div class="list-group-item">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <div class="flex-grow-1">
+                                                    <h5 class="mb-1">
+                                                        <a href="{% url 'support:ticket_detail' submission.pk %}">{{ submission.subject }}</a>
+                                                        <span class="badge bg-warning ms-2">{% trans "Open" %}</span>
+                                                    </h5>
+                                                    <p class="mb-1 text-muted">{{ submission.message|truncatechars:150 }}</p>
+                                                    <small class="text-muted">
+                                                        {% trans "From" %} {{ submission.name }} ({{ submission.email }}) |
+                                                        {% trans "Submitted" %} {{ submission.created_at|date:"M d, Y H:i" }}
+                                                    </small>
+                                                </div>
+                                                <div class="flex-shrink-0 ms-3">
+                                                    <form method="post" action="{% url 'support:ticket_update' submission.pk %}" class="d-inline">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="is_resolved" value="True">
+                                                        <button type="submit" class="btn btn-sm btn-success">
+                                                            <i class="fas fa-check"></i> {% trans "Mark Resolved" %}
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% empty %}
+                                    <div class="text-center py-5">
+                                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                        <h4>{% trans "All Tickets Resolved" %}</h4>
+                                        <p class="text-muted">{% trans "Great job! All tickets have been resolved." %}</p>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+                                    <h4>{% trans "No Support Tickets" %}</h4>
+                                    <p class="text-muted">{% trans "There are no support tickets at the moment." %}</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

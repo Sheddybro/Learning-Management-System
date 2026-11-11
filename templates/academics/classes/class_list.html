@@ -1,0 +1,466 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Classes" %}{% endblock %}
+
+{% block body_class %}academics-classes{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'academics:class_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>{% trans "New Class" %}
+        </a>
+        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterModal">
+            <i class="bi bi-funnel me-2"></i>{% trans "Filter" %}
+        </button>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download me-2"></i>{% trans "Export" %}
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-pdf me-2"></i>PDF</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-excel me-2"></i>Excel</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-text me-2"></i>CSV</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/academics/lists.css' %}">
+<style>
+    .class-card { transition: all 0.3s ease; }
+    .class-card:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15); }
+    .capacity-bar { height: 6px; background: var(--bs-light); border-radius: 3px; overflow: hidden; }
+    .capacity-fill { height: 100%; background: var(--bs-success); transition: width 0.3s ease; }
+    .capacity-warning .capacity-fill { background: var(--bs-warning); }
+    .capacity-danger .capacity-fill { background: var(--bs-danger); }
+    .class-type-regular { border-left: 4px solid var(--bs-primary); }
+    .class-type-honors { border-left: 4px solid var(--bs-warning); }
+    .class-type-special_needs { border-left: 4px solid var(--bs-info); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="classes-list-container">
+    <!-- Search and Filter Bar -->
+    <div class="search-filter-bar mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" class="form-control" placeholder="{% trans 'Search classes...' %}" id="searchInput">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="gradeLevelFilter">
+                    <option value="">{% trans "All Grade Levels" %}</option>
+                    {% for grade_level in grade_levels %}
+                    <option value="{{ grade_level.id }}">{{ grade_level.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="sessionFilter">
+                    <option value="">{% trans "All Sessions" %}</option>
+                    {% for session in sessions %}
+                    <option value="{{ session.id }}">{{ session.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" id="typeFilter">
+                    <option value="">{% trans "All Types" %}</option>
+                    <option value="regular">{% trans "Regular" %}</option>
+                    <option value="honors">{% trans "Honors" %}</option>
+                    <option value="special_needs">{% trans "Special Needs" %}</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ total_classes }}</h4>
+                            <p class="card-text mb-0">{% trans "Total Classes" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-house-door fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ active_classes }}</h4>
+                            <p class="card-text mb-0">{% trans "Active Classes" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-check-circle fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ total_students }}</h4>
+                            <p class="card-text mb-0">{% trans "Total Students" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-people fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ full_classes }}</h4>
+                            <p class="card-text mb-0">{% trans "Full Classes" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-exclamation-triangle fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Classes Grid View -->
+    <div class="classes-grid">
+        <div class="row">
+            {% for class in classes %}
+            <div class="col-xl-4 col-lg-6 mb-4 class-card-col" 
+                 data-grade-level="{{ class.grade_level.id }}"
+                 data-session="{{ class.academic_session.id }}"
+                 data-type="{{ class.class_type }}">
+                <div class="card class-card h-100 class-type-{{ class.class_type }}">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h5 class="card-title mb-1">{{ class.name }}</h5>
+                                <p class="text-muted mb-0 small">{{ class.code }}</p>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge {% if class.class_type == 'regular' %}bg-primary{% elif class.class_type == 'honors' %}bg-warning{% else %}bg-info{% endif %}">
+                                    {{ class.get_class_type_display }}
+                                </span>
+                                <span class="badge {% if class.status == 'active' %}bg-success{% else %}bg-secondary{% endif %} d-block mt-1">
+                                    {{ class.get_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Class Information -->
+                        <div class="class-info mb-3">
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted d-block">{% trans "Grade Level" %}</small>
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-mortarboard text-secondary me-2"></i>
+                                        <span class="fw-semibold">{{ class.grade_level.name }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted d-block">{% trans "Session" %}</small>
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-calendar text-secondary me-2"></i>
+                                        <span class="fw-semibold">{{ class.academic_session.name }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Class Teacher -->
+                        {% if class.class_teacher %}
+                        <div class="class-teacher mb-3">
+                            <small class="text-muted d-block">{% trans "Class Teacher" %}</small>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-placeholder bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                    {{ class.class_teacher.user.get_initials }}
+                                </div>
+                                <span class="fw-semibold">{{ class.class_teacher.user.get_full_name }}</span>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Room Information -->
+                        {% if class.room_number %}
+                        <div class="room-info mb-3">
+                            <small class="text-muted d-block">{% trans "Room" %}</small>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-geo-alt text-secondary me-2"></i>
+                                <span class="fw-semibold">{{ class.room_number }}</span>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Capacity and Enrollment -->
+                        <div class="enrollment-info mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">{% trans "Enrollment" %}</small>
+                                <small class="fw-semibold">{{ class.current_student_count }}/{{ class.capacity }}</small>
+                            </div>
+                            <div class="capacity-bar {% if class.capacity_utilization > 90 %}capacity-danger{% elif class.capacity_utilization > 75 %}capacity-warning{% endif %}">
+                                <div class="capacity-fill" style="width: {{ class.capacity_utilization }}%"></div>
+                            </div>
+                            <small class="text-muted d-block text-center mt-1">
+                                {{ class.capacity_utilization|floatformat:0 }}% {% trans "full" %}
+                                {% if class.available_seats > 0 %}
+                                • {{ class.available_seats }} {% trans "seats available" %}
+                                {% else %}
+                                • <span class="text-danger">{% trans "Full" %}</span>
+                                {% endif %}
+                            </small>
+                        </div>
+
+                        <!-- Subjects Count -->
+                        <div class="subjects-count">
+                            <small class="text-muted d-block">{% trans "Subjects" %}</small>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-journals text-secondary me-2"></i>
+                                <span class="fw-semibold">{{ class.subject_count }} {% trans "subjects" %}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <div class="btn-group w-100" role="group">
+                            <a href="{% url 'academics:class_detail' class.pk %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye me-1"></i>{% trans "View" %}
+                            </a>
+                            <a href="{% url 'academics:class_update' class.pk %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-pencil me-1"></i>{% trans "Edit" %}
+                            </a>
+                            <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-people me-2"></i>{% trans "Manage Students" %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-journal-check me-2"></i>{% trans "View Subjects" %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-calendar-week me-2"></i>{% trans "Timetable" %}
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item text-warning" href="#">
+                                        <i class="bi bi-arrow-repeat me-2"></i>{% trans "Toggle Status" %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item text-danger" href="#">
+                                        <i class="bi bi-trash me-2"></i>{% trans "Delete" %}
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="bi bi-house-door text-muted fs-1"></i>
+                    <h4 class="text-muted mt-3">{% trans "No Classes Found" %}</h4>
+                    <p class="text-muted mb-4">{% trans "Get started by creating your first class." %}</p>
+                    <a href="{% url 'academics:class_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>{% trans "Create First Class" %}
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="{% trans 'Class pagination' %}" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">{% trans "First" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">{% trans "Last" %}</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterModalLabel">{% trans "Filter Classes" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="get" id="filterForm">
+                    <div class="mb-3">
+                        <label for="modalStatusFilter" class="form-label">{% trans "Status" %}</label>
+                        <select class="form-select" id="modalStatusFilter" name="status">
+                            <option value="">{% trans "All Statuses" %}</option>
+                            <option value="active">{% trans "Active" %}</option>
+                            <option value="inactive">{% trans "Inactive" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalGradeLevelFilter" class="form-label">{% trans "Grade Level" %}</label>
+                        <select class="form-select" id="modalGradeLevelFilter" name="grade_level">
+                            <option value="">{% trans "All Grade Levels" %}</option>
+                            {% for grade_level in grade_levels %}
+                            <option value="{{ grade_level.id }}">{{ grade_level.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalSessionFilter" class="form-label">{% trans "Academic Session" %}</label>
+                        <select class="form-select" id="modalSessionFilter" name="academic_session">
+                            <option value="">{% trans "All Sessions" %}</option>
+                            {% for session in sessions %}
+                            <option value="{{ session.id }}">{{ session.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalTypeFilter" class="form-label">{% trans "Class Type" %}</label>
+                        <select class="form-select" id="modalTypeFilter" name="class_type">
+                            <option value="">{% trans "All Types" %}</option>
+                            <option value="regular">{% trans "Regular" %}</option>
+                            <option value="honors">{% trans "Honors" %}</option>
+                            <option value="special_needs">{% trans "Special Needs" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="capacityFilter" class="form-label">{% trans "Capacity" %}</label>
+                        <select class="form-select" id="capacityFilter" name="capacity">
+                            <option value="">{% trans "Any Capacity" %}</option>
+                            <option value="available">{% trans "Has Available Seats" %}</option>
+                            <option value="full">{% trans "Full Classes" %}</option>
+                            <option value="overcrowded">{% trans "Over Capacity" %}</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('filterForm').reset()">
+                    {% trans "Reset" %}
+                </button>
+                <button type="submit" form="filterForm" class="btn btn-primary">{% trans "Apply Filters" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Filter functionality
+        const searchInput = document.getElementById('searchInput');
+        const gradeLevelFilter = document.getElementById('gradeLevelFilter');
+        const sessionFilter = document.getElementById('sessionFilter');
+        const typeFilter = document.getElementById('typeFilter');
+        const classCards = document.querySelectorAll('.class-card-col');
+        
+        function filterClasses() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const gradeLevelValue = gradeLevelFilter.value;
+            const sessionValue = sessionFilter.value;
+            const typeValue = typeFilter.value;
+            
+            classCards.forEach(card => {
+                const className = card.querySelector('.card-title').textContent.toLowerCase();
+                const classCode = card.querySelector('.card-header p').textContent.toLowerCase();
+                const classGradeLevel = card.getAttribute('data-grade-level');
+                const classSession = card.getAttribute('data-session');
+                const classType = card.getAttribute('data-type');
+                
+                const matchesSearch = className.includes(searchTerm) || classCode.includes(searchTerm);
+                const matchesGradeLevel = !gradeLevelValue || classGradeLevel === gradeLevelValue;
+                const matchesSession = !sessionValue || classSession === sessionValue;
+                const matchesType = !typeValue || classType === typeValue;
+                
+                if (matchesSearch && matchesGradeLevel && matchesSession && matchesType) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+        
+        searchInput.addEventListener('input', filterClasses);
+        gradeLevelFilter.addEventListener('change', filterClasses);
+        sessionFilter.addEventListener('change', filterClasses);
+        typeFilter.addEventListener('change', filterClasses);
+
+        // Capacity warning colors
+        const capacityBars = document.querySelectorAll('.capacity-bar');
+        capacityBars.forEach(bar => {
+            const fill = bar.querySelector('.capacity-fill');
+            const width = parseInt(fill.style.width);
+            if (width > 90) {
+                bar.classList.add('capacity-danger');
+            } else if (width > 75) {
+                bar.classList.add('capacity-warning');
+            }
+        });
+    });
+</script>
+{% endblock %}

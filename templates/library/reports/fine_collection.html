@@ -1,0 +1,798 @@
+<!-- templates/library/reports/fine_collection.html -->
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Fine Collection Report" %}{% endblock %}
+
+{% block page_title %}{% trans "Fine Collection Report" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Reports" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Fine Collection" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Fine Collection Report Specific Styles */
+    .report-header-card {
+        border-left: 4px solid #dc3545;
+        background: linear-gradient(135deg, #fff, #f8f9fa);
+    }
+    
+    .stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .stats-card-1 { border-left-color: #dc3545; }
+    .stats-card-2 { border-left-color: #28a745; }
+    .stats-card-3 { border-left-color: #ffc107; }
+    .stats-card-4 { border-left-color: #17a2b8; }
+    
+    .stat-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+        opacity: 0.8;
+    }
+    
+    .filter-card {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+    }
+    
+    .payment-card {
+        border-left: 4px solid #28a745;
+        transition: all 0.2s ease;
+    }
+    
+    .payment-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .payment-method-badge {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.6rem;
+    }
+    
+    .amount-badge {
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 300px;
+        background: white;
+        border-radius: 0.375rem;
+        padding: 1rem;
+    }
+    
+    .trend-indicator {
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .trend-up { color: #28a745; }
+    .trend-down { color: #dc3545; }
+    .trend-neutral { color: #6c757d; }
+    
+    .monthly-bar {
+        height: 100px;
+        background: linear-gradient(to top, #dc3545, #e83e8c);
+        border-radius: 0.375rem 0.375rem 0 0;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    
+    .monthly-bar:hover {
+        opacity: 0.8;
+        transform: scale(1.05);
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: rgba(220, 53, 69, 0.05);
+    }
+    
+    .export-btn-group .btn {
+        border-radius: 0.375rem;
+    }
+    
+    .summary-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .summary-card .stat-number {
+        color: white;
+    }
+    
+    .summary-card .stat-label {
+        color: rgba(255, 255, 255, 0.8);
+    }
+    
+    @media (max-width: 768px) {
+        .stat-number {
+            font-size: 1.5rem;
+        }
+        
+        .chart-container {
+            height: 250px;
+        }
+        
+        .monthly-bar {
+            height: 80px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Report Header -->
+    <div class="card report-header-card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="card-title mb-2">
+                        <i class="bi bi-cash-coin text-danger me-2"></i>
+                        {% trans "Fine Collection Report" %}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {% trans "Comprehensive overview of fine payments and collection statistics" %}
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <div class="btn-group export-btn-group">
+                        <button type="button" class="btn btn-success">
+                            <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+                        </button>
+                        <button type="button" class="btn btn-success">
+                            <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                        </button>
+                        <button type="button" class="btn btn-success">
+                            <i class="bi bi-file-earmark-text me-1"></i> CSV
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Period Filter -->
+    <div class="card filter-card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="start_date" class="form-label">{% trans "Start Date" %}</label>
+                    <input type="date" class="form-control" id="start_date" name="start_date" value="{{ request.GET.start_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="end_date" class="form-label">{% trans "End Date" %}</label>
+                    <input type="date" class="form-control" id="end_date" name="end_date" value="{{ request.GET.end_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="payment_method" class="form-label">{% trans "Payment Method" %}</label>
+                    <select class="form-select" id="payment_method" name="payment_method">
+                        <option value="">{% trans "All Methods" %}</option>
+                        <option value="cash" {% if request.GET.payment_method == 'cash' %}selected{% endif %}>{% trans "Cash" %}</option>
+                        <option value="card" {% if request.GET.payment_method == 'card' %}selected{% endif %}>{% trans "Card" %}</option>
+                        <option value="online" {% if request.GET.payment_method == 'online' %}selected{% endif %}>{% trans "Online" %}</option>
+                        <option value="transfer" {% if request.GET.payment_method == 'transfer' %}selected{% endif %}>{% trans "Bank Transfer" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel me-1"></i> {% trans "Apply Filters" %}
+                    </button>
+                </div>
+            </form>
+            
+            {% if request.GET.start_date or request.GET.end_date or request.GET.payment_method %}
+            <div class="mt-3">
+                <div class="d-flex flex-wrap gap-2">
+                    {% if request.GET.start_date %}
+                    <span class="badge bg-primary">{% trans "From" %}: {{ request.GET.start_date }}</span>
+                    {% endif %}
+                    {% if request.GET.end_date %}
+                    <span class="badge bg-primary">{% trans "To" %}: {{ request.GET.end_date }}</span>
+                    {% endif %}
+                    {% if request.GET.payment_method %}
+                    <span class="badge bg-info">{% trans "Method" %}: {{ request.GET.payment_method|title }}</span>
+                    {% endif %}
+                    <a href="{% url 'library:report_fine_collection' %}" class="badge bg-danger text-decoration-none">
+                        <i class="bi bi-x-circle me-1"></i> {% trans "Clear Filters" %}
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Key Statistics -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-1 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-danger">${{ total_collected|floatformat:2 }}</div>
+                            <div class="stat-label">{% trans "Total Collected" %}</div>
+                            <div class="trend-indicator trend-up mt-1">
+                                <i class="bi bi-arrow-up-right me-1"></i> 12.5% {% trans "from last period" %}
+                            </div>
+                        </div>
+                        <div class="stat-icon text-danger">
+                            <i class="bi bi-cash-stack"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-2 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-success">{{ total_payments }}</div>
+                            <div class="stat-label">{% trans "Total Payments" %}</div>
+                            <div class="trend-indicator trend-up mt-1">
+                                <i class="bi bi-arrow-up-right me-1"></i> 8.3% {% trans "from last period" %}
+                            </div>
+                        </div>
+                        <div class="stat-icon text-success">
+                            <i class="bi bi-receipt"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-3 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-warning">${{ average_payment|floatformat:2 }}</div>
+                            <div class="stat-label">{% trans "Average Payment" %}</div>
+                            <div class="trend-indicator trend-neutral mt-1">
+                                <i class="bi bi-dash me-1"></i> 0.5% {% trans "from last period" %}
+                            </div>
+                        </div>
+                        <div class="stat-icon text-warning">
+                            <i class="bi bi-graph-up"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-info">{{ unique_members }}</div>
+                            <div class="stat-label">{% trans "Unique Members" %}</div>
+                            <div class="trend-indicator trend-down mt-1">
+                                <i class="bi bi-arrow-down-right me-1"></i> 3.2% {% trans "from last period" %}
+                            </div>
+                        </div>
+                        <div class="stat-icon text-info">
+                            <i class="bi bi-people"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts and Visualizations -->
+    <div class="row mb-4">
+        <!-- Monthly Collection Chart -->
+        <div class="col-lg-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bar-chart-line text-primary me-2"></i>
+                        {% trans "Monthly Fine Collection" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="monthlyCollectionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Payment Methods Distribution -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-pie-chart text-success me-2"></i>
+                        {% trans "Payment Methods" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="paymentMethodsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Payments Table -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-list-check text-danger me-2"></i>
+                {% trans "Recent Fine Payments" %}
+            </h5>
+            <span class="badge bg-danger rounded-pill">{{ fine_payments.paginator.count }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "Receipt No." %}</th>
+                            <th>{% trans "Member" %}</th>
+                            <th>{% trans "Book" %}</th>
+                            <th>{% trans "Payment Date" %}</th>
+                            <th>{% trans "Method" %}</th>
+                            <th class="text-end">{% trans "Amount" %}</th>
+                            <th>{% trans "Received By" %}</th>
+                            <th class="text-center">{% trans "Actions" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in fine_payments %}
+                        <tr>
+                            <td>
+                                <strong>{{ payment.receipt_number }}</strong>
+                            </td>
+                            <td>
+                                <div>
+                                    <strong>{{ payment.borrow_record.member.user.get_full_name }}</strong>
+                                    <div class="text-muted small">{{ payment.borrow_record.member.member_id }}</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <strong>{{ payment.borrow_record.book_copy.book.title|truncatewords:3 }}</strong>
+                                    <div class="text-muted small">
+                                        {% trans "Copy" %} {{ payment.borrow_record.book_copy.copy_number }}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {{ payment.payment_date|date:"M d, Y" }}
+                                <div class="text-muted small">{{ payment.payment_date|timesince }} ago</div>
+                            </td>
+                            <td>
+                                <span class="payment-method-badge badge 
+                                    {% if payment.payment_method == 'cash' %}bg-success
+                                    {% elif payment.payment_method == 'card' %}bg-primary
+                                    {% elif payment.payment_method == 'online' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ payment.get_payment_method_display }}
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <span class="amount-badge text-success">${{ payment.amount_paid }}</span>
+                            </td>
+                            <td>
+                                {{ payment.received_by.get_full_name|default:payment.received_by.username }}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" title="{% trans 'View Details' %}" onclick="viewPaymentDetails('{{ payment.id }}')">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <button class="btn btn-outline-success" title="{% trans 'Print Receipt' %}" onclick="printReceipt('{{ payment.id }}')">
+                                        <i class="bi bi-printer"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="bi bi-cash-coin display-4 text-muted d-block mb-3"></i>
+                                <h4>{% trans "No Payments Found" %}</h4>
+                                <p class="text-muted">
+                                    {% trans "No fine payments match your current filters." %}
+                                </p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        {% if fine_payments.has_other_pages %}
+        <div class="card-footer">
+            <nav aria-label="Fine payments pagination">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if fine_payments.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ fine_payments.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in fine_payments.paginator.page_range %}
+                        {% if fine_payments.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > fine_payments.number|add:'-3' and num < fine_payments.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if fine_payments.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ fine_payments.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ fine_payments.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row">
+        <!-- Top Collectors -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-trophy text-warning me-2"></i>
+                        {% trans "Top Collectors" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for collector in top_collectors %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ collector.received_by__first_name }} {{ collector.received_by__last_name }}</h6>
+                                <small class="text-muted">{{ collector.total_payments }} {% trans "payments processed" %}</small>
+                            </div>
+                            <span class="badge bg-success rounded-pill">${{ collector.total_collected }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-people display-6 d-block mb-2"></i>
+                            <p>{% trans "No collection data available" %}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Outstanding Fines Summary -->
+        <div class="col-lg-6 mb-4">
+            <div class="card summary-card h-100">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-white mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        {% trans "Outstanding Fines" %}
+                    </h5>
+                    <div class="stat-number">${{ outstanding_fines|floatformat:2 }}</div>
+                    <div class="stat-label">{% trans "Total Unpaid Fines" %}</div>
+                    <div class="mt-3">
+                        <span class="badge bg-light text-dark me-2">{{ overdue_books_count }} {% trans "Overdue Books" %}</span>
+                        <span class="badge bg-warning text-dark">{{ members_with_fines }} {% trans "Members with Fines" %}</span>
+                    </div>
+                    <a href="{% url 'library:report_overdue_books' %}" class="btn btn-light mt-3">
+                        <i class="bi bi-arrow-right me-1"></i> {% trans "View Overdue Books" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Summary -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-clipboard-data text-info me-2"></i>
+                {% trans "Report Summary" %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>{% trans "Collection Performance" %}</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            {% trans "Collection rate:" %} <strong>{{ collection_rate }}%</strong>
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-graph-up-arrow text-primary me-2"></i>
+                            {% trans "Monthly growth:" %} <strong>12.5%</strong>
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-cash-coin text-warning me-2"></i>
+                            {% trans "Most common payment method:" %} <strong>Cash (45%)</strong>
+                        </li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>{% trans "Recommendations" %}</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="bi bi-lightbulb text-info me-2"></i>
+                            {% trans "Consider promoting online payments to reduce cash handling" %}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-lightbulb text-info me-2"></i>
+                            {% trans "Implement automated fine reminders for overdue books" %}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-lightbulb text-info me-2"></i>
+                            {% trans "Review fine policies for frequently overdue members" %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Details Modal -->
+<div class="modal fade" id="paymentDetailsModal" tabindex="-1" aria-labelledby="paymentDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="paymentDetailsModalLabel">{% trans "Payment Details" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="paymentDetailsContent">
+                <!-- Content will be loaded via AJAX -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-primary" onclick="printReceipt()">
+                    <i class="bi bi-printer me-1"></i> {% trans "Print Receipt" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Monthly Collection Chart
+        const monthlyCtx = document.getElementById('monthlyCollectionChart').getContext('2d');
+        const monthlyCollectionChart = new Chart(monthlyCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                datasets: [{
+                    label: '{% trans "Fine Collection" %}',
+                    data: [1250, 1890, 1780, 1620, 1950, 2100, 2340, 1980, 1760, 2150, 2280, 2450],
+                    backgroundColor: 'rgba(220, 53, 69, 0.8)',
+                    borderColor: 'rgba(220, 53, 69, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `$${context.parsed.y}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Payment Methods Chart
+        const methodsCtx = document.getElementById('paymentMethodsChart').getContext('2d');
+        const paymentMethodsChart = new Chart(methodsCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['{% trans "Cash" %}', '{% trans "Card" %}', '{% trans "Online" %}', '{% trans "Transfer" %}'],
+                datasets: [{
+                    data: [45, 30, 15, 10],
+                    backgroundColor: [
+                        '#28a745',
+                        '#007bff',
+                        '#17a2b8',
+                        '#6c757d'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true
+                        }
+                    }
+                }
+            }
+        });
+
+        // View payment details
+        window.viewPaymentDetails = function(paymentId) {
+            // Simulate AJAX call to get payment details
+            const modalContent = document.getElementById('paymentDetailsContent');
+            modalContent.innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">{% trans "Loading..." %}</span>
+                    </div>
+                    <p class="mt-2">{% trans "Loading payment details..." %}</p>
+                </div>
+            `;
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('paymentDetailsModal'));
+            modal.show();
+            
+            // Simulate loading
+            setTimeout(() => {
+                modalContent.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>{% trans "Payment Information" %}</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>{% trans "Receipt No." %}:</strong></td>
+                                    <td>FP-${paymentId}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>{% trans "Amount:" %}</strong></td>
+                                    <td class="text-success">$25.00</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>{% trans "Payment Method:" %}</strong></td>
+                                    <td>{% trans "Cash" %}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>{% trans "Payment Date:" %}</strong></td>
+                                    <td>${new Date().toLocaleDateString()}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>{% trans "Member Information" %}</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>{% trans "Member ID:" %}</strong></td>
+                                    <td>M001</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>{% trans "Name:" %}</strong></td>
+                                    <td>{% trans "John Doe" %}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>{% trans "Book:" %}</strong></td>
+                                    <td>{% trans "Sample Book Title" %}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>{% trans "Overdue Days:" %}</strong></td>
+                                    <td>5</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <h6>{% trans "Notes" %}</h6>
+                        <p class="text-muted">{% trans "Payment received at main library counter." %}</p>
+                    </div>
+                `;
+            }, 1000);
+        };
+
+        // Print receipt
+        window.printReceipt = function(paymentId) {
+            // In a real app, this would generate a printable receipt
+            window.open(`/receipt/${paymentId}/`, '_blank');
+        };
+
+        // Auto-refresh report data every 5 minutes
+        setInterval(function() {
+            console.log('Auto-refreshing fine collection report...');
+            // In a real app, this would refresh the data via AJAX
+        }, 300000);
+
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Date range validation
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+        
+        if (startDateInput && endDateInput) {
+            startDateInput.addEventListener('change', function() {
+                if (this.value && endDateInput.value && this.value > endDateInput.value) {
+                    endDateInput.value = this.value;
+                }
+            });
+            
+            endDateInput.addEventListener('change', function() {
+                if (this.value && startDateInput.value && this.value < startDateInput.value) {
+                    startDateInput.value = this.value;
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

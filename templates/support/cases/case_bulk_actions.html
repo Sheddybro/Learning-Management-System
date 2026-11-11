@@ -1,0 +1,343 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Bulk Case Actions" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{% trans "Bulk Case Actions" %}</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'support:case_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> {% trans "Back to Cases" %}
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Instructions -->
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        {% trans "Select multiple cases below and choose an action to perform on all selected cases at once." %}
+                    </div>
+
+                    <!-- Bulk Action Form -->
+                    <form method="post" id="bulkActionForm">
+                        {% csrf_token %}
+
+                        <!-- Action Selection -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">{% trans "Select Action" %}</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="{{ form.action.id_for_label }}" class="form-label">
+                                                {% trans "Action" %} <span class="text-danger">*</span>
+                                            </label>
+                                            {{ form.action }}
+                                            {% if form.action.errors %}
+                                                <div class="text-danger">
+                                                    {% for error in form.action.errors %}
+                                                        {{ error }}
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <!-- Dynamic fields based on selected action -->
+                                        <div id="statusField" class="mb-3" style="display: none;">
+                                            <label for="{{ form.new_status.id_for_label }}" class="form-label">
+                                                {% trans "New Status" %}
+                                            </label>
+                                            {{ form.new_status }}
+                                        </div>
+
+                                        <div id="priorityField" class="mb-3" style="display: none;">
+                                            <label for="{{ form.new_priority.id_for_label }}" class="form-label">
+                                                {% trans "New Priority" %}
+                                            </label>
+                                            {{ form.new_priority }}
+                                        </div>
+
+                                        <div id="resolutionField" class="mb-3" style="display: none;">
+                                            <label for="{{ form.resolution_note.id_for_label }}" class="form-label">
+                                                {% trans "Resolution Note" %}
+                                            </label>
+                                            {{ form.resolution_note }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Assignment fields -->
+                                <div id="assignmentFields" style="display: none;">
+                                    <div class="mb-3">
+                                        <label for="{{ form.assign_users.id_for_label }}" class="form-label">
+                                            {% trans "Assign to Users" %}
+                                        </label>
+                                        {{ form.assign_users }}
+                                        <div class="form-text">{% trans "Select users to assign the selected cases to." %}</div>
+                                    </div>
+                                </div>
+
+                                <!-- Tag fields -->
+                                <div id="tagFields" style="display: none;">
+                                    <div class="mb-3">
+                                        <label for="{{ form.add_tags.id_for_label }}" class="form-label">
+                                            {% trans "Add Tags" %}
+                                        </label>
+                                        {{ form.add_tags }}
+                                        <div class="form-text">{% trans "Select tags to add to the selected cases." %}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Case Selection -->
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">{% trans "Select Cases" %}</h5>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary me-2" id="selectAll">
+                                        <i class="fas fa-check-square"></i> {% trans "Select All" %}
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="clearAll">
+                                        <i class="fas fa-square"></i> {% trans "Clear All" %}
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                {% if cases %}
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th width="50">
+                                                        <input type="checkbox" id="masterCheckbox" class="form-check-input">
+                                                    </th>
+                                                    <th>{% trans "Case #" %}</th>
+                                                    <th>{% trans "Title" %}</th>
+                                                    <th>{% trans "Student" %}</th>
+                                                    <th>{% trans "Priority" %}</th>
+                                                    <th>{% trans "Status" %}</th>
+                                                    <th>{% trans "Created" %}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for case in cases %}
+                                                <tr>
+                                                    <td>
+                                                        <input type="checkbox" name="case_ids" value="{{ case.pk }}"
+                                                               class="form-check-input case-checkbox">
+                                                    </td>
+                                                    <td>
+                                                        <strong>{{ case.case_number }}</strong>
+                                                    </td>
+                                                    <td>
+                                                        <a href="{% url 'support:case_detail' case.pk %}" target="_blank">
+                                                            {{ case.title|truncatechars:50 }}
+                                                        </a>
+                                                    </td>
+                                                    <td>{{ case.student.user.get_full_name }}</td>
+                                                    <td>
+                                                        <span class="badge bg-{{ case.priority|lower }}">
+                                                            {{ case.get_priority_display }}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-{{ case.status|lower|replace('_', '-') }}">
+                                                            {{ case.get_status_display }}
+                                                        </span>
+                                                    </td>
+                                                    <td>{{ case.created_at|date:"M d, Y" }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <!-- Selected Cases Counter -->
+                                    <div class="mt-3">
+                                        <p class="text-muted">
+                                            <span id="selectedCount">0</span> {% trans "cases selected" %}
+                                        </p>
+                                    </div>
+
+                                    <!-- Action Buttons -->
+                                    <div class="d-flex justify-content-between mt-4">
+                                        <a href="{% url 'support:case_list' %}" class="btn btn-secondary">
+                                            <i class="fas fa-times"></i> {% trans "Cancel" %}
+                                        </a>
+                                        <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+                                            <i class="fas fa-play"></i> {% trans "Execute Bulk Action" %}
+                                        </button>
+                                    </div>
+                                {% else %}
+                                    <div class="text-center py-5">
+                                        <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                                        <h4>{% trans "No Cases Available" %}</h4>
+                                        <p class="text-muted">{% trans "There are no cases available for bulk actions." %}</p>
+                                        <a href="{% url 'support:case_list' %}" class="btn btn-primary">
+                                            {% trans "View All Cases" %}
+                                        </a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Hidden fields -->
+                        {% for hidden_field in form.hidden_fields %}
+                            {{ hidden_field }}
+                        {% endfor %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('bulkActionForm');
+    const actionSelect = document.getElementById('{{ form.action.id_for_label }}');
+    const masterCheckbox = document.getElementById('masterCheckbox');
+    const caseCheckboxes = document.querySelectorAll('.case-checkbox');
+    const selectAllBtn = document.getElementById('selectAll');
+    const clearAllBtn = document.getElementById('clearAll');
+    const selectedCount = document.getElementById('selectedCount');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // Dynamic field visibility based on action
+    function updateFieldVisibility() {
+        const selectedAction = actionSelect.value;
+
+        // Hide all dynamic fields first
+        document.getElementById('statusField').style.display = 'none';
+        document.getElementById('priorityField').style.display = 'none';
+        document.getElementById('resolutionField').style.display = 'none';
+        document.getElementById('assignmentFields').style.display = 'none';
+        document.getElementById('tagFields').style.display = 'none';
+
+        // Show relevant fields based on action
+        switch(selectedAction) {
+            case 'status_change':
+                document.getElementById('statusField').style.display = 'block';
+                break;
+            case 'assign_participants':
+                document.getElementById('assignmentFields').style.display = 'block';
+                break;
+            case 'add_tags':
+                document.getElementById('tagFields').style.display = 'block';
+                break;
+            case 'set_priority':
+                document.getElementById('priorityField').style.display = 'block';
+                break;
+            case 'close_cases':
+                document.getElementById('resolutionField').style.display = 'block';
+                break;
+        }
+
+        updateSubmitButton();
+    }
+
+    // Update selected count and submit button state
+    function updateSelectedCount() {
+        const checkedBoxes = document.querySelectorAll('.case-checkbox:checked');
+        selectedCount.textContent = checkedBoxes.length;
+        updateSubmitButton();
+    }
+
+    function updateSubmitButton() {
+        const hasSelection = document.querySelectorAll('.case-checkbox:checked').length > 0;
+        const hasAction = actionSelect.value !== '';
+        submitBtn.disabled = !(hasSelection && hasAction);
+    }
+
+    // Event listeners
+    actionSelect.addEventListener('change', updateFieldVisibility);
+
+    masterCheckbox.addEventListener('change', function() {
+        caseCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+        updateSelectedCount();
+    });
+
+    caseCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const allChecked = Array.from(caseCheckboxes).every(cb => cb.checked);
+            const someChecked = Array.from(caseCheckboxes).some(cb => cb.checked);
+
+            masterCheckbox.checked = allChecked;
+            masterCheckbox.indeterminate = someChecked && !allChecked;
+
+            updateSelectedCount();
+        });
+    });
+
+    selectAllBtn.addEventListener('click', function() {
+        caseCheckboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        masterCheckbox.checked = true;
+        masterCheckbox.indeterminate = false;
+        updateSelectedCount();
+    });
+
+    clearAllBtn.addEventListener('click', function() {
+        caseCheckboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        masterCheckbox.checked = false;
+        masterCheckbox.indeterminate = false;
+        updateSelectedCount();
+    });
+
+    // Form validation
+    form.addEventListener('submit', function(e) {
+        const selectedCases = document.querySelectorAll('.case-checkbox:checked');
+        const selectedAction = actionSelect.value;
+
+        if (selectedCases.length === 0) {
+            e.preventDefault();
+            alert('{% trans "Please select at least one case." %}');
+            return;
+        }
+
+        if (!selectedAction) {
+            e.preventDefault();
+            alert('{% trans "Please select an action to perform." %}');
+            return;
+        }
+
+        // Additional validation based on action
+        if (selectedAction === 'status_change' && !document.getElementById('{{ form.new_status.id_for_label }}').value) {
+            e.preventDefault();
+            alert('{% trans "Please select a new status." %}');
+            return;
+        }
+
+        if (selectedAction === 'close_cases' && !document.getElementById('{{ form.resolution_note.id_for_label }}').value.trim()) {
+            e.preventDefault();
+            alert('{% trans "Please provide a resolution note for closing cases." %}');
+            return;
+        }
+
+        if (!confirm(`{% trans "Are you sure you want to perform this action on" %} ${selectedCases.length} {% trans "selected cases?" %}`)) {
+            e.preventDefault();
+        }
+    });
+
+    // Initialize
+    updateFieldVisibility();
+    updateSelectedCount();
+});
+</script>
+{% endblock %}

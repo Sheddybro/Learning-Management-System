@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Grade Exam Answers - {{ exam.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Grade Exam Answers: {{ exam.name }}</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'assessment:exam_detail' exam.id %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Back to Exam
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Progress Summary -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5>{{ student_answers|length }}</h5>
+                                    <p class="mb-0">Total Answers to Grade</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success">
+                                <div class="card-body text-center">
+                                    <h5>{{ student_answers|length|sub:total_to_grade }}</h5>
+                                    <p class="mb-0 text-white">Graded</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-warning">
+                                <div class="card-body text-center">
+                                    <h5>{{ total_to_grade }}</h5>
+                                    <p class="mb-0 text-white">Remaining</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if student_answers %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <div class="accordion" id="gradingAccordion">
+                                {% for answer in student_answers %}
+                                <div class="card">
+                                    <div class="card-header" id="heading{{ answer.id }}">
+                                        <h5 class="mb-0">
+                                            <button class="btn btn-link text-left" type="button"
+                                                    data-toggle="collapse" data-target="#collapse{{ answer.id }}"
+                                                    aria-expanded="false" aria-controls="collapse{{ answer.id }}">
+                                                <strong>{{ answer.student.user.get_full_name }}</strong>
+                                                - Question {{ answer.exam_question.order }}
+                                                {% if answer.is_graded %}
+                                                    <span class="badge badge-success ml-2">Graded: {{ answer.marks_obtained }} marks</span>
+                                                {% else %}
+                                                    <span class="badge badge-warning ml-2">Not Graded</span>
+                                                {% endif %}
+                                            </button>
+                                        </h5>
+                                    </div>
+
+                                    <div id="collapse{{ answer.id }}" class="collapse"
+                                         aria-labelledby="heading{{ answer.id }}" data-parent="#gradingAccordion">
+                                        <div class="card-body">
+                                            <!-- Question -->
+                                            <div class="question-section mb-4">
+                                                <h6>Question:</h6>
+                                                <div class="alert alert-info">
+                                                    {{ answer.exam_question.question.question_text }}
+                                                </div>
+                                                <p><strong>Question Type:</strong> {{ answer.exam_question.question.get_question_type_display }}</p>
+                                                <p><strong>Maximum Marks:</strong> {{ answer.exam_question.marks }}</p>
+                                            </div>
+
+                                            <!-- Student Answer -->
+                                            <div class="answer-section mb-4">
+                                                <h6>Student Answer:</h6>
+                                                {% if answer.exam_question.question.question_type in 'multiple_choice,true_false' %}
+                                                    {% if answer.selected_options %}
+                                                        <div class="alert alert-success">
+                                                            {% for option_id in answer.selected_options %}
+                                                                {% for option in answer.exam_question.question.options.all %}
+                                                                    {% if option.id == option_id %}
+                                                                        {{ option.option_text }}
+                                                                        {% if option.is_correct %}
+                                                                            <span class="badge badge-success ml-2">Correct</span>
+                                                                        {% else %}
+                                                                            <span class="badge badge-danger ml-2">Incorrect</span>
+                                                                        {% endif %}
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% else %}
+                                                        <div class="alert alert-warning">No answer provided</div>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <div class="answer-text">
+                                                        {% if answer.answer_text %}
+                                                            <div class="border p-3 bg-light">
+                                                                {{ answer.answer_text|linebreaks }}
+                                                            </div>
+                                                        {% else %}
+                                                            <div class="alert alert-warning">No answer provided</div>
+                                                        {% endif %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+
+                                            <!-- Grading Section -->
+                                            <div class="grading-section">
+                                                <h6>Grading:</h6>
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label for="marks_{{ answer.id }}">Marks Awarded</label>
+                                                            <input type="number" class="form-control"
+                                                                   id="marks_{{ answer.id }}"
+                                                                   name="marks_{{ answer.id }}"
+                                                                   min="0" max="{{ answer.exam_question.marks }}"
+                                                                   step="0.5"
+                                                                   value="{{ answer.marks_obtained|default:'' }}"
+                                                                   required>
+                                                            <small class="form-text text-muted">
+                                                                Maximum: {{ answer.exam_question.marks }} marks
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label>Quick Grading</label>
+                                                            <div class="btn-group d-flex" role="group">
+                                                                <button type="button" class="btn btn-success btn-sm flex-fill"
+                                                                        onclick="setMarks({{ answer.id }}, {{ answer.exam_question.marks }})">
+                                                                    Full Marks
+                                                                </button>
+                                                                <button type="button" class="btn btn-warning btn-sm flex-fill"
+                                                                        onclick="setMarks({{ answer.id }}, {{ answer.exam_question.marks|div:2 }})">
+                                                                    Half Marks
+                                                                </button>
+                                                                <button type="button" class="btn btn-danger btn-sm flex-fill"
+                                                                        onclick="setMarks({{ answer.id }}, 0)">
+                                                                    Zero
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Hidden field for answer ID -->
+                                                <input type="hidden" name="answer_id" value="{{ answer.id }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            <div class="mt-4 text-center">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-save"></i> Save Grading
+                                </button>
+                                <a href="{% url 'assessment:exam_detail' exam.id %}" class="btn btn-secondary btn-lg">
+                                    Back to Exam
+                                </a>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                            <h4>All Answers Graded</h4>
+                            <p>All student answers for this exam have been graded.</p>
+                            <a href="{% url 'assessment:exam_detail' exam.id %}" class="btn btn-primary">
+                                Back to Exam Details
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function setMarks(answerId, marks) {
+    document.getElementById(`marks_${answerId}`).value = marks;
+}
+
+// Auto-save functionality (optional)
+document.addEventListener('DOMContentLoaded', function() {
+    // Add any auto-save logic here if needed
+    console.log('Grading interface loaded');
+});
+</script>
+{% endblock %}

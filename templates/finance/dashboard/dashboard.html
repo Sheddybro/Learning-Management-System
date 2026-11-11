@@ -1,0 +1,458 @@
+{% extends 'base/base.html' %}
+{% load static i18n humanize %}
+
+{% block title %}{% trans "Finance Dashboard" %}{% endblock %}
+
+{% block page_title %}{% trans "Finance Dashboard" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Finance Dashboard" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Dashboard specific styles */
+    .dashboard-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+    }
+    
+    .dashboard-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stat-card {
+        text-align: center;
+        padding: 1.5rem;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: var(--bs-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .stat-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        opacity: 0.8;
+    }
+    
+    .revenue-card {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+    }
+    
+    .invoice-card {
+        background: linear-gradient(135deg, #007bff, #65a0f9);
+        color: white;
+    }
+    
+    .expense-card {
+        background: linear-gradient(135deg, #fd7e14, #ffc107);
+        color: white;
+    }
+    
+    .overdue-card {
+        background: linear-gradient(135deg, #dc3545, #e83e8c);
+        color: white;
+    }
+    
+    .quick-action-btn {
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.75rem;
+        text-align: left;
+        transition: all 0.2s ease;
+    }
+    
+    .quick-action-btn:hover {
+        transform: translateX(4px);
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .recent-activity-item {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+    
+    .recent-activity-item:last-child {
+        border-bottom: none;
+    }
+    
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+    }
+    
+    .payment-icon {
+        background-color: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+    }
+    
+    .invoice-icon {
+        background-color: rgba(0, 123, 255, 0.1);
+        color: #007bff;
+    }
+    
+    .overdue-icon {
+        background-color: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
+    
+    @media (max-width: 768px) {
+        .stat-value {
+            font-size: 1.5rem;
+        }
+        
+        .stat-icon {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Statistics Cards -->
+    <div class="col-12">
+        <div class="row g-3">
+            <!-- Total Revenue Card -->
+            <div class="col-md-3 col-sm-6">
+                <div class="card dashboard-card revenue-card">
+                    <div class="card-body stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <div class="stat-value">₦{{ total_revenue|intcomma }}</div>
+                        <div class="stat-label">{% trans "Total Revenue" %}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Monthly Revenue Card -->
+            <div class="col-md-3 col-sm-6">
+                <div class="card dashboard-card invoice-card">
+                    <div class="card-body stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-value">₦{{ monthly_revenue|intcomma }}</div>
+                        <div class="stat-label">{% trans "Monthly Revenue" %}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Total Expenses Card -->
+            <div class="col-md-3 col-sm-6">
+                <div class="card dashboard-card expense-card">
+                    <div class="card-body stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <div class="stat-value">₦{{ total_expenses|intcomma }}</div>
+                        <div class="stat-label">{% trans "Total Expenses" %}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Overdue Invoices Card -->
+            <div class="col-md-3 col-sm-6">
+                <div class="card dashboard-card overdue-card">
+                    <div class="card-body stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="stat-value">{{ overdue_invoices }}</div>
+                        <div class="stat-label">{% trans "Overdue Invoices" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Charts and Quick Actions -->
+    <div class="col-lg-8">
+        <!-- Revenue Chart -->
+        <div class="card dashboard-card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">{% trans "Revenue Overview" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Activity -->
+        <div class="card dashboard-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">{% trans "Recent Activity" %}</h5>
+                <a href="{% url 'finance:invoice_list' %}" class="btn btn-sm btn-outline-primary">{% trans "View All" %}</a>
+            </div>
+            <div class="card-body">
+                {% if user.is_staff or user.is_superuser %}
+                    <!-- Staff Recent Activity -->
+                    {% if recent_payments %}
+                        {% for payment in recent_payments|slice:":5" %}
+                        <div class="recent-activity-item d-flex align-items-center">
+                            <div class="activity-icon payment-icon">
+                                <i class="fas fa-credit-card"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between">
+                                    <h6 class="mb-0">{{ payment.student.user.get_full_name|default:payment.student.user.username }}</h6>
+                                    <span class="text-success">₦{{ payment.amount|intcomma }}</span>
+                                </div>
+                                <p class="mb-0 text-muted small">{% trans "Payment received" %} • {{ payment.payment_date|date:"M d, Y" }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center py-3">{% trans "No recent activity" %}</p>
+                    {% endif %}
+                {% else %}
+                    <!-- Student Recent Activity -->
+                    {% if current_invoices %}
+                        {% for invoice in current_invoices|slice:":5" %}
+                        <div class="recent-activity-item d-flex align-items-center">
+                            <div class="activity-icon {% if invoice.is_overdue %}overdue-icon{% else %}invoice-icon{% endif %}">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between">
+                                    <h6 class="mb-0">{{ invoice.billing_period }}</h6>
+                                    <span class="{% if invoice.is_overdue %}text-danger{% else %}text-primary{% endif %}">
+                                        ₦{{ invoice.balance_due|intcomma }}
+                                    </span>
+                                </div>
+                                <p class="mb-0 text-muted small">
+                                    {{ invoice.invoice_number }} • 
+                                    <span class="badge status-badge bg-{% if invoice.status == 'paid' %}success{% elif invoice.status == 'overdue' %}danger{% else %}warning{% endif %}">
+                                        {{ invoice.get_status_display }}
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center py-3">{% trans "No current invoices" %}</p>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions and Summary -->
+    <div class="col-lg-4">
+        <!-- Quick Actions -->
+        <div class="card dashboard-card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">{% trans "Quick Actions" %}</h5>
+            </div>
+            <div class="card-body">
+                {% if user.is_staff or user.is_superuser %}
+                    <!-- Staff Quick Actions -->
+                    <a href="{% url 'finance:invoice_list' %}" class="btn btn-outline-primary w-100 quick-action-btn d-flex align-items-center">
+                        <i class="fas fa-file-invoice me-2"></i>
+                        <span>{% trans "Manage Invoices" %}</span>
+                    </a>
+                    {% comment %} <a href="{% url 'finance:payment_create' invoice_pk=0 %}" class="btn btn-outline-success w-100 quick-action-btn d-flex align-items-center"> {% endcomment %}
+                        <i class="fas fa-plus-circle me-2"></i>
+                        <span>{% trans "Record Payment" %}</span>
+                    </a>
+                    <a href="{% url 'finance:expense_list' %}" class="btn btn-outline-warning w-100 quick-action-btn d-flex align-items-center">
+                        <i class="fas fa-receipt me-2"></i>
+                        <span>{% trans "Manage Expenses" %}</span>
+                    </a>
+                    <a href="{% url 'finance:financialreport_list' %}" class="btn btn-outline-info w-100 quick-action-btn d-flex align-items-center">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        <span>{% trans "View Reports" %}</span>
+                    </a>
+                {% else %}
+                    <!-- Student Quick Actions -->
+                    <a href="{% url 'finance:invoice_list' %}" class="btn btn-outline-primary w-100 quick-action-btn d-flex align-items-center">
+                        <i class="fas fa-file-invoice me-2"></i>
+                        <span>{% trans "View My Invoices" %}</span>
+                    </a>
+                    {% if total_due > 0 %}
+                    <a href="#" class="btn btn-outline-success w-100 quick-action-btn d-flex align-items-center" id="makePaymentBtn">
+                        <i class="fas fa-credit-card me-2"></i>
+                        <span>{% trans "Make Payment" %}</span>
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'finance:feestructure_list' %}" class="btn btn-outline-info w-100 quick-action-btn d-flex align-items-center">
+                        <i class="fas fa-list me-2"></i>
+                        <span>{% trans "Fee Structure" %}</span>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Summary Card -->
+        <div class="card dashboard-card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">{% trans "Summary" %}</h5>
+            </div>
+            <div class="card-body">
+                {% if user.is_staff or user.is_superuser %}
+                    <!-- Staff Summary -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">{% trans "Total Invoices" %}</span>
+                            <strong>{{ total_invoices }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">{% trans "Pending Invoices" %}</span>
+                            <strong class="text-warning">{{ pending_invoices }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">{% trans "Overdue Invoices" %}</span>
+                            <strong class="text-danger">{{ overdue_invoices }}</strong>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Current Session" %}</span>
+                            <strong>{{ current_session.name|default:"N/A" }}</strong>
+                        </div>
+                    </div>
+                {% else %}
+                    <!-- Student Summary -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">{% trans "Total Due" %}</span>
+                            <strong class="{% if total_due > 0 %}text-danger{% else %}text-success{% endif %}">
+                                ₦{{ total_due|intcomma }}
+                            </strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">{% trans "Current Invoices" %}</span>
+                            <strong>{{ current_invoices.count }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Academic Session" %}</span>
+                            <strong>{{ current_session.name|default:"N/A" }}</strong>
+                        </div>
+                    </div>
+                    
+                    {% if total_due > 0 %}
+                    <div class="alert alert-warning py-2">
+                        <small>
+                            <i class="fas fa-exclamation-circle me-1"></i>
+                            {% trans "You have outstanding payments. Please settle them to avoid penalties." %}
+                        </small>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success py-2">
+                        <small>
+                            <i class="fas fa-check-circle me-1"></i>
+                            {% trans "All your payments are up to date." %}
+                        </small>
+                    </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Revenue Chart
+        const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+        
+        // Sample data - in a real app, this would come from the backend
+        const revenueChart = new Chart(revenueCtx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                datasets: [{
+                    label: '{% trans "Revenue" %}',
+                    data: [1200000, 1900000, 1500000, 1800000, 2200000, 2100000, 2400000, 2300000, 2100000, 2500000, 2700000, 3000000],
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return '₦' + context.parsed.y.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '₦' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Make Payment Button Handler for Students
+        const makePaymentBtn = document.getElementById('makePaymentBtn');
+        if (makePaymentBtn) {
+            makePaymentBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                // In a real implementation, this would redirect to payment page
+                // For now, show a message
+                alert('{% trans "Payment functionality would be implemented here. This would redirect to the payment page." %}');
+            });
+        }
+        
+        // Auto-refresh dashboard data every 60 seconds (for staff)
+        {% if user.is_staff or user.is_superuser %}
+        setInterval(function() {
+            // In a real implementation, this would fetch updated data via AJAX
+            console.log('Refreshing dashboard data...');
+        }, 60000);
+        {% endif %}
+    });
+</script>
+{% endblock %}

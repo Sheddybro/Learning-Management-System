@@ -1,0 +1,822 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Popular Books Report" %}{% endblock %}
+
+{% block page_title %}{% trans "Popular Books Report" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:library_list' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:report_popular_books' %}">{% trans "Reports" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Popular Books" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Popular Books Report Specific Styles */
+    .page-header-actions {
+        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        color: white;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .stats-card-1 { border-left-color: #6a11cb; }
+    .stats-card-2 { border-left-color: #2575fc; }
+    .stats-card-3 { border-left-color: #2af598; }
+    .stats-card-4 { border-left-color: #ff6b6b; }
+    
+    .stat-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+        opacity: 0.8;
+    }
+    
+    .book-card {
+        border-radius: 0.5rem;
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+        height: 100%;
+    }
+    
+    .book-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        border-color: #6a11cb;
+    }
+    
+    .book-cover {
+        height: 180px;
+        object-fit: cover;
+        width: 100%;
+    }
+    
+    .book-cover-placeholder {
+        height: 180px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+    }
+    
+    .popularity-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(106, 17, 203, 0.9);
+        color: white;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .borrow-count {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 2rem;
+    }
+    
+    .trend-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+    }
+    
+    .trend-up {
+        background: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+    }
+    
+    .trend-down {
+        background: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+    }
+    
+    .trend-stable {
+        background: rgba(108, 117, 125, 0.1);
+        color: #6c757d;
+    }
+    
+    .filter-card {
+        background: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 2rem;
+    }
+    
+    .time-period-btn {
+        border: 1px solid #dee2e6;
+        background: white;
+        padding: 0.5rem 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .time-period-btn.active {
+        background: #6a11cb;
+        color: white;
+        border-color: #6a11cb;
+    }
+    
+    .time-period-btn:first-child {
+        border-radius: 0.375rem 0 0 0.375rem;
+    }
+    
+    .time-period-btn:last-child {
+        border-radius: 0 0.375rem 0.375rem 0;
+    }
+    
+    .ranking-table {
+        font-size: 0.875rem;
+    }
+    
+    .ranking-table th {
+        border-top: none;
+        background: #f8f9fa;
+        font-weight: 600;
+    }
+    
+    .ranking-number {
+        width: 60px;
+        text-align: center;
+        font-weight: bold;
+        color: #6a11cb;
+    }
+    
+    .empty-state {
+        padding: 3rem 1rem;
+        text-align: center;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        color: #dee2e6;
+        margin-bottom: 1rem;
+    }
+    
+    .category-tag {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        background: #e9ecef;
+        border-radius: 0.375rem;
+        color: #495057;
+    }
+    
+    .view-toggle {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 0.5rem;
+    }
+    
+    .view-toggle-btn {
+        border: none;
+        background: transparent;
+        padding: 0.5rem 1rem;
+        border-radius: 0.25rem;
+        transition: all 0.3s ease;
+    }
+    
+    .view-toggle-btn.active {
+        background: #6a11cb;
+        color: white;
+    }
+    
+    @media (max-width: 768px) {
+        .stat-number {
+            font-size: 1.5rem;
+        }
+        
+        .book-cover {
+            height: 150px;
+        }
+        
+        .page-header-actions {
+            padding: 1rem;
+        }
+        
+        .time-period-btn {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header with Actions -->
+    <div class="page-header-actions">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1 class="h3 mb-2">{% trans "Popular Books Report" %}</h1>
+                <p class="mb-0 opacity-75">{% trans "Analysis of most borrowed books and reading trends" %}</p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <div class="d-flex flex-column flex-md-row justify-content-md-end gap-2">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="bi bi-calendar-range me-2"></i>{% trans "Last 30 Days" %}
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item active" href="#" data-period="30">{% trans "Last 30 Days" %}</a></li>
+                            <li><a class="dropdown-item" href="#" data-period="90">{% trans "Last 90 Days" %}</a></li>
+                            <li><a class="dropdown-item" href="#" data-period="180">{% trans "Last 6 Months" %}</a></li>
+                            <li><a class="dropdown-item" href="#" data-period="365">{% trans "Last Year" %}</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" data-period="all">{% trans "All Time" %}</a></li>
+                        </ul>
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-light dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="bi bi-download me-2"></i>{% trans "Export" %}
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="exportToPDF()"><i class="bi bi-file-earmark-pdf me-2"></i>{% trans "PDF Report" %}</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="exportToExcel()"><i class="bi bi-file-earmark-excel me-2"></i>{% trans "Excel" %}</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="exportToCSV()"><i class="bi bi-file-earmark-text me-2"></i>{% trans "CSV" %}</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-1 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-primary">{{ total_borrows }}</div>
+                            <div class="stat-label">{% trans "Total Borrows" %}</div>
+                            <div class="trend-indicator trend-up mt-1">
+                                <i class="bi bi-arrow-up-right"></i>
+                                <span>12% {% trans "from last period" %}</span>
+                            </div>
+                        </div>
+                        <div class="stat-icon text-primary">
+                            <i class="bi bi-journal-arrow-up"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-2 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-info">{{ unique_books }}</div>
+                            <div class="stat-label">{% trans "Unique Books" %}</div>
+                            <div class="trend-indicator trend-up mt-1">
+                                <i class="bi bi-arrow-up-right"></i>
+                                <span>5% {% trans "from last period" %}</span>
+                            </div>
+                        </div>
+                        <div class="stat-icon text-info">
+                            <i class="bi bi-journal-bookmark"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-3 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-success">{{ avg_borrows_per_book }}</div>
+                            <div class="stat-label">{% trans "Avg Borrows/Book" %}</div>
+                            <div class="trend-indicator trend-stable mt-1">
+                                <i class="bi bi-dash"></i>
+                                <span>{% trans "No change" %}</span>
+                            </div>
+                        </div>
+                        <div class="stat-icon text-success">
+                            <i class="bi bi-graph-up"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-danger">{{ most_popular_borrows }}</div>
+                            <div class="stat-label">{% trans "Most Popular Book" %}</div>
+                            <div class="small text-muted mt-1">
+                                {{ most_popular_title|default:"-" }}
+                            </div>
+                        </div>
+                        <div class="stat-icon text-danger">
+                            <i class="bi bi-trophy"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filters and Controls -->
+    <div class="filter-card">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="row g-3">
+                        <div class="col-lg-4">
+                            <label class="form-label">{% trans "Time Period" %}</label>
+                            <div class="btn-group w-100" role="group">
+                                <button type="button" class="btn time-period-btn active" data-period="30">{% trans "30D" %}</button>
+                                <button type="button" class="btn time-period-btn" data-period="90">{% trans "90D" %}</button>
+                                <button type="button" class="btn time-period-btn" data-period="180">{% trans "6M" %}</button>
+                                <button type="button" class="btn time-period-btn" data-period="365">{% trans "1Y" %}</button>
+                                <button type="button" class="btn time-period-btn" data-period="all">{% trans "All" %}</button>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <label for="categoryFilter" class="form-label">{% trans "Category" %}</label>
+                            <select class="form-select" id="categoryFilter">
+                                <option value="">{% trans "All Categories" %}</option>
+                                <option value="fiction">{% trans "Fiction" %}</option>
+                                <option value="non-fiction">{% trans "Non-Fiction" %}</option>
+                                <option value="textbook">{% trans "Textbook" %}</option>
+                                <option value="reference">{% trans "Reference" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-4">
+                            <label for="libraryFilter" class="form-label">{% trans "Library" %}</label>
+                            <select class="form-select" id="libraryFilter">
+                                <option value="">{% trans "All Libraries" %}</option>
+                                <option value="main">{% trans "Main Library" %}</option>
+                                <option value="branch1">{% trans "Branch Library" %}</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <div class="d-flex align-items-center justify-content-md-end gap-2 mt-3 mt-md-0">
+                        <span class="text-muted small">{% trans "View:" %}</span>
+                        <div class="view-toggle">
+                            <button class="view-toggle-btn active" data-view="grid">
+                                <i class="bi bi-grid-3x3-gap"></i>
+                            </button>
+                            <button class="view-toggle-btn" data-view="table">
+                                <i class="bi bi-list"></i>
+                            </button>
+                            <button class="view-toggle-btn" data-view="chart">
+                                <i class="bi bi-bar-chart"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Chart View -->
+    <div id="chartView" class="view-content" style="display: none;">
+        <div class="chart-container">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="mb-0">{% trans "Top 10 Most Popular Books" %}</h5>
+                <div class="btn-group">
+                    <button class="btn btn-outline-secondary btn-sm active" data-chart-type="bar">{% trans "Bar" %}</button>
+                    <button class="btn btn-outline-secondary btn-sm" data-chart-type="line">{% trans "Line" %}</button>
+                    <button class="btn btn-outline-secondary btn-sm" data-chart-type="pie">{% trans "Pie" %}</button>
+                </div>
+            </div>
+            <div id="popularityChart" style="height: 400px;">
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-bar-chart display-4 d-block mb-3"></i>
+                    <h5>{% trans "Popularity Chart" %}</h5>
+                    <p class="mb-0">{% trans "Visual representation of book popularity will be displayed here" %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Grid View -->
+    <div id="gridView" class="view-content">
+        <div class="row">
+            {% for book in popular_books %}
+            <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+                <div class="card book-card">
+                    <div class="position-relative">
+                        {% if book.cover_image %}
+                        <img src="{{ book.cover_image.url }}" class="book-cover" alt="{{ book.title }}">
+                        {% else %}
+                        <div class="book-cover-placeholder">
+                            <i class="bi bi-journal-text" style="font-size: 3rem;"></i>
+                        </div>
+                        {% endif %}
+                        <div class="popularity-badge">
+                            #{{ forloop.counter }}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="card-title">{{ book.title|truncatewords:6 }}</h6>
+                        <p class="card-text small text-muted mb-2">
+                            <i class="bi bi-person me-1"></i>{{ book.author_names|truncatewords:2 }}
+                        </p>
+                        
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="category-tag">{{ book.category.name|default:"Uncategorized" }}</span>
+                            <span class="borrow-count">
+                                <i class="bi bi-journal-arrow-up me-1"></i>{{ book.borrow_count }} {% trans "borrows" %}
+                            </span>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                {% if book.publication_year %}
+                                {{ book.publication_year }}
+                                {% endif %}
+                            </small>
+                            <div class="btn-group">
+                                <a href="{% url 'library:book_detail' book.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'library:book_update' book.pk %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="bi bi-journal-x"></i>
+                    </div>
+                    <h5>{% trans "No Popular Books Found" %}</h5>
+                    <p class="text-muted">{% trans "There are no borrowing records for the selected period." %}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Table View -->
+    <div id="tableView" class="view-content" style="display: none;">
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover ranking-table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ranking-number">#</th>
+                                <th>{% trans "Book" %}</th>
+                                <th>{% trans "Author" %}</th>
+                                <th>{% trans "Category" %}</th>
+                                <th class="text-center">{% trans "Borrow Count" %}</th>
+                                <th class="text-center">{% trans "Availability" %}</th>
+                                <th class="text-center">{% trans "Trend" %}</th>
+                                <th width="100" class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for book in popular_books %}
+                            <tr>
+                                <td class="ranking-number">{{ forloop.counter }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if book.cover_image %}
+                                        <img src="{{ book.cover_image.url }}" class="rounded me-2" width="40" height="50" alt="{{ book.title }}" style="object-fit: cover;">
+                                        {% else %}
+                                        <div class="bg-light rounded d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 50px;">
+                                            <i class="bi bi-journal-text text-muted"></i>
+                                        </div>
+                                        {% endif %}
+                                        <div>
+                                            <div class="fw-medium">{{ book.title }}</div>
+                                            <small class="text-muted">{{ book.isbn|default:"No ISBN" }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ book.author_names }}</td>
+                                <td>
+                                    <span class="category-tag">{{ book.category.name|default:"Uncategorized" }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="fw-bold text-primary">{{ book.borrow_count }}</span>
+                                </td>
+                                <td class="text-center">
+                                    {% if book.is_available %}
+                                    <span class="badge bg-success">{% trans "Available" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-warning">{% trans "Borrowed" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if book.trend == 'up' %}
+                                    <span class="trend-indicator trend-up">
+                                        <i class="bi bi-arrow-up-right"></i>
+                                        {% trans "Rising" %}
+                                    </span>
+                                    {% elif book.trend == 'down' %}
+                                    <span class="trend-indicator trend-down">
+                                        <i class="bi bi-arrow-down-right"></i>
+                                        {% trans "Declining" %}
+                                    </span>
+                                    {% else %}
+                                    <span class="trend-indicator trend-stable">
+                                        <i class="bi bi-dash"></i>
+                                        {% trans "Stable" %}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group">
+                                        <a href="{% url 'library:book_detail' book.pk %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{% url 'library:book_update' book.pk %}" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8">
+                                    <div class="empty-state">
+                                        <div class="empty-state-icon">
+                                            <i class="bi bi-journal-x"></i>
+                                        </div>
+                                        <h5>{% trans "No Popular Books Found" %}</h5>
+                                        <p class="text-muted">{% trans "There are no borrowing records for the selected period." %}</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Additional Insights -->
+    <div class="row mt-4">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>{% trans "Key Insights" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item px-0">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-graph-up-arrow text-success me-3"></i>
+                                <div>
+                                    <div class="fw-medium">{% trans "Fiction books dominate" %}</div>
+                                    <small class="text-muted">{% trans "60% of top 10 books are from fiction category" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="list-group-item px-0">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-clock text-warning me-3"></i>
+                                <div>
+                                    <div class="fw-medium">{% trans "Seasonal trends" %}</div>
+                                    <small class="text-muted">{% trans "Textbook borrows increase during exam periods" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="list-group-item px-0">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-person-check text-info me-3"></i>
+                                <div>
+                                    <div class="fw-medium">{% trans "Author popularity" %}</div>
+                                    <small class="text-muted">{% trans "3 authors appear multiple times in top 20" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-gear me-2"></i>{% trans "Recommendations" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item px-0">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-plus-circle text-primary me-3"></i>
+                                <div>
+                                    <div class="fw-medium">{% trans "Acquire more copies" %}</div>
+                                    <small class="text-muted">{% trans "Consider adding copies of top 5 most borrowed books" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="list-group-item px-0">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-tags text-success me-3"></i>
+                                <div>
+                                    <div class="fw-medium">{% trans "Promote related titles" %}</div>
+                                    <small class="text-muted">{% trans "Create displays with books by popular authors" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="list-group-item px-0">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-megaphone text-warning me-3"></i>
+                                <div>
+                                    <div class="fw-medium">{% trans "Marketing opportunity" %}</div>
+                                    <small class="text-muted">{% trans "Feature popular books in newsletters and social media" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const viewToggleBtns = document.querySelectorAll('.view-toggle-btn');
+        const chartView = document.getElementById('chartView');
+        const gridView = document.getElementById('gridView');
+        const tableView = document.getElementById('tableView');
+        
+        viewToggleBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const view = this.getAttribute('data-view');
+                
+                // Update active button
+                viewToggleBtns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide views
+                chartView.style.display = view === 'chart' ? 'block' : 'none';
+                gridView.style.display = view === 'grid' ? 'block' : 'none';
+                tableView.style.display = view === 'table' ? 'block' : 'none';
+            });
+        });
+        
+        // Time Period Filter
+        const timePeriodBtns = document.querySelectorAll('.time-period-btn');
+        timePeriodBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const period = this.getAttribute('data-period');
+                
+                // Update active button
+                timePeriodBtns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Reload data for selected period
+                loadPopularBooks(period);
+            });
+        });
+        
+        // Chart Type Toggle
+        const chartTypeBtns = document.querySelectorAll('[data-chart-type]');
+        chartTypeBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const chartType = this.getAttribute('data-chart-type');
+                
+                // Update active button
+                chartTypeBtns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Update chart type
+                updateChartType(chartType);
+            });
+        });
+        
+        // Category and Library Filters
+        const categoryFilter = document.getElementById('categoryFilter');
+        const libraryFilter = document.getElementById('libraryFilter');
+        
+        categoryFilter.addEventListener('change', applyFilters);
+        libraryFilter.addEventListener('change', applyFilters);
+        
+        // Load popular books data
+        function loadPopularBooks(period) {
+            // Show loading state
+            console.log('Loading popular books for period:', period);
+            
+            // In a real implementation, this would be an AJAX call
+            // For now, we'll simulate loading
+            setTimeout(() => {
+                console.log('Popular books data loaded for period:', period);
+            }, 500);
+        }
+        
+        // Apply filters
+        function applyFilters() {
+            const category = categoryFilter.value;
+            const library = libraryFilter.value;
+            const activePeriodBtn = document.querySelector('.time-period-btn.active');
+            const period = activePeriodBtn ? activePeriodBtn.getAttribute('data-period') : '30';
+            
+            console.log('Applying filters:', { category, library, period });
+            
+            // In a real implementation, this would reload the data
+        }
+        
+        // Update chart type
+        function updateChartType(chartType) {
+            const chartContainer = document.getElementById('popularityChart');
+            
+            // Simulate chart update
+            chartContainer.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">{% trans "Loading..." %}</span>
+                    </div>
+                    <p class="text-muted">{% trans "Loading" %} ${chartType} {% trans "chart..." %}</p>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                chartContainer.innerHTML = `
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-bar-chart display-4 d-block mb-3"></i>
+                        <h5>${chartType.charAt(0).toUpperCase() + chartType.slice(1)} {% trans "Chart" %}</h5>
+                        <p class="mb-0">{% trans "This would show a real" %} ${chartType} {% trans "chart in production" %}</p>
+                    </div>
+                `;
+            }, 1000);
+        }
+        
+        // Export functions
+        window.exportToPDF = function() {
+            alert('{% trans "PDF report export would be implemented here" %}');
+        };
+        
+        window.exportToExcel = function() {
+            alert('{% trans "Excel export would be implemented here" %}');
+        };
+        
+        window.exportToCSV = function() {
+            alert('{% trans "CSV export would be implemented here" %}');
+        };
+        
+        // Initialize default chart
+        updateChartType('bar');
+    });
+</script>
+{% endblock %}

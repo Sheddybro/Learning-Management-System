@@ -1,0 +1,459 @@
+<!-- templates/attendance/summary/summary.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Attendance Summary - School Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+.summary-card {
+    border-left: 4px solid #007bff;
+    transition: transform 0.2s;
+}
+.summary-card:hover {
+    transform: translateY(-2px);
+}
+.summary-card.overall {
+    border-left-color: #007bff;
+}
+.summary-card.present {
+    border-left-color: #28a745;
+}
+.summary-card.absent {
+    border-left-color: #dc3545;
+}
+.summary-card.late {
+    border-left-color: #ffc107;
+}
+.summary-card.leave {
+    border-left-color: #17a2b8;
+}
+.chart-container {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    height: 300px;
+}
+.progress-thin {
+    height: 8px;
+}
+.trend-indicator {
+    font-size: 0.8rem;
+}
+.trend-up {
+    color: #28a745;
+}
+.trend-down {
+    color: #dc3545;
+}
+.trend-neutral {
+    color: #6c757d;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-2">Attendance Summary & Reports</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'attendance:dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item active">Summary & Reports</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div class="d-flex gap-2">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-download me-1"></i> Export Report
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#">PDF Report</a></li>
+                            <li><a class="dropdown-item" href="#">Excel Spreadsheet</a></li>
+                            <li><a class="dropdown-item" href="#">CSV Data</a></li>
+                        </ul>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="generateCustomReport()">
+                        <i class="fas fa-chart-bar me-1"></i> Custom Report
+                    </button>
+                </div>
+            </div>
+            {% if current_session %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Showing data for <strong>{{ current_session.name }}</strong> academic session
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Role-based Content -->
+    {% if user.student_profile %}
+        <!-- Student Summary View -->
+        {% include 'attendance/summary/student_summary.html' %}
+    {% elif user.teacher_profile %}
+        <!-- Teacher Summary View -->
+        {% include 'attendance/summary/teacher_summary.html' %}
+    {% else %}
+        <!-- Admin Summary View -->
+        {% include 'attendance/summary/admin_summary.html' %}
+    {% endif %}
+
+    <!-- Report Generator -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Custom Report Generator</h6>
+                </div>
+                <div class="card-body">
+                    <form id="reportForm">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label for="report_type" class="form-label">Report Type</label>
+                                <select class="form-select" id="report_type" name="report_type">
+                                    <option value="daily_summary">Daily Summary</option>
+                                    <option value="monthly_summary">Monthly Summary</option>
+                                    <option value="student_report">Student Report</option>
+                                    <option value="class_report">Class Report</option>
+                                    <option value="absence_report">Absence Report</option>
+                                    <option value="late_report">Late Arrival Report</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="date_range" class="form-label">Date Range</label>
+                                <select class="form-select" id="date_range" name="date_range">
+                                    <option value="today">Today</option>
+                                    <option value="this_week">This Week</option>
+                                    <option value="this_month">This Month</option>
+                                    <option value="last_month">Last Month</option>
+                                    <option value="custom">Custom Range</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3" id="customDateRange" style="display: none;">
+                                <label for="start_date" class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="start_date" name="start_date">
+                            </div>
+                            <div class="col-md-3" id="customEndDate" style="display: none;">
+                                <label for="end_date" class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="d-grid">
+                                    <button type="button" class="btn btn-success" onclick="generateReport()">
+                                        <i class="fas fa-chart-line me-1"></i> Generate Report
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Preview Modal -->
+<div class="modal fade" id="reportModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reportModalTitle">Report Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="reportPreview">
+                <!-- Report content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="printReport()">
+                    <i class="fas fa-print me-1"></i> Print
+                </button>
+                <button type="button" class="btn btn-success" onclick="exportReport()">
+                    <i class="fas fa-download me-1"></i> Export
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts
+    initializeSummaryCharts();
+    
+    // Date range toggle
+    document.getElementById('date_range').addEventListener('change', function() {
+        const customRange = document.getElementById('customDateRange');
+        const customEnd = document.getElementById('customEndDate');
+        
+        if (this.value === 'custom') {
+            customRange.style.display = 'block';
+            customEnd.style.display = 'block';
+        } else {
+            customRange.style.display = 'none';
+            customEnd.style.display = 'none';
+        }
+    });
+});
+
+function initializeSummaryCharts() {
+    // This would initialize various charts based on user role
+    {% if user.student_profile %}
+    loadStudentCharts();
+    {% elif user.teacher_profile %}
+    loadTeacherCharts();
+    {% else %}
+    loadAdminCharts();
+    {% endif %}
+}
+
+function loadStudentCharts() {
+    // Load student-specific charts
+    const attendanceTrend = {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        datasets: [{
+            label: 'Attendance %',
+            data: [92, 88, 95, 90, 87, 93],
+            borderColor: '#007bff',
+            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+            fill: true
+        }]
+    };
+    renderChart('attendanceTrendChart', attendanceTrend);
+}
+
+function loadTeacherCharts() {
+    // Load teacher-specific charts
+    const classComparison = {
+        labels: ['Class A', 'Class B', 'Class C', 'Class D'],
+        datasets: [{
+            label: 'Attendance Rate',
+            data: [94, 88, 91, 86],
+            backgroundColor: ['#28a745', '#ffc107', '#007bff', '#dc3545']
+        }]
+    };
+    renderChart('classComparisonChart', classComparison);
+}
+
+function loadAdminCharts() {
+    // Load admin-specific charts
+    const schoolOverview = {
+        labels: ['Present', 'Absent', 'Late', 'Leave'],
+        datasets: [{
+            data: [85, 8, 4, 3],
+            backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#17a2b8']
+        }]
+    };
+    renderChart('schoolOverviewChart', schoolOverview);
+}
+
+function renderChart(canvasId, data) {
+    // Simple chart rendering (replace with Chart.js in real implementation)
+    const container = document.getElementById(canvasId);
+    if (container) {
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading chart...</span>
+                </div>
+            </div>
+        `;
+        
+        // Simulate chart loading
+        setTimeout(() => {
+            let chartHTML = '<div class="text-center">';
+            if (data.datasets[0].backgroundColor) {
+                // Pie chart-like display
+                data.labels.forEach((label, index) => {
+                    chartHTML += `
+                        <div class="d-inline-block mx-2 text-center">
+                            <div class="rounded-circle d-inline-block mb-1" 
+                                 style="width: 20px; height: 20px; background-color: ${data.datasets[0].backgroundColor[index]}"></div>
+                            <div class="small">${label}</div>
+                            <div class="fw-bold">${data.datasets[0].data[index]}%</div>
+                        </div>
+                    `;
+                });
+            } else {
+                // Line chart-like display
+                chartHTML += '<div class="row">';
+                data.labels.forEach((label, index) => {
+                    const value = data.datasets[0].data[index];
+                    chartHTML += `
+                        <div class="col-2 text-center">
+                            <div class="small text-muted">${label}</div>
+                            <div class="fw-bold">${value}%</div>
+                            <div class="progress mt-1" style="height: 4px;">
+                                <div class="progress-bar" style="width: ${value}%"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+                chartHTML += '</div>';
+            }
+            chartHTML += '</div>';
+            container.innerHTML = chartHTML;
+        }, 1000);
+    }
+}
+
+function generateCustomReport() {
+    document.getElementById('report_type').value = 'custom';
+    document.getElementById('date_range').value = 'custom';
+    document.getElementById('customDateRange').style.display = 'block';
+    document.getElementById('customEndDate').style.display = 'block';
+    
+    // Scroll to report form
+    document.getElementById('reportForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+function generateReport() {
+    const reportType = document.getElementById('report_type').value;
+    const dateRange = document.getElementById('date_range').value;
+    const startDate = document.getElementById('start_date').value;
+    const endDate = document.getElementById('end_date').value;
+    
+    // Show loading state
+    document.getElementById('reportPreview').innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Generating report...</span>
+            </div>
+            <p class="mt-2">Generating report...</p>
+        </div>
+    `;
+    
+    // Simulate report generation
+    setTimeout(() => {
+        let reportContent = `
+            <h6>${getReportTitle(reportType)}</h6>
+            <p class="text-muted">Date Range: ${getDateRangeDisplay(dateRange, startDate, endDate)}</p>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Count</th>
+                            <th>Percentage</th>
+                            <th>Trend</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Total Students</td>
+                            <td>1,250</td>
+                            <td>100%</td>
+                            <td><span class="trend-indicator trend-neutral">→</span></td>
+                        </tr>
+                        <tr>
+                            <td>Present</td>
+                            <td>1,063</td>
+                            <td>85%</td>
+                            <td><span class="trend-indicator trend-up">↑ 2%</span></td>
+                        </tr>
+                        <tr>
+                            <td>Absent</td>
+                            <td>100</td>
+                            <td>8%</td>
+                            <td><span class="trend-indicator trend-down">↓ 1%</span></td>
+                        </tr>
+                        <tr>
+                            <td>Late Arrivals</td>
+                            <td>50</td>
+                            <td>4%</td>
+                            <td><span class="trend-indicator trend-up">↑ 0.5%</span></td>
+                        </tr>
+                        <tr>
+                            <td>On Leave</td>
+                            <td>37</td>
+                            <td>3%</td>
+                            <td><span class="trend-indicator trend-neutral">→</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        document.getElementById('reportPreview').innerHTML = reportContent;
+        document.getElementById('reportModalTitle').textContent = getReportTitle(reportType);
+    }, 2000);
+    
+    const modal = new bootstrap.Modal(document.getElementById('reportModal'));
+    modal.show();
+}
+
+function getReportTitle(reportType) {
+    const titles = {
+        'daily_summary': 'Daily Attendance Summary',
+        'monthly_summary': 'Monthly Attendance Summary',
+        'student_report': 'Student Attendance Report',
+        'class_report': 'Class-wise Attendance Report',
+        'absence_report': 'Absence Analysis Report',
+        'late_report': 'Late Arrival Report',
+        'custom': 'Custom Attendance Report'
+    };
+    return titles[reportType] || 'Attendance Report';
+}
+
+function getDateRangeDisplay(dateRange, startDate, endDate) {
+    const today = new Date();
+    const ranges = {
+        'today': `Today (${today.toLocaleDateString()})`,
+        'this_week': `This Week (${getWeekRange(today)})`,
+        'this_month': `This Month (${getMonthRange(today)})`,
+        'last_month': `Last Month (${getLastMonthRange(today)})`,
+        'custom': `Custom (${startDate} to ${endDate})`
+    };
+    return ranges[dateRange] || dateRange;
+}
+
+function getWeekRange(date) {
+    const start = new Date(date);
+    start.setDate(date.getDate() - date.getDay());
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+}
+
+function getMonthRange(date) {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1);
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+}
+
+function getLastMonthRange(date) {
+    const start = new Date(date.getFullYear(), date.getMonth() - 1, 1);
+    const end = new Date(date.getFullYear(), date.getMonth(), 0);
+    return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+}
+
+function printReport() {
+    const printContent = document.getElementById('reportPreview').innerHTML;
+    const originalContent = document.body.innerHTML;
+    
+    document.body.innerHTML = `
+        <div class="container mt-4">
+            <h4>${document.getElementById('reportModalTitle').textContent}</h4>
+            ${printContent}
+        </div>
+    `;
+    
+    window.print();
+    document.body.innerHTML = originalContent;
+    window.location.reload();
+}
+
+function exportReport() {
+    alert('Report export functionality would be implemented here.');
+}
+</script>
+{% endblock %}

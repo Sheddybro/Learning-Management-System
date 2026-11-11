@@ -1,0 +1,455 @@
+<!-- templates/hostels/allocations/allocation_detail.html -->
+{% extends 'base.html' %}
+{% load static i18n %}
+
+{% block title %}Allocation Details - {{ allocation.student.user.get_full_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+
+    .detail-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+        padding: 2rem;
+    }
+
+    .student-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-right: 1.5rem;
+    }
+
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+
+    .info-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #007bff;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .info-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+
+    .info-value {
+        font-size: 1rem;
+        color: #495057;
+        font-weight: 600;
+    }
+
+    .fee-card {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .fee-card:hover {
+        border-color: #007bff;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+    }
+
+    .fee-header {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .fee-body {
+        padding: 1rem;
+    }
+
+    .fee-amount {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #28a745;
+    }
+
+    .fee-status {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-weight: 600;
+    }
+
+    .balance-summary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .balance-amount {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .action-buttons {
+        position: sticky;
+        top: 20px;
+    }
+
+    .action-btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .transfer-item {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        background: #f8f9fa;
+    }
+
+    .transfer-item .badge {
+        font-size: 0.7rem;
+    }
+
+    @media (max-width: 768px) {
+        .detail-header {
+            padding: 1.5rem;
+        }
+
+        .student-avatar {
+            width: 60px;
+            height: 60px;
+            font-size: 1.2rem;
+            margin-right: 1rem;
+        }
+
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .balance-amount {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}Allocation Details{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:dashboard' %}">Hostels</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:allocation_list' %}">Allocations</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ allocation.student.user.get_full_name }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Allocation Header -->
+            <div class="card detail-card">
+                <div class="detail-header">
+                    <div class="d-flex align-items-center">
+                        <div class="student-avatar">
+                            {{ allocation.student.user.get_full_name|slice:":2"|upper }}
+                        </div>
+                        <div>
+                            <h3 class="mb-1">{{ allocation.student.user.get_full_name }}</h3>
+                            <p class="mb-1">{{ allocation.student.admission_number }} • {{ allocation.class_enrolled }}</p>
+                            <div class="d-flex gap-2">
+                                <span class="status-badge bg-{% if allocation.status == 'active' %}success{% elif allocation.status == 'pending' %}warning{% else %}secondary{% endif %}">
+                                    {{ allocation.get_status_display }}
+                                </span>
+                                {% if allocation.is_current %}
+                                <span class="status-badge bg-info">Current</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Allocation Information -->
+                    <div class="info-section">
+                        <h5 class="mb-3"><i class="bi bi-info-circle me-2"></i>Allocation Information</h5>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <div class="info-label">Hostel</div>
+                                <div class="info-value">{{ allocation.bed.room.hostel.name }}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Room</div>
+                                <div class="info-value">{{ allocation.bed.room.room_number }}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Bed</div>
+                                <div class="info-value">{{ allocation.bed.bed_number }}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Academic Session</div>
+                                <div class="info-value">{{ allocation.academic_session }}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Allocation Date</div>
+                                <div class="info-value">{{ allocation.allocation_date|date:"M d, Y" }}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Expected Departure</div>
+                                <div class="info-value">
+                                    {% if allocation.expected_departure_date %}
+                                        {{ allocation.expected_departure_date|date:"M d, Y" }}
+                                    {% else %}
+                                        Not Set
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Monthly Rent</div>
+                                <div class="info-value">₹{{ allocation.rent_amount }}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Security Deposit</div>
+                                <div class="info-value">₹{{ allocation.security_deposit_paid }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Special Requirements -->
+                    {% if allocation.special_requirements or allocation.medical_information %}
+                    <div class="info-section">
+                        <h5 class="mb-3"><i class="bi bi-exclamation-triangle me-2"></i>Special Requirements</h5>
+                        {% if allocation.special_requirements %}
+                        <div class="mb-3">
+                            <strong>Requirements:</strong>
+                            <p class="mb-0">{{ allocation.special_requirements }}</p>
+                        </div>
+                        {% endif %}
+                        {% if allocation.medical_information %}
+                        <div>
+                            <strong>Medical Information:</strong>
+                            <p class="mb-0">{{ allocation.medical_information }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Fee History -->
+                    <div class="info-section">
+                        <h5 class="mb-3"><i class="bi bi-cash-coin me-2"></i>Fee History</h5>
+                        {% if fees %}
+                            {% for fee in fees %}
+                            <div class="fee-card">
+                                <div class="fee-header">
+                                    <div>
+                                        <strong>{{ fee.get_month_display }} {{ fee.year }}</strong>
+                                        <small class="text-muted d-block">Due: {{ fee.due_date|date:"M d, Y" }}</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="fee-amount">₹{{ fee.amount }}</div>
+                                        <span class="fee-status bg-{% if fee.status == 'paid' %}success{% elif fee.status == 'pending' %}warning{% elif fee.status == 'overdue' %}danger{% else %}secondary{% endif %}">
+                                            {{ fee.get_status_display }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="fee-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <small class="text-muted">Amount</small>
+                                            <div>₹{{ fee.amount }}</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted">Paid</small>
+                                            <div>₹{{ fee.paid_amount }}</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted">Balance</small>
+                                            <div>₹{{ fee.balance_amount }}</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted">Late Fee</small>
+                                            <div>₹{{ fee.late_fee }}</div>
+                                        </div>
+                                    </div>
+                                    {% if fee.paid_date %}
+                                    <div class="mt-2">
+                                        <small class="text-muted">Paid on {{ fee.paid_date|date:"M d, Y" }}</small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center text-muted py-4">
+                                <i class="bi bi-info-circle mb-2" style="font-size: 2rem;"></i>
+                                <div>No fees recorded yet</div>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Transfer History -->
+                    {% if transfer_history %}
+                    <div class="info-section">
+                        <h5 class="mb-3"><i class="bi bi-arrow-left-right me-2"></i>Transfer History</h5>
+                        {% for transfer in transfer_history %}
+                        <div class="transfer-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>{{ transfer.bed.room.hostel.name }} - Room {{ transfer.bed.room.room_number }}, Bed {{ transfer.bed.bed_number }}</strong>
+                                    <div class="small text-muted">
+                                        {{ transfer.allocation_date|date:"M d, Y" }}
+                                        {% if transfer.actual_departure_date %}
+                                        to {{ transfer.actual_departure_date|date:"M d, Y" }}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <span class="badge bg-secondary">{{ transfer.get_status_display }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Balance Summary -->
+            <div class="balance-summary mb-4">
+                <div class="balance-amount">₹{{ outstanding_balance }}</div>
+                <div class="mb-3">Outstanding Balance</div>
+                <a href="{% url 'hostels:fee_list' %}?allocation={{ allocation.pk }}" class="btn btn-light">
+                    View All Fees
+                </a>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="card detail-card action-buttons">
+                <div class="card-header">
+                    <h5 class="mb-0">Actions</h5>
+                </div>
+                <div class="card-body">
+                    {% if allocation.status == 'active' %}
+                    <a href="{% url 'hostels:allocation_update' pk=allocation.pk %}" class="btn btn-primary action-btn">
+                        <i class="bi bi-pencil me-2"></i>Update Allocation
+                    </a>
+                    <a href="{% url 'hostels:allocation_transfer' pk=allocation.pk %}" class="btn btn-warning action-btn">
+                        <i class="bi bi-arrow-left-right me-2"></i>Transfer Bed
+                    </a>
+                    <a href="{% url 'hostels:allocation_checkout' pk=allocation.pk %}" class="btn btn-danger action-btn">
+                        <i class="bi bi-box-arrow-right me-2"></i>Check Out Student
+                    </a>
+                    {% else %}
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-info-circle mb-2" style="font-size: 2rem;"></i>
+                        <div>This allocation is {{ allocation.get_status_display|lower }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Info -->
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Info</h5>
+                </div>
+                <div class="card-body">
+                    <div class="info-item mb-3">
+                        <div class="info-label">Duration</div>
+                        <div class="info-value">{{ allocation.duration_days }} days</div>
+                    </div>
+                    <div class="info-item mb-3">
+                        <div class="info-label">Allocated By</div>
+                        <div class="info-value">
+                            {% if allocation.allocated_by %}
+                                {{ allocation.allocated_by.get_full_name }}
+                            {% else %}
+                                System
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if allocation.emergency_contact %}
+                    <div class="info-item mb-3">
+                        <div class="info-label">Emergency Contact</div>
+                        <div class="info-value">{{ allocation.emergency_contact.get_full_name }}</div>
+                    </div>
+                    {% endif %}
+                    <div class="info-item">
+                        <div class="info-label">Last Updated</div>
+                        <div class="info-value">{{ allocation.updated_at|date:"M d, Y g:i A" }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Add confirmation to dangerous actions
+        var dangerousButtons = document.querySelectorAll('.btn-danger');
+        dangerousButtons.forEach(function(button) {
+            button.addEventListener('click', function(e) {
+                if (!confirm('Are you sure you want to perform this action? This cannot be undone.')) {
+                    e.preventDefault();
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

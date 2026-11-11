@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ policy.policy_name }} - {% trans "Policy Details" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">{{ policy.policy_name }}</h1>
+        <a href="{% url 'academics:policy_update' pk=policy.pk %}" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm">
+            <i class="fas fa-edit fa-sm text-white-50"></i> {% trans "Edit Policy" %}
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">{% trans "Policy Details" %}</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-lg-6">
+                    <p><strong>{% trans "Policy Name" %}:</strong> {{ policy.policy_name }}</p>
+                    <p><strong>{% trans "Policy Type" %}:</strong> {{ policy.get_policy_type_display }}</p>
+                    <p><strong>{% trans "Description" %}:</strong> {{ policy.description|linebreaksbr }}</p>
+                    <p><strong>{% trans "Effective Date" %}:</strong> {{ policy.effective_date|date:"M d, Y" }}</p>
+                    <p><strong>{% trans "Expiry Date" %}:</strong> {% if policy.expiry_date %}{{ policy.expiry_date|date:"M d, Y" }}{% else %}{% trans "N/A" %}{% endif %}</p>
+                    <p><strong>{% trans "Status" %}:</strong> 
+                        {% if policy.is_current_policy %}
+                            <span class="badge badge-success">{% trans "Current" %}</span>
+                        {% elif policy.expiry_date and policy.expiry_date < today %}
+                            <span class="badge badge-danger">{% trans "Expired" %}</span>
+                        {% else %}
+                            <span class="badge badge-secondary">{% trans "Upcoming" %}</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-lg-6">
+                    <p><strong>{% trans "Academic Session" %}:</strong> {% if policy.academic_session %}{{ policy.academic_session.name }}{% else %}{% trans "N/A" %}{% endif %}</p>
+                    <p><strong>{% trans "Department" %}:</strong> {% if policy.department %}{{ policy.department.name }}{% else %}{% trans "N/A" %}{% endif %}</p>
+                    <p><strong>{% trans "Is Active" %}:</strong> {% if policy.is_active %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}</p>
+                    <p><strong>{% trans "Created At" %}:</strong> {{ policy.created_at|date:"M d, Y H:i" }}</p>
+                    <p><strong>{% trans "Last Updated" %}:</strong> {{ policy.updated_at|date:"M d, Y H:i" }}</p>
+                </div>
+            </div>
+
+            {% if policy.policy_content %}
+            <hr>
+            <h5>{% trans "Policy Content" %}</h5>
+            <pre class="bg-light p-3 rounded">{{ policy.policy_content|json_script:"policy-content-json" }}</pre>
+            <div id="policy-content-display"></div>
+            {% endif %}
+
+            {% if attachments %}
+            <hr>
+            <h5>{% trans "Attachments" %}</h5>
+            <ul>
+                {% for attachment in attachments %}
+                <li><a href="{{ attachment.file.url }}" target="_blank">{{ attachment.title|default:attachment.file.name }}</a></li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if policy.policy_content %}
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const jsonScript = document.getElementById('policy-content-json');
+        if (jsonScript) {
+            try {
+                const policyContent = JSON.parse(jsonScript.textContent);
+                const formattedJson = JSON.stringify(policyContent, null, 2);
+                document.getElementById('policy-content-display').innerHTML = `<pre class="bg-light p-3 rounded">${formattedJson}</pre>`;
+            } catch (e) {
+                document.getElementById('policy-content-display').innerHTML = `<p class="text-danger">{% trans "Error parsing policy content JSON." %}</p>`;
+                console.error("Error parsing policy content JSON:", e);
+            }
+        }
+    });
+</script>
+{% endblock %}
+{% endif %}
+
+{% endblock %}

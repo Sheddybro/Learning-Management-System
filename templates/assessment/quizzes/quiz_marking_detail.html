@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Grade Quiz - {{ attempt.student.user.get_full_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-edit mr-2"></i>
+                        Grade Quiz: {{ attempt.question_bank.name }}
+                    </h3>
+                    <div class="card-tools">
+                        <span class="badge badge-primary">{{ attempt.student.user.get_full_name }}</span>
+                        <span class="badge badge-info">{{ attempt.question_bank.subject.name }}</span>
+                        <span class="badge badge-secondary">{{ attempt.question_bank.academic_class.name }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Attempt Summary -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h4 class="text-primary">{{ attempt.current_score }}</h4>
+                                    <small class="text-muted">Current Score</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h4 class="text-info">{{ attempt.max_score }}</h4>
+                                    <small class="text-muted">Max Score</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h4 class="text-success">{{ attempt.get_percent_correct|floatformat:1 }}%</h4>
+                                    <small class="text-muted">Percentage</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h4 class="text-warning">{{ attempt.end_time|date:"M d, H:i" }}</h4>
+                                    <small class="text-muted">Completed</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Questions Requiring Grading -->
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="accordion" id="gradingAccordion">
+                            {% for question_with_answer in questions_with_answers %}
+                                {% if question_with_answer.question_type in 'essay,short_answer' %}
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+                                        <button class="accordion-button {% if forloop.first %}show{% else %}collapsed{% endif %}"
+                                                type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#collapse{{ forloop.counter }}"
+                                                aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}"
+                                                aria-controls="collapse{{ forloop.counter }}">
+                                            <strong>Question {{ forloop.counter }}:</strong>
+                                            {{ question_with_answer.content|truncatechars:100 }}
+                                            {% if question_with_answer.user_answer and question_with_answer.user_answer.get.is_graded %}
+                                                <span class="badge badge-success ms-2">Graded: {{ question_with_answer.user_answer.marks_obtained }} marks</span>
+                                            {% else %}
+                                                <span class="badge badge-warning ms-2">Needs Grading</span>
+                                            {% endif %}
+                                        </button>
+                                    </h2>
+                                    <div id="collapse{{ forloop.counter }}"
+                                         class="accordion-collapse collapse {% if forloop.first %}show{% endif %}"
+                                         aria-labelledby="heading{{ forloop.counter }}"
+                                         data-bs-parent="#gradingAccordion">
+                                        <div class="accordion-body">
+                                            <!-- Question Text -->
+                                            <div class="mb-3">
+                                                <h6><strong>Question:</strong></h6>
+                                                <div class="border p-3 bg-light rounded">
+                                                    {{ question_with_answer.content }}
+                                                </div>
+                                            </div>
+
+                                            {% if question_with_answer.explanation %}
+                                            <div class="mb-3">
+                                                <h6><strong>Answer Key/Model Answer:</strong></h6>
+                                                <div class="border p-3 bg-info bg-opacity-10 rounded">
+                                                    {{ question_with_answer.explanation }}
+                                                </div>
+                                            </div>
+                                            {% endif %}
+
+                                            <!-- Student Answer -->
+                                            <div class="mb-3">
+                                                <h6><strong>Student Answer:</strong></h6>
+                                                <div class="border p-3 bg-white rounded">
+                                                    {% if question_with_answer.user_answer %}
+                                                        {% if question_with_answer.user_answer.get.answer_text %}
+                                                            {{ question_with_answer.user_answer.get.answer_text }}
+                                                        {% else %}
+                                                            <em class="text-muted">No answer provided</em>
+                                                        {% endif %}
+                                                    {% else %}
+                                                        <em class="text-muted">No answer submitted</em>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+
+                                            <!-- Grading Section -->
+                                            <div class="mb-3">
+                                                <h6><strong>Grading:</strong></h6>
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <label for="marks_{{ question_with_answer.id }}" class="form-label">
+                                                            Marks Awarded (Max: {{ question_with_answer.marks }})
+                                                        </label>
+                                                        <input type="number"
+                                                               class="form-control"
+                                                               id="marks_{{ question_with_answer.id }}"
+                                                               name="marks_{{ question_with_answer.id }}"
+                                                               min="0"
+                                                               max="{{ question_with_answer.marks }}"
+                                                               step="0.5"
+                                                               value="{% if question_with_answer.user_answer and question_with_answer.user_answer.get.marks_obtained %}{{ question_with_answer.user_answer.get.marks_obtained }}{% endif %}">
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label">Quick Marks:</label>
+                                                        <div class="btn-group" role="group">
+                                                            <input type="radio" class="btn-check" name="quick_marks_{{ question_with_answer.id }}" id="full_{{ question_with_answer.id }}" autocomplete="off" onclick="setMarks({{ question_with_answer.id }}, {{ question_with_answer.marks }})">
+                                                            <label class="btn btn-outline-success btn-sm" for="full_{{ question_with_answer.id }}">Full ({{ question_with_answer.marks }})</label>
+
+                                                            <input type="radio" class="btn-check" name="quick_marks_{{ question_with_answer.id }}" id="half_{{ question_with_answer.id }}" autocomplete="off" onclick="setMarks({{ question_with_answer.id }}, {{ question_with_answer.marks|div:2 }})">
+                                                            <label class="btn btn-outline-warning btn-sm" for="half_{{ question_with_answer.id }}">Half ({{ question_with_answer.marks|div:2 }})</label>
+
+                                                            <input type="radio" class="btn-check" name="quick_marks_{{ question_with_answer.id }}" id="zero_{{ question_with_answer.id }}" autocomplete="off" onclick="setMarks({{ question_with_answer.id }}, 0)">
+                                                            <label class="btn btn-outline-danger btn-sm" for="zero_{{ question_with_answer.id }}">Zero (0)</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Hidden Question ID -->
+                                            <input type="hidden" name="question_ids" value="{{ question_with_answer.id }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+
+                        {% if questions_with_answers %}
+                        <div class="mt-4">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <button type="submit" class="btn btn-success btn-lg">
+                                        <i class="fas fa-save"></i> Save All Grades
+                                    </button>
+                                    <a href="{% url 'assessment:quiz_marking_list' %}" class="btn btn-secondary btn-lg ml-2">
+                                        <i class="fas fa-arrow-left"></i> Back to List
+                                    </a>
+                                </div>
+                                <div class="col-md-6 text-right">
+                                    <button type="button" class="btn btn-info" onclick="calculateTotal()">
+                                        <i class="fas fa-calculator"></i> Calculate Total Score
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-info-circle fa-2x text-info mb-3"></i>
+                            <h5>No Questions Need Grading</h5>
+                            <p class="text-muted">This quiz doesn't contain essay or short answer questions that require manual grading.</p>
+                            <a href="{% url 'assessment:quiz_result' attempt.id %}" class="btn btn-primary">
+                                <i class="fas fa-eye"></i> View Quiz Results
+                            </a>
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function setMarks(questionId, marks) {
+    document.getElementById('marks_' + questionId).value = marks;
+}
+
+function calculateTotal() {
+    let total = {{ attempt.current_score }};
+    document.querySelectorAll('input[name*="marks_"]').forEach(input => {
+        const value = parseFloat(input.value) || 0;
+        // Only add if it's an essay/short answer question that's being graded
+        if (input.id.includes('marks_')) {
+            total += value;
+        }
+    });
+
+    const maxScore = {{ attempt.max_score }};
+    const percentage = ((total / maxScore) * 100).toFixed(1);
+
+    alert(`Current Total: ${total}/${maxScore} (${percentage}%)`);
+}
+
+$(document).ready(function() {
+    // Auto-save functionality (optional enhancement)
+    let autoSaveTimer;
+    $('input[name*="marks_"]').on('input', function() {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(function() {
+            // Could implement auto-save here
+            console.log('Auto-save triggered');
+        }, 2000);
+    });
+});
+</script>
+{% endblock %}

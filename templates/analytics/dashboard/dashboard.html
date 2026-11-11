@@ -1,0 +1,1016 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Analytics Dashboard" %}{% endblock %}
+
+{% block body_class %}analytics-dashboard{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Analytics Dashboard" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-success" id="generateReportBtn">
+            <i class="bi bi-file-earmark-text me-2"></i>{% trans "Generate Report" %}
+        </button>
+        <button type="button" class="btn btn-outline-primary" id="exportDataBtn">
+            <i class="bi bi-download me-2"></i>{% trans "Export Data" %}
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.analytics-dashboard-container {
+    max-width: 100%;
+}
+
+.dashboard-hero {
+    background: linear-gradient(135deg, var(--bs-info), #0dcaf0);
+    color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.dashboard-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 250px;
+    height: 250px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    transform: translate(50%, -50%);
+}
+
+.dashboard-controls {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.dashboard-widget {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+    height: 100%;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.dashboard-widget:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-color: var(--bs-info);
+}
+
+.widget-header {
+    background: linear-gradient(135deg, var(--bs-info), #0dcaf0);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 12px 12px 0 0;
+    position: relative;
+}
+
+.widget-header h6 {
+    margin: 0;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+}
+
+.widget-header .widget-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.widget-action-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    padding: 0.5rem;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    font-size: 0.875rem;
+}
+
+.widget-action-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.widget-body {
+    padding: 2rem;
+}
+
+.widget-footer {
+    background: var(--bs-light);
+    padding: 1rem 2rem;
+    border-top: 1px solid var(--bs-border-color);
+    border-radius: 0 0 12px 12px;
+}
+
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.kpi-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-color: var(--bs-primary);
+}
+
+.kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--bs-primary), var(--bs-info));
+}
+
+.kpi-value {
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    color: var(--bs-primary);
+    display: block;
+}
+
+.kpi-label {
+    font-size: 1rem;
+    color: var(--bs-secondary);
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.kpi-change {
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.kpi-change.positive {
+    background: var(--bs-success);
+    color: white;
+}
+
+.kpi-change.negative {
+    background: var(--bs-danger);
+    color: white;
+}
+
+.kpi-change.neutral {
+    background: var(--bs-secondary);
+    color: white;
+}
+
+.quick-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.quick-action {
+    display: block;
+    text-align: center;
+    padding: 1.5rem 1rem;
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--bs-body-color);
+    transition: all 0.3s ease;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 2px solid transparent;
+}
+
+.quick-action:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-color: var(--bs-success);
+    color: var(--bs-success);
+}
+
+.quick-action-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    display: block;
+    color: var(--bs-success);
+}
+
+.quick-action-title {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.quick-action-desc {
+    font-size: 0.875rem;
+    color: var(--bs-secondary);
+}
+
+.chart-container {
+    position: relative;
+    height: 350px;
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.recent-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.recent-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+    transition: all 0.3s ease;
+}
+
+.recent-item:hover {
+    background: var(--bs-light);
+    border-radius: 8px;
+    margin: 0 -1rem;
+    padding: 1rem;
+}
+
+.recent-item:last-child {
+    border-bottom: none;
+}
+
+.recent-icon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    flex-shrink: 0;
+    font-size: 1.25rem;
+}
+
+.recent-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.recent-title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--bs-primary);
+}
+
+.recent-meta {
+    font-size: 0.875rem;
+    color: var(--bs-secondary);
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.refresh-indicator {
+    display: inline-flex;
+    align-items: center;
+    color: var(--bs-secondary);
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    background: var(--bs-light);
+    border-radius: 20px;
+}
+
+.refresh-spinner {
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid transparent;
+    border-top: 2px solid var(--bs-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 0.5rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-radius: 12px;
+    margin: 2rem 0;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    color: var(--bs-secondary);
+    margin-bottom: 1.5rem;
+}
+
+.system-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.status-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    font-size: 1.25rem;
+}
+
+.status-content h6 {
+    margin: 0 0 0.25rem 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.status-content small {
+    color: var(--bs-secondary);
+    font-size: 0.8rem;
+}
+
+@media (max-width: 768px) {
+    .dashboard-hero {
+        padding: 1.5rem;
+    }
+
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+
+    .quick-actions-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .chart-container {
+        height: 250px;
+    }
+
+    .widget-body {
+        padding: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-controls">
+    <div class="row align-items-center">
+        <div class="col-md-6">
+            <div class="d-flex align-items-center">
+                <h5 class="mb-0 me-3">{{ dashboard.name }}</h5>
+                <span class="badge bg-light text-dark">{{ dashboard.get_dashboard_type_display }}</span>
+            </div>
+            {% if dashboard.description %}
+            <p class="mb-0 text-muted">{{ dashboard.description }}</p>
+            {% endif %}
+        </div>
+        <div class="col-md-6 text-md-end">
+            <div class="d-flex align-items-center justify-content-md-end gap-2">
+                <div class="refresh-indicator">
+                    <div class="refresh-spinner" id="refreshSpinner" style="display: none;"></div>
+                    <span id="lastRefresh">{% trans "Last updated: Just now" %}</span>
+                </div>
+                <button class="btn btn-outline-primary btn-sm" id="refreshDashboard">
+                    <i class="bi bi-arrow-clockwise"></i> {% trans "Refresh" %}
+                </button>
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-gear"></i> {% trans "Customize" %}
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'analytics:dashboard_edit' dashboard.pk %}">
+                            <i class="bi bi-pencil me-2"></i> {% trans "Edit Dashboard" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'analytics:dashboard_create' %}">
+                            <i class="bi bi-plus-circle me-2"></i> {% trans "Create New Dashboard" %}
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'analytics:settings' %}">
+                            <i class="bi bi-sliders me-2"></i> {% trans "Analytics Settings" %}
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- System Performance KPIs Section (Super Admin) -->
+    {% if user.role_type == 'super_admin' %}
+    <div class="col-12 mb-4">
+        <div class="dashboard-widget">
+            <div class="widget-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="bi bi-server me-2"></i>{% trans "System Performance Metrics" %}
+                    </h6>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-success" id="collectMetricsBtn">
+                            <i class="bi bi-collection"></i> {% trans "Collect Now" %}
+                        </button>
+                        <a href="{% url 'analytics:kpi_list' %}?category=system" class="btn btn-sm btn-outline-primary">
+                            {% trans "View All" %} <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="widget-body">
+                {% with system_kpis=active_kpis|slice:":6" %}
+                {% if system_kpis %}
+                <div class="row">
+                    {% for kpi in system_kpis %}
+                    <div class="col-md-4 col-lg-2 mb-3">
+                        <div class="kpi-card {% if kpi.category == 'system' %}border-primary{% endif %}">
+                            {% if kpi.category == 'system' %}
+                            <div class="position-absolute top-0 end-0 badge bg-primary rounded-pill" style="font-size: 0.6rem; margin: 0.25rem;">
+                                <i class="bi bi-server"></i>
+                            </div>
+                            {% endif %}
+                            <div class="kpi-value">
+                                {% with measurement=kpi_measurements|get_item:kpi.id %}
+                                {% if measurement %}
+                                    {% if kpi.value_type == 'percentage' %}
+                                        {{ measurement.value|floatformat:1 }}
+                                    {% elif kpi.value_type == 'duration' %}
+                                        {{ measurement.value|floatformat:0 }}
+                                    {% else %}
+                                        {{ measurement.value|floatformat:1 }}
+                                    {% endif %}
+                                {% else %}
+                                    --
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                            <div class="kpi-label">{{ kpi.name }}</div>
+                            {% with measurement=kpi_measurements|get_item:kpi.id %}
+                            {% if measurement and measurement.change_percentage %}
+                            <div class="kpi-change {% if measurement.change_percentage > 0 %}positive{% elif measurement.change_percentage < 0 %}negative{% else %}neutral{% endif %}">
+                                <i class="bi {% if measurement.change_percentage > 0 %}bi-arrow-up{% elif measurement.change_percentage < 0 %}bi-arrow-down{% else %}bi-dash{% endif %}"></i>
+                                {{ measurement.change_percentage|floatformat:1 }}%
+                            </div>
+                            {% else %}
+                            <div class="kpi-change neutral">--</div>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="bi bi-graph-up"></i>
+                    </div>
+                    <h6>{% trans "No System KPIs Configured" %}</h6>
+                    <p class="mb-0">{% trans "Run system KPI setup to start monitoring performance" %}</p>
+                </div>
+                {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- General KPI Overview Section -->
+    <div class="col-12 mb-4">
+        <div class="dashboard-widget">
+            <div class="widget-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">{% trans "Key Performance Indicators" %}</h6>
+                    <a href="{% url 'analytics:kpi_list' %}" class="btn btn-sm btn-outline-primary">
+                        {% trans "View All" %} <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="widget-body">
+                {% if active_kpis %}
+                <div class="row">
+                    {% for kpi in active_kpis %}
+                    {% if user.role_type != 'super_admin' or kpi.category != 'system' %}
+                    <div class="col-md-4 col-lg-2 mb-3">
+                        <div class="kpi-card">
+                            <div class="kpi-value">
+                                {% with measurement=kpi_measurements|get_item:kpi.id %}
+                                {% if measurement %}
+                                    {{ measurement.value|floatformat:1 }}
+                                {% else %}
+                                    --
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                            <div class="kpi-label">{{ kpi.name }}</div>
+                            {% with measurement=kpi_measurements|get_item:kpi.id %}
+                            {% if measurement and measurement.change_percentage %}
+                            <div class="kpi-change {% if measurement.change_percentage > 0 %}positive{% elif measurement.change_percentage < 0 %}negative{% else %}neutral{% endif %}">
+                                <i class="bi {% if measurement.change_percentage > 0 %}bi-arrow-up{% elif measurement.change_percentage < 0 %}bi-arrow-down{% else %}bi-dash{% endif %}"></i>
+                                {{ measurement.change_percentage|floatformat:1 }}%
+                            </div>
+                            {% else %}
+                            <div class="kpi-change neutral">--</div>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="bi bi-graph-up"></i>
+                    </div>
+                    <h6>{% trans "No Active KPIs" %}</h6>
+                    <p class="mb-0">{% trans "Configure KPIs to start tracking performance metrics" %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="col-lg-8">
+        <!-- Quick Actions -->
+        <div class="row mb-4">
+            <div class="col-md-3 col-6 mb-3">
+                <a href="{% url 'analytics:generate_report' 'default' %}" class="quick-action">
+                    <span class="quick-action-icon">
+                        <i class="bi bi-file-earmark-text"></i>
+                    </span>
+                    <span>{% trans "Generate Report" %}</span>
+                </a>
+            </div>
+            <div class="col-md-3 col-6 mb-3">
+                <a href="{% url 'analytics:request_export' %}" class="quick-action">
+                    <span class="quick-action-icon">
+                        <i class="bi bi-download"></i>
+                    </span>
+                    <span>{% trans "Export Data" %}</span>
+                </a>
+            </div>
+            <div class="col-md-3 col-6 mb-3">
+                <a href="{% url 'analytics:kpi_list' %}" class="quick-action">
+                    <span class="quick-action-icon">
+                        <i class="bi bi-graph-up"></i>
+                    </span>
+                    <span>{% trans "Manage KPIs" %}</span>
+                </a>
+            </div>
+            <div class="col-md-3 col-6 mb-3">
+                <a href="{% url 'analytics:trend_list' %}" class="quick-action">
+                    <span class="quick-action-icon">
+                        <i class="bi bi-bar-chart"></i>
+                    </span>
+                    <span>{% trans "Trend Analysis" %}</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Performance Chart -->
+        <div class="dashboard-widget mb-4">
+            <div class="widget-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">{% trans "Performance Trends" %}</h6>
+                    <div class="widget-actions">
+                        <button class="widget-action-btn" title="{% trans 'Refresh Chart' %}">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        <button class="widget-action-btn" title="{% trans 'Export Chart' %}">
+                            <i class="bi bi-download"></i>
+                        </button>
+                        <button class="widget-action-btn" title="{% trans 'Full Screen' %}">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="widget-body">
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Reports -->
+        <div class="dashboard-widget">
+            <div class="widget-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">{% trans "Recent Reports" %}</h6>
+                    <a href="{% url 'analytics:report_list' %}" class="btn btn-sm btn-outline-primary">
+                        {% trans "View All" %} <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="widget-body">
+                {% if recent_reports %}
+                <div class="recent-list">
+                    {% for report in recent_reports %}
+                    <div class="recent-item">
+                        <div class="recent-icon bg-primary bg-opacity-10 text-primary">
+                            <i class="bi 
+                                {% if report.format == 'pdf' %}bi-file-earmark-pdf
+                                {% elif report.format == 'excel' %}bi-file-earmark-spreadsheet
+                                {% elif report.format == 'csv' %}bi-file-earmark-text
+                                {% else %}bi-file-earmark-text{% endif %}">
+                            </i>
+                        </div>
+                        <div class="recent-content">
+                            <div class="recent-title">{{ report.name }}</div>
+                            <div class="recent-meta">
+                                {{ report.report_type.name }} • 
+                                {{ report.academic_session.name }} •
+                                {{ report.created_at|date:"M d, Y" }}
+                            </div>
+                        </div>
+                        <div class="ms-auto">
+                            <span class="status-badge 
+                                {% if report.status == 'completed' %}bg-success
+                                {% elif report.status == 'failed' %}bg-danger
+                                {% elif report.status == 'generating' %}bg-warning
+                                {% else %}bg-secondary{% endif %}">
+                                {{ report.get_status_display }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="bi bi-file-earmark-text"></i>
+                    </div>
+                    <h6>{% trans "No Recent Reports" %}</h6>
+                    <p class="mb-0">{% trans "Generate your first report to see it here" %}</p>
+                </div>
+                {% endif %}
+            </div>
+            <div class="widget-footer">
+                <a href="{% url 'analytics:generate_report' 'default' %}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i> {% trans "Generate New Report" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar Widgets -->
+    <div class="col-lg-4">
+        <!-- System Status -->
+        <div class="dashboard-widget mb-4">
+            <div class="widget-header">
+                <h6 class="mb-0">{% trans "System Status" %}</h6>
+            </div>
+            <div class="widget-body">
+                <div class="recent-list">
+                    <div class="recent-item">
+                        <div class="recent-icon bg-success bg-opacity-10 text-success">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                        <div class="recent-content">
+                            <div class="recent-title">{% trans "Data Collection" %}</div>
+                            <div class="recent-meta">{% trans "Active and running" %}</div>
+                        </div>
+                    </div>
+                    <div class="recent-item">
+                        <div class="recent-icon bg-success bg-opacity-10 text-success">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                        <div class="recent-content">
+                            <div class="recent-title">{% trans "Cache System" %}</div>
+                            <div class="recent-meta">{% trans "Optimal performance" %}</div>
+                        </div>
+                    </div>
+                    <div class="recent-item">
+                        <div class="recent-icon bg-warning bg-opacity-10 text-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                        <div class="recent-content">
+                            <div class="recent-title">{% trans "Storage Usage" %}</div>
+                            <div class="recent-meta">{% trans "75% used" %}</div>
+                        </div>
+                    </div>
+                    <div class="recent-item">
+                        <div class="recent-icon bg-info bg-opacity-10 text-info">
+                            <i class="bi bi-info-circle"></i>
+                        </div>
+                        <div class="recent-content">
+                            <div class="recent-title">{% trans "Last Data Sync" %}</div>
+                            <div class="recent-meta">{% trans "2 hours ago" %}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="dashboard-widget mb-4">
+            <div class="widget-header">
+                <h6 class="mb-0">{% trans "Quick Stats" %}</h6>
+            </div>
+            <div class="widget-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <div class="kpi-value text-primary">{{ total_reports|default:"0" }}</div>
+                        <div class="kpi-label">{% trans "Total Reports" %}</div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="kpi-value text-success">{{ active_kpis.count|default:"0" }}</div>
+                        <div class="kpi-label">{% trans "Active KPIs" %}</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="kpi-value text-info">{{ cache_entries|default:"0" }}</div>
+                        <div class="kpi-label">{% trans "Cache Entries" %}</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="kpi-value text-warning">{{ trend_analyses|default:"0" }}</div>
+                        <div class="kpi-label">{% trans "Trend Analyses" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upcoming Tasks -->
+        <div class="dashboard-widget">
+            <div class="widget-header">
+                <h6 class="mb-0">{% trans "Scheduled Tasks" %}</h6>
+            </div>
+            <div class="widget-body">
+                <div class="recent-list">
+                    <div class="recent-item">
+                        <div class="recent-icon bg-primary bg-opacity-10 text-primary">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </div>
+                        <div class="recent-content">
+                            <div class="recent-title">{% trans "Daily KPI Refresh" %}</div>
+                            <div class="recent-meta">{% trans "Next: Today, 02:00 AM" %}</div>
+                        </div>
+                    </div>
+                    <div class="recent-item">
+                        <div class="recent-icon bg-success bg-opacity-10 text-success">
+                            <i class="bi bi-cloud-arrow-down"></i>
+                        </div>
+                        <div class="recent-content">
+                            <div class="recent-title">{% trans "Weekly Data Backup" %}</div>
+                            <div class="recent-meta">{% trans "Next: Sunday, 03:00 AM" %}</div>
+                        </div>
+                    </div>
+                    <div class="recent-item">
+                        <div class="recent-icon bg-warning bg-opacity-10 text-warning">
+                            <i class="bi bi-trash"></i>
+                        </div>
+                        <div class="recent-content">
+                            <div class="recent-title">{% trans "Cache Cleanup" %}</div>
+                            <div class="recent-meta">{% trans "Next: Tomorrow, 01:00 AM" %}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize performance chart
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        const performanceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                datasets: [{
+                    label: '{% trans "Student Performance" %}',
+                    data: [65, 59, 80, 81, 56, 55, 70, 75, 82, 78, 85, 90],
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1,
+                    fill: false
+                }, {
+                    label: '{% trans "Attendance Rate" %}',
+                    data: [85, 82, 88, 87, 90, 86, 89, 91, 93, 92, 94, 95],
+                    borderColor: 'rgb(255, 99, 132)',
+                    tension: 0.1,
+                    fill: false
+                }, {
+                    label: '{% trans "Teacher Engagement" %}',
+                    data: [70, 72, 75, 78, 80, 82, 85, 83, 87, 89, 88, 90],
+                    borderColor: 'rgb(54, 162, 235)',
+                    tension: 0.1,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 50,
+                        max: 100
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+
+        // Dashboard refresh functionality
+        const refreshBtn = document.getElementById('refreshDashboard');
+        const refreshSpinner = document.getElementById('refreshSpinner');
+        const lastRefresh = document.getElementById('lastRefresh');
+
+        refreshBtn.addEventListener('click', function() {
+            // Show loading state
+            refreshSpinner.style.display = 'inline-block';
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> {% trans "Refreshing..." %}';
+
+            // Simulate API call to refresh data
+            setTimeout(function() {
+                // Update last refresh time
+                const now = new Date();
+                lastRefresh.textContent = '{% trans "Last updated:" %} ' + now.toLocaleTimeString();
+                
+                // Hide loading state
+                refreshSpinner.style.display = 'none';
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> {% trans "Refresh" %}';
+                
+                // Show success message
+                BaseApp.showToast('{% trans "Dashboard data refreshed successfully" %}', 'success');
+                
+                // In a real implementation, you would update the chart data here
+                // performanceChart.update();
+            }, 1500);
+        });
+
+        // Auto-refresh based on dashboard settings
+        let autoRefreshInterval;
+        const startAutoRefresh = function() {
+            const refreshInterval = {{ dashboard.refresh_interval|default:15 }} * 60 * 1000; // Convert minutes to milliseconds
+            
+            autoRefreshInterval = setInterval(function() {
+                refreshBtn.click();
+            }, refreshInterval);
+        };
+
+        // Start auto-refresh
+        startAutoRefresh();
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        });
+
+        // KPI card click handlers
+        document.querySelectorAll('.kpi-card').forEach(card => {
+            card.style.cursor = 'pointer';
+            card.addEventListener('click', function() {
+                // In a real implementation, this would navigate to KPI detail page
+                BaseApp.showToast('{% trans "Navigating to KPI details..." %}', 'info');
+            });
+        });
+
+        // Collect system metrics button
+        const collectMetricsBtn = document.getElementById('collectMetricsBtn');
+        if (collectMetricsBtn) {
+            collectMetricsBtn.addEventListener('click', function() {
+                // Show loading state
+                const originalText = collectMetricsBtn.innerHTML;
+                collectMetricsBtn.disabled = true;
+                collectMetricsBtn.innerHTML = '<i class="bi bi-collection"></i> {% trans "Collecting..." %}';
+
+                // Make AJAX request to collect metrics
+                fetch('/analytics/collect-metrics/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        BaseApp.showToast('{% trans "System metrics collected successfully" %}', 'success');
+                        // Refresh the page to show updated metrics
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        BaseApp.showToast('{% trans "Failed to collect metrics: " %}' + data.error, 'error');
+                    }
+                })
+                .catch(error => {
+                    BaseApp.showToast('{% trans "Error collecting metrics" %}', 'error');
+                    console.error('Metrics collection error:', error);
+                })
+                .finally(() => {
+                    // Restore button state
+                    collectMetricsBtn.disabled = false;
+                    collectMetricsBtn.innerHTML = originalText;
+                });
+            });
+        }
+
+        // Widget action handlers
+        document.querySelectorAll('.widget-action-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const action = this.querySelector('i').className;
+                if (action.includes('bi-arrow-clockwise')) {
+                    // Refresh chart
+                    performanceChart.update();
+                    BaseApp.showToast('{% trans "Chart data refreshed" %}', 'success');
+                } else if (action.includes('bi-download')) {
+                    // Export chart
+                    const imageLink = document.createElement('a');
+                    imageLink.download = 'performance-chart.png';
+                    imageLink.href = performanceChart.toBase64Image();
+                    imageLink.click();
+                } else if (action.includes('bi-arrows-fullscreen')) {
+                    // Toggle fullscreen (simplified)
+                    const chartContainer = document.getElementById('performanceChart').parentElement;
+                    chartContainer.classList.toggle('fullscreen');
+                    BaseApp.showToast('{% trans "Fullscreen mode toggled" %}', 'info');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

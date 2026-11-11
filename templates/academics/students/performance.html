@@ -1,0 +1,546 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Academic Performance" %} - {{ student.user.get_full_name }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="student-performance">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="fas fa-chart-bar mr-2 text-primary"></i>
+                {% trans "Academic Performance" %}
+            </h1>
+            <p class="text-muted mb-0">{% trans "Track your grades, progress, and academic achievements" %}</p>
+        </div>
+        <div>
+            <a href="{% url 'academics:student_dashboard' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left mr-2"></i>{% trans "Back to Dashboard" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Performance Overview Cards -->
+    <div class="row mb-4">
+        {% if performance_stats %}
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-left-success">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                {% trans "Overall Average" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ performance_stats.average_percentage }}%
+                            </div>
+                            <div class="text-xs text-muted">
+                                {% trans "Current session" %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-trophy fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-left-info">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                {% trans "Total Exams" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ performance_stats.total_exams }}
+                            </div>
+                            <div class="text-xs text-muted">
+                                {{ performance_stats.passed_exams }} {% trans "passed" %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-graduation-cap fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-left-warning">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                {% trans "Pass Rate" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ performance_stats.pass_rate }}%
+                            </div>
+                            <div class="text-xs text-muted">
+                                {% trans "Success rate" %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-percentage fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-left-primary">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                {% trans "Attendance Rate" %}
+                            </div>
+                            {% if attendance_summary %}
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                    {{ attendance_summary.attendance_percentage }}%
+                                </div>
+                                <div class="text-xs text-muted">
+                                    {{ attendance_summary.days_present }}/{{ attendance_summary.total_school_days }} {% trans "days" %}
+                                </div>
+                            {% else %}
+                                <div class="text-muted">
+                                    {% trans "No data" %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-check fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Charts Section -->
+    <div class="row mb-4">
+        <!-- Subject Performance Chart -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-pie mr-2"></i>
+                        {% trans "Subject-wise Performance" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if subject_performance %}
+                        <canvas id="subjectPerformanceChart" width="400" height="200"></canvas>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-chart-pie fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">{% trans "No performance data available" %}</h5>
+                            <p class="text-muted">{% trans "Performance data will appear here once you have exam results." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Grade Distribution -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-bar mr-2"></i>
+                        {% trans "Grade Distribution" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if performance_stats and performance_stats.grade_distribution %}
+                        <canvas id="gradeDistributionChart" width="200" height="200"></canvas>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">{% trans "No grade data" %}</h5>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Trends Chart -->
+    {% if progress_trends %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-line mr-2"></i>
+                        {% trans "Academic Progress Over Time" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="progressTrendsChart" width="400" height="150"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Detailed Performance Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-table mr-2"></i>
+                        {% trans "Detailed Performance Records" %}
+                    </h6>
+                    <div class="input-group" style="width: 300px;">
+                        <input type="text" class="form-control" id="performanceSearch" placeholder="{% trans 'Search records...' %}">
+                        <div class="input-group-append">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if marks %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="performanceTable">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>{% trans "Exam" %}</th>
+                                        <th>{% trans "Subject" %}</th>
+                                        <th>{% trans "Date" %}</th>
+                                        <th>{% trans "Marks" %}</th>
+                                        <th>{% trans "Percentage" %}</th>
+                                        <th>{% trans "Grade" %}</th>
+                                        <th>{% trans "Status" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for mark in marks %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ mark.exam.name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ mark.exam.exam_type.name }}</small>
+                                        </td>
+                                        <td>{{ mark.exam.subject.name }}</td>
+                                        <td>{{ mark.exam.exam_date|date:"M j, Y" }}</td>
+                                        <td>
+                                            {% if mark.is_absent %}
+                                                <span class="text-danger">{% trans "Absent" %}</span>
+                                            {% else %}
+                                                {{ mark.marks_obtained }}/{{ mark.max_marks }}
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if not mark.is_absent %}
+                                                <span class="badge
+                                                    {% if mark.percentage >= 90 %}badge-success
+                                                    {% elif mark.percentage >= 80 %}badge-info
+                                                    {% elif mark.percentage >= 70 %}badge-warning
+                                                    {% else %}badge-danger{% endif %}">
+                                                    {{ mark.percentage }}%
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if not mark.is_absent %}
+                                                {% comment %} This would need to be calculated based on grading system {% endcomment %}
+                                                <span class="badge badge-secondary">
+                                                    {% if mark.percentage >= 90 %}A+
+                                                    {% elif mark.percentage >= 85 %}A
+                                                    {% elif mark.percentage >= 80 %}A-
+                                                    {% elif mark.percentage >= 75 %}B+
+                                                    {% elif mark.percentage >= 70 %}B
+                                                    {% elif mark.percentage >= 65 %}B-
+                                                    {% elif mark.percentage >= 60 %}C+
+                                                    {% elif mark.percentage >= 55 %}C
+                                                    {% elif mark.percentage >= 50 %}C-
+                                                    {% else %}F{% endif %}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if mark.is_absent %}
+                                                <span class="badge badge-danger">{% trans "Absent" %}</span>
+                                            {% elif mark.percentage >= 50 %}
+                                                <span class="badge badge-success">{% trans "Pass" %}</span>
+                                            {% else %}
+                                                <span class="badge badge-warning">{% trans "Fail" %}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-graduation-cap fa-4x text-muted mb-3"></i>
+                            <h4 class="text-muted">{% trans "No performance records" %}</h4>
+                            <p class="text-muted">{% trans "Your exam results and grades will appear here." %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Academic Records Section -->
+    {% if academic_records %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-history mr-2"></i>
+                        {% trans "Academic Records History" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="academic-records">
+                        {% for record in academic_records %}
+                        <div class="record-item card mb-3 border-left-info">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-3">
+                                        <h6 class="mb-1">{{ record.academic_session.name }}</h6>
+                                        <small class="text-muted">{{ record.class_enrolled.name }}</small>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="grade-display">
+                                            {% if record.overall_grade %}
+                                                <span class="badge badge-primary badge-lg">{{ record.overall_grade }}</span>
+                                            {% else %}
+                                                <span class="text-muted">{% trans "Not graded" %}</span>
+                                            {% endif %}
+                                            {% if record.percentage %}
+                                                <br>
+                                                <small class="text-muted">{{ record.percentage }}%</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        {% if record.rank_in_class %}
+                                            <div class="rank-display">
+                                                <i class="fas fa-medal text-warning"></i>
+                                                {% trans "Rank" %} {{ record.rank_in_class }}
+                                                {% if record.total_students_in_class %}
+                                                    / {{ record.total_students_in_class }}
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">{% trans "Rank not available" %}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-3 text-right">
+                                        {% if record.promoted_to_class %}
+                                            <span class="badge badge-success">
+                                                <i class="fas fa-arrow-up mr-1"></i>
+                                                {% trans "Promoted to" %} {{ record.promoted_to_class.name }}
+                                            </span>
+                                        {% elif record.enrollment_status == 'completed' %}
+                                            <span class="badge badge-info">
+                                                <i class="fas fa-check-circle mr-1"></i>
+                                                {% trans "Completed" %}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">
+                                                {{ record.get_enrollment_status_display }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.badge-lg {
+    font-size: 1.1em;
+    padding: 0.5em 0.8em;
+}
+
+.record-item {
+    transition: all 0.3s ease;
+}
+
+.record-item:hover {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.grade-display .badge {
+    font-size: 1.2em;
+    padding: 0.5em 1em;
+}
+
+.rank-display {
+    font-weight: bold;
+    color: #f39c12;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8em;
+}
+
+@media (max-width: 768px) {
+    .input-group {
+        width: 100% !important;
+        margin-top: 10px;
+    }
+
+    .d-flex.justify-content-between {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+}
+</style>
+
+<script>
+// Search functionality
+$('#performanceSearch').on('keyup', function() {
+    var searchTerm = $(this).val().toLowerCase();
+    $('#performanceTable tbody tr').each(function() {
+        var rowText = $(this).text().toLowerCase();
+        if (rowText.indexOf(searchTerm) > -1) {
+            $(this).show();
+        } else {
+            $(this).hide();
+        }
+    });
+});
+
+// Charts
+{% if subject_performance %}
+// Subject Performance Chart
+var subjectCtx = document.getElementById('subjectPerformanceChart').getContext('2d');
+var subjectData = {
+    labels: {{ subject_performance.keys|safe }},
+    datasets: [{
+        label: '{% trans "Average Percentage" %}',
+        data: {{ subject_performance.values|map:"average"|safe }},
+        backgroundColor: [
+            'rgba(255, 99, 132, 0.2)',
+            'rgba(54, 162, 235, 0.2)',
+            'rgba(255, 206, 86, 0.2)',
+            'rgba(75, 192, 192, 0.2)',
+            'rgba(153, 102, 255, 0.2)',
+            'rgba(255, 159, 64, 0.2)'
+        ],
+        borderColor: [
+            'rgba(255, 99, 132, 1)',
+            'rgba(54, 162, 235, 1)',
+            'rgba(255, 206, 86, 1)',
+            'rgba(75, 192, 192, 1)',
+            'rgba(153, 102, 255, 1)',
+            'rgba(255, 159, 64, 1)'
+        ],
+        borderWidth: 1
+    }]
+};
+
+var subjectChart = new Chart(subjectCtx, {
+    type: 'bar',
+    data: subjectData,
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 100
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    }
+});
+{% endif %}
+
+{% if performance_stats and performance_stats.grade_distribution %}
+// Grade Distribution Chart
+var gradeCtx = document.getElementById('gradeDistributionChart').getContext('2d');
+var gradeData = {
+    labels: {{ performance_stats.grade_distribution|map:"subject_name"|safe }},
+    datasets: [{
+        label: '{% trans "Percentage" %}',
+        data: {{ performance_stats.grade_distribution|map:"avg_percentage"|safe }},
+        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 1
+    }]
+};
+
+var gradeChart = new Chart(gradeCtx, {
+    type: 'doughnut',
+    data: gradeData,
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+{% endif %}
+
+{% if progress_trends %}
+// Progress Trends Chart
+var progressCtx = document.getElementById('progressTrendsChart').getContext('2d');
+var progressData = {
+    labels: {{ progress_trends|map:"session"|safe }},
+    datasets: [{
+        label: '{% trans "Percentage" %}',
+        data: {{ progress_trends|map:"percentage"|safe }},
+        fill: false,
+        borderColor: 'rgba(75, 192, 192, 1)',
+        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        tension: 0.1
+    }]
+};
+
+var progressChart = new Chart(progressCtx, {
+    type: 'line',
+    data: progressData,
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 100
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

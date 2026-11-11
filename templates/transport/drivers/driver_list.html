@@ -1,0 +1,1080 @@
+<!-- templates/transport/drivers/driver_list.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Driver Management" %}{% endblock %}
+
+{% block page_title %}{% trans "Driver Management" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Drivers" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'transport:driver_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> {% trans "Add Driver" %}
+        </a>
+        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#importModal">
+                    <i class="fas fa-file-import me-2"></i> {% trans "Import Drivers" %}
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="#" id="exportDrivers">
+                    <i class="fas fa-file-export me-2"></i> {% trans "Export to Excel" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#licenseReportModal">
+                    <i class="fas fa-id-card me-2"></i> {% trans "License Expiry Report" %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .driver-management-page {
+        background-color: #f8f9fa;
+    }
+
+    .driver-management {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .driver-card {
+        border-radius: 0.75rem;
+        border: 0;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .driver-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .driver-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2rem;
+        font-weight: 600;
+        margin: 0 auto 1rem;
+    }
+    
+    .driver-badge {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        z-index: 2;
+    }
+    
+    .status-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-active {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-inactive {
+        background-color: #f3f4f6;
+        color: #6b7280;
+    }
+    
+    .status-suspended {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .status-on_leave {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    
+    .warning-badge {
+        background-color: #fef3c7;
+        color: #92400e;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .driver-info {
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+    
+    .info-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    
+    .info-icon {
+        width: 20px;
+        margin-right: 0.5rem;
+        color: #9ca3af;
+    }
+    
+    .action-buttons .btn {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .filter-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        border: none;
+    }
+    
+    .search-box {
+        position: relative;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    .search-input {
+        padding-left: 40px;
+    }
+    
+    .view-toggle {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .view-toggle .btn {
+        border: none;
+        border-radius: 0;
+        padding: 0.5rem 1rem;
+    }
+    
+    .view-toggle .btn.active {
+        background: #0d6efd;
+        color: white;
+    }
+    
+    .table-actions {
+        white-space: nowrap;
+    }
+    
+    .license-status {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .license-valid {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .license-expired {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .license-expiring {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .availability-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .available {
+        background: #10b981;
+    }
+    
+    .unavailable {
+        background: #ef4444;
+    }
+    
+    .on-break {
+        background: #f59e0b;
+    }
+    
+    /* Grid/List view transitions */
+    .view-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .view-list {
+        display: block;
+    }
+    
+    .view-grid .driver-item {
+        display: block;
+    }
+    
+    .view-list .driver-item {
+        display: none;
+    }
+    
+    .stats-card {
+        text-align: center;
+        padding: 1.5rem;
+    }
+    
+    .stats-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stats-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .driver-avatar {
+            width: 60px;
+            height: 60px;
+            font-size: 1.5rem;
+        }
+        
+        .view-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .action-buttons .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="driver-management">
+    <!-- Filters and Controls -->
+    <div class="card filter-card mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-4">
+                    <div class="search-box">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" class="form-control search-input" id="driverSearch" 
+                               placeholder="{% trans 'Search drivers...' %}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="statusFilter">
+                        <option value="">{% trans "All Status" %}</option>
+                        <option value="active">{% trans "Active" %}</option>
+                        <option value="inactive">{% trans "Inactive" %}</option>
+                        <option value="suspended">{% trans "Suspended" %}</option>
+                        <option value="on_leave">{% trans "On Leave" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="licenseFilter">
+                        <option value="">{% trans "All License Status" %}</option>
+                        <option value="valid">{% trans "Valid" %}</option>
+                        <option value="expiring">{% trans "Expiring Soon" %}</option>
+                        <option value="expired">{% trans "Expired" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <div class="view-toggle btn-group" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" data-view="grid">
+                            <i class="fas fa-th"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" data-view="list">
+                            <i class="fas fa-list"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Advanced Filters -->
+            <div class="mt-3">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters">
+                    <i class="fas fa-sliders-h me-1"></i> {% trans "Advanced Filters" %}
+                </button>
+                
+                <div class="collapse mt-2" id="advancedFilters">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label small">{% trans "License Type" %}</label>
+                            <select class="form-select form-select-sm" id="licenseTypeFilter">
+                                <option value="">{% trans "All License Types" %}</option>
+                                <option value="lmv">{% trans "Light Motor Vehicle" %}</option>
+                                <option value="hmv">{% trans "Heavy Motor Vehicle" %}</option>
+                                <option value="mcwg">{% trans "Motor Cycle With Gear" %}</option>
+                                <option value="mcwog">{% trans "Motor Cycle Without Gear" %}</option>
+                                <option value="international">{% trans "International" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">{% trans "Availability" %}</label>
+                            <select class="form-select form-select-sm" id="availabilityFilter">
+                                <option value="">{% trans "Any Availability" %}</option>
+                                <option value="available">{% trans "Available" %}</option>
+                                <option value="unavailable">{% trans "Unavailable" %}</option>
+                                <option value="on_break">{% trans "On Break" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">{% trans "Experience" %}</label>
+                            <select class="form-select form-select-sm" id="experienceFilter">
+                                <option value="">{% trans "Any Experience" %}</option>
+                                <option value="0-2">0-2 {% trans "years" %}</option>
+                                <option value="3-5">3-5 {% trans "years" %}</option>
+                                <option value="6-10">6-10 {% trans "years" %}</option>
+                                <option value="10+">10+ {% trans "years" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">&nbsp;</label>
+                            <div>
+                                <button class="btn btn-sm btn-primary w-100" id="applyFilters">
+                                    <i class="fas fa-filter me-1"></i> {% trans "Apply" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="row mb-4">
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card driver-card">
+                <div class="card-body stats-card">
+                    <div class="stats-value text-primary">{{ drivers.count }}</div>
+                    <div class="stats-label">{% trans "Total Drivers" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card driver-card">
+                <div class="card-body stats-card">
+                    <div class="stats-value text-success">{{ active_drivers.count }}</div>
+                    <div class="stats-label">{% trans "Active Drivers" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card driver-card">
+                <div class="card-body stats-card">
+                    <div class="stats-value text-warning">{{ drivers_with_expired_license.count }}</div>
+                    <div class="stats-label">{% trans "License Expired" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card driver-card">
+                <div class="card-body stats-card">
+                    <div class="stats-value text-info">{{ on_leave_drivers.count }}</div>
+                    <div class="stats-label">{% trans "On Leave" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card driver-card">
+                <div class="card-body stats-card">
+                    <div class="stats-value text-danger">{{ suspended_drivers.count }}</div>
+                    <div class="stats-label">{% trans "Suspended" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card driver-card">
+                <div class="card-body stats-card">
+                    <div class="stats-value text-secondary">{% trans "95%" %}</div>
+                    <div class="stats-label">{% trans "Availability Rate" %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drivers Grid View -->
+    <div class="view-grid" id="driversView">
+        {% for driver in drivers %}
+        <div class="driver-item" data-driver-id="{{ driver.id }}">
+            <div class="card driver-card">
+                <div class="card-body text-center">
+                    <!-- Driver Avatar and Status -->
+                    <div class="driver-avatar">
+                        {{ driver.user.get_full_name|make_list|first|upper }}
+                    </div>
+                    
+                    <div class="driver-badge">
+                        <span class="status-badge status-{{ driver.status }}">
+                            {{ driver.get_status_display }}
+                        </span>
+                    </div>
+                    
+                    <!-- Warning badges for critical issues -->
+                    {% if driver.is_license_expired %}
+                    <div class="mb-2">
+                        <span class="warning-badge">
+                            <i class="fas fa-exclamation-triangle me-1"></i> {% trans "License Expired" %}
+                        </span>
+                    </div>
+                    {% elif driver.license_expiry %}
+                        {% with days_until_expiry=driver.license_expiry|timeuntil %}
+                        {% if "day" in days_until_expiry and days_until_expiry < 30 %}
+                        <div class="mb-2">
+                            <span class="warning-badge">
+                                <i class="fas fa-clock me-1"></i> {% trans "License Expiring Soon" %}
+                            </span>
+                        </div>
+                        {% endif %}
+                        {% endwith %}
+                    {% endif %}
+                    
+                    <!-- Driver Information -->
+                    <h5 class="card-title mb-2">{{ driver.user.get_full_name }}</h5>
+                    <p class="card-text text-muted small mb-3">
+                        {{ driver.employee_id }}
+                    </p>
+                    
+                    <div class="driver-info mb-3">
+                        <div class="info-item">
+                            <i class="fas fa-id-card-alt info-icon"></i>
+                            <span>{{ driver.license_number }}</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-car info-icon"></i>
+                            <span>{{ driver.get_license_type_display }}</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-calendar-alt info-icon"></i>
+                            <span>
+                                {% if driver.license_expiry %}
+                                    {{ driver.license_expiry|date:"M d, Y" }}
+                                {% else %}
+                                    {% trans "Not set" %}
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-phone info-icon"></i>
+                            <span>{{ driver.phone|default:"-" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-clock info-icon"></i>
+                            <span>
+                                <span class="availability-indicator available"></span>
+                                {% trans "Available" %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- License Status -->
+                    <div class="mb-3">
+                        {% if driver.is_license_expired %}
+                        <span class="license-status license-expired">
+                            <i class="fas fa-exclamation-triangle me-1"></i> {% trans "License Expired" %}
+                        </span>
+                        {% elif driver.license_expiry %}
+                            {% with days_until_expiry=driver.license_expiry|timeuntil %}
+                            {% if "day" in days_until_expiry and days_until_expiry < 30 %}
+                            <span class="license-status license-expiring">
+                                <i class="fas fa-clock me-1"></i> {% trans "Expiring Soon" %}
+                            </span>
+                            {% else %}
+                            <span class="license-status license-valid">
+                                <i class="fas fa-check-circle me-1"></i> {% trans "License Valid" %}
+                            </span>
+                            {% endif %}
+                            {% endwith %}
+                        {% else %}
+                        <span class="license-status license-expired">
+                            <i class="fas fa-question-circle me-1"></i> {% trans "Not Set" %}
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="action-buttons d-flex gap-2">
+                        <a href="{% url 'transport:driver_detail' driver.pk %}" class="btn btn-outline-primary btn-sm flex-fill">
+                            <i class="fas fa-eye me-1"></i> {% trans "View" %}
+                        </a>
+                        <a href="{% url 'transport:driver_update' driver.pk %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button class="btn btn-outline-danger btn-sm" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#deleteModal"
+                                data-driver-id="{{ driver.pk }}"
+                                data-driver-name="{{ driver.user.get_full_name }}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-user text-muted fa-3x mb-3"></i>
+                    <h5 class="text-muted">{% trans "No drivers found" %}</h5>
+                    <p class="text-muted">{% trans "Get started by adding your first driver to the system." %}</p>
+                    <a href="{% url 'transport:driver_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i> {% trans "Add Driver" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Drivers Table View (Hidden by default) -->
+    <div class="view-list" id="tableView">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="driversTable">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Driver" %}</th>
+                                <th>{% trans "Employee ID" %}</th>
+                                <th>{% trans "License Number" %}</th>
+                                <th>{% trans "License Type" %}</th>
+                                <th>{% trans "License Expiry" %}</th>
+                                <th>{% trans "Phone" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                <th>{% trans "Availability" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for driver in drivers %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary bg-opacity-10 rounded p-2 me-3">
+                                            <i class="fas fa-user text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <strong>{{ driver.user.get_full_name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ driver.user.email|default:"No email" }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ driver.employee_id }}</td>
+                                <td>{{ driver.license_number }}</td>
+                                <td>
+                                    <span class="badge bg-light text-dark">{{ driver.get_license_type_display }}</span>
+                                </td>
+                                <td>
+                                    {% if driver.license_expiry %}
+                                        {% if driver.is_license_expired %}
+                                        <span class="text-danger">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                            {{ driver.license_expiry|date:"M d, Y" }}
+                                        </span>
+                                        {% else %}
+                                        {{ driver.license_expiry|date:"M d, Y" }}
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ driver.phone|default:"-" }}</td>
+                                <td>
+                                    <span class="status-badge status-{{ driver.status }}">
+                                        {{ driver.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="availability-indicator available"></span>
+                                    {% trans "Available" %}
+                                </td>
+                                <td class="table-actions">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'transport:driver_detail' driver.pk %}" class="btn btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'transport:driver_update' driver.pk %}" class="btn btn-outline-secondary">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button class="btn btn-outline-danger" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#deleteModal"
+                                                data-driver-id="{{ driver.pk }}"
+                                                data-driver-name="{{ driver.user.get_full_name }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="{% trans 'Driver pagination' %}" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">{% trans "First" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>
+            </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">{% trans "Last" %}</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">{% trans "Confirm Deletion" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Are you sure you want to delete driver" %} <strong id="driverName"></strong>?</p>
+                <p class="text-danger small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    {% trans "This action cannot be undone. All associated records will also be removed." %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">{% trans "Delete Driver" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importModalLabel">{% trans "Import Drivers" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Upload a CSV or Excel file containing driver data." %}</p>
+                <div class="mb-3">
+                    <label for="importFile" class="form-label">{% trans "Select File" %}</label>
+                    <input class="form-control" type="file" id="importFile" accept=".csv,.xlsx,.xls">
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="updateExisting">
+                    <label class="form-check-label" for="updateExisting">
+                        {% trans "Update existing drivers" %}
+                    </label>
+                </div>
+                <div class="mt-3">
+                    <a href="#" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-download me-1"></i> {% trans "Download Template" %}
+                    </a>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="startImport">{% trans "Import Drivers" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- License Expiry Report Modal -->
+<div class="modal fade" id="licenseReportModal" tabindex="-1" aria-labelledby="licenseReportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="licenseReportModalLabel">
+                    <i class="fas fa-id-card me-2"></i>
+                    {% trans "Driver License Expiry Report" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Driver" %}</th>
+                                <th>{% trans "License Number" %}</th>
+                                <th>{% trans "Expiry Date" %}</th>
+                                <th>{% trans "Days Remaining" %}</th>
+                                <th>{% trans "Status" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for driver in drivers %}
+                            {% if driver.license_expiry %}
+                            <tr>
+                                <td>{{ driver.user.get_full_name }}</td>
+                                <td>{{ driver.license_number }}</td>
+                                <td>{{ driver.license_expiry|date:"M d, Y" }}</td>
+                                <td>
+                                    {% if driver.is_license_expired %}
+                                    <span class="text-danger">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        {% trans "Expired" %}
+                                    </span>
+                                    {% else %}
+                                    {{ driver.license_expiry|timeuntil }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if driver.is_license_expired %}
+                                    <span class="badge bg-danger">{% trans "Expired" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-success">{% trans "Valid" %}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-primary" id="exportLicenseReport">
+                    <i class="fas fa-download me-1"></i> {% trans "Export Report" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const viewToggleButtons = document.querySelectorAll('[data-view]');
+        const gridView = document.getElementById('driversView');
+        const listView = document.getElementById('tableView');
+        
+        viewToggleButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const viewType = this.getAttribute('data-view');
+                
+                // Update active button
+                viewToggleButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide views
+                if (viewType === 'grid') {
+                    gridView.style.display = 'grid';
+                    listView.style.display = 'none';
+                } else {
+                    gridView.style.display = 'none';
+                    listView.style.display = 'block';
+                }
+            });
+        });
+
+        // Search Functionality
+        const searchInput = document.getElementById('driverSearch');
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const driverItems = document.querySelectorAll('.driver-item');
+            
+            driverItems.forEach(item => {
+                const driverText = item.textContent.toLowerCase();
+                if (driverText.includes(searchTerm)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+
+        // Filter Functionality
+        const statusFilter = document.getElementById('statusFilter');
+        const licenseFilter = document.getElementById('licenseFilter');
+        const licenseTypeFilter = document.getElementById('licenseTypeFilter');
+        const availabilityFilter = document.getElementById('availabilityFilter');
+        const experienceFilter = document.getElementById('experienceFilter');
+        const applyFiltersBtn = document.getElementById('applyFilters');
+        
+        function applyFilters() {
+            const status = statusFilter.value;
+            const licenseStatus = licenseFilter.value;
+            const licenseType = licenseTypeFilter.value;
+            const availability = availabilityFilter.value;
+            const experience = experienceFilter.value;
+            
+            // In a real implementation, this would make an AJAX request to filter drivers
+            console.log('Applying filters:', { status, licenseStatus, licenseType, availability, experience });
+            
+            // Show loading state
+            showLoadingState();
+            
+            // Simulate API call
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Filters applied successfully" %}', 'success');
+            }, 1000);
+        }
+        
+        applyFiltersBtn.addEventListener('click', applyFilters);
+        
+        // Reset filters when dropdown is changed (for instant filtering)
+        [statusFilter, licenseFilter].forEach(filter => {
+            filter.addEventListener('change', applyFilters);
+        });
+
+        // Delete Modal Handler
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteForm = document.getElementById('deleteForm');
+        
+        deleteModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const driverId = button.getAttribute('data-driver-id');
+            const driverName = button.getAttribute('data-driver-name');
+
+            document.getElementById('driverName').textContent = driverName;
+            deleteForm.action = "/transport/drivers/" + driverId + "/delete/";
+        });
+
+        // Import Functionality
+        document.getElementById('startImport').addEventListener('click', function() {
+            const fileInput = document.getElementById('importFile');
+            const updateExisting = document.getElementById('updateExisting').checked;
+            
+            if (!fileInput.files.length) {
+                showNotification('{% trans "Please select a file to import" %}', 'error');
+                return;
+            }
+            
+            // In real implementation, this would upload and process the file
+            showLoadingState();
+            
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Drivers imported successfully" %}', 'success');
+                $('#importModal').modal('hide');
+            }, 2000);
+        });
+
+        // Export Functionality
+        document.getElementById('exportDrivers').addEventListener('click', function() {
+            showLoadingState();
+            
+            // In real implementation, this would generate and download an Excel file
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Drivers exported to Excel successfully" %}', 'success');
+                
+                // Simulate file download
+                const link = document.createElement('a');
+                link.href = '#'; // In real app, this would be the file URL
+                link.download = 'drivers_export.xlsx';
+                link.click();
+            }, 1500);
+        });
+
+        // License Report Export
+        document.getElementById('exportLicenseReport').addEventListener('click', function() {
+            showLoadingState();
+            
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "License report exported successfully" %}', 'success');
+                
+                // Simulate file download
+                const link = document.createElement('a');
+                link.href = '#'; // In real app, this would be the file URL
+                link.download = 'license_expiry_report.pdf';
+                link.click();
+            }, 1500);
+        });
+
+        // Utility Functions
+        function showLoadingState() {
+            const spinner = document.createElement('div');
+            spinner.id = 'loadingSpinner';
+            spinner.className = 'position-fixed top-50 start-50 translate-middle';
+            spinner.innerHTML = `
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">{% trans "Loading..." %}</span>
+                </div>
+            `;
+            document.body.appendChild(spinner);
+        }
+
+        function hideLoadingState() {
+            const spinner = document.getElementById('loadingSpinner');
+            if (spinner) {
+                spinner.remove();
+            }
+        }
+
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                    <span>${message}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+
+        // Initialize DataTable for table view
+        if ($.fn.DataTable) {
+            $('#driversTable').DataTable({
+                pageLength: 25,
+                responsive: true,
+                language: {
+                    search: "{% trans 'Search drivers:' %}",
+                    lengthMenu: "{% trans 'Show _MENU_ entries' %}",
+                    info: "{% trans 'Showing _START_ to _END_ of _TOTAL_ drivers' %}",
+                    paginate: {
+                        previous: "{% trans 'Previous' %}",
+                        next: "{% trans 'Next' %}"
+                    }
+                }
+            });
+        }
+
+        // License expiry warnings
+        function checkLicenseExpiryWarnings() {
+            const today = new Date();
+            const thirtyDaysFromNow = new Date();
+            thirtyDaysFromNow.setDate(today.getDate() + 30);
+            
+            let warnings = [];
+            
+            // Check each driver's license expiry
+            document.querySelectorAll('.driver-item').forEach(item => {
+                const expiryDate = item.querySelector('[data-expiry-date]')?.getAttribute('data-expiry-date');
+                if (expiryDate) {
+                    const expiry = new Date(expiryDate);
+                    if (expiry < today) {
+                        warnings.push('{% trans "License expired" %}');
+                    } else if (expiry <= thirtyDaysFromNow) {
+                        warnings.push('{% trans "License expiring soon" %}');
+                    }
+                }
+            });
+            
+            if (warnings.length > 0) {
+                showLicenseWarnings(warnings);
+            }
+        }
+
+        function showLicenseWarnings(warnings) {
+            const warningHtml = warnings.map(warning => 
+                `<div class="alert alert-warning alert-dismissible fade show mb-2">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    ${warning}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`
+            ).join('');
+
+            // Insert warnings at the top of the content
+            const content = document.querySelector('.driver-management');
+            if (content) {
+                content.insertAdjacentHTML('afterbegin', warningHtml);
+            }
+        }
+
+        // Initialize warnings check
+        setTimeout(checkLicenseExpiryWarnings, 1000);
+    });
+</script>
+{% endblock %}

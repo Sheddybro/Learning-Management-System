@@ -1,0 +1,739 @@
+<!-- templates/academics/materials/material_list.html -->
+{% extends 'academics/base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% trans "Class Materials" %}
+{% endblock %}
+
+{% block page_title %}
+    {% trans "Class Materials" %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'academics:dashboard' %}">{% trans "Academics" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Materials" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        {% if user.teacher_profile or user.is_staff %}
+        <a href="{% url 'academics:material_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> {% trans "Add Material" %}
+        </a>
+        {% endif %}
+        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#filters-collapse">
+            <i class="bi bi-funnel me-1"></i> {% trans "Filters" %}
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+.materials-container {
+    font-family: 'Inter', sans-serif;
+}
+
+.material-card {
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+    height: 100%;
+    background: #fff;
+}
+
+.material-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: #0d6efd;
+}
+
+.material-header {
+    padding: 1rem;
+    border-bottom: 1px solid #e9ecef;
+    background: #f8f9fa;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.material-body {
+    padding: 1rem;
+    flex-grow: 1;
+}
+
+.material-footer {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #e9ecef;
+    background: #f8f9fa;
+    border-radius: 0 0 0.5rem 0.5rem;
+}
+
+.material-type-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-right: 1rem;
+}
+
+.type-textbook { background: #e3f2fd; color: #1976d2; }
+.type-worksheet { background: #f3e5f5; color: #7b1fa2; }
+.type-presentation { background: #e8f5e8; color: #388e3c; }
+.type-video { background: #fff3e0; color: #f57c00; }
+.type-audio { background: #fce4ec; color: #c2185b; }
+.type-document { background: #e0f2f1; color: #00796b; }
+.type-link { background: #fff8e1; color: #ffa000; }
+.type-quiz { background: #e8eaf6; color: #303f9f; }
+.type-assignment { background: #fbe9e7; color: #d84315; }
+.type-syllabus { background: #e0f7fa; color: #0097a7; }
+.type-other { background: #f5f5f5; color: #616161; }
+
+.material-thumbnail {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 0.375rem;
+    margin-bottom: 0.75rem;
+}
+
+.material-title {
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 0.5rem;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.material-description {
+    color: #6c757d;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+}
+
+.material-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+.meta-item i {
+    font-size: 0.875rem;
+}
+
+.material-tags {
+    margin-bottom: 0.75rem;
+}
+
+.tag {
+    display: inline-block;
+    background: #e9ecef;
+    padding: 0.25rem 0.5rem;
+    margin: 0.125rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    color: #495057;
+}
+
+.access-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.filters-collapse {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.search-box {
+    position: relative;
+}
+
+.search-box .form-control {
+    padding-left: 2.5rem;
+}
+
+.search-box .bi-search {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6c757d;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 2rem;
+}
+
+.material-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.featured-badge {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 1;
+}
+
+.expired-badge {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 1;
+}
+
+.material-card-wrapper {
+    position: relative;
+}
+
+@media (max-width: 768px) {
+    .material-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .material-actions {
+        flex-direction: column;
+    }
+    
+    .action-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+.stats-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stats-number {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.stats-label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+
+.view-toggle {
+    display: flex;
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+.view-toggle-btn {
+    border: none;
+    padding: 0.5rem 1rem;
+    background: #fff;
+    color: #6c757d;
+    transition: all 0.2s ease;
+}
+
+.view-toggle-btn.active {
+    background: #0d6efd;
+    color: #fff;
+}
+
+.view-toggle-btn:not(:last-child) {
+    border-right: 1px solid #e9ecef;
+}
+
+.grid-view .material-card {
+    margin-bottom: 1.5rem;
+}
+
+.list-view .material-card {
+    margin-bottom: 1rem;
+}
+
+.list-view .material-header {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+}
+
+.list-view .material-type-icon {
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.list-view .material-title {
+    margin-bottom: 0.25rem;
+}
+
+.list-view .material-description {
+    margin-bottom: 0.5rem;
+}
+</style>
+
+<div class="materials-container">
+    <!-- Statistics Cards -->
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stats-number">{{ total_materials }}</div>
+                <div class="stats-label">{% trans "Total Materials" %}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="stats-number">{{ featured_count }}</div>
+                <div class="stats-label">{% trans "Featured" %}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="stats-number">{{ recent_count }}</div>
+                <div class="stats-label">{% trans "Recent (7 days)" %}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <div class="stats-number">{{ total_downloads }}</div>
+                <div class="stats-label">{% trans "Total Downloads" %}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="collapse" id="filters-collapse">
+        <div class="filters-collapse">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="search" class="form-label">{% trans "Search" %}</label>
+                    <div class="search-box">
+                        <i class="bi bi-search"></i>
+                        <input type="text" class="form-control" id="search" name="search" 
+                               placeholder="{% trans 'Search materials...' %}" value="{{ request.GET.search }}">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label for="material_type" class="form-label">{% trans "Type" %}</label>
+                    <select class="form-select" id="material_type" name="material_type">
+                        <option value="">{% trans "All Types" %}</option>
+                        {% for value, label in material_types %}
+                        <option value="{{ value }}" {% if request.GET.material_type == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="subject" class="form-label">{% trans "Subject" %}</label>
+                    <select class="form-select" id="subject" name="subject">
+                        <option value="">{% trans "All Subjects" %}</option>
+                        {% for subject in subjects %}
+                        <option value="{{ subject.id }}" {% if request.GET.subject == subject.id|stringformat:"i" %}selected{% endif %}>
+                            {{ subject.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="class_assigned" class="form-label">{% trans "Class" %}</label>
+                    <select class="form-select" id="class_assigned" name="class_assigned">
+                        <option value="">{% trans "All Classes" %}</option>
+                        {% for class in classes %}
+                        <option value="{{ class.id }}" {% if request.GET.class_assigned == class.id|stringformat:"i" %}selected{% endif %}>
+                            {{ class.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="sort" class="form-label">{% trans "Sort By" %}</label>
+                    <select class="form-select" id="sort" name="sort">
+                        <option value="-publish_date" {% if request.GET.sort == '-publish_date' %}selected{% endif %}>
+                            {% trans "Newest First" %}
+                        </option>
+                        <option value="publish_date" {% if request.GET.sort == 'publish_date' %}selected{% endif %}>
+                            {% trans "Oldest First" %}
+                        </option>
+                        <option value="title" {% if request.GET.sort == 'title' %}selected{% endif %}>
+                            {% trans "Title A-Z" %}
+                        </option>
+                        <option value="-title" {% if request.GET.sort == '-title' %}selected{% endif %}>
+                            {% trans "Title Z-A" %}
+                        </option>
+                        <option value="-download_count" {% if request.GET.sort == '-download_count' %}selected{% endif %}>
+                            {% trans "Most Downloaded" %}
+                        </option>
+                        <option value="-view_count" {% if request.GET.sort == '-view_count' %}selected{% endif %}>
+                            {% trans "Most Viewed" %}
+                        </option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-filter me-1"></i> {% trans "Apply Filters" %}
+                        </button>
+                        <a href="{% url 'academics:material_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-clockwise me-1"></i> {% trans "Reset" %}
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Controls -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <span class="text-muted">
+                {% blocktrans with count=paginator.count %}Showing {{ count }} materials{% endblocktrans %}
+            </span>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <div class="view-toggle">
+                <button type="button" class="view-toggle-btn active" data-view="grid">
+                    <i class="bi bi-grid-3x3-gap"></i>
+                </button>
+                <button type="button" class="view-toggle-btn" data-view="list">
+                    <i class="bi bi-list"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Materials Grid/List -->
+    <div id="materials-view" class="grid-view">
+        {% if materials %}
+            <div class="row">
+                {% for material in materials %}
+                <div class="col-xl-4 col-lg-6 col-md-6 mb-4">
+                    <div class="material-card-wrapper">
+                        {% if material.is_featured %}
+                        <span class="badge bg-warning featured-badge">
+                            <i class="bi bi-star-fill me-1"></i> {% trans "Featured" %}
+                        </span>
+                        {% endif %}
+                        {% if material.is_expired %}
+                        <span class="badge bg-danger expired-badge">
+                            <i class="bi bi-clock me-1"></i> {% trans "Expired" %}
+                        </span>
+                        {% endif %}
+                        
+                        <div class="material-card h-100">
+                            <div class="material-header">
+                                <div class="d-flex align-items-center">
+                                    <div class="material-type-icon type-{{ material.material_type }}">
+                                        <i class="bi {{ material.get_icon_class }}"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="material-title mb-1">{{ material.title }}</h6>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge access-badge bg-{{ material.get_access_level_color }}">
+                                                {{ material.get_access_level_display }}
+                                            </span>
+                                            {% if not material.is_public %}
+                                            <span class="badge access-badge bg-secondary">
+                                                <i class="bi bi-lock me-1"></i>
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="material-body">
+                                {% if material.thumbnail %}
+                                <img src="{{ material.thumbnail.url }}" alt="{{ material.title }}" class="material-thumbnail">
+                                {% endif %}
+                                
+                                {% if material.description %}
+                                <p class="material-description">{{ material.description|truncatewords:30 }}</p>
+                                {% endif %}
+                                
+                                <div class="material-meta">
+                                    <div class="meta-item">
+                                        <i class="bi bi-person"></i>
+                                        {{ material.teacher.user.get_full_name }}
+                                    </div>
+                                    <div class="meta-item">
+                                        <i class="bi bi-eye"></i>
+                                        {{ material.view_count }}
+                                    </div>
+                                    <div class="meta-item">
+                                        <i class="bi bi-download"></i>
+                                        {{ material.download_count }}
+                                    </div>
+                                </div>
+                                
+                                {% if material.tags %}
+                                <div class="material-tags">
+                                    {% for tag in material.get_tags_list %}
+                                    <span class="tag">{{ tag }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                
+                                <div class="material-meta">
+                                    <div class="meta-item">
+                                        <i class="bi bi-calendar"></i>
+                                        {{ material.publish_date|date:"M d, Y" }}
+                                    </div>
+                                    {% if material.expiry_date %}
+                                    <div class="meta-item">
+                                        <i class="bi bi-clock"></i>
+                                        {{ material.expiry_date|date:"M d, Y" }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="material-footer">
+                                <div class="material-actions">
+                                    <a href="{% url 'academics:material_detail' material.pk %}" 
+                                       class="btn btn-outline-primary btn-sm action-btn">
+                                        <i class="bi bi-eye me-1"></i> {% trans "View" %}
+                                    </a>
+                                    
+                                    {% if material.file %}
+                                    <a href="{{ material.file.url }}" 
+                                       class="btn btn-outline-success btn-sm action-btn" 
+                                       download 
+                                       onclick="incrementDownloadCount({{ material.pk }})">
+                                        <i class="bi bi-download me-1"></i> {% trans "Download" %}
+                                    </a>
+                                    {% endif %}
+                                    
+                                    {% if material.external_url %}
+                                    <a href="{{ material.external_url }}" 
+                                       target="_blank" 
+                                       class="btn btn-outline-info btn-sm action-btn">
+                                        <i class="bi bi-link-45deg me-1"></i> {% trans "Visit" %}
+                                    </a>
+                                    {% endif %}
+                                    
+                                    {% if user.teacher_profile == material.teacher or user.is_staff %}
+                                    <a href="{% url 'academics:material_update' material.pk %}" 
+                                       class="btn btn-outline-warning btn-sm action-btn">
+                                        <i class="bi bi-pencil me-1"></i> {% trans "Edit" %}
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="bi bi-file-earmark-x"></i>
+                </div>
+                <h4 class="mb-3">{% trans "No materials found" %}</h4>
+                <p class="mb-4">{% trans "There are no materials matching your current filters." %}</p>
+                {% if user.teacher_profile or user.is_staff %}
+                <a href="{% url 'academics:material_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i> {% trans "Create Your First Material" %}
+                </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Pagination -->
+    {% if materials and paginator.num_pages > 1 %}
+    <nav aria-label="{% trans 'Materials pagination' %}" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if materials.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ materials.previous_page_number }}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for num in materials.paginator.page_range %}
+                {% if materials.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > materials.number|add:'-3' and num < materials.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ num }}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if materials.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ materials.next_page_number }}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class MaterialListView {
+    constructor() {
+        this.currentView = 'grid';
+        this.init();
+    }
+
+    init() {
+        this.setupViewToggle();
+        this.setupFilters();
+        this.restoreViewPreference();
+    }
+
+    setupViewToggle() {
+        const toggleButtons = document.querySelectorAll('.view-toggle-btn');
+        
+        toggleButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const viewType = e.currentTarget.getAttribute('data-view');
+                this.switchView(viewType);
+                
+                // Update active state
+                toggleButtons.forEach(btn => btn.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+            });
+        });
+    }
+
+    switchView(viewType) {
+        const materialsView = document.getElementById('materials-view');
+        materialsView.className = `${viewType}-view`;
+        this.currentView = viewType;
+        
+        // Save preference to localStorage
+        localStorage.setItem('materialListView', viewType);
+    }
+
+    restoreViewPreference() {
+        const savedView = localStorage.getItem('materialListView');
+        if (savedView) {
+            this.switchView(savedView);
+            
+            // Update active button
+            const toggleButtons = document.querySelectorAll('.view-toggle-btn');
+            toggleButtons.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-view') === savedView) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+    }
+
+    setupFilters() {
+        // Auto-submit form when certain filters change
+        const autoSubmitFilters = ['material_type', 'subject', 'class_assigned', 'sort'];
+        
+        autoSubmitFilters.forEach(filterName => {
+            const element = document.getElementById(filterName);
+            if (element) {
+                element.addEventListener('change', () => {
+                    document.querySelector('form').submit();
+                });
+            }
+        });
+    }
+}
+
+// Download count increment function
+function incrementDownloadCount(materialId) {
+    fetch(`/academics/api/materials/${materialId}/increment-download/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': window.CSRF_TOKEN,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Download count incremented');
+        }
+    })
+    .catch(error => {
+        console.error('Error incrementing download count:', error);
+    });
+}
+
+// Initialize when document is ready
+document.addEventListener('DOMContentLoaded', function() {
+    window.materialListView = new MaterialListView();
+    
+    // Auto-collapse filters after a short delay if no filters are active
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasActiveFilters = Array.from(urlParams.keys()).some(key => 
+        key !== 'page' && urlParams.get(key)
+    );
+    
+    if (!hasActiveFilters) {
+        setTimeout(() => {
+            const filtersCollapse = document.getElementById('filters-collapse');
+            if (filtersCollapse && !filtersCollapse.classList.contains('show')) {
+                new bootstrap.Collapse(filtersCollapse, {
+                    toggle: false
+                });
+            }
+        }, 1000);
+    }
+});
+</script>
+{% endblock %}

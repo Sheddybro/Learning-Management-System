@@ -1,0 +1,333 @@
+{% extends "base/base.html" %}
+
+{% block title %}Notification Detail - {{ notification.title|default:"Notification" }}{% endblock %}
+
+{% block content %}
+<div class="notification-detail-container" style="max-width: 800px; margin: 0 auto; padding: 20px;">
+    <!-- Header with breadcrumb -->
+    <div class="breadcrumb" style="margin-bottom: 20px;">
+        <a href="{% url 'communication:notification_list' %}" style="color: #3b82f6; text-decoration: none; font-size: 14px;">
+            &larr; Back to Notifications
+        </a>
+    </div>
+    
+    <!-- Main notification card -->
+    <div class="notification-card" style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); overflow: hidden;">
+        <!-- Notification header with type indicator -->
+        <div class="notification-header" style="padding: 20px 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+            <div class="notification-type-badge" id="typeBadge" style="padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase;">
+                {{ notification.notification_type|default:"info" }}
+            </div>
+            <div class="notification-actions">
+                <button id="markReadBtn" class="action-btn" style="background: none; border: none; cursor: pointer; padding: 6px; border-radius: 4px; transition: background-color 0.2s;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                </button>
+                <button id="deleteBtn" class="action-btn" style="background: none; border: none; cursor: pointer; padding: 6px; border-radius: 4px; transition: background-color 0.2s; margin-left: 8px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Notification content -->
+        <div class="notification-content" style="padding: 24px;">
+            {% if notification %}
+                <div class="notification-title" style="font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #1f2937;">
+                    {{ notification.title }}
+                </div>
+                
+                <div class="notification-meta" style="display: flex; gap: 16px; margin-bottom: 20px; font-size: 14px; color: #6b7280;">
+                    <div class="notification-date">
+                        <strong>Date:</strong> 
+                        <span id="notificationDate">{{ notification.created_at|date:"F d, Y H:i" }}</span>
+                    </div>
+                    <div class="notification-priority">
+                        <strong>Priority:</strong> 
+                        <span id="priorityBadge">{{ notification.priority|default:"medium" }}</span>
+                    </div>
+                    <div class="notification-status">
+                        <strong>Status:</strong> 
+                        <span id="statusIndicator">{{ notification.is_read|yesno:"Read,Unread" }}</span>
+                    </div>
+                </div>
+                
+                <div class="notification-message" style="font-size: 16px; line-height: 1.6; color: #374151; margin-bottom: 24px; white-space: pre-line;">
+                    {{ notification.message }}
+                </div>
+                
+                <!-- Action buttons if action URL exists -->
+                {% if notification.action_url %}
+                <div class="notification-actions-footer" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                    <a href="{{ notification.action_url }}" target="_blank" class="action-button" style="display: inline-block; background-color: #3b82f6; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; transition: background-color 0.2s;">
+                        Take Action
+                    </a>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="notification-error" style="text-align: center; padding: 40px 20px;">
+                    <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
+                    <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 8px; color: #1f2937;">Notification Not Found</h3>
+                    <p style="color: #6b7280;">The notification you're looking for doesn't exist or you don't have permission to view it.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Related notifications section -->
+    {% if notification and notification.related_model %}
+    <div class="related-notifications" style="margin-top: 30px;">
+        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #1f2937;">Related Notifications</h3>
+        <div id="relatedNotificationsList" style="background: white; border-radius: 8px; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); overflow: hidden;">
+            <!-- Related notifications will be loaded here via JavaScript -->
+            <div class="loading-indicator" style="padding: 20px; text-align: center; color: #6b7280;">
+                Loading related notifications...
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    /* Type-specific styling */
+    .type-info { background-color: #dbeafe; color: #1e40af; }
+    .type-success { background-color: #d1fae5; color: #065f46; }
+    .type-warning { background-color: #fef3c7; color: #92400e; }
+    .type-error { background-color: #fee2e2; color: #991b1b; }
+    .type-alert { background-color: #fef3c7; color: #92400e; }
+    
+    /* Priority-specific styling */
+    .priority-low { color: #10b981; }
+    .priority-medium { color: #f59e0b; }
+    .priority-high { color: #ef4444; }
+    .priority-urgent { color: #dc2626; font-weight: bold; }
+    
+    /* Hover effects */
+    .action-btn:hover {
+        background-color: #f3f4f6 !important;
+    }
+    
+    .action-button:hover {
+        background-color: #2563eb !important;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 640px) {
+        .notification-detail-container {
+            padding: 16px;
+        }
+        
+        .notification-meta {
+            flex-direction: column;
+            gap: 8px !important;
+        }
+        
+        .notification-title {
+            font-size: 20px !important;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set notification type badge color
+        const typeBadge = document.getElementById('typeBadge');
+        if (typeBadge) {
+            const type = typeBadge.textContent.trim().toLowerCase();
+            typeBadge.className = `notification-type-badge type-${type}`;
+        }
+        
+        // Set priority badge color
+        const priorityBadge = document.getElementById('priorityBadge');
+        if (priorityBadge) {
+            const priority = priorityBadge.textContent.trim().toLowerCase();
+            priorityBadge.className = `priority-${priority}`;
+        }
+        
+        // Mark as read functionality
+        const markReadBtn = document.getElementById('markReadBtn');
+        if (markReadBtn) {
+            markReadBtn.addEventListener('click', function() {
+                const notificationId = '{{ notification.id }}';
+                if (!notificationId) return;
+                
+                // Show loading state
+                markReadBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+                markReadBtn.style.pointerEvents = 'none';
+                
+                // Send AJAX request to mark as read
+                fetch(`/notifications/${notificationId}/read/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update UI
+                        document.getElementById('statusIndicator').textContent = 'Read';
+                        markReadBtn.style.display = 'none';
+                        
+                        // Show success message
+                        showToast('Notification marked as read', 'success');
+                    } else {
+                        showToast('Failed to mark notification as read', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('An error occurred', 'error');
+                });
+            });
+        }
+        
+        // Delete notification functionality
+        const deleteBtn = document.getElementById('deleteBtn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', function() {
+                if (!confirm('Are you sure you want to delete this notification?')) {
+                    return;
+                }
+                
+                const notificationId = '{{ notification.id }}';
+                if (!notificationId) return;
+                
+                // Show loading state
+                deleteBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+                deleteBtn.style.pointerEvents = 'none';
+                
+                // Send AJAX request to delete
+                fetch(`/notifications/${notificationId}/delete/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('Notification deleted', 'success');
+                        // Redirect to notification list after a short delay
+                        setTimeout(() => {
+                            window.location.href = '{% url "communication:notification_list" %}';
+                        }, 1000);
+                    } else {
+                        showToast('Failed to delete notification', 'error');
+                        // Reset button state
+                        deleteBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+                        deleteBtn.style.pointerEvents = 'auto';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('An error occurred', 'error');
+                    // Reset button state
+                    deleteBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+                    deleteBtn.style.pointerEvents = 'auto';
+                });
+            });
+        }
+        
+        // Load related notifications if applicable
+        const relatedNotificationsList = document.getElementById('relatedNotificationsList');
+        if (relatedNotificationsList && '{{ notification.related_model }}' && '{{ notification.related_object_id }}') {
+            // This would typically make an API call to fetch related notifications
+            // For now, we'll simulate it with a timeout
+            setTimeout(() => {
+                relatedNotificationsList.innerHTML = `
+                    <div style="padding: 16px; text-align: center; color: #6b7280;">
+                        No related notifications found.
+                    </div>
+                `;
+            }, 1500);
+        }
+        
+        // Format date if needed
+        const dateElement = document.getElementById('notificationDate');
+        if (dateElement) {
+            const dateText = dateElement.textContent;
+            // You could add date formatting logic here if needed
+        }
+        
+        // Utility function to get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        // Toast notification function
+        function showToast(message, type = 'info') {
+            // Remove existing toasts
+            const existingToasts = document.querySelectorAll('.toast-notification');
+            existingToasts.forEach(toast => toast.remove());
+            
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `toast-notification toast-${type}`;
+            toast.innerHTML = message;
+            
+            // Style the toast
+            Object.assign(toast.style, {
+                position: 'fixed',
+                top: '20px',
+                right: '20px',
+                padding: '12px 20px',
+                borderRadius: '6px',
+                color: 'white',
+                fontWeight: '500',
+                zIndex: '1000',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                transition: 'all 0.3s ease',
+                transform: 'translateX(100%)',
+                opacity: '0'
+            });
+            
+            // Set background color based on type
+            const bgColors = {
+                'success': '#10b981',
+                'error': '#ef4444',
+                'info': '#3b82f6',
+                'warning': '#f59e0b'
+            };
+            toast.style.backgroundColor = bgColors[type] || bgColors.info;
+            
+            // Add to page
+            document.body.appendChild(toast);
+            
+            // Animate in
+            setTimeout(() => {
+                toast.style.transform = 'translateX(0)';
+                toast.style.opacity = '1';
+            }, 10);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.style.transform = 'translateX(100%)';
+                toast.style.opacity = '0';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }, 3000);
+        }
+    });
+</script>
+{% endblock %}

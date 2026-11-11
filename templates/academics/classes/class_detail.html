@@ -1,0 +1,576 @@
+<!-- templates/academics/classes/class_detail.html -->
+
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{{ class_obj.name }} - {% trans "Class Details" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/academics/class_detail.css' %}">
+{% endblock %}
+
+{% block page_title %}{{ class_obj.name }}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'academics:dashboard' %}">{% trans "Academics" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'academics:class_list' %}">{% trans "Classes" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ class_obj.name }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        {% if perms.academics.change_class %}
+        <a href="{% url 'academics:class_update' class_obj.pk %}" class="btn btn-primary">
+            <i class="bi bi-pencil-square me-1"></i> {% trans "Edit Class" %}
+        </a>
+        {% endif %}
+        <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-download me-1"></i> {% trans "Export" %}
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" id="export-student-list">{% trans "Student List" %}</a></li>
+            <li><a class="dropdown-item" href="#" id="export-timetable">{% trans "Timetable" %}</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#" id="export-class-report">{% trans "Class Report" %}</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="class-detail">
+    <!-- Class Header -->
+    <div class="class-header mb-4">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="d-flex align-items-center">
+                    <div class="class-avatar me-3">
+                        <div class="avatar-circle bg-primary text-white">
+                            {{ class_obj.grade_level.short_name|default:class_obj.name|slice:":2"|upper }}
+                        </div>
+                    </div>
+                    <div>
+                        <h1 class="h2 mb-1">{{ class_obj.name }}</h1>
+                        <p class="text-muted mb-0">
+                            {{ class_obj.grade_level.name }} • 
+                            {{ class_obj.academic_session.name }} •
+                            {{ class_obj.get_class_type_display }}
+                        </p>
+                        <div class="class-meta mt-2">
+                            <span class="badge bg-secondary me-2">
+                                <i class="bi bi-people me-1"></i>
+                                {{ enrollments.count }} {% trans "students" %}
+                            </span>
+                            <span class="badge bg-info me-2">
+                                <i class="bi bi-person-badge me-1"></i>
+                                {% if class_obj.class_teacher %}
+                                    {{ class_obj.class_teacher.user.get_full_name }}
+                                {% else %}
+                                    {% trans "No class teacher" %}
+                                {% endif %}
+                            </span>
+                            <span class="badge bg-success">
+                                <i class="bi bi-building me-1"></i>
+                                {% if class_obj.room_number %}
+                                    {{ class_obj.room_number }}
+                                {% else %}
+                                    {% trans "No room assigned" %}
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="class-stats">
+                    <div class="stat-item">
+                        <div class="stat-number">{{ class_obj.current_student_count }}</div>
+                        <div class="stat-label">{% trans "Current Students" %}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">{{ class_obj.capacity }}</div>
+                        <div class="stat-label">{% trans "Capacity" %}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number {% if class_obj.available_seats < 5 %}text-danger{% elif class_obj.available_seats < 10 %}text-warning{% else %}text-success{% endif %}">
+                            {{ class_obj.available_seats }}
+                        </div>
+                        <div class="stat-label">{% trans "Available Seats" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="class-tabs mb-4">
+        <div class="nav nav-tabs" id="class-tab" role="tablist">
+            <button class="nav-link active" id="students-tab" data-bs-toggle="tab" data-bs-target="#students" type="button" role="tab">
+                <i class="bi bi-people me-1"></i> {% trans "Students" %} ({{ enrollments.count }})
+            </button>
+            <button class="nav-link" id="subjects-tab" data-bs-toggle="tab" data-bs-target="#subjects" type="button" role="tab">
+                <i class="bi bi-journal-text me-1"></i> {% trans "Subjects" %} ({{ subject_assignments.count }})
+            </button>
+            <button class="nav-link" id="timetable-tab" data-bs-toggle="tab" data-bs-target="#timetable" type="button" role="tab">
+                <i class="bi bi-calendar-week me-1"></i> {% trans "Timetable" %}
+            </button>
+            <button class="nav-link" id="materials-tab" data-bs-toggle="tab" data-bs-target="#materials" type="button" role="tab">
+                <i class="bi bi-folder me-1"></i> {% trans "Materials" %} ({{ materials.count }})
+            </button>
+            <button class="nav-link" id="reports-tab" data-bs-toggle="tab" data-bs-target="#reports" type="button" role="tab">
+                <i class="bi bi-graph-up me-1"></i> {% trans "Reports" %}
+            </button>
+        </div>
+    </nav>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="class-tab-content">
+        <!-- Students Tab -->
+        <div class="tab-pane fade show active" id="students" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">{% trans "Class Students" %}</h5>
+                        <div class="header-actions">
+                            <div class="input-group input-group-sm" style="width: 250px;">
+                                <input type="text" class="form-control" placeholder="{% trans 'Search students...' %}" id="student-search">
+                                <button class="btn btn-outline-secondary" type="button">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if enrollments %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="students-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>{% trans "Student ID" %}</th>
+                                    <th>{% trans "Name" %}</th>
+                                    <th>{% trans "Roll Number" %}</th>
+                                    <th>{% trans "Contact" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for enrollment in enrollments %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <strong>{{ enrollment.student.student_id }}</strong>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if enrollment.student.photo %}
+                                            <img src="{{ enrollment.student.photo.url }}" alt="{{ enrollment.student.user.get_full_name }}" 
+                                                 class="student-avatar rounded-circle me-2" width="32" height="32">
+                                            {% else %}
+                                            <div class="student-avatar-placeholder rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-2" 
+                                                 style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                                {{ enrollment.student.user.get_initials }}
+                                            </div>
+                                            {% endif %}
+                                            <div>
+                                                <a href="{% url 'academics:student_detail' enrollment.student.pk %}" class="text-decoration-none">
+                                                    {{ enrollment.student.user.get_full_name }}
+                                                </a>
+                                                {% if enrollment.student.has_special_needs %}
+                                                <span class="badge bg-warning ms-1" title="{% trans 'Special Needs' %}">
+                                                    <i class="bi bi-heart-pulse"></i>
+                                                </span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ enrollment.roll_number }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ enrollment.student.user.email }}<br>
+                                            {{ enrollment.student.user.mobile|default:"No phone" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if enrollment.enrollment_status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">
+                                            {{ enrollment.get_enrollment_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'academics:student_detail' enrollment.student.pk %}" 
+                                               class="btn btn-outline-primary" title="{% trans 'View Profile' %}">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            {% if perms.academics.change_enrollment %}
+                                            <a href="{% url 'academics:enrollment_update' enrollment.pk %}" 
+                                               class="btn btn-outline-secondary" title="{% trans 'Edit Enrollment' %}">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-people display-1 text-muted"></i>
+                        <h5 class="text-muted mt-3">{% trans "No students enrolled in this class" %}</h5>
+                        <p class="text-muted">{% trans "Add students to this class through the enrollment system." %}</p>
+                        {% if perms.academics.add_enrollment %}
+                        <a href="{% url 'academics:enrollment_create' %}?class={{ class_obj.pk }}" class="btn btn-primary">
+                            <i class="bi bi-person-plus me-1"></i> {% trans "Enroll Students" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Subjects Tab -->
+        <div class="tab-pane fade" id="subjects" role="tabpanel">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">{% trans "Subject Assignments" %}</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if subject_assignments %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Subject" %}</th>
+                                            <th>{% trans "Teacher" %}</th>
+                                            <th>{% trans "Periods/Week" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                            <th>{% trans "Actions" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for assignment in subject_assignments %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ assignment.subject.name }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ assignment.subject.code }}</small>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    {% if assignment.teacher.photo %}
+                                                    <img src="{{ assignment.teacher.photo.url }}" alt="{{ assignment.teacher.user.get_full_name }}" 
+                                                         class="teacher-avatar rounded-circle me-2" width="32" height="32">
+                                                    {% else %}
+                                                    <div class="teacher-avatar-placeholder rounded-circle bg-info text-white d-flex align-items-center justify-content-center me-2" 
+                                                         style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                                        {{ assignment.teacher.user.get_initials }}
+                                                    </div>
+                                                    {% endif %}
+                                                    <div>
+                                                        <a href="{% url 'academics:teacher_detail' assignment.teacher.pk %}" class="text-decoration-none">
+                                                            {{ assignment.teacher.user.get_full_name }}
+                                                        </a>
+                                                        <br>
+                                                        <small class="text-muted">{{ assignment.teacher.teacher_id }}</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-primary">{{ assignment.periods_per_week }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge {% if assignment.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">
+                                                    {{ assignment.get_status_display }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <a href="{% url 'academics:subject_detail' assignment.subject.pk %}" 
+                                                       class="btn btn-outline-primary" title="{% trans 'View Subject' %}">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                    <a href="{% url 'academics:teacher_detail' assignment.teacher.pk %}" 
+                                                       class="btn btn-outline-info" title="{% trans 'View Teacher' %}">
+                                                        <i class="bi bi-person"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <i class="bi bi-journal-x display-1 text-muted"></i>
+                                <h5 class="text-muted mt-3">{% trans "No subjects assigned" %}</h5>
+                                <p class="text-muted">{% trans "Assign subjects and teachers to this class." %}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">{% trans "Subject Summary" %}</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="subject-stats">
+                                <div class="stat-item mb-3">
+                                    <div class="stat-number">{{ subject_assignments.count }}</div>
+                                    <div class="stat-label">{% trans "Total Subjects" %}</div>
+                                </div>
+                                <div class="stat-item mb-3">
+                                    <div class="stat-number">
+                                        {{ subject_assignments|length }}
+                                    </div>
+                                    <div class="stat-label">{% trans "Active Subjects" %}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-number">
+                                        {% with total_periods=subject_assignments|dictsort:"periods_per_week" %}
+                                            {{ subject_assignments|length|default:0 }}
+                                        {% endwith %}
+                                    </div>
+                                    <div class="stat-label">{% trans "Total Periods/Week" %}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Class Teacher Card -->
+                    {% if class_obj.class_teacher %}
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">{% trans "Class Teacher" %}</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            {% if class_obj.class_teacher.photo %}
+                            <img src="{{ class_obj.class_teacher.photo.url }}" alt="{{ class_obj.class_teacher.user.get_full_name }}" 
+                                 class="class-teacher-avatar rounded-circle mb-3" width="80" height="80">
+                            {% else %}
+                            <div class="class-teacher-avatar-placeholder rounded-circle bg-primary text-white d-flex align-items-center justify-content-center mx-auto mb-3" 
+                                 style="width: 80px; height: 80px; font-size: 1.5rem;">
+                                {{ class_obj.class_teacher.user.get_initials }}
+                            </div>
+                            {% endif %}
+                            <h6>{{ class_obj.class_teacher.user.get_full_name }}</h6>
+                            <p class="text-muted mb-2">{{ class_obj.class_teacher.teacher_id }}</p>
+                            <p class="text-muted small mb-3">
+                                {{ class_obj.class_teacher.department.name|default:"No department" }}
+                            </p>
+                            <div class="contact-info">
+                                <a href="mailto:{{ class_obj.class_teacher.user.email }}" class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-envelope me-1"></i> {% trans "Email" %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Timetable Tab -->
+        <div class="tab-pane fade" id="timetable" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">{% trans "Class Timetable" %}</h5>
+                        <div class="header-actions">
+                            <a href="{% url 'academics:timetable_create' %}?class={{ class_obj.pk }}" class="btn btn-primary btn-sm">
+                                <i class="bi bi-plus-circle me-1"></i> {% trans "Add Period" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if timetable %}
+                    <div class="timetable-container">
+                        {% include 'academics/timetable/includes/timetable_day.html' with timetable_data=timetable %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-calendar-week display-1 text-muted"></i>
+                        <h5 class="text-muted mt-3">{% trans "No timetable configured" %}</h5>
+                        <p class="text-muted">{% trans "Create a timetable for this class to schedule subjects and activities." %}</p>
+                        <a href="{% url 'academics:timetable_create' %}?class={{ class_obj.pk }}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle me-1"></i> {% trans "Create Timetable" %}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Materials Tab -->
+        <div class="tab-pane fade" id="materials" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">{% trans "Class Materials" %}</h5>
+                        <div class="header-actions">
+                            <a href="{% url 'academics:material_create' %}" class="btn btn-primary btn-sm">
+                                <i class="bi bi-upload me-1"></i> {% trans "Upload Material" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if materials %}
+                    <div class="row">
+                        {% for material in materials %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            {% include 'academics/materials/includes/material_card.html' with material=material %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-folder-x display-1 text-muted"></i>
+                        <h5 class="text-muted mt-3">{% trans "No materials available" %}</h5>
+                        <p class="text-muted">{% trans "Upload study materials, assignments, or resources for this class." %}</p>
+                        <a href="{% url 'academics:material_create' %}" class="btn btn-primary">
+                            <i class="bi bi-upload me-1"></i> {% trans "Upload Material" %}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div class="tab-pane fade" id="reports" role="tabpanel">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">{% trans "Quick Reports" %}</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group list-group-flush">
+                                <a href="{% url 'academics:class_report' class_obj.pk %}" class="list-group-item list-group-item-action">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="bi bi-file-text text-primary me-2"></i>
+                                            <strong>{% trans "Class Performance Report" %}</strong>
+                                        </div>
+                                        <i class="bi bi-chevron-right text-muted"></i>
+                                    </div>
+                                    <small class="text-muted">{% trans "Detailed academic performance analysis" %}</small>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action" id="generate-attendance-report">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="bi bi-calendar-check text-success me-2"></i>
+                                            <strong>{% trans "Attendance Report" %}</strong>
+                                        </div>
+                                        <i class="bi bi-chevron-right text-muted"></i>
+                                    </div>
+                                    <small class="text-muted">{% trans "Monthly attendance summary" %}</small>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action" id="generate-behavior-report">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="bi bi-graph-up text-warning me-2"></i>
+                                            <strong>{% trans "Behavior Report" %}</strong>
+                                        </div>
+                                        <i class="bi bi-chevron-right text-muted"></i>
+                                    </div>
+                                    <small class="text-muted">{% trans "Student behavior and discipline records" %}</small>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">{% trans "Class Statistics" %}</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="class-statistics">
+                                <div class="stat-item text-center mb-4">
+                                    <div class="stat-number display-6 text-primary">{{ class_obj.current_student_count }}</div>
+                                    <div class="stat-label">{% trans "Total Students" %}</div>
+                                </div>
+                                <div class="row text-center">
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <div class="stat-number h4 text-success">{{ class_obj.available_seats }}</div>
+                                            <div class="stat-label">{% trans "Available Seats" %}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <div class="stat-number h4 text-info">{{ subject_assignments.count }}</div>
+                                            <div class="stat-label">{% trans "Subjects" %}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions Modal -->
+<div class="modal fade" id="quickActionsModal" tabindex="-1" aria-labelledby="quickActionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickActionsModalLabel">{% trans "Quick Actions" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="list-group">
+                    <a href="{% url 'academics:enrollment_create' %}?class={{ class_obj.pk }}" class="list-group-item list-group-item-action">
+                        <i class="bi bi-person-plus me-2"></i> {% trans "Enroll New Student" %}
+                    </a>
+                    <a href="{% url 'academics:bulk_enrollment' %}?class={{ class_obj.pk }}" class="list-group-item list-group-item-action">
+                        <i class="bi bi-people me-2"></i> {% trans "Bulk Enrollment" %}
+                    </a>
+                    <a href="{% url 'academics:timetable_create' %}?class={{ class_obj.pk }}" class="list-group-item list-group-item-action">
+                        <i class="bi bi-calendar-plus me-2"></i> {% trans "Add Timetable Entry" %}
+                    </a>
+                    <a href="{% url 'academics:material_create' %}" class="list-group-item list-group-item-action">
+                        <i class="bi bi-upload me-2"></i> {% trans "Upload Class Material" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/academics/class_detail.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const classDetail = new ClassDetail({
+            classId: {{ class_obj.pk }},
+            classCode: '{{ class_obj.code }}',
+            apiUrls: {
+                studentList: '{% url "academics:api_student_list" %}',
+                exportReport: '{% url "academics:class_report" class_obj.pk %}'
+            }
+        });
+        
+        classDetail.init();
+    });
+</script>
+{% endblock %}

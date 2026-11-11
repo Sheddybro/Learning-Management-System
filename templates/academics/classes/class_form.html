@@ -1,0 +1,595 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Class" %}
+    {% else %}
+        {% trans "Create Class" %}
+    {% endif %}
+{% endblock %}
+
+{% block body_class %}academics-classes-form{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'academics:class_list' %}">{% trans "Classes" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if form.instance.pk %}
+        {% trans "Edit Class" %}
+    {% else %}
+        {% trans "New Class" %}
+    {% endif %}
+</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'academics:class_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>{% trans "Back to List" %}
+        </a>
+        {% if form.instance.pk %}
+        <a href="{% url 'academics:class_detail' form.instance.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-eye me-2"></i>{% trans "View Details" %}
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/academics/forms.css' %}">
+<style>
+    .capacity-preview { background: var(--bs-light); border-radius: 8px; padding: 1rem; }
+    .capacity-visual { height: 20px; background: var(--bs-secondary-bg); border-radius: 10px; overflow: hidden; margin: 0.5rem 0; }
+    .capacity-fill { height: 100%; background: var(--bs-success); transition: width 0.3s ease; }
+    .capacity-warning .capacity-fill { background: var(--bs-warning); }
+    .capacity-danger .capacity-fill { background: var(--bs-danger); }
+    .duplicate-warning { display: none; }
+    .field-group { margin-bottom: 2rem; }
+    .field-group-header { margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--bs-border-color); }
+    .field-group-title { color: var(--bs-primary); font-weight: 600; }
+    .form-card { border: none; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); }
+    .guidelines-card { border-left: 4px solid var(--bs-info); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="class-form-container">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card form-card">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">
+                        <i class="bi {% if form.instance.pk %}bi-pencil-square{% else %}bi-plus-circle{% endif %} me-2"></i>
+                        {% if form.instance.pk %}
+                            {% trans "Edit Class" %} - {{ form.instance.name }}
+                        {% else %}
+                            {% trans "Create New Class" %}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="classForm" novalidate>
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                <p class="mb-0">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Duplicate Class Warning -->
+                        <div class="alert alert-warning duplicate-warning" id="duplicateWarning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>{% trans "Duplicate Class Warning:" %}</strong>
+                            <span id="duplicateMessage"></span>
+                        </div>
+
+                        <!-- Basic Information Field Group -->
+                        <div class="field-group">
+                            <div class="field-group-header">
+                                <h6 class="field-group-title">{% trans "Basic Information" %}</h6>
+                                <p class="field-group-description mb-0 text-muted">
+                                    {% trans "Enter the fundamental details about the class" %}
+                                </p>
+                            </div>
+
+                            <div class="row">
+                                <!-- Class Name -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.name.id_for_label }}" class="form-label required">
+                                        {{ form.name.label }}
+                                    </label>
+                                    {{ form.name }}
+                                    {% if form.name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.name.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        {% trans "e.g., Grade 10 Regular, Grade 11 Honors, Grade 12 Science" %}
+                                    </div>
+                                </div>
+
+                                <!-- Class Code -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.code.id_for_label }}" class="form-label required">
+                                        {{ form.code.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        {{ form.code }}
+                                        <button type="button" class="btn btn-outline-secondary" id="generateCode" title="{% trans 'Generate Code' %}">
+                                            <i class="bi bi-magic"></i>
+                                        </button>
+                                    </div>
+                                    {% if form.code.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.code.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        {% trans "Unique code, e.g., G10-REG, G11-HON, G12-SCI" %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <!-- Grade Level -->
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.grade_level.id_for_label }}" class="form-label required">
+                                        {{ form.grade_level.label }}
+                                    </label>
+                                    {{ form.grade_level }}
+                                    {% if form.grade_level.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.grade_level.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Class Type -->
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.class_type.id_for_label }}" class="form-label required">
+                                        {{ form.class_type.label }}
+                                    </label>
+                                    {{ form.class_type }}
+                                    {% if form.class_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.class_type.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Academic Session -->
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.academic_session.id_for_label }}" class="form-label required">
+                                        {{ form.academic_session.label }}
+                                    </label>
+                                    {{ form.academic_session }}
+                                    {% if form.academic_session.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.academic_session.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Staff and Location Field Group -->
+                        <div class="field-group">
+                            <div class="field-group-header">
+                                <h6 class="field-group-title">{% trans "Staff and Location" %}</h6>
+                                <p class="field-group-description mb-0 text-muted">
+                                    {% trans "Assign staff and specify physical location" %}
+                                </p>
+                            </div>
+
+                            <div class="row">
+                                <!-- Class Teacher -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.class_teacher.id_for_label }}" class="form-label">
+                                        {{ form.class_teacher.label }}
+                                    </label>
+                                    {{ form.class_teacher }}
+                                    {% if form.class_teacher.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.class_teacher.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        {% trans "Primary teacher responsible for this class" %}
+                                    </div>
+                                </div>
+
+                                <!-- Room Number -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.room_number.id_for_label }}" class="form-label">
+                                        {{ form.room_number.label }}
+                                    </label>
+                                    {{ form.room_number }}
+                                    {% if form.room_number.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.room_number.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        {% trans "Physical room or location for this class" %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Capacity Field Group -->
+                        <div class="field-group">
+                            <div class="field-group-header">
+                                <h6 class="field-group-title">{% trans "Class Capacity" %}</h6>
+                                <p class="field-group-description mb-0 text-muted">
+                                    {% trans "Configure class size limits and monitor utilization" %}
+                                </p>
+                            </div>
+
+                            <div class="row">
+                                <!-- Capacity Input -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.capacity.id_for_label }}" class="form-label required">
+                                        {{ form.capacity.label }}
+                                    </label>
+                                    {{ form.capacity }}
+                                    {% if form.capacity.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.capacity.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        {% trans "Maximum number of students allowed in this class (1-100)" %}
+                                    </div>
+                                </div>
+
+                                <!-- Capacity Preview -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="capacity-preview h-100">
+                                        <h6 class="mb-2">{% trans "Capacity Utilization" %}</h6>
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="text-muted" id="capacityText">
+                                                {% if form.instance.pk %}
+                                                    {{ form.instance.current_student_count }}/{{ form.instance.capacity }} {% trans "students" %}
+                                                {% else %}
+                                                    {% trans "New class - no students enrolled yet" %}
+                                                {% endif %}
+                                            </span>
+                                            <strong id="capacityPercent">
+                                                {% if form.instance.pk %}
+                                                    {{ form.instance.capacity_utilization|floatformat:0 }}%
+                                                {% else %}
+                                                    0%
+                                                {% endif %}
+                                            </strong>
+                                        </div>
+                                        <div class="capacity-visual {% if form.instance.capacity_utilization > 90 %}capacity-danger{% elif form.instance.capacity_utilization > 75 %}capacity-warning{% endif %}">
+                                            <div class="capacity-fill" id="capacityFill" 
+                                                 style="width: {% if form.instance.pk %}{{ form.instance.capacity_utilization }}{% else %}0{% endif %}%"></div>
+                                        </div>
+                                        <small class="text-muted d-block mt-2">
+                                            {% if form.instance.pk %}
+                                                {% if form.instance.is_full %}
+                                                    <i class="bi bi-exclamation-triangle text-danger me-1"></i>
+                                                    {% trans "Class is full" %}
+                                                {% else %}
+                                                    {{ form.instance.available_seats }} {% trans "seats available" %}
+                                                {% endif %}
+                                            {% else %}
+                                                {% trans "Set capacity to see available seats" %}
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status Field Group -->
+                        <div class="field-group">
+                            <div class="field-group-header">
+                                <h6 class="field-group-title">{% trans "Class Status" %}</h6>
+                                <p class="field-group-description mb-0 text-muted">
+                                    {% trans "Configure the operational status of the class" %}
+                                </p>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="form-check form-switch">
+                                        {{ form.status }}
+                                        <label class="form-check-label" for="{{ form.status.id_for_label }}">
+                                            {{ form.status.label }}
+                                        </label>
+                                    </div>
+                                    {% if form.status.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.status.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        {% trans "Active classes can accept student enrollments and be assigned to timetables" %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="form-actions border-top pt-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="{% url 'academics:class_list' %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-circle me-2"></i>{% trans "Cancel" %}
+                                </a>
+                                <div class="btn-group">
+                                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                                        <i class="bi {% if form.instance.pk %}bi-check-lg{% else %}bi-plus-lg{% endif %} me-2"></i>
+                                        {% if form.instance.pk %}
+                                            {% trans "Update Class" %}
+                                        {% else %}
+                                            {% trans "Create Class" %}
+                                        {% endif %}
+                                    </button>
+                                    {% if form.instance.pk %}
+                                    <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <button type="submit" name="save_and_continue" class="dropdown-item">
+                                                <i class="bi bi-check2-circle me-2"></i>{% trans "Save and Continue Editing" %}
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button type="submit" name="save_and_add_another" class="dropdown-item">
+                                                <i class="bi bi-plus-circle me-2"></i>{% trans "Save and Add Another" %}
+                                            </button>
+                                        </li>
+                                    </ul>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Class Guidelines -->
+            {% if not form.instance.pk %}
+            <div class="card guidelines-card mt-4">
+                <div class="card-header bg-info bg-opacity-10">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>{% trans "Class Creation Guidelines" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                    <strong>{% trans "Naming Convention:" %}</strong> {% trans "Use clear names that include grade level and type" %}
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                    <strong>{% trans "Class Codes:" %}</strong> {% trans "Use consistent coding system for easy identification" %}
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                    <strong>{% trans "Capacity Planning:" %}</strong> {% trans "Set realistic capacity based on room size" %}
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                    <strong>{% trans "Class Types:" %}</strong> {% trans "Choose appropriate type based on student requirements" %}
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                    <strong>{% trans "Class Teacher:" %}</strong> {% trans "Assign a primary teacher for class administration" %}
+                                </li>
+                                <li class="mb-0">
+                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                    <strong>{% trans "Academic Session:" %}</strong> {% trans "Ensure correct session for proper scheduling" %}
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form elements
+        const classForm = document.getElementById('classForm');
+        const codeInput = document.getElementById('{{ form.code.id_for_label }}');
+        const nameInput = document.getElementById('{{ form.name.id_for_label }}');
+        const gradeLevelSelect = document.getElementById('{{ form.grade_level.id_for_label }}');
+        const classTypeSelect = document.getElementById('{{ form.class_type.id_for_label }}');
+        const academicSessionSelect = document.getElementById('{{ form.academic_session.id_for_label }}');
+        const capacityInput = document.getElementById('{{ form.capacity.id_for_label }}');
+        const generateCodeBtn = document.getElementById('generateCode');
+        const duplicateWarning = document.getElementById('duplicateWarning');
+        const duplicateMessage = document.getElementById('duplicateMessage');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Capacity preview elements
+        const capacityText = document.getElementById('capacityText');
+        const capacityFill = document.getElementById('capacityFill');
+        const capacityPercent = document.getElementById('capacityPercent');
+
+        // Auto-format class code to uppercase
+        codeInput.addEventListener('input', function() {
+            this.value = this.value.toUpperCase().replace(/[^A-Z0-9\-_]/g, '');
+        });
+
+        // Generate class code automatically
+        generateCodeBtn.addEventListener('click', function() {
+            const gradeLevelText = gradeLevelSelect.options[gradeLevelSelect.selectedIndex]?.text || '';
+            const classTypeText = classTypeSelect.options[classTypeSelect.selectedIndex]?.text || '';
+            
+            if (gradeLevelText && classTypeText) {
+                const gradeMatch = gradeLevelText.match(/\d+/);
+                const gradeNum = gradeMatch ? gradeMatch[0] : 'XX';
+                const typeAbbr = classTypeText.substring(0, 3).toUpperCase();
+                codeInput.value = `G${gradeNum}-${typeAbbr}`;
+            }
+        });
+
+        // Dynamic class name suggestion
+        function suggestClassName() {
+            const gradeLevelText = gradeLevelSelect.options[gradeLevelSelect.selectedIndex]?.text || '';
+            const classTypeText = classTypeSelect.options[classTypeSelect.selectedIndex]?.text || '';
+
+            if (gradeLevelText && classTypeText && (!nameInput.value || nameInput.value === '')) {
+                nameInput.value = `${gradeLevelText} ${classTypeText}`;
+            }
+        }
+
+        gradeLevelSelect.addEventListener('change', suggestClassName);
+        classTypeSelect.addEventListener('change', suggestClassName);
+
+        // Trigger suggestions on page load for defaults
+        if (gradeLevelSelect.value && classTypeSelect.value) {
+            suggestClassName();
+        }
+
+        // Capacity input validation and preview
+        function updateCapacityPreview() {
+            const capacity = parseInt(capacityInput.value) || 0;
+            const currentStudents = {% if form.instance.pk %}{{ form.instance.current_student_count }}{% else %}0{% endif %};
+            const utilization = capacity > 0 ? Math.min(100, (currentStudents / capacity) * 100) : 0;
+            
+            capacityText.textContent = `${currentStudents}/${capacity} ${capacity === 1 ? '{% trans "student" %}' : '{% trans "students" %}'}`;
+            capacityFill.style.width = `${utilization}%`;
+            capacityPercent.textContent = `${utilization.toFixed(0)}%`;
+            
+            // Update visual warning
+            const capacityVisual = capacityFill.parentElement;
+            capacityVisual.classList.remove('capacity-warning', 'capacity-danger');
+            if (utilization > 90) {
+                capacityVisual.classList.add('capacity-danger');
+                capacityPercent.className = 'text-danger';
+            } else if (utilization > 75) {
+                capacityVisual.classList.add('capacity-warning');
+                capacityPercent.className = 'text-warning';
+            } else {
+                capacityPercent.className = 'text-success';
+            }
+        }
+        
+        capacityInput.addEventListener('input', updateCapacityPreview);
+        updateCapacityPreview(); // Initialize
+
+        // Check for duplicate classes
+        function checkForDuplicates() {
+            const gradeLevel = gradeLevelSelect.value;
+            const classType = classTypeSelect.value;
+            const academicSession = academicSessionSelect.value;
+            
+            if (gradeLevel && classType && academicSession) {
+                // This would typically be an AJAX call to check for duplicates
+                // For now, we'll simulate it with a timeout
+                setTimeout(() => {
+                    // Simulate duplicate check - in real implementation, this would be an API call
+                    const hasDuplicate = Math.random() > 0.7; // 30% chance for demo
+                    if (hasDuplicate) {
+                        duplicateMessage.textContent = '{% trans "A class with this grade level, type, and academic session already exists." %}';
+                        duplicateWarning.style.display = 'block';
+                    } else {
+                        duplicateWarning.style.display = 'none';
+                    }
+                }, 500);
+            }
+        }
+        
+        gradeLevelSelect.addEventListener('change', checkForDuplicates);
+        classTypeSelect.addEventListener('change', checkForDuplicates);
+        academicSessionSelect.addEventListener('change', checkForDuplicates);
+
+        // Enhanced form validation
+        classForm.addEventListener('submit', function(e) {
+            let isValid = true;
+            const requiredFields = classForm.querySelectorAll('[required]');
+            
+            // Clear previous validation
+            classForm.querySelectorAll('.is-invalid').forEach(field => {
+                field.classList.remove('is-invalid');
+            });
+            
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    isValid = false;
+                    field.classList.add('is-invalid');
+                }
+            });
+
+            // Validate capacity
+            const capacity = parseInt(capacityInput.value);
+            if (capacity < 1 || capacity > 100) {
+                isValid = false;
+                capacityInput.classList.add('is-invalid');
+            }
+
+            if (!isValid) {
+                e.preventDefault();
+                const firstInvalid = classForm.querySelector('.is-invalid');
+                if (firstInvalid) {
+                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstInvalid.focus();
+                }
+            } else {
+                // Show loading state
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>{% trans "Processing..." %}';
+            }
+        });
+
+        // Real-time validation
+        classForm.querySelectorAll('input, select').forEach(field => {
+            field.addEventListener('blur', function() {
+                if (this.hasAttribute('required') && !this.value.trim()) {
+                    this.classList.add('is-invalid');
+                } else {
+                    this.classList.remove('is-invalid');
+                }
+            });
+        });
+
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+</script>
+{% endblock %}

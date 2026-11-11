@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Delete Notice Board - {{ notice_board.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.delete-confirmation-container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.delete-confirmation-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border: 1px solid #e9ecef;
+}
+
+.warning-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.warning-icon {
+    font-size: 4rem;
+    color: #dc3545;
+    margin-bottom: 1rem;
+}
+
+.warning-title {
+    color: #dc3545;
+    font-weight: 600;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.warning-text {
+    color: #6c757d;
+    margin-bottom: 0;
+}
+
+.noticeboard-details {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border-left: 4px solid #3498db;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.detail-item:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.detail-value {
+    color: #6c757d;
+}
+
+.consequences-alert {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 2rem;
+}
+
+.consequences-alert .alert-icon {
+    color: #856404;
+    margin-right: 0.5rem;
+}
+
+.consequences-list {
+    margin: 0.5rem 0 0 0;
+    padding-left: 1.5rem;
+}
+
+.consequences-list li {
+    color: #856404;
+    margin-bottom: 0.25rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .delete-confirmation-card {
+        padding: 1.5rem;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid delete-confirmation-container">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'communication:noticeboard_list' %}">Notice Boards</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'communication:noticeboard_detail' notice_board.pk %}">{{ notice_board.name }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Delete</li>
+        </ol>
+    </nav>
+
+    <!-- Delete Confirmation Card -->
+    <div class="delete-confirmation-card">
+        <!-- Warning Header -->
+        <div class="warning-header">
+            <div class="warning-icon">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+            </div>
+            <h1 class="warning-title">Delete Notice Board</h1>
+            <p class="warning-text">
+                Are you sure you want to delete the notice board "<strong>{{ notice_board.name }}</strong>"?
+            </p>
+        </div>
+
+        <!-- Notice Board Details -->
+        <div class="noticeboard-details">
+            <h5 class="mb-3">
+                <i class="bi bi-info-circle text-primary me-2"></i>
+                Notice Board Details
+            </h5>
+
+            <div class="detail-item">
+                <span class="detail-label">Name:</span>
+                <span class="detail-value">{{ notice_board.name }}</span>
+            </div>
+
+            <div class="detail-item">
+                <span class="detail-label">Type:</span>
+                <span class="detail-value">{{ notice_board.get_board_type_display }}</span>
+            </div>
+
+            {% if notice_board.location %}
+            <div class="detail-item">
+                <span class="detail-label">Location:</span>
+                <span class="detail-value">{{ notice_board.location }}</span>
+            </div>
+            {% endif %}
+
+            <div class="detail-item">
+                <span class="detail-label">Status:</span>
+                <span class="detail-value">
+                    <span class="badge bg-{{ notice_board.is_active|yesno:'success,danger' }}">
+                        {{ notice_board.is_active|yesno:'Active,Inactive' }}
+                    </span>
+                </span>
+            </div>
+
+            <div class="detail-item">
+                <span class="detail-label">Announcements:</span>
+                <span class="detail-value">{{ notice_board.announcements.count }}</span>
+            </div>
+
+            <div class="detail-item">
+                <span class="detail-label">Created:</span>
+                <span class="detail-value">{{ notice_board.created_at|date:"M d, Y H:i" }}</span>
+            </div>
+
+            {% if notice_board.description %}
+            <div class="mt-3">
+                <strong class="detail-label">Description:</strong>
+                <p class="detail-value mt-2">{{ notice_board.description }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Consequences Alert -->
+        <div class="consequences-alert">
+            <div class="d-flex align-items-start">
+                <i class="bi bi-exclamation-triangle-fill alert-icon"></i>
+                <div>
+                    <strong>Warning:</strong> This action cannot be undone. Deleting this notice board will:
+                    <ul class="consequences-list">
+                        <li>Permanently remove the notice board and all its settings</li>
+                        <li>Remove all announcements from this notice board display</li>
+                        <li>Affect any systems or displays using this notice board</li>
+                        {% if notice_board.allowed_users.exists %}
+                        <li>Remove access for {{ notice_board.allowed_users.count }} user{{ notice_board.allowed_users.count|pluralize }}</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirmation Form -->
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="form-actions">
+                <a href="{% url 'communication:noticeboard_detail' notice_board.pk %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle me-2"></i>
+                    Cancel
+                </a>
+
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-trash me-2"></i>
+                    Yes, Delete Notice Board
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

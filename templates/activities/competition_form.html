@@ -1,0 +1,1076 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% if form.instance.pk %}{% trans "Edit Competition" %}{% else %}{% trans "Create Competition" %}{% endif %}{% endblock %}
+
+{% block body_class %}activities-competition-form{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'activities:activity_list' %}">{% trans "Activities" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'activities:competition_list' %}">{% trans "Competitions" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% if form.instance.pk %}{% trans "Edit" %}{% else %}{% trans "Create" %}{% endif %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'activities:competition_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>{% trans "Back to Competitions" %}
+        </a>
+        {% if form.instance.pk %}
+        <a href="{% url 'activities:competition_detail' form.instance.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-eye me-2"></i>{% trans "View Details" %}
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.competition-form-container {
+    max-width: 100%;
+}
+
+.form-section {
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
+    margin-bottom: 1.5rem;
+}
+
+.section-title {
+    color: #495057;
+    font-weight: 600;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.form-control, .form-select {
+    border-radius: 0.375rem;
+    border: 1px solid #ced4da;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.invalid-feedback {
+    display: block;
+}
+
+/* Summary Items */
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.summary-item:last-child {
+    border-bottom: none;
+}
+
+/* Status Indicators */
+.status-item {
+    display: flex;
+    align-items: center;
+}
+
+.status-item i {
+    font-size: 0.75rem;
+}
+
+/* Progress Bar */
+.progress {
+    background-color: #e9ecef;
+}
+
+.progress-bar {
+    transition: width 0.3s ease;
+}
+
+/* Form Validation States */
+.is-valid {
+    border-color: #198754;
+    padding-right: calc(1.5em + 0.75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.is-invalid {
+    border-color: #dc3545;
+    padding-right: calc(1.5em + 0.75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 3.6.4.4.4-.4'/%3e%3cpath d='M6 7v1'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+/* Preview Styles */
+.preview-content {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.preview-competition {
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.375rem;
+}
+
+.preview-section {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: white;
+    border-radius: 0.375rem;
+    border: 1px solid #e9ecef;
+}
+
+.preview-section:last-child {
+    margin-bottom: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .form-section {
+        padding: 1rem;
+    }
+
+    .section-title {
+        font-size: 1rem;
+    }
+
+    .summary-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .summary-item strong {
+        margin-bottom: 0.25rem;
+    }
+
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .btn-group .btn {
+        margin-bottom: 0.5rem;
+        border-radius: 0.375rem !important;
+    }
+}
+
+/* Animation for status updates */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.status-update {
+    animation: pulse 0.5s ease-in-out;
+}
+
+/* Custom switch styling */
+.form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.form-check-input:focus {
+    border-color: #86b7fe;
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="competition-form-container">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">
+                        <i class="bi {% if form.instance.pk %}bi-pencil-square{% else %}bi-plus-circle{% endif %} me-2"></i>
+                        {% if form.instance.pk %}
+                            {% trans "Edit Competition" %} - {{ form.instance.title }}
+                        {% else %}
+                            {% trans "Create New Competition" %}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="competitionForm" novalidate enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                <p class="mb-0">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Basic Information Section -->
+                        <div class="form-section">
+                            <h6 class="section-title border-bottom pb-2 mb-3">
+                                <i class="bi bi-info-circle me-2"></i>{% trans "Basic Information" %}
+                            </h6>
+
+                            <div class="row">
+                                <div class="col-md-8 mb-3">
+                                    <label for="{{ form.title.id_for_label }}" class="form-label">{{ form.title.label }} *</label>
+                                    {{ form.title }}
+                                    {% if form.title.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.title.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">{% trans "Enter a descriptive title for the competition" %}</div>
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.competition_type.id_for_label }}" class="form-label">{{ form.competition_type.label }} *</label>
+                                    {{ form.competition_type }}
+                                    {% if form.competition_type.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.competition_type.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ form.description.id_for_label }}" class="form-label">{{ form.description.label }}</label>
+                                {{ form.description }}
+                                {% if form.description.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.description.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">{% trans "Brief description of the competition" %}</div>
+                            </div>
+                        </div>
+
+                        <!-- Schedule Section -->
+                        <div class="form-section">
+                            <h6 class="section-title border-bottom pb-2 mb-3">
+                                <i class="bi bi-calendar-event me-2"></i>{% trans "Schedule" %}
+                            </h6>
+
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.start_date.id_for_label }}" class="form-label">{{ form.start_date.label }} *</label>
+                                    {{ form.start_date }}
+                                    {% if form.start_date.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.start_date.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.end_date.id_for_label }}" class="form-label">{{ form.end_date.label }} *</label>
+                                    {{ form.end_date }}
+                                    {% if form.end_date.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.end_date.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text" id="durationDisplay">{% trans "Duration: 0 days" %}</div>
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.registration_deadline.id_for_label }}" class="form-label">{{ form.registration_deadline.label }}</label>
+                                    {{ form.registration_deadline }}
+                                    {% if form.registration_deadline.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.registration_deadline.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Participation Section -->
+                        <div class="form-section">
+                            <h6 class="section-title border-bottom pb-2 mb-3">
+                                <i class="bi bi-people me-2"></i>{% trans "Participation" %}
+                            </h6>
+
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.max_participants.id_for_label }}" class="form-label">{{ form.max_participants.label }}</label>
+                                    {{ form.max_participants }}
+                                    {% if form.max_participants.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.max_participants.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">{% trans "Maximum number of participants" %}</div>
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.min_participants.id_for_label }}" class="form-label">{{ form.min_participants.label }}</label>
+                                    {{ form.min_participants }}
+                                    {% if form.min_participants.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.min_participants.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">{% trans "Minimum participants required" %}</div>
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.participant_type.id_for_label }}" class="form-label">{{ form.participant_type.label }} *</label>
+                                    {{ form.participant_type }}
+                                    {% if form.participant_type.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.participant_type.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Rules and Requirements Section -->
+                        <div class="form-section">
+                            <h6 class="section-title border-bottom pb-2 mb-3">
+                                <i class="bi bi-clipboard-check me-2"></i>{% trans "Rules & Requirements" %}
+                            </h6>
+
+                            <div class="mb-3">
+                                <label for="{{ form.rules.id_for_label }}" class="form-label">{{ form.rules.label }}</label>
+                                {{ form.rules }}
+                                {% if form.rules.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.rules.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">{% trans "Competition rules and guidelines" %}</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ form.requirements.id_for_label }}" class="form-label">{{ form.requirements.label }}</label>
+                                {{ form.requirements }}
+                                {% if form.requirements.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.requirements.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">{% trans "Requirements for participation" %}</div>
+                            </div>
+                        </div>
+
+                        <!-- Prizes Section -->
+                        <div class="form-section">
+                            <h6 class="section-title border-bottom pb-2 mb-3">
+                                <i class="bi bi-trophy me-2"></i>{% trans "Prizes & Rewards" %}
+                            </h6>
+
+                            <div class="mb-3">
+                                <label for="{{ form.prizes.id_for_label }}" class="form-label">{{ form.prizes.label }}</label>
+                                {{ form.prizes }}
+                                {% if form.prizes.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.prizes.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">{% trans "Prizes and rewards for winners" %}</div>
+                            </div>
+                        </div>
+
+                        <!-- Status Section -->
+                        <div class="form-section">
+                            <h6 class="section-title border-bottom pb-2 mb-3">
+                                <i class="bi bi-gear me-2"></i>{% trans "Status & Settings" %}
+                            </h6>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        {{ form.is_active }}
+                                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                            {{ form.is_active.label }}
+                                        </label>
+                                    </div>
+                                    {% if form.is_active.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.is_active.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        {% trans "Active competitions are visible to participants" %}
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        {{ form.allow_team_participation }}
+                                        <label class="form-check-label" for="{{ form.allow_team_participation.id_for_label }}">
+                                            {{ form.allow_team_participation.label }}
+                                        </label>
+                                    </div>
+                                    {% if form.allow_team_participation.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.allow_team_participation.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        {% trans "Allow team participation in addition to individual" %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Form Summary -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-eye me-2"></i>{% trans "Form Summary" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="summary-item mb-2">
+                        <strong>{% trans "Title:" %}</strong>
+                        <span id="summaryTitle" class="text-muted">{% trans "Not set" %}</span>
+                    </div>
+                    <div class="summary-item mb-2">
+                        <strong>{% trans "Type:" %}</strong>
+                        <span id="summaryType" class="text-muted">{% trans "Not set" %}</span>
+                    </div>
+                    <div class="summary-item mb-2">
+                        <strong>{% trans "Duration:" %}</strong>
+                        <span id="summaryDuration" class="text-muted">{% trans "Not set" %}</span>
+                    </div>
+                    <div class="summary-item mb-2">
+                        <strong>{% trans "Participants:" %}</strong>
+                        <span id="summaryParticipants" class="text-muted">{% trans "Not set" %}</span>
+                    </div>
+                    <div class="summary-item">
+                        <strong>{% trans "Status:" %}</strong>
+                        <span id="summaryStatus" class="text-muted">{% trans "Draft" %}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-lightning me-2"></i>{% trans "Quick Actions" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-outline-primary" id="previewBtn">
+                            <i class="bi bi-eye me-1"></i> {% trans "Preview Competition" %}
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="clearFormBtn">
+                            <i class="bi bi-arrow-clockwise me-1"></i> {% trans "Clear Form" %}
+                        </button>
+                        <button type="button" class="btn btn-outline-info" id="duplicateBtn" {% if not form.instance.pk %}disabled{% endif %}>
+                            <i class="bi bi-copy me-1"></i> {% trans "Duplicate" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Status -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-clipboard-check me-2"></i>{% trans "Form Status" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="status-indicators">
+                        <div class="status-item mb-2">
+                            <i class="bi bi-circle-fill text-success me-2" id="basicInfoStatus"></i>
+                            <span>{% trans "Basic Information" %}</span>
+                        </div>
+                        <div class="status-item mb-2">
+                            <i class="bi bi-circle-fill text-muted me-2" id="scheduleStatus"></i>
+                            <span>{% trans "Schedule" %}</span>
+                        </div>
+                        <div class="status-item mb-2">
+                            <i class="bi bi-circle-fill text-success me-2" id="participationStatus"></i>
+                            <span>{% trans "Participation" %}</span>
+                        </div>
+                        <div class="status-item">
+                            <i class="bi bi-circle-fill text-success me-2" id="statusSection"></i>
+                            <span>{% trans "Status" %}</span>
+                        </div>
+                    </div>
+
+                    <div class="completion-progress mt-3">
+                        <div class="progress mb-2" style="height: 8px;">
+                            <div class="progress-bar" id="completionProgress" style="width: 0%"></div>
+                        </div>
+                        <small class="text-muted" id="completionText">0% {% trans "complete" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="previewModalLabel">{% trans "Competition Preview" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="previewContent">
+                    <!-- Preview content will be inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                    <button type="button" class="btn btn-primary" onclick="document.getElementById('competitionForm').submit()">
+                        {% trans "Save Competition" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Form Actions Footer -->
+<div class="form-actions border-top pt-4 mt-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <a href="{% url 'activities:competition_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-x-circle me-2"></i>{% trans "Cancel" %}
+        </a>
+        <div class="btn-group">
+            <button type="submit" form="competitionForm" class="btn btn-warning" id="submitBtn">
+                <i class="bi {% if form.instance.pk %}bi-check-lg{% else %}bi-plus-lg{% endif %} me-2"></i>
+                {% if form.instance.pk %}
+                    {% trans "Update Competition" %}
+                {% else %}
+                    {% trans "Create Competition" %}
+                {% endif %}
+            </button>
+            {% if form.instance.pk %}
+            <button type="button" class="btn btn-warning dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li>
+                    <button type="submit" form="competitionForm" name="save_and_continue" class="dropdown-item">
+                        <i class="bi bi-check2-circle me-2"></i>{% trans "Save and Continue Editing" %}
+                    </button>
+                </li>
+                <li>
+                    <button type="submit" form="competitionForm" name="save_and_add_another" class="dropdown-item">
+                        <i class="bi bi-plus-circle me-2"></i>{% trans "Save and Add Another" %}
+                    </button>
+                </li>
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const competitionForm = document.getElementById('competitionForm');
+    const previewBtn = document.getElementById('previewBtn');
+    const clearFormBtn = document.getElementById('clearFormBtn');
+    const duplicateBtn = document.getElementById('duplicateBtn');
+    const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+
+    // Form elements
+    const titleInput = document.getElementById('{{ form.title.id_for_label }}');
+    const competitionTypeInput = document.getElementById('{{ form.competition_type.id_for_label }}');
+    const startDateInput = document.getElementById('{{ form.start_date.id_for_label }}');
+    const endDateInput = document.getElementById('{{ form.end_date.id_for_label }}');
+    const maxParticipantsInput = document.getElementById('{{ form.max_participants.id_for_label }}');
+    const minParticipantsInput = document.getElementById('{{ form.min_participants.id_for_label }}');
+    const participantTypeInput = document.getElementById('{{ form.participant_type.id_for_label }}');
+    const descriptionInput = document.getElementById('{{ form.description.id_for_label }}');
+    const rulesInput = document.getElementById('{{ form.rules.id_for_label }}');
+    const requirementsInput = document.getElementById('{{ form.requirements.id_for_label }}');
+    const prizesInput = document.getElementById('{{ form.prizes.id_for_label }}');
+    const isActiveInput = document.getElementById('{{ form.is_active.id_for_label }}');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // Summary elements
+    const summaryTitle = document.getElementById('summaryTitle');
+    const summaryType = document.getElementById('summaryType');
+    const summaryDuration = document.getElementById('summaryDuration');
+    const summaryParticipants = document.getElementById('summaryParticipants');
+    const summaryStatus = document.getElementById('summaryStatus');
+
+    // Status elements
+    const basicInfoStatus = document.getElementById('basicInfoStatus');
+    const scheduleStatus = document.getElementById('scheduleStatus');
+    const participationStatus = document.getElementById('participationStatus');
+    const statusSection = document.getElementById('statusSection');
+    const completionProgress = document.getElementById('completionProgress');
+    const completionText = document.getElementById('completionText');
+
+    // Initialize form
+    initializeForm();
+
+    // Initialize event listeners
+    initializeEventListeners();
+
+    // Auto-save every 30 seconds
+    setInterval(autoSaveDraft, 30000);
+
+    function initializeForm() {
+        // Add Bootstrap classes to form inputs
+        const formInputs = competitionForm.querySelectorAll('input, select, textarea');
+        formInputs.forEach(input => {
+            if (!input.classList.contains('form-check-input')) {
+                input.classList.add('form-control');
+            }
+
+            // Add validation on blur
+            input.addEventListener('blur', function() {
+                validateField(this);
+                updateSummary();
+                updateCompletion();
+            });
+
+            // Add real-time updates for summary
+            input.addEventListener('input', function() {
+                updateSummary();
+            });
+        });
+
+        // Special handling for checkbox
+        if (isActiveInput) {
+            isActiveInput.classList.remove('form-control');
+            isActiveInput.classList.add('form-check-input');
+        }
+
+        // Add date change handlers
+        if (startDateInput && endDateInput) {
+            startDateInput.addEventListener('change', calculateDuration);
+            endDateInput.addEventListener('change', calculateDuration);
+        }
+
+        // Initial calculations
+        calculateDuration();
+        updateSummary();
+        updateCompletion();
+    }
+
+    function initializeEventListeners() {
+        // Preview button
+        previewBtn.addEventListener('click', previewCompetition);
+
+        // Clear form button
+        clearFormBtn.addEventListener('click', clearForm);
+
+        // Duplicate button
+        if (duplicateBtn) {
+            duplicateBtn.addEventListener('click', duplicateCompetition);
+        }
+    }
+
+    function calculateDuration() {
+        if (startDateInput.value && endDateInput.value) {
+            const startDate = new Date(startDateInput.value);
+            const endDate = new Date(endDateInput.value);
+
+            if (endDate >= startDate) {
+                const timeDiff = endDate.getTime() - startDate.getTime();
+                const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                document.getElementById('durationDisplay').textContent = `{% trans "Duration:" %} ${daysDiff} {% trans "days" %}`;
+            } else {
+                document.getElementById('durationDisplay').textContent = '{% trans "End date must be after start date" %}';
+                document.getElementById('durationDisplay').className = 'text-danger';
+            }
+        }
+    }
+
+    function validateField(field) {
+        const value = field.value.trim();
+        const fieldName = field.name;
+
+        // Clear previous validation
+        field.classList.remove('is-invalid', 'is-valid');
+
+        // Required field validation
+        if (field.hasAttribute('required') && !value) {
+            field.classList.add('is-invalid');
+            return false;
+        }
+
+        // Field-specific validation
+        switch(fieldName) {
+            case 'title':
+                if (value && value.length < 3) {
+                    field.classList.add('is-invalid');
+                    return false;
+                }
+                break;
+            case 'max_participants':
+            case 'min_participants':
+                if (value && parseInt(value) < 0) {
+                    field.classList.add('is-invalid');
+                    return false;
+                }
+                break;
+        }
+
+        // If we made it here, field is valid
+        if (value || !field.hasAttribute('required')) {
+            field.classList.add('is-valid');
+        }
+        return true;
+    }
+
+    function updateSummary() {
+        // Update title
+        summaryTitle.textContent = titleInput.value || '{% trans "Not set" %}';
+        summaryTitle.className = titleInput.value ? 'text-primary' : 'text-muted';
+
+        // Update type
+        if (competitionTypeInput.value) {
+            const selectedOption = competitionTypeInput.options[competitionTypeInput.selectedIndex];
+            summaryType.textContent = selectedOption ? selectedOption.text : '{% trans "Not set" %}';
+            summaryType.className = 'text-primary';
+        } else {
+            summaryType.textContent = '{% trans "Not set" %}';
+            summaryType.className = 'text-muted';
+        }
+
+        // Update duration
+        if (startDateInput.value && endDateInput.value) {
+            const startDate = new Date(startDateInput.value);
+            const endDate = new Date(endDateInput.value);
+            if (endDate >= startDate) {
+                const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+                summaryDuration.textContent = `${days} {% trans "days" %}`;
+                summaryDuration.className = 'text-primary';
+            } else {
+                summaryDuration.textContent = '{% trans "Invalid" %}';
+                summaryDuration.className = 'text-danger';
+            }
+        } else {
+            summaryDuration.textContent = '{% trans "Not set" %}';
+            summaryDuration.className = 'text-muted';
+        }
+
+        // Update participants
+        const maxPart = maxParticipantsInput.value;
+        const minPart = minParticipantsInput.value;
+        const partType = participantTypeInput.options[participantTypeInput.selectedIndex]?.text;
+
+        if (maxPart || minPart || partType) {
+            let participantText = '';
+            if (minPart && maxPart) {
+                participantText = `${minPart}-${maxPart}`;
+            } else if (maxPart) {
+                participantText = `Max: ${maxPart}`;
+            } else if (minPart) {
+                participantText = `Min: ${minPart}`;
+            }
+
+            if (partType && partType !== '---------') {
+                participantText += participantText ? ` (${partType})` : partType;
+            }
+
+            summaryParticipants.textContent = participantText || '{% trans "Not set" %}';
+            summaryParticipants.className = participantText ? 'text-primary' : 'text-muted';
+        } else {
+            summaryParticipants.textContent = '{% trans "Not set" %}';
+            summaryParticipants.className = 'text-muted';
+        }
+
+        // Update status
+        const isActive = isActiveInput && isActiveInput.checked;
+        summaryStatus.textContent = isActive ? '{% trans "Active" %}' : '{% trans "Inactive" %}';
+        summaryStatus.className = isActive ? 'text-success' : 'text-warning';
+    }
+
+    function updateCompletion() {
+        let completedFields = 0;
+        const totalFields = 4; // Required fields: title, competition_type, start_date, end_date
+
+        // Check required fields
+        const requiredFields = [titleInput, competitionTypeInput, startDateInput, endDateInput];
+
+        requiredFields.forEach(field => {
+            if (field && field.value && field.value.trim()) {
+                completedFields++;
+            }
+        });
+
+        const completionPercentage = Math.round((completedFields / totalFields) * 100);
+
+        // Update progress bar
+        completionProgress.style.width = `${completionPercentage}%`;
+        completionText.textContent = `${completionPercentage}% {% trans "complete" %}`;
+
+        // Update status indicators
+        updateStatusIndicators(completedFields, totalFields);
+    }
+
+    function updateStatusIndicators(completed, total) {
+        const basicInfoComplete = titleInput.value && competitionTypeInput.value;
+        const scheduleComplete = startDateInput.value && endDateInput.value;
+        const participationComplete = true; // Optional fields
+        const statusComplete = true; // Has default
+
+        // Update status colors
+        basicInfoStatus.className = `bi bi-circle-fill me-2 ${basicInfoComplete ? 'text-success' : 'text-muted'}`;
+        scheduleStatus.className = `bi bi-circle-fill me-2 ${scheduleComplete ? 'text-success' : 'text-muted'}`;
+        participationStatus.className = `bi bi-circle-fill me-2 ${participationComplete ? 'text-success' : 'text-muted'}`;
+        statusSection.className = `bi bi-circle-fill me-2 ${statusComplete ? 'text-success' : 'text-muted'}`;
+
+        // Add animation for status updates
+        [basicInfoStatus, scheduleStatus, participationStatus, statusSection].forEach(status => {
+            status.classList.add('status-update');
+            setTimeout(() => {
+                status.classList.remove('status-update');
+            }, 500);
+        });
+    }
+
+    function previewCompetition() {
+        if (!validateForm()) {
+            showToast('{% trans "Please fix form errors before previewing" %}', 'error');
+            return;
+        }
+
+        const previewContent = document.getElementById('previewContent');
+        previewContent.innerHTML = generatePreviewContent();
+        previewModal.show();
+    }
+
+    function generatePreviewContent() {
+        const startDate = new Date(startDateInput.value);
+        const endDate = new Date(endDateInput.value);
+        const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+        return `
+            <div class="preview-competition">
+                <div class="preview-section">
+                    <h4>${titleInput.value || '{% trans "Competition Title" %}'}</h4>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>{% trans "Type:" %}</strong> ${competitionTypeInput.options[competitionTypeInput.selectedIndex]?.text || '{% trans "N/A" %}'}</p>
+                            <p><strong>{% trans "Participant Type:" %}</strong> ${participantTypeInput.options[participantTypeInput.selectedIndex]?.text || '{% trans "N/A" %}'}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>{% trans "Duration:" %}</strong> ${duration} {% trans "days" %}</p>
+                            <p><strong>{% trans "Max Participants:" %}</strong> ${maxParticipantsInput.value || '{% trans "Unlimited" %}'}</p>
+                        </div>
+                    </div>
+                </div>
+
+                ${descriptionInput.value ? `
+                <div class="preview-section">
+                    <h5>{% trans "Description" %}</h5>
+                    <p>${descriptionInput.value}</p>
+                </div>
+                ` : ''}
+
+                ${rulesInput.value ? `
+                <div class="preview-section">
+                    <h5>{% trans "Rules" %}</h5>
+                    <div style="white-space: pre-line;">${rulesInput.value}</div>
+                </div>
+                ` : ''}
+
+                ${prizesInput.value ? `
+                <div class="preview-section">
+                    <h5>{% trans "Prizes" %}</h5>
+                    <div style="white-space: pre-line;">${prizesInput.value}</div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    function clearForm() {
+        if (confirm('{% trans "Are you sure you want to clear the form? All unsaved changes will be lost." %}')) {
+            competitionForm.reset();
+            updateSummary();
+            updateCompletion();
+            calculateDuration();
+            showToast('{% trans "Form cleared successfully" %}', 'info');
+        }
+    }
+
+    function duplicateCompetition() {
+        if (!confirm('{% trans "Are you sure you want to duplicate this competition?" %}')) {
+            return;
+        }
+
+        showToast('{% trans "Competition duplication not implemented yet" %}', 'info');
+    }
+
+    function validateForm() {
+        let isValid = true;
+        const formInputs = competitionForm.querySelectorAll('input[required], select[required], textarea[required]');
+
+        formInputs.forEach(input => {
+            if (!validateField(input)) {
+                isValid = false;
+            }
+        });
+
+        // Additional validation for dates
+        if (startDateInput.value && endDateInput.value) {
+            const startDate = new Date(startDateInput.value);
+            const endDate = new Date(endDateInput.value);
+
+            if (endDate < startDate) {
+                startDateInput.classList.add('is-invalid');
+                endDateInput.classList.add('is-invalid');
+                isValid = false;
+            }
+        }
+
+        if (isValid) {
+            showToast('{% trans "Form validation passed!" %}', 'success');
+        } else {
+            showToast('{% trans "Please fix the errors in the form" %}', 'error');
+
+            // Scroll to first error
+            const firstError = competitionForm.querySelector('.is-invalid');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                firstError.focus();
+            }
+        }
+
+        return isValid;
+    }
+
+    function autoSaveDraft() {
+        // Check if form has any data
+        const hasData = Array.from(competitionForm.elements).some(element =>
+            (element.type === 'text' || element.type === 'textarea' || element.type === 'select-one') &&
+            element.value && element.value.trim()
+        );
+
+        if (hasData) {
+            console.log('Auto-saving competition draft...');
+        }
+    }
+
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type === 'success' ? 'primary' : 'primary'} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+
+        let toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+
+        toastContainer.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+
+        toast.addEventListener('hidden.bs.toast', function() {
+            toast.remove();
+        });
+    }
+
+    // Form submission validation
+    competitionForm.addEventListener('submit', function(e) {
+        if (!validateForm()) {
+            e.preventDefault();
+            return false;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>{% trans "Processing..." %}';
+    });
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + S to save
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        document.getElementById('submitBtn').click();
+    }
+
+    // Ctrl/Cmd + Enter to validate
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        // Trigger validation
+        const validateBtn = document.querySelector('button[id*="validate"]');
+        if (validateBtn) validateBtn.click();
+    }
+
+    // Ctrl/Cmd + P to preview
+    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        document.getElementById('previewBtn').click();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1090 @@
+<!-- templates/hostels/allocations/allocation_form.html -->
+{% extends 'base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if form.instance.pk and form.instance.student %}Edit Allocation - {{ form.instance.student.user.get_full_name }}{% else %}Create New Allocation{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .form-card .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+        padding: 1.5rem 2rem;
+        border: none;
+    }
+    
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #007bff;
+    }
+    
+    .form-section h6 {
+        color: #495057;
+        margin-bottom: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 6px;
+        border: 1px solid #ced4da;
+        padding: 0.75rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    .form-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .student-preview {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+    }
+    
+    .student-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-right: 1.5rem;
+    }
+    
+    .bed-selection {
+        background: #e7f3ff;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .bed-option {
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .bed-option:hover {
+        border-color: #007bff;
+        background: #f8f9fa;
+    }
+    
+    .bed-option.selected {
+        border-color: #28a745;
+        background: #f8fff9;
+    }
+    
+    .bed-details {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .bed-info h6 {
+        margin-bottom: 0.25rem;
+    }
+    
+    .bed-features {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .bed-rent {
+        font-weight: 600;
+        color: #28a745;
+        font-size: 1.1rem;
+    }
+    
+    .availability-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+    }
+    
+    .form-actions {
+        background: white;
+        border-top: 1px solid #e9ecef;
+        padding: 1.5rem;
+        position: sticky;
+        bottom: 0;
+        margin: 2rem -2rem -2rem;
+        border-radius: 0 0 12px 12px;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .character-count {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-align: right;
+    }
+    
+    .character-count.warning {
+        color: #fd7e14;
+    }
+    
+    .character-count.danger {
+        color: #dc3545;
+    }
+    
+    .form-wizard {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+        position: relative;
+    }
+    
+    .form-wizard::before {
+        content: '';
+        position: absolute;
+        top: 15px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #e9ecef;
+        z-index: 1;
+    }
+    
+    .wizard-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        z-index: 2;
+        flex: 1;
+    }
+    
+    .wizard-circle {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #e9ecef;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .wizard-step.active .wizard-circle {
+        background: #007bff;
+        color: white;
+    }
+    
+    .wizard-step.completed .wizard-circle {
+        background: #28a745;
+        color: white;
+    }
+    
+    .wizard-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+        text-align: center;
+    }
+    
+    .wizard-step.active .wizard-label {
+        color: #007bff;
+    }
+    
+    .student-search {
+        position: relative;
+    }
+    
+    .search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0 0 6px 6px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+    
+    .search-result {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #f8f9fa;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    
+    .search-result:hover {
+        background: #f8f9fa;
+    }
+    
+    .search-result:last-child {
+        border-bottom: none;
+    }
+    
+    .financial-summary {
+        background: #f8fff9;
+        border: 1px solid #28a745;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-top: 1rem;
+    }
+    
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .summary-item:last-child {
+        border-bottom: none;
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: #28a745;
+    }
+    
+    .validation-alert {
+        display: none;
+        margin-top: 1rem;
+    }
+    
+    @media (max-width: 768px) {
+        .form-wizard {
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .form-wizard::before {
+            display: none;
+        }
+        
+        .wizard-step {
+            flex-direction: row;
+            gap: 1rem;
+        }
+        
+        .wizard-label {
+            text-align: left;
+        }
+        
+        .student-avatar {
+            width: 60px;
+            height: 60px;
+            font-size: 1.2rem;
+            margin-right: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}
+    {% if form.instance.pk and form.instance.student %}Edit Allocation - {{ form.instance.student.user.get_full_name }}{% else %}Create New Allocation{% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:dashboard' %}">Hostels</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:allocation_list' %}">Allocations</a></li>
+{% if form.instance.pk %}
+<li class="breadcrumb-item active" aria-current="page">Edit Allocation</li>
+{% else %}
+<li class="breadcrumb-item active" aria-current="page">New Allocation</li>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card form-card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h4 class="mb-0">
+                                <i class="bi bi-person-plus me-2"></i>
+                                {% if form.instance.pk %}
+                                    Edit Allocation
+                                {% else %}
+                                    Create New Allocation
+                                {% endif %}
+                            </h4>
+                        </div>
+                        <div class="col-auto">
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-clock me-1"></i>
+                                {% if form.instance.pk %}
+                                    Last updated: {{ form.instance.updated_at|date:"M d, Y" }}
+                                {% else %}
+                                    New Allocation
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Form Wizard -->
+                    <div class="form-wizard">
+                        <div class="wizard-step active" data-step="1">
+                            <div class="wizard-circle">1</div>
+                            <div class="wizard-label">Student Selection</div>
+                        </div>
+                        <div class="wizard-step" data-step="2">
+                            <div class="wizard-circle">2</div>
+                            <div class="wizard-label">Bed Selection</div>
+                        </div>
+                        <div class="wizard-step" data-step="3">
+                            <div class="wizard-circle">3</div>
+                            <div class="wizard-label">Academic Details</div>
+                        </div>
+                        <div class="wizard-step" data-step="4">
+                            <div class="wizard-circle">4</div>
+                            <div class="wizard-label">Financial Setup</div>
+                        </div>
+                        <div class="wizard-step" data-step="5">
+                            <div class="wizard-circle">5</div>
+                            <div class="wizard-label">Additional Info</div>
+                        </div>
+                    </div>
+
+                    <form method="post" id="allocationForm" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Student Selection -->
+                        <div class="form-section" id="step-1">
+                            <h6><i class="bi bi-person me-2"></i>Student Selection</h6>
+                            
+                            <!-- Student Search -->
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label class="form-label">Search Student</label>
+                                    <div class="student-search">
+                                        <input type="text" class="form-control" id="studentSearch" 
+                                               placeholder="Search by name, admission number, or class..." 
+                                               {% if not form.instance.pk %}autofocus{% endif %}>
+                                        <div class="search-results" id="searchResults"></div>
+                                    </div>
+                                    <div class="form-text">Start typing to search for students. Only active students without current allocations will be shown.</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Selected Student Preview -->
+                            <div class="student-preview" id="studentPreview" style="display: none;">
+                                <div class="row align-items-center">
+                                    <div class="col-auto">
+                                        <div class="student-avatar" id="studentAvatar">
+                                            ST
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <h5 id="studentName">Student Name</h5>
+                                        <p class="text-muted mb-1" id="studentDetails">
+                                            Admission Number • Class
+                                        </p>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <span class="badge bg-primary" id="studentClass">Class</span>
+                                            <span class="badge bg-success" id="studentStatus">Active</span>
+                                            <span class="badge bg-info" id="studentGender">Gender</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button type="button" class="btn btn-outline-secondary" id="changeStudent">
+                                            <i class="bi bi-arrow-repeat me-1"></i>Change
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Student Field (Hidden) -->
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <label for="{{ form.student.id_for_label }}" class="form-label required-field">
+                                        {{ form.student.label }}
+                                    </label>
+                                    {{ form.student }}
+                                    <div class="invalid-feedback">{{ form.student.errors }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bed Selection -->
+                        <div class="form-section" id="step-2">
+                            <h6><i class="bi bi-layout-text-sidebar me-2"></i>Bed Selection</h6>
+                            
+                            <!-- Hostel Filter -->
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Filter by Hostel</label>
+                                    <select class="form-select" id="hostelFilter">
+                                        <option value="">All Hostels</option>
+                                        {% for hostel in hostels %}
+                                        <option value="{{ hostel.id }}">{{ hostel.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Room Type</label>
+                                    <select class="form-select" id="roomTypeFilter">
+                                        <option value="">All Types</option>
+                                        {% for value, label in room_types %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Available Beds -->
+                            <div class="bed-selection">
+                                <h6 class="mb-3">Available Beds</h6>
+                                <div id="availableBeds">
+                                    <div class="text-center text-muted py-4">
+                                        <i class="bi bi-search display-4 mb-3"></i>
+                                        <p>Select filters to see available beds</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Selected Bed Preview -->
+                            <div class="alert alert-success" id="selectedBedPreview" style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>Selected Bed:</strong>
+                                        <span id="selectedBedInfo">No bed selected</span>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="changeBed">
+                                        Change
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Bed Field (Hidden) -->
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <label for="{{ form.bed.id_for_label }}" class="form-label required-field">
+                                        {{ form.bed.label }}
+                                    </label>
+                                    {{ form.bed }}
+                                    <div class="invalid-feedback">{{ form.bed.errors }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Academic Details -->
+                        <div class="form-section" id="step-3">
+                            <h6><i class="bi bi-journal-text me-2"></i>Academic Details</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.academic_session.id_for_label }}" class="form-label required-field">
+                                        {{ form.academic_session.label }}
+                                    </label>
+                                    {{ form.academic_session }}
+                                    <div class="invalid-feedback">{{ form.academic_session.errors }}</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.class_enrolled.id_for_label }}" class="form-label">
+                                        {{ form.class_enrolled.label }}
+                                    </label>
+                                    {{ form.class_enrolled }}
+                                    <div class="form-text">{{ form.class_enrolled.help_text }}</div>
+                                    <div class="invalid-feedback">{{ form.class_enrolled.errors }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.allocation_date.id_for_label }}" class="form-label required-field">
+                                        {{ form.allocation_date.label }}
+                                    </label>
+                                    {{ form.allocation_date }}
+                                    <div class="invalid-feedback">{{ form.allocation_date.errors }}</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.expected_departure_date.id_for_label }}" class="form-label">
+                                        {{ form.expected_departure_date.label }}
+                                    </label>
+                                    {{ form.expected_departure_date }}
+                                    <div class="invalid-feedback">{{ form.expected_departure_date.errors }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Financial Setup -->
+                        <div class="form-section" id="step-4">
+                            <h6><i class="bi bi-cash-coin me-2"></i>Financial Setup</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.rent_amount.id_for_label }}" class="form-label required-field">
+                                        {{ form.rent_amount.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">₹</span>
+                                        {{ form.rent_amount }}
+                                    </div>
+                                    <div class="invalid-feedback">{{ form.rent_amount.errors }}</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.security_deposit_paid.id_for_label }}" class="form-label">
+                                        {{ form.security_deposit_paid.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">₹</span>
+                                        {{ form.security_deposit_paid }}
+                                    </div>
+                                    <div class="invalid-feedback">{{ form.security_deposit_paid.errors }}</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Financial Summary -->
+                            <div class="financial-summary" id="financialSummary">
+                                <h6 class="mb-3">Financial Summary</h6>
+                                <div class="summary-item">
+                                    <span>Monthly Rent:</span>
+                                    <span id="summaryRent">₹0</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span>Security Deposit:</span>
+                                    <span id="summaryDeposit">₹0</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span>Total Initial Payment:</span>
+                                    <span id="summaryTotal">₹0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Additional Information -->
+                        <div class="form-section" id="step-5">
+                            <h6><i class="bi bi-info-circle me-2"></i>Additional Information</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.status.id_for_label }}" class="form-label required-field">
+                                        {{ form.status.label }}
+                                    </label>
+                                    {{ form.status }}
+                                    <div class="invalid-feedback">{{ form.status.errors }}</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.emergency_contact.id_for_label }}" class="form-label">
+                                        {{ form.emergency_contact.label }}
+                                    </label>
+                                    {{ form.emergency_contact }}
+                                    <div class="invalid-feedback">{{ form.emergency_contact.errors }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label for="{{ form.special_requirements.id_for_label }}" class="form-label">
+                                        {{ form.special_requirements.label }}
+                                    </label>
+                                    {{ form.special_requirements }}
+                                    <div class="character-count" id="requirementsCount">0/500 characters</div>
+                                    <div class="invalid-feedback">{{ form.special_requirements.errors }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label for="{{ form.medical_information.id_for_label }}" class="form-label">
+                                        {{ form.medical_information.label }}
+                                    </label>
+                                    {{ form.medical_information }}
+                                    <div class="character-count" id="medicalCount">0/500 characters</div>
+                                    <div class="invalid-feedback">{{ form.medical_information.errors }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label for="{{ form.notes.id_for_label }}" class="form-label">
+                                        {{ form.notes.label }}
+                                    </label>
+                                    {{ form.notes }}
+                                    <div class="character-count" id="notesCount">0/1000 characters</div>
+                                    <div class="invalid-feedback">{{ form.notes.errors }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Validation Alert -->
+                        <div class="alert alert-warning validation-alert" id="validationAlert">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <span id="validationMessage">Please fix the errors before proceeding.</span>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="form-actions">
+                            <div class="row align-items-center">
+                                <div class="col">
+                                    <a href="{% if form.instance.pk %}{% url 'hostels:allocation_detail' pk=form.instance.pk %}{% else %}{% url 'hostels:allocation_list' %}{% endif %}" 
+                                       class="btn btn-outline-secondary">
+                                        <i class="bi bi-arrow-left me-1"></i>Cancel
+                                    </a>
+                                </div>
+                                <div class="col-auto">
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-outline-primary" id="prevStep">
+                                            <i class="bi bi-chevron-left me-1"></i>Previous
+                                        </button>
+                                        <button type="button" class="btn btn-primary" id="nextStep">
+                                            Next<i class="bi bi-chevron-right ms-1"></i>
+                                        </button>
+                                        <button type="submit" class="btn btn-success">
+                                            <i class="bi bi-check-circle me-1"></i>
+                                            {% if form.instance.pk %}Update Allocation{% else %}Create Allocation{% endif %}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form Wizard Functionality
+        const steps = document.querySelectorAll('.wizard-step');
+        const formSections = document.querySelectorAll('.form-section');
+        const prevBtn = document.getElementById('prevStep');
+        const nextBtn = document.getElementById('nextStep');
+        const validationAlert = document.getElementById('validationAlert');
+        let currentStep = 1;
+        const totalSteps = steps.length;
+
+        // Initialize form
+        showStep(currentStep);
+        updateWizard();
+
+        // Next button click
+        nextBtn.addEventListener('click', function() {
+            if (validateStep(currentStep)) {
+                if (currentStep < totalSteps) {
+                    currentStep++;
+                    showStep(currentStep);
+                    updateWizard();
+                }
+            }
+        });
+
+        // Previous button click
+        prevBtn.addEventListener('click', function() {
+            if (currentStep > 1) {
+                currentStep--;
+                showStep(currentStep);
+                updateWizard();
+            }
+        });
+
+        // Step click navigation
+        steps.forEach(step => {
+            step.addEventListener('click', function() {
+                const stepNum = parseInt(this.getAttribute('data-step'));
+                if (stepNum <= currentStep) {
+                    currentStep = stepNum;
+                    showStep(currentStep);
+                    updateWizard();
+                }
+            });
+        });
+
+        function showStep(step) {
+            formSections.forEach(section => {
+                section.style.display = 'none';
+            });
+            document.getElementById(`step-${step}`).style.display = 'block';
+            
+            // Scroll to top of form section
+            document.getElementById(`step-${step}`).scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+        }
+
+        function updateWizard() {
+            steps.forEach(step => {
+                const stepNum = parseInt(step.getAttribute('data-step'));
+                step.classList.remove('active', 'completed');
+                
+                if (stepNum === currentStep) {
+                    step.classList.add('active');
+                } else if (stepNum < currentStep) {
+                    step.classList.add('completed');
+                }
+            });
+
+            // Update button states
+            prevBtn.disabled = currentStep === 1;
+            nextBtn.style.display = currentStep < totalSteps ? 'inline-block' : 'none';
+        }
+
+        function validateStep(step) {
+            let isValid = true;
+            const currentSection = document.getElementById(`step-${step}`);
+            const requiredFields = currentSection.querySelectorAll('[required]');
+            
+            // Hide validation alert
+            validationAlert.style.display = 'none';
+            
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    field.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    field.classList.remove('is-invalid');
+                }
+            });
+
+            // Step-specific validations
+            if (step === 1 && !document.getElementById('{{ form.student.id_for_label }}').value) {
+                showValidationAlert('Please select a student before proceeding.');
+                isValid = false;
+            }
+            
+            if (step === 2 && !document.getElementById('{{ form.bed.id_for_label }}').value) {
+                showValidationAlert('Please select a bed before proceeding.');
+                isValid = false;
+            }
+
+            if (!isValid) {
+                showValidationAlert('Please complete all required fields before proceeding.');
+            }
+            
+            return isValid;
+        }
+
+        function showValidationAlert(message) {
+            document.getElementById('validationMessage').textContent = message;
+            validationAlert.style.display = 'block';
+            validationAlert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // Student Search Functionality
+        const studentSearch = document.getElementById('studentSearch');
+        const searchResults = document.getElementById('searchResults');
+        const studentPreview = document.getElementById('studentPreview');
+        const studentField = document.getElementById('{{ form.student.id_for_label }}');
+        const changeStudentBtn = document.getElementById('changeStudent');
+
+        // Student search with AJAX
+        let searchTimeout;
+        studentSearch.addEventListener('input', function() {
+            const query = this.value.trim();
+            clearTimeout(searchTimeout);
+
+            if (query.length < 2) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(() => {
+                searchStudents(query);
+            }, 300); // Debounce search
+        });
+
+        function searchStudents(query) {
+            fetch(`/hostels/api/search-students/?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    displaySearchResults(data.students || []);
+                })
+                .catch(error => {
+                    console.error('Error searching students:', error);
+                    searchResults.innerHTML = '<div class="search-result">Error searching students</div>';
+                    searchResults.style.display = 'block';
+                });
+        }
+
+        function displaySearchResults(students) {
+            searchResults.innerHTML = '';
+            
+            if (students.length === 0) {
+                searchResults.innerHTML = '<div class="search-result">No students found</div>';
+            } else {
+                students.forEach(student => {
+                    const result = document.createElement('div');
+                    result.className = 'search-result';
+                    result.innerHTML = `
+                        <div class="fw-semibold">${student.name}</div>
+                        <div class="small text-muted">${student.admission} • ${student.class} • ${student.gender}</div>
+                    `;
+                    result.addEventListener('click', function() {
+                        selectStudent(student);
+                    });
+                    searchResults.appendChild(result);
+                });
+            }
+            
+            searchResults.style.display = 'block';
+        }
+
+        function selectStudent(student) {
+            studentField.value = student.id;
+            studentSearch.value = student.name;
+            searchResults.style.display = 'none';
+            
+            // Update preview
+            document.getElementById('studentAvatar').textContent = student.name.slice(0, 2).toUpperCase();
+            document.getElementById('studentName').textContent = student.name;
+            document.getElementById('studentDetails').textContent = `${student.admission} • ${student.class}`;
+            document.getElementById('studentClass').textContent = student.class;
+            document.getElementById('studentGender').textContent = student.gender;
+            
+            studentPreview.style.display = 'block';
+            
+            // Auto-fill class enrolled if available
+            const classField = document.getElementById('{{ form.class_enrolled.id_for_label }}');
+            // This would typically match the class from student data
+        }
+
+        changeStudentBtn.addEventListener('click', function() {
+            studentPreview.style.display = 'none';
+            studentField.value = '';
+            studentSearch.value = '';
+            studentSearch.focus();
+        });
+
+        // Bed Selection Functionality
+        const hostelFilter = document.getElementById('hostelFilter');
+        const roomTypeFilter = document.getElementById('roomTypeFilter');
+        const availableBeds = document.getElementById('availableBeds');
+        const bedField = document.getElementById('{{ form.bed.id_for_label }}');
+        const selectedBedPreview = document.getElementById('selectedBedPreview');
+        const changeBedBtn = document.getElementById('changeBed');
+
+        hostelFilter.addEventListener('change', filterBeds);
+        roomTypeFilter.addEventListener('change', filterBeds);
+
+        function filterBeds() {
+            const hostelId = hostelFilter.value;
+            const roomType = roomTypeFilter.value;
+
+            // Show loading
+            availableBeds.innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm" role="status"></div>
+                    <div class="mt-2">Loading available beds...</div>
+                </div>
+            `;
+
+            // Build query parameters
+            const params = new URLSearchParams();
+            if (hostelId) params.append('hostel_id', hostelId);
+            if (roomType) params.append('room_type', roomType);
+
+            fetch(`/hostels/ajax/available-beds/?${params}`)
+                .then(response => response.json())
+                .then(beds => {
+                    displayAvailableBeds(beds);
+                })
+                .catch(error => {
+                    console.error('Error loading beds:', error);
+                    availableBeds.innerHTML = `
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-exclamation-triangle mb-2" style="font-size: 2rem;"></i>
+                            <p>Error loading available beds</p>
+                            <small>Please try again</small>
+                        </div>
+                    `;
+                });
+        }
+
+        function displayAvailableBeds(beds) {
+            availableBeds.innerHTML = '';
+
+            if (beds.length === 0) {
+                availableBeds.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-door-closed display-4 mb-3"></i>
+                        <p>No available beds match your criteria</p>
+                        <small>Try adjusting your filters</small>
+                    </div>
+                `;
+                return;
+            }
+
+            beds.forEach(bed => {
+                const bedOption = document.createElement('div');
+                bedOption.className = 'bed-option';
+                bedOption.innerHTML = `
+                    <div class="bed-details">
+                        <div class="bed-info">
+                            <h6 class="mb-1">${bed.hostel} - Room ${bed.room}</h6>
+                            <p class="mb-1 bed-features">
+                                Bed ${bed.number} • Floor ${bed.floor} • ${bed.type} Occupancy
+                                ${bed.features ? `<br><small>${bed.features}</small>` : ''}
+                            </p>
+                        </div>
+                        <div class="text-end">
+                            <div class="bed-rent">₹${bed.rent}/month</div>
+                            <span class="availability-badge bg-success">Available</span>
+                        </div>
+                    </div>
+                `;
+
+                bedOption.addEventListener('click', function() {
+                    selectBed(bed);
+                });
+
+                availableBeds.appendChild(bedOption);
+            });
+        }
+
+        function selectBed(bed) {
+            // Remove selected class from all beds
+            document.querySelectorAll('.bed-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked bed
+            event.currentTarget.classList.add('selected');
+            
+            bedField.value = bed.id;
+            
+            // Update preview
+            document.getElementById('selectedBedInfo').textContent = 
+                `${bed.hostel} - Room ${bed.room}, Bed ${bed.bed.number} (₹${bed.rent}/month)`;
+            selectedBedPreview.style.display = 'block';
+            
+            // Auto-fill rent amount
+            document.getElementById('{{ form.rent_amount.id_for_label }}').value = bed.rent;
+            updateFinancialSummary();
+        }
+
+        changeBedBtn.addEventListener('click', function() {
+            selectedBedPreview.style.display = 'none';
+            bedField.value = '';
+            document.querySelectorAll('.bed-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+        });
+
+        // Financial Summary
+        function updateFinancialSummary() {
+            const rent = parseFloat(document.getElementById('{{ form.rent_amount.id_for_label }}').value) || 0;
+            const deposit = parseFloat(document.getElementById('{{ form.security_deposit_paid.id_for_label }}').value) || 0;
+            const total = rent + deposit;
+            
+            document.getElementById('summaryRent').textContent = `₹${rent}`;
+            document.getElementById('summaryDeposit').textContent = `₹${deposit}`;
+            document.getElementById('summaryTotal').textContent = `₹${total}`;
+        }
+
+        // Add event listeners for financial fields
+        document.getElementById('{{ form.rent_amount.id_for_label }}').addEventListener('input', updateFinancialSummary);
+        document.getElementById('{{ form.security_deposit_paid.id_for_label }}').addEventListener('input', updateFinancialSummary);
+
+        // Character Counters
+        function setupCharacterCounter(fieldId, counterId, maxLength) {
+            const field = document.getElementById(fieldId);
+            const counter = document.getElementById(counterId);
+            
+            if (field && counter) {
+                field.addEventListener('input', function() {
+                    const length = this.value.length;
+                    counter.textContent = `${length}/${maxLength} characters`;
+                    
+                    counter.classList.remove('warning', 'danger');
+                    if (length > maxLength * 0.8) {
+                        counter.classList.add('warning');
+                    }
+                    if (length > maxLength) {
+                        counter.classList.add('danger');
+                    }
+                });
+            }
+        }
+
+        setupCharacterCounter('{{ form.special_requirements.id_for_label }}', 'requirementsCount', 500);
+        setupCharacterCounter('{{ form.medical_information.id_for_label }}', 'medicalCount', 500);
+        setupCharacterCounter('{{ form.notes.id_for_label }}', 'notesCount', 1000);
+
+        // Form Validation
+        const form = document.getElementById('allocationForm');
+        form.addEventListener('submit', function(e) {
+            if (!validateForm()) {
+                e.preventDefault();
+                // Scroll to first error
+                const firstError = form.querySelector('.is-invalid');
+                if (firstError) {
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        });
+
+        function validateForm() {
+            let isValid = true;
+            const requiredFields = form.querySelectorAll('[required]');
+            
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    field.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    field.classList.remove('is-invalid');
+                }
+            });
+
+            return isValid;
+        }
+
+        // Initialize bed display
+        filterBeds();
+        updateFinancialSummary();
+
+        // Close search results when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!studentSearch.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}

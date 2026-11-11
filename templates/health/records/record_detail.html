@@ -1,0 +1,784 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}{{ record.student.user.get_full_name }} - Health Record{% endblock %}
+
+{% block page_title %}{{ record.student.user.get_full_name }} - Health Record{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'health:record_list' %}">Health Records</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ record.student.user.get_full_name }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'health:record_update' pk=record.pk %}" class="btn btn-primary">
+            <i class="bi bi-pencil me-1"></i> Edit Record
+        </a>
+        <button type="button" class="btn btn-outline-info" id="printRecordBtn">
+            <i class="bi bi-printer me-1"></i> Print Record
+        </button>
+        <button type="button" class="btn btn-outline-success" id="exportRecordBtn">
+            <i class="bi bi-download me-1"></i> Export
+        </button>
+        <button type="button" class="btn btn-outline-secondary" id="shareRecordBtn">
+            <i class="bi bi-share me-1"></i> Share
+        </button>
+        <button type="button" class="btn btn-outline-danger" id="archiveRecordBtn">
+            <i class="bi bi-archive me-1"></i> Archive
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="record-detail-container">
+    <!-- Student Header -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-2 text-center">
+                    <div class="student-avatar">
+                        <div class="avatar-circle bg-primary text-white" style="width: 80px; height: 80px; font-size: 24px;">
+                            {{ record.student.user.get_full_name.0|upper }}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-7">
+                    <h2 class="mb-1">{{ record.student.user.get_full_name }}</h2>
+                    <p class="text-muted mb-2">Student ID: {{ record.student.student_id }}</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="badge bg-primary">{{ record.get_blood_group_display|default:"Blood Group Not Set" }}</span>
+                        <span class="badge
+                            {% if record.current_health_status == 'excellent' %}bg-success
+                            {% elif record.current_health_status == 'good' %}bg-info
+                            {% elif record.current_health_status == 'fair' %}bg-warning
+                            {% else %}bg-danger{% endif %}">
+                            {{ record.get_current_health_status_display }}
+                        </span>
+                        {% if record.has_insurance %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-shield-check me-1"></i>Insured
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-3 text-end">
+                    <div class="record-stats">
+                        <div class="stat-item">
+                            <span class="stat-number">{{ record.age|default:"N/A" }}</span>
+                            <span class="stat-label">Age</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">{{ record.height|default:"N/A" }}</span>
+                            <span class="stat-label">Height (cm)</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">{{ record.weight|default:"N/A" }}</span>
+                            <span class="stat-label">Weight (kg)</span>
+                        </div>
+                        {% if record.bmi %}
+                            <div class="stat-item">
+                                <span class="stat-number
+                                    {% if record.bmi < 18.5 %}text-warning
+                                    {% elif record.bmi < 25 %}text-success
+                                    {% elif record.bmi < 30 %}text-warning
+                                    {% else %}text-danger{% endif %}">
+                                    {{ record.bmi }}
+                                </span>
+                                <span class="stat-label">BMI</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs mb-4" id="recordTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+                <i class="bi bi-house me-1"></i>Overview
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="medical-tab" data-bs-toggle="tab" data-bs-target="#medical" type="button" role="tab">
+                <i class="bi bi-heart-pulse me-1"></i>Medical History
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="allergies-tab" data-bs-toggle="tab" data-bs-target="#allergies" type="button" role="tab">
+                <i class="bi bi-exclamation-triangle me-1"></i>Allergies & Conditions
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="immunizations-tab" data-bs-toggle="tab" data-bs-target="#immunizations" type="button" role="tab">
+                <i class="bi bi-shield-check me-1"></i>Immunizations
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="contacts-tab" data-bs-toggle="tab" data-bs-target="#contacts" type="button" role="tab">
+                <i class="bi bi-person me-1"></i>Emergency Contacts
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="appointments-tab" data-bs-toggle="tab" data-bs-target="#appointments" type="button" role="tab">
+                <i class="bi bi-calendar-event me-1"></i>Recent Appointments
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="recordTabsContent">
+        <!-- Overview Tab -->
+        <div class="tab-pane fade show active" id="overview" role="tabpanel">
+            <div class="row">
+                <!-- Basic Information -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-info-circle me-2"></i>Basic Information
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row">
+                                <dt class="col-sm-4">Full Name:</dt>
+                                <dd class="col-sm-8">{{ record.student.user.get_full_name }}</dd>
+
+                                <dt class="col-sm-4">Student ID:</dt>
+                                <dd class="col-sm-8">{{ record.student.student_id }}</dd>
+
+                                <dt class="col-sm-4">Date of Birth:</dt>
+                                <dd class="col-sm-8">{{ record.student.date_of_birth|date:"M d, Y"|default:"Not provided" }}</dd>
+
+                                <dt class="col-sm-4">Age:</dt>
+                                <dd class="col-sm-8">{{ record.age|default:"Not calculated" }}</dd>
+
+                                <dt class="col-sm-4">Gender:</dt>
+                                <dd class="col-sm-8">{{ record.student.get_gender_display|default:"Not specified" }}</dd>
+
+                                <dt class="col-sm-4">Grade/Class:</dt>
+                                <dd class="col-sm-8">{{ record.student.current_class|default:"Not assigned" }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Health Status -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-activity me-2"></i>Health Status
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="health-status-summary">
+                                <div class="status-item mb-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>Current Health Status:</span>
+                                        <span class="badge
+                                            {% if record.current_health_status == 'excellent' %}bg-success
+                                            {% elif record.current_health_status == 'good' %}bg-info
+                                            {% elif record.current_health_status == 'fair' %}bg-warning
+                                            {% else %}bg-danger{% endif %}">
+                                            {{ record.get_current_health_status_display }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="status-item mb-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>Insurance Coverage:</span>
+                                        {% if record.has_insurance %}
+                                            <span class="text-success">
+                                                <i class="bi bi-shield-check me-1"></i>Yes
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">
+                                                <i class="bi bi-shield-x me-1"></i>No
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                {% if record.last_checkup_date %}
+                                    <div class="status-item mb-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span>Last Checkup:</span>
+                                            <span>{{ record.last_checkup_date|date:"M d, Y" }}</span>
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                <div class="status-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>Record Created:</span>
+                                        <span>{{ record.created_at|date:"M d, Y" }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Physical Measurements -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-rulers me-2"></i>Physical Measurements
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="measurements-grid">
+                                <div class="measurement-item">
+                                    <div class="measurement-value">{{ record.height|default:"—" }}</div>
+                                    <div class="measurement-label">Height (cm)</div>
+                                </div>
+                                <div class="measurement-item">
+                                    <div class="measurement-value">{{ record.weight|default:"—" }}</div>
+                                    <div class="measurement-label">Weight (kg)</div>
+                                </div>
+                                <div class="measurement-item">
+                                    <div class="measurement-value
+                                        {% if record.bmi %}
+                                            {% if record.bmi < 18.5 %}text-warning
+                                            {% elif record.bmi < 25 %}text-success
+                                            {% elif record.bmi < 30 %}text-warning
+                                            {% else %}text-danger{% endif %}
+                                        {% endif %}">
+                                        {{ record.bmi|default:"—" }}
+                                    </div>
+                                    <div class="measurement-label">BMI</div>
+                                </div>
+                                <div class="measurement-item">
+                                    <div class="measurement-value">{{ record.blood_group|default:"—" }}</div>
+                                    <div class="measurement-label">Blood Group</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-lightning me-2"></i>Quick Actions
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'health:appointment_create' %}?student={{ record.student.pk }}" class="btn btn-primary">
+                                    <i class="bi bi-calendar-plus me-1"></i>Schedule Appointment
+                                </a>
+                                <a href="{% url 'health:screening_create' %}?student={{ record.student.pk }}" class="btn btn-info">
+                                    <i class="bi bi-search me-1"></i>Add Screening
+                                </a>
+                                <a href="{% url 'health:medication_create' %}?student={{ record.student.pk }}" class="btn btn-warning">
+                                    <i class="bi bi-plus-circle me-1"></i>Add Medication
+                                </a>
+                                <button type="button" class="btn btn-outline-secondary" onclick="generateHealthReport()">
+                                    <i class="bi bi-file-earmark-text me-1"></i>Generate Report
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Medical History Tab -->
+        <div class="tab-pane fade" id="medical" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-heart-pulse me-2"></i>Medical History
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Past Medical Conditions</h6>
+                            {% if record.medical_conditions %}
+                                <ul class="list-group list-group-flush">
+                                    {% for condition in record.medical_conditions.splitlines %}
+                                        <li class="list-group-item">{{ condition }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-muted">No medical conditions recorded.</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Current Medications</h6>
+                            {% if record.current_medications %}
+                                <ul class="list-group list-group-flush">
+                                    {% for medication in record.current_medications.splitlines %}
+                                        <li class="list-group-item">{{ medication }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-muted">No current medications recorded.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Surgical History</h6>
+                            {% if record.surgical_history %}
+                                <p>{{ record.surgical_history }}</p>
+                            {% else %}
+                                <p class="text-muted">No surgical history recorded.</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Family Medical History</h6>
+                            {% if record.family_medical_history %}
+                                <p>{{ record.family_medical_history }}</p>
+                            {% else %}
+                                <p class="text-muted">No family medical history recorded.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Allergies & Conditions Tab -->
+        <div class="tab-pane fade" id="allergies" role="tabpanel">
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-exclamation-triangle me-2"></i>Allergies
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if record.allergies %}
+                                <div class="alert alert-warning">
+                                    <h6>Allergy Information:</h6>
+                                    <p>{{ record.allergies }}</p>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="bi bi-check-circle text-success fs-1 mb-3"></i>
+                                    <p class="text-muted">No allergies recorded.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-heart me-2"></i>Chronic Conditions
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if record.chronic_conditions %}
+                                <div class="alert alert-info">
+                                    <h6>Chronic Conditions:</h6>
+                                    <p>{{ record.chronic_conditions }}</p>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="bi bi-check-circle text-success fs-1 mb-3"></i>
+                                    <p class="text-muted">No chronic conditions recorded.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Immunizations Tab -->
+        <div class="tab-pane fade" id="immunizations" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-shield-check me-2"></i>Immunization Records
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if record.immunization_records %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Vaccine</th>
+                                        <th>Date Administered</th>
+                                        <th>Batch/Lot Number</th>
+                                        <th>Provider</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for immunization in record.immunization_records.splitlines %}
+                                        <tr>
+                                            <td colspan="4">{{ immunization }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-shield-x text-muted fs-1 mb-3"></i>
+                            <p class="text-muted">No immunization records available.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Emergency Contacts Tab -->
+        <div class="tab-pane fade" id="contacts" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-person me-2"></i>Emergency Contacts
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if record.emergency_contacts.all %}
+                        <div class="row">
+                            {% for contact in record.emergency_contacts.all %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="card border-{% if contact.priority == 'primary' %}warning{% else %}secondary{% endif %}">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <div>
+                                                    <h6 class="card-title mb-1">
+                                                        {{ contact.full_name }}
+                                                        {% if contact.priority == 'primary' %}
+                                                            <span class="badge bg-warning text-dark ms-1">Primary</span>
+                                                        {% endif %}
+                                                    </h6>
+                                                    <p class="card-text small text-muted mb-1">{{ contact.get_relationship_display }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="contact-details">
+                                                <p class="mb-1"><i class="bi bi-telephone me-2"></i>{{ contact.phone_primary }}</p>
+                                                {% if contact.email %}
+                                                    <p class="mb-1"><i class="bi bi-envelope me-2"></i>{{ contact.email }}</p>
+                                                {% endif %}
+                                                {% if contact.can_pickup_student %}
+                                                    <p class="mb-0"><small class="text-success"><i class="bi bi-check-circle me-1"></i>Authorized to pickup</small></p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-person-x text-muted fs-1 mb-3"></i>
+                            <p class="text-muted">No emergency contacts registered.</p>
+                            <a href="{% url 'health:contact_create' %}?student={{ record.student.pk }}" class="btn btn-primary">
+                                <i class="bi bi-person-plus me-1"></i>Add Emergency Contact
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Appointments Tab -->
+        <div class="tab-pane fade" id="appointments" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-calendar-event me-2"></i>Recent Appointments
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_appointments %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Type</th>
+                                        <th>Provider</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for appointment in recent_appointments %}
+                                        <tr>
+                                            <td>{{ appointment.appointment_date|date:"M d, Y" }}<br><small class="text-muted">{{ appointment.appointment_time }}</small></td>
+                                            <td>{{ appointment.get_appointment_type_display }}</td>
+                                            <td>{{ appointment.healthcare_provider }}</td>
+                                            <td>
+                                                <span class="badge
+                                                    {% if appointment.appointment_status == 'completed' %}bg-success
+                                                    {% elif appointment.appointment_status == 'confirmed' %}bg-info
+                                                    {% elif appointment.appointment_status == 'scheduled' %}bg-warning
+                                                    {% else %}bg-secondary{% endif %}">
+                                                    {{ appointment.get_appointment_status_display }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'health:appointment_detail' pk=appointment.pk %}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-calendar-x text-muted fs-1 mb-3"></i>
+                            <p class="text-muted">No appointments found.</p>
+                            <a href="{% url 'health:appointment_create' %}?student={{ record.student.pk }}" class="btn btn-primary">
+                                <i class="bi bi-calendar-plus me-1"></i>Schedule Appointment
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print Styles -->
+<style media="print">
+    .page-actions, .nav-tabs, .btn, .breadcrumb { display: none !important; }
+    .card { border: 1px solid #ddd !important; margin-bottom: 20px !important; }
+    .tab-content { margin-top: 0 !important; }
+</style>
+
+<!-- Detail View Styles -->
+<style>
+.record-detail-container {
+    max-width: 100%;
+}
+
+.avatar-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.record-stats {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-number {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #0d6efd;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.health-status-summary .status-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.health-status-summary .status-item:last-child {
+    border-bottom: none;
+}
+
+.measurements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 15px;
+}
+
+.measurement-item {
+    text-align: center;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.measurement-value {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: #0d6efd;
+}
+
+.measurement-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 5px;
+}
+
+.nav-tabs .nav-link {
+    border: 1px solid #dee2e6;
+    border-bottom: none;
+    background-color: #f8f9fa;
+    color: #6c757d;
+}
+
+.nav-tabs .nav-link.active {
+    background-color: #fff;
+    color: #0d6efd;
+    border-color: #dee2e6 #dee2e6 #fff;
+}
+
+.dl-horizontal dt {
+    text-align: left;
+    width: auto;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.dl-horizontal dd {
+    margin-bottom: 15px;
+}
+
+.contact-details p {
+    margin-bottom: 0.25rem;
+}
+
+@media (max-width: 768px) {
+    .record-stats {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .measurements-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .student-avatar {
+        margin-bottom: 15px;
+    }
+}
+</style>
+
+<!-- Detail View Scripts -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Print functionality
+    document.getElementById('printRecordBtn').addEventListener('click', function() {
+        window.print();
+    });
+
+    // Export functionality
+    document.getElementById('exportRecordBtn').addEventListener('click', function() {
+        showToast('Export functionality would be implemented here', 'info');
+    });
+
+    // Share functionality
+    document.getElementById('shareRecordBtn').addEventListener('click', function() {
+        showToast('Share functionality would be implemented here', 'info');
+    });
+
+    // Archive functionality
+    document.getElementById('archiveRecordBtn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to archive this health record?')) {
+            showToast('Archive functionality would be implemented here', 'warning');
+        }
+    });
+
+    // Tab persistence
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTab = urlParams.get('tab');
+    if (activeTab) {
+        const tabElement = document.getElementById(activeTab + '-tab');
+        if (tabElement) {
+            tabElement.click();
+        }
+    }
+
+    // Update URL when tabs change
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function(e) {
+            const target = e.target.getAttribute('data-bs-target').substring(1);
+            const url = new URL(window.location);
+            url.searchParams.set('tab', target);
+            window.history.replaceState(null, null, url);
+        });
+    });
+});
+
+// Global functions
+function generateHealthReport() {
+    showToast('Generating comprehensive health report...', 'info');
+    // Simulate report generation
+    setTimeout(() => {
+        showToast('Health report generated successfully!', 'success');
+    }, 2000);
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'primary'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    `;
+
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+
+    toastContainer.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+
+    toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+    });
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + P to print
+    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        document.getElementById('printRecordBtn').click();
+    }
+
+    // Ctrl/Cmd + E to export
+    if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+        e.preventDefault();
+        document.getElementById('exportRecordBtn').click();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,348 @@
+{% load i18n %}
+<!-- Comprehensive Student Dashboard Content -->
+<div class="student-dashboard">
+    <!-- Quick Stats Row -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="avatar avatar-lg bg-primary text-white rounded-circle mx-auto mb-3">
+                        <i class="bi bi-journal-check"></i>
+                    </div>
+                    <h4 class="fw-bold text-primary mb-1">
+                        {{ performance_stats.average_percentage|default:"0" }}%
+                    </h4>
+                    <p class="text-muted small mb-0">{% trans "Average Grade" %}</p>
+                    <small class="text-muted">{{ performance_stats.total_exams|default:"0" }} {% trans "exams" %}</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="avatar avatar-lg bg-success text-white rounded-circle mx-auto mb-3">
+                        <i class="bi bi-calendar-check"></i>
+                    </div>
+                    <h4 class="fw-bold text-success mb-1">
+                        {{ attendance_summary.percentage|default:"0" }}%
+                    </h4>
+                    <p class="text-muted small mb-0">{% trans "Attendance" %}</p>
+                    <small class="text-muted">{{ attendance_summary.present_days|default:"0" }}/{{ attendance_summary.total_days|default:"0" }} {% trans "days" %}</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="avatar avatar-lg bg-info text-white rounded-circle mx-auto mb-3">
+                        <i class="bi bi-journal-text"></i>
+                    </div>
+                    <h4 class="fw-bold text-info mb-1">
+                        {{ upcoming_assignments|length }}
+                    </h4>
+                    <p class="text-muted small mb-0">{% trans "Pending Assignments" %}</p>
+                    <small class="text-muted">{% trans "Due soon" %}</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="avatar avatar-lg bg-warning text-white rounded-circle mx-auto mb-3">
+                        <i class="bi bi-book"></i>
+                    </div>
+                    <h4 class="fw-bold text-warning mb-1">
+                        {{ library_status.current_borrows|length|default:"0" }}
+                    </h4>
+                    <p class="text-muted small mb-0">{% trans "Books Borrowed" %}</p>
+                    <small class="text-muted">
+                        {% if library_status.can_borrow_more %}
+                            {% trans "Can borrow more" %}
+                        {% else %}
+                            {% trans "Limit reached" %}
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="row">
+        <!-- Left Column - Academic Information -->
+        <div class="col-lg-8">
+            <!-- Today's Schedule -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-calendar-day text-primary me-2"></i>
+                        {% trans "Today's Schedule" %}
+                    </h5>
+                    <span class="badge bg-primary">{{ today|date:"l" }}</span>
+                </div>
+                <div class="card-body">
+                    {% if today_timetable %}
+                        <div class="table-responsive">
+                            <table class="table table-borderless mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Time" %}</th>
+                                        <th>{% trans "Subject" %}</th>
+                                        <th>{% trans "Teacher" %}</th>
+                                        <th>{% trans "Room" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for period in today_timetable %}
+                                    <tr>
+                                        <td class="fw-semibold">{{ period.start_time|time:"H:i" }} - {{ period.end_time|time:"H:i" }}</td>
+                                        <td>
+                                            <span class="badge bg-light text-dark">{{ period.subject.name }}</span>
+                                        </td>
+                                        <td>{{ period.teacher.user.get_full_name }}</td>
+                                        <td>{{ period.classroom|default:"-" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center mb-0">{% trans "No classes scheduled for today" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Grades & Performance -->
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-transparent border-0">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-graph-up text-success me-2"></i>
+                                {% trans "Recent Grades" %}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_grades %}
+                                <div class="list-group list-group-flush">
+                                    {% for grade in recent_grades %}
+                                    <div class="list-group-item px-0 border-0">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h6 class="mb-1">{{ grade.exam.subject.name }}</h6>
+                                                <small class="text-muted">{{ grade.exam.exam_type.name }}</small>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="badge bg-{% if grade.percentage >= 80 %}success{% elif grade.percentage >= 60 %}warning{% else %}danger{% endif %}">
+                                                    {{ grade.percentage }}%
+                                                </span>
+                                                <br>
+                                                <small class="text-muted">{{ grade.exam.exam_date|date:"M d" }}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted text-center mb-0">{% trans "No recent grades" %}</p>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer bg-transparent border-0 pt-0">
+                            <a href="{% url 'assessment:student_marks' %}" class="btn btn-outline-primary btn-sm w-100">
+                                {% trans "View All Grades" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-transparent border-0">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-journal-text text-info me-2"></i>
+                                {% trans "Upcoming Assignments" %}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if upcoming_assignments %}
+                                <div class="list-group list-group-flush">
+                                    {% for assignment in upcoming_assignments %}
+                                    <div class="list-group-item px-0 border-0">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="mb-1">{{ assignment.title }}</h6>
+                                                <small class="text-muted">{{ assignment.subject.name }}</small>
+                                            </div>
+                                            <div class="text-end">
+                                                <small class="text-muted d-block">{{ assignment.due_date|timeuntil }}</small>
+                                                <span class="badge bg-{% if assignment.due_date == today %}warning{% else %}info{% endif %}">
+                                                    {{ assignment.due_date|date:"M d" }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted text-center mb-0">{% trans "No upcoming assignments" %}</p>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer bg-transparent border-0 pt-0">
+                            <a href="{% url 'assessment:assignment_list' %}" class="btn btn-outline-info btn-sm w-100">
+                                {% trans "View All Assignments" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Quick Access & Resources -->
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning text-warning me-2"></i>
+                        {% trans "Quick Access" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'academics:student_timetable' %}" class="btn btn-outline-primary text-start">
+                            <i class="bi bi-calendar-week me-2"></i>
+                            {% trans "My Timetable" %}
+                        </a>
+                        <a href="{% url 'assessment:student_marks' %}" class="btn btn-outline-success text-start">
+                            <i class="bi bi-journal-check me-2"></i>
+                            {% trans "My Grades" %}
+                        </a>
+                        <a href="{% url 'attendance:student_my_attendance' %}" class="btn btn-outline-info text-start">
+                            <i class="bi bi-calendar-check me-2"></i>
+                            {% trans "My Attendance" %}
+                        </a>
+                        <a href="{% url 'academics:student_materials' %}" class="btn btn-outline-warning text-start">
+                            <i class="bi bi-folder me-2"></i>
+                            {% trans "Class Materials" %}
+                        </a>
+                        {% if library_status %}
+                        <a href="{% url 'library:member_dashboard' %}" class="btn btn-outline-secondary text-start">
+                            <i class="bi bi-book me-2"></i>
+                            {% trans "Library" %}
+                            {% if library_status.current_borrows %}
+                            <span class="badge bg-primary float-end">{{ library_status.current_borrows|length }}</span>
+                            {% endif %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Class Info -->
+            {% if current_enrollment %}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-house-door text-primary me-2"></i>
+                        {% trans "My Class" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center">
+                        <h4 class="text-primary mb-1">{{ current_enrollment.class_enrolled.name }}</h4>
+                        <p class="text-muted mb-2">{{ current_enrollment.class_enrolled.section|default:"" }}</p>
+                        <div class="d-flex justify-content-around text-center">
+                            <div>
+                                <h6 class="mb-0 text-success">{{ current_enrollment.class_enrolled.student_count|default:"0" }}</h6>
+                                <small class="text-muted">{% trans "Students" %}</small>
+                            </div>
+                            <div>
+                                <h6 class="mb-0 text-info">{{ current_enrollment.class_enrolled.subject_count|default:"0" }}</h6>
+                                <small class="text-muted">{% trans "Subjects" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 pt-0">
+                    <a href="{% url 'academics:class_detail' current_enrollment.class_enrolled.id %}" class="btn btn-outline-primary btn-sm w-100">
+                        {% trans "Class Details" %}
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Recent Announcements -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-megaphone text-danger me-2"></i>
+                        {% trans "Announcements" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_announcements %}
+                        <div class="announcement-list">
+                            {% for announcement in recent_announcements %}
+                            <div class="announcement-item mb-3 pb-3 border-bottom">
+                                <h6 class="fw-semibold mb-1">{{ announcement.title }}</h6>
+                                <p class="text-muted small mb-1">{{ announcement.content|truncatewords:20 }}</p>
+                                <small class="text-muted">
+                                    {{ announcement.published_at|timesince }} {% trans "ago" %}
+                                </small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center mb-0">{% trans "No recent announcements" %}</p>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent border-0 pt-0">
+                    <a href="{% url 'communication:announcement_list' %}" class="btn btn-outline-danger btn-sm w-100">
+                        {% trans "View All" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Library Status -->
+    {% if library_status and library_status.current_borrows %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-book text-warning me-2"></i>
+                        {% trans "My Borrowed Books" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for borrow in library_status.current_borrows %}
+                        <div class="col-md-4 mb-3">
+                            <div class="d-flex align-items-center p-3 border rounded">
+                                <i class="bi bi-book fs-2 text-warning me-3"></i>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">{{ borrow.book.title }}</h6>
+                                    <p class="text-muted small mb-1">{% trans "Due" %}: {{ borrow.due_date|date:"M d, Y" }}</p>
+                                    <span class="badge bg-{% if borrow.is_overdue %}danger{% else %}success{% endif %}">
+                                        {% if borrow.is_overdue %}
+                                            {% trans "Overdue" %}
+                                        {% else %}
+                                            {% trans "Due in" %} {{ borrow.due_date|timeuntil }}
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>

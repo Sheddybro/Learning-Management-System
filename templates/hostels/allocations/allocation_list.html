@@ -1,0 +1,1000 @@
+<!-- templates/hostels/allocations/allocation_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Hostel Allocations Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .allocation-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        margin-bottom: 1.5rem;
+        background: white;
+    }
+    
+    .allocation-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .allocation-header {
+        padding: 1.25rem;
+        border-bottom: 1px solid #f0f0f0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        position: relative;
+    }
+    
+    .student-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+        font-weight: bold;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .allocation-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .allocation-body {
+        padding: 1.25rem;
+    }
+    
+    .room-info {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .info-item {
+        text-align: center;
+    }
+    
+    .info-value {
+        font-weight: 600;
+        color: #333;
+        display: block;
+        font-size: 1.1rem;
+    }
+    
+    .info-label {
+        color: #6c757d;
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+    }
+    
+    .allocation-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+    
+    .allocation-actions .btn {
+        flex: 1;
+        padding: 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .status-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .status-active { background: #28a745; }
+    .status-pending { background: #ffc107; }
+    .status-completed { background: #6c757d; }
+    .status-cancelled { background: #dc3545; }
+    .status-transferred { background: #17a2b8; }
+    .status-suspended { background: #fd7e14; }
+    
+    .filter-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+        border: none;
+    }
+    
+    .view-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .view-toggle {
+        display: flex;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .view-btn {
+        border: none;
+        background: white;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .view-btn.active {
+        background: #007bff;
+        color: white;
+    }
+    
+    .table-allocation {
+        transition: background-color 0.2s ease;
+    }
+    
+    .table-allocation:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .student-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .student-avatar-small {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.875rem;
+        font-weight: bold;
+    }
+    
+    .quick-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-item {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        transition: transform 0.2s ease;
+    }
+    
+    .stat-item:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .duration-badge {
+        background: #e7f3ff;
+        color: #0066cc;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .fee-status {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .fee-paid { background: #28a745; }
+    .fee-pending { background: #ffc107; }
+    .fee-overdue { background: #dc3545; }
+    .fee-partial { background: #fd7e14; }
+    
+    .bulk-actions {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        display: none;
+    }
+    
+    .selected-count {
+        background: #007bff;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        margin-left: 0.5rem;
+    }
+    
+    @media (max-width: 768px) {
+        .quick-stats {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .view-controls {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .info-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .allocation-actions {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}Hostel Allocations Management{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:dashboard' %}">Hostels</a></li>
+<li class="breadcrumb-item active" aria-current="page">Allocations</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'hostels:allocation_create' %}" class="btn btn-primary">
+            <i class="bi bi-person-plus me-1"></i>New Allocation
+        </a>
+        <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="visually-hidden">Toggle Dropdown</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#"><i class="bi bi-upload me-2"></i>Bulk Import</a></li>
+            <li><a class="dropdown-item" href="{% url 'hostels:occupancy_report' %}"><i class="bi bi-bar-chart me-2"></i>Occupancy Report</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#"><i class="bi bi-download me-2"></i>Export Allocations</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Quick Statistics -->
+    <div class="quick-stats">
+        <div class="stat-item">
+            <div class="stat-number">{{ total_allocations }}</div>
+            <div class="stat-label">Total Allocations</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ active_allocations_count }}</div>
+            <div class="stat-label">Active Allocations</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ pending_allocations_count }}</div>
+            <div class="stat-label">Pending Allocations</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ overdue_fees_count }}</div>
+            <div class="stat-label">Overdue Fees</div>
+        </div>
+    </div>
+
+    <!-- Bulk Actions Panel -->
+    <div class="bulk-actions" id="bulkActions">
+        <div class="row align-items-center">
+            <div class="col">
+                <strong id="selectedCount">0</strong> allocation(s) selected
+            </div>
+            <div class="col-auto">
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-primary" id="bulkCheckout">
+                        <i class="bi bi-box-arrow-right me-1"></i>Check Out
+                    </button>
+                    <button type="button" class="btn btn-outline-warning" id="bulkTransfer">
+                        <i class="bi bi-arrow-left-right me-1"></i>Transfer
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="clearSelection">
+                        <i class="bi bi-x-circle me-1"></i>Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Card -->
+    <div class="card filter-card">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Hostel</label>
+                    <select class="form-select" id="hostelFilter">
+                        <option value="">All Hostels</option>
+                        {% for hostel in hostels %}
+                        <option value="{{ hostel.id }}" {% if request.GET.hostel == hostel.id|stringformat:"s" %}selected{% endif %}>
+                            {{ hostel.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Academic Session</label>
+                    <select class="form-select" id="sessionFilter">
+                        <option value="">All Sessions</option>
+                        {% for session in academic_sessions %}
+                        <option value="{{ session.id }}" {% if request.GET.academic_session == session.id|stringformat:"s" %}selected{% endif %}>
+                            {{ session.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="statusFilter">
+                        <option value="">All Status</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Class</label>
+                    <select class="form-select" id="classFilter">
+                        <option value="">All Classes</option>
+                        {% for class in classes %}
+                        <option value="{{ class.id }}" {% if request.GET.class_enrolled == class.id|stringformat:"s" %}selected{% endif %}>
+                            {{ class.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Search</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="searchFilter" placeholder="Search students..." 
+                               value="{{ request.GET.search }}">
+                        <button class="btn btn-outline-secondary" type="button" id="clearFilters">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Controls -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <span class="text-muted">
+                Showing {{ allocations.count }} allocation{{ allocations.count|pluralize }}
+                {% if request.GET.hostel or request.GET.status or request.GET.search %}
+                <span id="filterIndicator" class="badge bg-light text-dark ms-2">Filtered</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="view-controls">
+            <span class="text-muted">View:</span>
+            <div class="view-toggle">
+                <button class="view-btn active" data-view="grid">
+                    <i class="bi bi-grid-3x3-gap"></i>
+                </button>
+                <button class="view-btn" data-view="table">
+                    <i class="bi bi-list-ul"></i>
+                </button>
+            </div>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="showSelection" checked>
+                <label class="form-check-label" for="showSelection">Bulk Actions</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid View -->
+    <div id="gridView">
+        <div class="row">
+            {% for allocation in allocations %}
+            <div class="col-xl-6 col-lg-12 mb-4">
+                <div class="card allocation-card">
+                    <div class="allocation-header">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <div class="student-avatar">
+                                    {{ allocation.student.user.get_full_name|slice:":2"|upper|default:"ST" }}
+                                </div>
+                            </div>
+                            <div class="col">
+                                <h5 class="mb-1">{{ allocation.student.user.get_full_name|default:allocation.student.user.username }}</h5>
+                                <p class="mb-2 opacity-75">
+                                    {{ allocation.student.admission_number|default:"No ID" }}
+                                    {% if allocation.class_enrolled %}
+                                    • {{ allocation.class_enrolled.name }}
+                                    {% endif %}
+                                </p>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <span class="allocation-badge">
+                                        <span class="status-indicator status-{{ allocation.status }}"></span>
+                                        {{ allocation.get_status_display }}
+                                    </span>
+                                    {% if allocation.is_current %}
+                                    <span class="allocation-badge bg-success">
+                                        <i class="bi bi-check-circle me-1"></i>Current
+                                    </span>
+                                    {% endif %}
+                                    {% if allocation.duration_days > 0 %}
+                                    <span class="duration-badge">
+                                        {{ allocation.duration_days }} day{{ allocation.duration_days|pluralize }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="allocation-body">
+                        <!-- Room Information -->
+                        <div class="room-info">
+                            <div class="row align-items-center">
+                                <div class="col">
+                                    <h6 class="mb-1">{{ allocation.bed.room.hostel.name }}</h6>
+                                    <p class="mb-0 text-muted">
+                                        Room {{ allocation.bed.room.room_number }} • Bed {{ allocation.bed.bed_number }}
+                                        <br>
+                                        <small>Floor {{ allocation.bed.room.floor }} • {{ allocation.bed.room.get_room_type_display }}</small>
+                                    </p>
+                                </div>
+                                <div class="col-auto">
+                                    <span class="badge bg-primary">₹{{ allocation.rent_amount }}/month</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Allocation Details -->
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-value">{{ allocation.allocation_date|date:"M d, Y" }}</span>
+                                <span class="info-label">Allocated</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-value">
+                                    {% if allocation.expected_departure_date %}
+                                    {{ allocation.expected_departure_date|date:"M d, Y" }}
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </span>
+                                <span class="info-label">Expected Departure</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-value">
+                                    {% if allocation.actual_departure_date %}
+                                    {{ allocation.actual_departure_date|date:"M d, Y" }}
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </span>
+                                <span class="info-label">Actual Departure</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-value">
+                                    <span class="fee-status fee-{{ allocation.fee_status }}"></span>
+                                    {{ allocation.fee_status_display }}
+                                </span>
+                                <span class="info-label">Fee Status</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Financial Summary -->
+                        <div class="d-flex justify-content-between small text-muted mb-3">
+                            <span>Security Deposit: ₹{{ allocation.security_deposit_paid }}</span>
+                            <span>Outstanding: ₹{{ allocation.outstanding_balance }}</span>
+                        </div>
+                        
+                        <!-- Special Requirements -->
+                        {% if allocation.special_requirements %}
+                        <div class="alert alert-info small mb-3">
+                            <strong>Special Requirements:</strong> {{ allocation.special_requirements }}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Action Buttons -->
+                        <div class="allocation-actions">
+                            {% if allocation.status == 'active' %}
+                            <a href="{% url 'hostels:allocation_checkout' pk=allocation.pk %}" class="btn btn-outline-warning">
+                                <i class="bi bi-box-arrow-right"></i> Check Out
+                            </a>
+                            <a href="{% url 'hostels:allocation_transfer' pk=allocation.pk %}" class="btn btn-outline-primary">
+                                <i class="bi bi-arrow-left-right"></i> Transfer
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'hostels:allocation_update' pk=allocation.pk %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-pencil"></i> Edit
+                            </a>
+                            <button type="button" class="btn btn-outline-info allocation-select" data-allocation-id="{{ allocation.pk }}">
+                                <i class="bi bi-check-square"></i> Select
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="bi bi-people empty-state-icon"></i>
+                    <h4>No Allocations Found</h4>
+                    <p class="mb-4">{% if hostels %}No allocations match your current filters.{% else %}Get started by creating your first allocation.{% endif %}</p>
+                    {% if hostels %}
+                    <button class="btn btn-outline-primary" id="clearFiltersBtn">Clear Filters</button>
+                    {% else %}
+                    <a href="{% url 'hostels:allocation_create' %}" class="btn btn-primary">
+                        <i class="bi bi-person-plus me-2"></i>Create First Allocation
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Table View -->
+    <div id="tableView" style="display: none;">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th width="30">
+                            <input type="checkbox" class="form-check-input" id="selectAll">
+                        </th>
+                        <th>Student</th>
+                        <th>Hostel & Room</th>
+                        <th>Academic Session</th>
+                        <th>Class</th>
+                        <th>Allocation Date</th>
+                        <th>Status</th>
+                        <th>Rent</th>
+                        <th>Fee Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for allocation in allocations %}
+                    <tr class="table-allocation">
+                        <td>
+                            <input type="checkbox" class="form-check-input allocation-checkbox" value="{{ allocation.pk }}">
+                        </td>
+                        <td>
+                            <div class="student-cell">
+                                <div class="student-avatar-small">
+                                    {{ allocation.student.user.get_full_name|slice:":2"|upper|default:"ST" }}
+                                </div>
+                                <div>
+                                    <strong>{{ allocation.student.user.get_full_name|default:allocation.student.user.username }}</strong>
+                                    <div class="small text-muted">{{ allocation.student.admission_number|default:"No ID" }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div>
+                                <strong>{{ allocation.bed.room.hostel.name }}</strong>
+                                <div class="small text-muted">
+                                    Room {{ allocation.bed.room.room_number }} • Bed {{ allocation.bed.bed_number }}
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ allocation.academic_session.name }}</td>
+                        <td>
+                            {% if allocation.class_enrolled %}
+                            <span class="badge bg-secondary">{{ allocation.class_enrolled.name }}</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div>{{ allocation.allocation_date|date:"M d, Y" }}</div>
+                            {% if allocation.expected_departure_date %}
+                            <div class="small text-muted">Exp: {{ allocation.expected_departure_date|date:"M d, Y" }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge 
+                                {% if allocation.status == 'active' %}bg-success
+                                {% elif allocation.status == 'pending' %}bg-warning
+                                {% elif allocation.status == 'completed' %}bg-secondary
+                                {% elif allocation.status == 'cancelled' %}bg-danger
+                                {% else %}bg-info{% endif %}">
+                                <span class="status-indicator status-{{ allocation.status }}"></span>
+                                {{ allocation.get_status_display }}
+                            </span>
+                            {% if allocation.is_current %}
+                            <div class="small text-success mt-1">
+                                <i class="bi bi-check-circle"></i> Current
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>₹{{ allocation.rent_amount }}</strong>
+                            <div class="small text-muted">per month</div>
+                        </td>
+                        <td>
+                            <span class="badge 
+                                {% if allocation.fee_status == 'paid' %}bg-success
+                                {% elif allocation.fee_status == 'overdue' %}bg-danger
+                                {% elif allocation.fee_status == 'pending' %}bg-warning
+                                {% else %}bg-info{% endif %}">
+                                <span class="fee-status fee-{{ allocation.fee_status }}"></span>
+                                {{ allocation.fee_status_display }}
+                            </span>
+                            {% if allocation.outstanding_balance > 0 %}
+                            <div class="small text-danger mt-1">
+                                ₹{{ allocation.outstanding_balance }} due
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                {% if allocation.status == 'active' %}
+                                <a href="{% url 'hostels:allocation_checkout' pk=allocation.pk %}" class="btn btn-outline-warning" title="Check Out">
+                                    <i class="bi bi-box-arrow-right"></i>
+                                </a>
+                                <a href="{% url 'hostels:allocation_transfer' pk=allocation.pk %}" class="btn btn-outline-primary" title="Transfer">
+                                    <i class="bi bi-arrow-left-right"></i>
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'hostels:allocation_update' pk=allocation.pk %}" class="btn btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="Allocations pagination" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">First</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Previous</a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Last</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const viewButtons = document.querySelectorAll('.view-btn');
+        const gridView = document.getElementById('gridView');
+        const tableView = document.getElementById('tableView');
+        
+        viewButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const view = this.getAttribute('data-view');
+                
+                // Update active state
+                viewButtons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide views
+                if (view === 'grid') {
+                    gridView.style.display = 'block';
+                    tableView.style.display = 'none';
+                } else {
+                    gridView.style.display = 'none';
+                    tableView.style.display = 'block';
+                }
+            });
+        });
+
+        // Filter Functionality
+        const hostelFilter = document.getElementById('hostelFilter');
+        const sessionFilter = document.getElementById('sessionFilter');
+        const statusFilter = document.getElementById('statusFilter');
+        const classFilter = document.getElementById('classFilter');
+        const searchFilter = document.getElementById('searchFilter');
+        const clearFilters = document.getElementById('clearFilters');
+        const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+        const filterIndicator = document.getElementById('filterIndicator');
+
+        function applyFilters() {
+            const params = new URLSearchParams();
+            
+            if (hostelFilter.value) {
+                params.set('hostel', hostelFilter.value);
+            }
+            
+            if (sessionFilter.value) {
+                params.set('academic_session', sessionFilter.value);
+            }
+            
+            if (statusFilter.value) {
+                params.set('status', statusFilter.value);
+            }
+            
+            if (classFilter.value) {
+                params.set('class_enrolled', classFilter.value);
+            }
+            
+            if (searchFilter.value) {
+                params.set('search', searchFilter.value);
+            }
+            
+            window.location.href = '?' + params.toString();
+        }
+
+        // Auto-apply filters on change
+        [hostelFilter, sessionFilter, statusFilter, classFilter].forEach(filter => {
+            filter.addEventListener('change', applyFilters);
+        });
+
+        // Debounced search
+        let searchTimeout;
+        searchFilter.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(applyFilters, 500);
+        });
+
+        // Clear filters
+        function clearAllFilters() {
+            hostelFilter.value = '';
+            sessionFilter.value = '';
+            statusFilter.value = '';
+            classFilter.value = '';
+            searchFilter.value = '';
+            applyFilters();
+        }
+
+        if (clearFilters) {
+            clearFilters.addEventListener('click', clearAllFilters);
+        }
+
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', clearAllFilters);
+        }
+
+        // Bulk Selection Functionality
+        const showSelection = document.getElementById('showSelection');
+        const bulkActions = document.getElementById('bulkActions');
+        const selectAll = document.getElementById('selectAll');
+        const allocationCheckboxes = document.querySelectorAll('.allocation-checkbox');
+        const allocationSelectButtons = document.querySelectorAll('.allocation-select');
+        const selectedCount = document.getElementById('selectedCount');
+        const clearSelection = document.getElementById('clearSelection');
+        const bulkCheckout = document.getElementById('bulkCheckout');
+        const bulkTransfer = document.getElementById('bulkTransfer');
+
+        let selectedAllocations = new Set();
+
+        // Toggle bulk actions panel
+        showSelection.addEventListener('change', function() {
+            bulkActions.style.display = this.checked ? 'block' : 'none';
+            if (!this.checked) {
+                clearAllSelections();
+            }
+        });
+
+        // Select all functionality
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                allocationCheckboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                    if (this.checked) {
+                        selectedAllocations.add(checkbox.value);
+                    } else {
+                        selectedAllocations.delete(checkbox.value);
+                    }
+                });
+                updateSelectionCount();
+            });
+        }
+
+        // Individual checkbox selection
+        allocationCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                if (this.checked) {
+                    selectedAllocations.add(this.value);
+                } else {
+                    selectedAllocations.delete(this.value);
+                    if (selectAll) selectAll.checked = false;
+                }
+                updateSelectionCount();
+            });
+        });
+
+        // Grid view selection buttons
+        allocationSelectButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const allocationId = this.getAttribute('data-allocation-id');
+                if (selectedAllocations.has(allocationId)) {
+                    selectedAllocations.delete(allocationId);
+                    this.classList.remove('btn-primary');
+                    this.classList.add('btn-outline-info');
+                    this.innerHTML = '<i class="bi bi-check-square"></i> Select';
+                } else {
+                    selectedAllocations.add(allocationId);
+                    this.classList.remove('btn-outline-info');
+                    this.classList.add('btn-primary');
+                    this.innerHTML = '<i class="bi bi-check-square-fill"></i> Selected';
+                }
+                updateSelectionCount();
+            });
+        });
+
+        // Clear selection
+        clearSelection.addEventListener('click', clearAllSelections);
+
+        // Bulk actions
+        bulkCheckout.addEventListener('click', function() {
+            if (selectedAllocations.size > 0) {
+                if (confirm(`Check out ${selectedAllocations.size} student(s)? This action cannot be undone.`)) {
+                    // Implement bulk checkout logic
+                    console.log('Bulk checkout:', Array.from(selectedAllocations));
+                }
+            }
+        });
+
+        bulkTransfer.addEventListener('click', function() {
+            if (selectedAllocations.size > 0) {
+                // Implement bulk transfer logic
+                console.log('Bulk transfer:', Array.from(selectedAllocations));
+            }
+        });
+
+        function updateSelectionCount() {
+            selectedCount.textContent = selectedAllocations.size;
+            
+            // Update select all checkbox state
+            if (selectAll) {
+                selectAll.checked = selectedAllocations.size === allocationCheckboxes.length && allocationCheckboxes.length > 0;
+                selectAll.indeterminate = selectedAllocations.size > 0 && selectedAllocations.size < allocationCheckboxes.length;
+            }
+        }
+
+        function clearAllSelections() {
+            selectedAllocations.clear();
+            allocationCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            allocationSelectButtons.forEach(button => {
+                button.classList.remove('btn-primary');
+                button.classList.add('btn-outline-info');
+                button.innerHTML = '<i class="bi bi-check-square"></i> Select';
+            });
+            updateSelectionCount();
+        }
+
+        // Update filter indicator
+        function updateFilterIndicator() {
+            const activeFilters = [
+                hostelFilter.value,
+                sessionFilter.value,
+                statusFilter.value,
+                classFilter.value,
+                searchFilter.value
+            ].filter(Boolean).length;
+            
+            if (filterIndicator) {
+                if (activeFilters > 0) {
+                    filterIndicator.textContent = `${activeFilters} filter${activeFilters > 1 ? 's' : ''} active`;
+                    filterIndicator.style.display = 'inline-block';
+                } else {
+                    filterIndicator.style.display = 'none';
+                }
+            }
+        }
+
+        // Initialize filter indicator
+        updateFilterIndicator();
+        
+        // Update indicator on filter changes
+        [hostelFilter, sessionFilter, statusFilter, classFilter, searchFilter].forEach(filter => {
+            filter.addEventListener('change', updateFilterIndicator);
+            filter.addEventListener('input', updateFilterIndicator);
+        });
+
+        // Quick status updates
+        document.querySelectorAll('.allocation-card').forEach(card => {
+            card.addEventListener('click', function(e) {
+                if (!e.target.closest('.allocation-actions') && !e.target.closest('a') && !e.target.closest('button')) {
+                    const studentName = this.querySelector('h5').textContent;
+                    // You could implement a quick view modal here
+                    console.log('Quick view for:', studentName);
+                }
+            });
+        });
+
+        // Add loading states to action buttons
+        document.querySelectorAll('.allocation-actions a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                const originalHtml = this.innerHTML;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+                
+                setTimeout(() => {
+                    this.innerHTML = originalHtml;
+                }, 2000);
+            });
+        });
+    });
+</script>
+{% endblock %}

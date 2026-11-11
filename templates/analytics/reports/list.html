@@ -1,0 +1,591 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Analytics Reports" %}{% endblock %}
+
+{% block body_class %}analytics-reports-list{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'analytics:dashboard' %}">{% trans "Analytics" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Reports" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'analytics:generate_report' %}" class="btn btn-success">
+            <i class="bi bi-plus-circle me-2"></i>{% trans "Generate Report" %}
+        </a>
+        <button type="button" class="btn btn-outline-primary" id="exportAllBtn">
+            <i class="bi bi-download me-2"></i>{% trans "Export All" %}
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.reports-container {
+    max-width: 100%;
+}
+
+.reports-header {
+    background: linear-gradient(135deg, var(--bs-success), #28a745);
+    color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--bs-primary);
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    opacity: 0.8;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.filters-section {
+    background: var(--bs-light);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.report-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.report-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-color: var(--bs-success);
+}
+
+.report-header {
+    background: linear-gradient(135deg, var(--bs-success), #28a745);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 12px 12px 0 0;
+    position: relative;
+}
+
+.report-status {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.status-completed { background: var(--bs-success); }
+.status-generating { background: var(--bs-warning); }
+.status-failed { background: var(--bs-danger); }
+.status-pending { background: var(--bs-secondary); }
+
+.report-body {
+    padding: 2rem;
+}
+
+.report-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    font-size: 0.875rem;
+    color: var(--bs-secondary);
+}
+
+.meta-item i {
+    margin-right: 0.75rem;
+    width: 16px;
+    color: var(--bs-primary);
+}
+
+.report-description {
+    color: var(--bs-body-color);
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+}
+
+.report-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: var(--bs-light);
+    border-radius: 8px;
+}
+
+.stat-value {
+    font-weight: bold;
+    color: var(--bs-primary);
+    display: block;
+    font-size: 1.1rem;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--bs-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.report-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.btn-action {
+    transition: all 0.3s ease;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+}
+
+.btn-action:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-radius: 12px;
+    margin: 2rem 0;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    color: var(--bs-secondary);
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .reports-header {
+        padding: 1.5rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .report-meta {
+        grid-template-columns: 1fr;
+    }
+
+    .report-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .report-actions {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reports-container">
+    <!-- Reports Header -->
+    <div class="reports-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2 class="mb-1">
+                    <i class="bi bi-file-earmark-text me-2"></i>{% trans "Analytics Reports" %}
+                </h2>
+                <p class="mb-0 opacity-75">
+                    {% trans "Comprehensive reports and analytics data for informed decision making" %}
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                {% if reports %}
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-number">{{ reports|length }}</span>
+                        <span class="stat-label">{% trans "Total" %}</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number">{{ reports|completed_count }}</span>
+                        <span class="stat-label">{% trans "Completed" %}</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number">{{ reports|recent_count }}</span>
+                        <span class="stat-label">{% trans "This Month" %}</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="filters-section">
+        <form method="get" id="filterForm" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="id_status" class="form-label">{% trans "Status" %}</label>
+                <select class="form-select" id="id_status" name="status">
+                    <option value="">{% trans "All Status" %}</option>
+                    <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>{% trans "Completed" %}</option>
+                    <option value="generating" {% if request.GET.status == 'generating' %}selected{% endif %}>{% trans "Generating" %}</option>
+                    <option value="failed" {% if request.GET.status == 'failed' %}selected{% endif %}>{% trans "Failed" %}</option>
+                    <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>{% trans "Pending" %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="id_report_type" class="form-label">{% trans "Report Type" %}</label>
+                <select class="form-select" id="id_report_type" name="report_type">
+                    <option value="">{% trans "All Types" %}</option>
+                    {% for type_choice in report_types %}
+                    <option value="{{ type_choice.0 }}" {% if request.GET.report_type == type_choice.0 %}selected{% endif %}>
+                        {{ type_choice.1 }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="id_date_from" class="form-label">{% trans "Date From" %}</label>
+                <input type="date" class="form-control" id="id_date_from" name="date_from"
+                       value="{{ request.GET.date_from }}">
+            </div>
+            <div class="col-md-3">
+                <label for="id_date_to" class="form-label">{% trans "Date To" %}</label>
+                <input type="date" class="form-control" id="id_date_to" name="date_to"
+                       value="{{ request.GET.date_to }}">
+            </div>
+        </form>
+
+        <!-- Active Filters Display -->
+        {% if request.GET %}
+        <div class="mt-3">
+            <small class="text-muted">{% trans "Active filters:" %}</small>
+            {% for key, value in request.GET.items %}
+                {% if key != 'page' and value %}
+                    <span class="badge bg-light text-dark me-1">
+                        {% if key == 'status' %}
+                            {% trans "Status:" %} {{ value|title }}
+                        {% elif key == 'report_type' %}
+                            {% trans "Type:" %} {{ value|title }}
+                        {% elif key == 'date_from' %}
+                            {% trans "From:" %} {{ value }}
+                        {% elif key == 'date_to' %}
+                            {% trans "To:" %} {{ value }}
+                        {% endif %}
+                        <a href="?{% for k, v in request.GET.items %}{% if k != key %}{{ k }}={{ v }}&{% endif %}{% endfor %}" class="text-decoration-none ms-1">
+                            <i class="bi bi-x"></i>
+                        </a>
+                    </span>
+                {% endif %}
+            {% endfor %}
+            <a href="{% url 'analytics:report_list' %}" class="badge bg-secondary text-decoration-none">
+                <i class="bi bi-arrow-clockwise me-1"></i>{% trans "Clear All" %}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Reports List -->
+    {% if reports %}
+    <div class="reports-grid">
+        {% for report in reports %}
+        <div class="report-card">
+            <div class="report-header">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="card-title mb-1">{{ report.name }}</h5>
+                        <small class="opacity-75">{{ report.report_type.name }}</small>
+                    </div>
+                    <span class="report-status status-{{ report.status }}">
+                        {{ report.get_status_display }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="report-body">
+                <div class="report-meta">
+                    <div class="meta-item">
+                        <i class="bi bi-calendar"></i>
+                        <span>{{ report.academic_session.name }} • {{ report.created_at|date:"M j, Y" }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="bi bi-clock"></i>
+                        <span>{% trans "Generated" %} {{ report.created_at|timesince }} {% trans "ago" %}</span>
+                    </div>
+                    {% if report.generated_by %}
+                    <div class="meta-item">
+                        <i class="bi bi-person"></i>
+                        <span>{{ report.generated_by.get_full_name }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="meta-item">
+                        <i class="bi bi-file-earmark"></i>
+                        <span>{{ report.format|upper }}</span>
+                    </div>
+                </div>
+
+                {% if report.description %}
+                <p class="report-description">{{ report.description }}</p>
+                {% endif %}
+
+                <div class="report-stats">
+                    {% if report.file_size %}
+                    <div class="stat-item">
+                        <span class="stat-value">{{ report.file_size|filesizeformat }}</span>
+                        <span class="stat-label">{% trans "Size" %}</span>
+                    </div>
+                    {% endif %}
+                    {% if report.generation_time %}
+                    <div class="stat-item">
+                        <span class="stat-value">{{ report.generation_time|floatformat:1 }}s</span>
+                        <span class="stat-label">{% trans "Generated" %}</span>
+                    </div>
+                    {% endif %}
+                    {% if report.download_count %}
+                    <div class="stat-item">
+                        <span class="stat-value">{{ report.download_count }}</span>
+                        <span class="stat-label">{% trans "Downloads" %}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="report-actions">
+                    {% if report.status == 'completed' %}
+                    <a href="{% url 'analytics:report_download' report.pk %}" class="btn btn-success btn-action">
+                        <i class="bi bi-download me-1"></i>{% trans "Download" %}
+                    </a>
+                    <a href="{% url 'analytics:report_detail' report.pk %}" class="btn btn-outline-primary btn-action">
+                        <i class="bi bi-eye me-1"></i>{% trans "View" %}
+                    </a>
+                    {% elif report.status == 'generating' %}
+                    <button class="btn btn-warning btn-action" disabled>
+                        <i class="bi bi-arrow-repeat me-1"></i>{% trans "Generating..." %}
+                    </button>
+                    {% elif report.status == 'failed' %}
+                    <button class="btn btn-outline-danger btn-action" onclick="retryReport({{ report.pk }})">
+                        <i class="bi bi-arrow-clockwise me-1"></i>{% trans "Retry" %}
+                    </button>
+                    {% endif %}
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary btn-action dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'analytics:report_detail' report.pk %}">
+                                <i class="bi bi-info-circle me-2"></i>{% trans "Details" %}
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'analytics:duplicate_report' report.pk %}">
+                                <i class="bi bi-copy me-2"></i>{% trans "Duplicate" %}
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="#" onclick="deleteReport({{ report.pk }}, '{{ report.name }}')">
+                                <i class="bi bi-trash me-2"></i>{% trans "Delete" %}
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="{% trans 'Reports pagination' %}" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    <i class="bi bi-chevron-left"></i> {% trans "Previous" %}
+                </a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active">
+                <span class="page-link">{{ num }}</span>
+            </li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %>&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+            </li>
+            {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %>&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    {% trans "Next" %} <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="empty-state">
+        <div class="empty-state-icon">
+            <i class="bi bi-file-earmark-text"></i>
+        </div>
+        <h4 class="mb-3">{% trans "No Reports Found" %}</h4>
+        <p class="text-muted mb-4">
+            {% trans "No reports have been generated yet. Create your first analytics report to get started." %}
+        </p>
+        <a href="{% url 'analytics:generate_report' %}" class="btn btn-success btn-lg">
+            <i class="bi bi-plus-circle me-2"></i>{% trans "Generate First Report" %}
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('filterForm');
+    const exportAllBtn = document.getElementById('exportAllBtn');
+
+    // Auto-submit filters on change
+    const filterInputs = filterForm.querySelectorAll('select, input');
+    filterInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            filterForm.submit();
+        });
+    });
+
+    // Export all functionality
+    if (exportAllBtn) {
+        exportAllBtn.addEventListener('click', function() {
+            if (confirm('{% trans "Export all filtered reports?" %}')) {
+                const formData = new FormData(filterForm);
+                const params = new URLSearchParams();
+
+                for (let [key, value] of formData.entries()) {
+                    if (value.trim()) {
+                        params.append(key, value);
+                    }
+                }
+
+                window.open('{% url "analytics:export_reports" %}?' + params.toString(), '_blank');
+            }
+        });
+    }
+
+    // Retry report functionality
+    window.retryReport = function(reportId) {
+        if (confirm('{% trans "Retry generating this report?" %}')) {
+            fetch(`{% url "analytics:retry_report" 0 %}`.replace('0', reportId), {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('{% trans "Report regeneration started" %}', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast('{% trans "Failed to retry report" %}', 'error');
+                }
+            })
+            .catch(error => {
+                showToast('{% trans "Error retrying report" %}', 'error');
+            });
+        }
+    };
+
+    // Delete report functionality
+    window.deleteReport = function(reportId, reportName) {
+        if (confirm(`{% trans "Are you sure you want to delete the report" %} "${reportName}"?`)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `{% url "analytics:delete_report" 0 %}`.replace('0', reportId);
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            form.appendChild(csrfInput);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    };
+
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : 'success'} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+
+        let toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+
+        toastContainer.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+
+        toast.addEventListener('hidden.bs.toast', function() {
+            toast.remove();
+        });
+    }
+});
+</script>
+{% endblock %}

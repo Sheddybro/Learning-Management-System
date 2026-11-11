@@ -1,0 +1,866 @@
+<!-- templates/library/bookcopies/bookcopy_list.html -->
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Book Copies" %}{% endblock %}
+
+{% block page_title %}{% trans "Book Copies Management" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:book_list' %}">{% trans "Books" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Copies" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Book Copies List Specific Styles */
+    .copy-card {
+        border-left: 4px solid #17a2b8;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+    }
+    
+    .copy-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .stats-card-1 { border-left-color: #17a2b8; }
+    .stats-card-2 { border-left-color: #28a745; }
+    .stats-card-3 { border-left-color: #ffc107; }
+    .stats-card-4 { border-left-color: #dc3545; }
+    
+    .stat-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+        opacity: 0.8;
+    }
+    
+    .copy-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #17a2b8, #6f42c1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.25rem;
+    }
+    
+    .copy-meta {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .status-available { background-color: #28a745; }
+    .status-borrowed { background-color: #ffc107; color: #000; }
+    .status-reserved { background-color: #17a2b8; }
+    .status-lost { background-color: #dc3545; }
+    .status-damaged { background-color: #fd7e14; }
+    .status-maintenance { background-color: #6c757d; }
+    .status-withdrawn { background-color: #343a40; }
+    
+    .barcode-badge {
+        font-family: 'Courier New', monospace;
+        background-color: #f8f9fa;
+        color: #495057;
+        border: 1px solid #dee2e6;
+        font-size: 0.7rem;
+        padding: 0.3rem 0.5rem;
+    }
+    
+    .book-cover-small {
+        width: 40px;
+        height: 52px;
+        object-fit: cover;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .action-buttons .btn {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .search-card {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+    }
+    
+    .condition-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .condition-excellent { background-color: #28a745; }
+    .condition-good { background-color: #20c997; }
+    .condition-fair { background-color: #ffc107; }
+    .condition-poor { background-color: #fd7e14; }
+    .condition-damaged { background-color: #dc3545; }
+    
+    .table-copy-row {
+        border-left: 3px solid transparent;
+        transition: all 0.2s ease;
+    }
+    
+    .table-copy-row:hover {
+        border-left-color: #17a2b8;
+        background-color: rgba(23, 162, 184, 0.05);
+    }
+    
+    .pagination .page-link {
+        color: #17a2b8;
+    }
+    
+    .pagination .page-item.active .page-link {
+        background-color: #17a2b8;
+        border-color: #17a2b8;
+    }
+    
+    .view-toggle .btn.active {
+        background-color: #17a2b8;
+        border-color: #17a2b8;
+        color: white;
+    }
+    
+    @media (max-width: 768px) {
+        .stat-number {
+            font-size: 1.5rem;
+        }
+        
+        .copy-icon {
+            width: 40px;
+            height: 40px;
+            font-size: 1rem;
+        }
+        
+        .book-cover-small {
+            width: 35px;
+            height: 45px;
+        }
+        
+        .action-buttons .btn {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+        }
+        
+        .barcode-badge {
+            font-size: 0.6rem;
+            padding: 0.2rem 0.4rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-1 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-info">{{ copies.paginator.count }}</div>
+                            <div class="stat-label">{% trans "Total Copies" %}</div>
+                        </div>
+                        <div class="stat-icon text-info">
+                            <i class="bi bi-journals"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-2 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-success">{{ available_copies_count }}</div>
+                            <div class="stat-label">{% trans "Available Copies" %}</div>
+                        </div>
+                        <div class="stat-icon text-success">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-3 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-warning">{{ borrowed_copies_count }}</div>
+                            <div class="stat-label">{% trans "Borrowed Copies" %}</div>
+                        </div>
+                        <div class="stat-icon text-warning">
+                            <i class="bi bi-arrow-up-right"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-danger">{{ maintenance_copies_count }}</div>
+                            <div class="stat-label">{% trans "Under Maintenance" %}</div>
+                        </div>
+                        <div class="stat-icon text-danger">
+                            <i class="bi bi-tools"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Search and Actions Bar -->
+    <div class="card search-card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <form method="get" class="row g-2">
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <input type="text" 
+                                       name="search" 
+                                       class="form-control" 
+                                       placeholder="{% trans 'Search by barcode or book title...' %}"
+                                       value="{{ request.GET.search }}">
+                                <button class="btn btn-info" type="submit">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="status" class="form-select">
+                                <option value="">{% trans "All Status" %}</option>
+                                <option value="available" {% if request.GET.status == 'available' %}selected{% endif %}>
+                                    {% trans "Available" %}
+                                </option>
+                                <option value="borrowed" {% if request.GET.status == 'borrowed' %}selected{% endif %}>
+                                    {% trans "Borrowed" %}
+                                </option>
+                                <option value="reserved" {% if request.GET.status == 'reserved' %}selected{% endif %}>
+                                    {% trans "Reserved" %}
+                                </option>
+                                <option value="lost" {% if request.GET.status == 'lost' %}selected{% endif %}>
+                                    {% trans "Lost" %}
+                                </option>
+                                <option value="damaged" {% if request.GET.status == 'damaged' %}selected{% endif %}>
+                                    {% trans "Damaged" %}
+                                </option>
+                                <option value="under_maintenance" {% if request.GET.status == 'under_maintenance' %}selected{% endif %}>
+                                    {% trans "Maintenance" %}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="book" class="form-select">
+                                <option value="">{% trans "All Books" %}</option>
+                                {% for book in all_books %}
+                                <option value="{{ book.id }}" {% if request.GET.book == book.id|stringformat:"i" %}selected{% endif %}>
+                                    {{ book.title }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="sort" class="form-select">
+                                <option value="">{% trans "Sort by" %}</option>
+                                <option value="book__title" {% if request.GET.sort == 'book__title' %}selected{% endif %}>
+                                    {% trans "Book Title" %}
+                                </option>
+                                <option value="-copy_number" {% if request.GET.sort == '-copy_number' %}selected{% endif %}>
+                                    {% trans "Copy Number" %}
+                                </option>
+                                <option value="-acquisition_date" {% if request.GET.sort == '-acquisition_date' %}selected{% endif %}>
+                                    {% trans "Newest First" %}
+                                </option>
+                                <option value="acquisition_date" {% if request.GET.sort == 'acquisition_date' %}selected{% endif %}>
+                                    {% trans "Oldest First" %}
+                                </option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <div class="btn-group">
+                        <a href="{% url 'library:bookcopy_create' %}" class="btn btn-info">
+                            <i class="bi bi-plus-circle me-1"></i> {% trans "Add New Copy" %}
+                        </a>
+                        <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="bi bi-download me-1"></i> {% trans "Export" %}
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-filetype-pdf me-2"></i> PDF</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-file-spreadsheet me-2"></i> Excel</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-file-text me-2"></i> CSV</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- View Toggle -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="btn-group view-toggle" role="group">
+                <input type="radio" class="btn-check" name="view-mode" id="table-view" autocomplete="off" checked>
+                <label class="btn btn-outline-info" for="table-view">
+                    <i class="bi bi-table me-1"></i> {% trans "Table View" %}
+                </label>
+                
+                <input type="radio" class="btn-check" name="view-mode" id="grid-view" autocomplete="off">
+                <label class="btn btn-outline-info" for="grid-view">
+                    <i class="bi bi-grid-3x3-gap me-1"></i> {% trans "Grid View" %}
+                </label>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Table View -->
+    <div id="table-view-content">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-table text-info me-2"></i>
+                    {% trans "Book Copies" %}
+                </h5>
+                <span class="badge bg-info rounded-pill">{{ copies.paginator.count }}</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{% trans "Book" %}</th>
+                                <th>{% trans "Copy Details" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                <th>{% trans "Acquisition" %}</th>
+                                <th>{% trans "Condition" %}</th>
+                                <th class="text-center">{% trans "Borrow History" %}</th>
+                                <th class="text-center">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for copy in copies %}
+                            <tr class="table-copy-row">
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if copy.book.cover_image %}
+                                        <img src="{{ copy.book.cover_image.url }}" alt="{{ copy.book.title }}" class="book-cover-small me-3">
+                                        {% else %}
+                                        <div class="book-cover-small bg-light d-flex align-items-center justify-content-center me-3">
+                                            <i class="bi bi-book text-muted"></i>
+                                        </div>
+                                        {% endif %}
+                                        <div>
+                                            <strong>{{ copy.book.title }}</strong>
+                                            <div class="text-muted small">
+                                                {{ copy.book.author_names|truncatewords:2 }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="copy-meta">
+                                        <div class="mb-1">
+                                            <strong>{% trans "Copy" %} {{ copy.copy_number }}</strong>
+                                        </div>
+                                        <div class="barcode-badge">{{ copy.barcode }}</div>
+                                        {% if copy.book.edition %}
+                                        <div class="small text-muted mt-1">
+                                            {% trans "Edition" %} {{ copy.book.edition }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ copy.copy_status }}">
+                                        {{ copy.get_copy_status_display }}
+                                    </span>
+                                    {% if copy.copy_status == 'borrowed' %}
+                                    <div class="small text-muted mt-1">
+                                        {% trans "Due soon" %}
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="copy-meta">
+                                        <div>{{ copy.acquisition_date|date:"M d, Y" }}</div>
+                                        {% if copy.purchase_price %}
+                                        <div class="text-success">${{ copy.purchase_price }}</div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if copy.condition_notes %}
+                                    <div class="copy-meta">
+                                        <span class="condition-indicator condition-{{ copy.condition_rating }}"></span>
+                                        <small>{{ copy.condition_notes|truncatewords:3 }}</small>
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted small">{% trans "No notes" %}</span>
+                                    {% endif %}
+                                    
+                                    {% if copy.last_maintenance_date %}
+                                    <div class="small text-muted">
+                                        {% trans "Maintained" %} {{ copy.last_maintenance_date|date:"M d" }}
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="copy-meta">
+                                        <div class="h6 mb-0">{{ copy.borrow_records.count }}</div>
+                                        <small class="text-muted">{% trans "borrows" %}</small>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group action-buttons">
+                                        <a href="{% url 'library:bookcopy_update' copy.pk %}" class="btn btn-outline-success" title="{% trans 'Edit Copy' %}">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a href="{% url 'library:book_detail' copy.book.pk %}" class="btn btn-outline-primary" title="{% trans 'View Book' %}">
+                                            <i class="bi bi-book"></i>
+                                        </a>
+                                        {% if copy.copy_status == 'available' %}
+                                        <button class="btn btn-outline-info" title="{% trans 'Quick Borrow' %}" onclick="quickBorrow('{{ copy.id }}')">
+                                            <i class="bi bi-arrow-up-right"></i>
+                                        </button>
+                                        {% elif copy.copy_status == 'borrowed' %}
+                                        <button class="btn btn-outline-warning" title="{% trans 'Quick Return' %}" onclick="quickReturn('{{ copy.id }}')">
+                                            <i class="bi bi-arrow-down-left"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <i class="bi bi-journals display-4 text-muted d-block mb-3"></i>
+                                    <h4>{% trans "No Copies Found" %}</h4>
+                                    <p class="text-muted mb-4">
+                                        {% if request.GET.search %}
+                                        {% trans "No book copies match your search criteria." %}
+                                        {% else %}
+                                        {% trans "No book copies have been added yet." %}
+                                        {% endif %}
+                                    </p>
+                                    <a href="{% url 'library:bookcopy_create' %}" class="btn btn-info">
+                                        <i class="bi bi-plus-circle me-2"></i> {% trans "Add First Copy" %}
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Grid View (Hidden by default) -->
+    <div id="grid-view-content" style="display: none;">
+        <div class="row">
+            {% for copy in copies %}
+            <div class="col-xl-4 col-lg-6 col-md-6 mb-4">
+                <div class="card copy-card h-100">
+                    <div class="card-body">
+                        <div class="row align-items-start mb-3">
+                            <div class="col-3">
+                                <div class="copy-icon">
+                                    <i class="bi bi-journal"></i>
+                                </div>
+                            </div>
+                            <div class="col-9">
+                                <h6 class="card-title mb-1">{{ copy.book.title|truncatewords:4 }}</h6>
+                                
+                                <div class="copy-meta mb-2">
+                                    <div>
+                                        <strong>{% trans "Copy" %} {{ copy.copy_number }}</strong>
+                                        <span class="barcode-badge ms-2">{{ copy.barcode }}</span>
+                                    </div>
+                                    
+                                    <div class="mt-1">
+                                        <small>{{ copy.book.author_names|truncatewords:2 }}</small>
+                                    </div>
+                                    
+                                    {% if copy.book.edition %}
+                                    <div>
+                                        <small class="text-muted">{% trans "Edition" %} {{ copy.book.edition }}</small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="status-badge status-{{ copy.copy_status }}">
+                                        {{ copy.get_copy_status_display }}
+                                    </span>
+                                    
+                                    <span class="badge bg-light text-dark">
+                                        {{ copy.borrow_records.count }} {% trans "borrows" %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Additional Details -->
+                        <div class="row copy-meta">
+                            <div class="col-6">
+                                <small class="text-muted">{% trans "Acquired:" %}</small>
+                                <div>{{ copy.acquisition_date|date:"M d, Y" }}</div>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">{% trans "Price:" %}</small>
+                                <div>
+                                    {% if copy.purchase_price %}
+                                    <span class="text-success">${{ copy.purchase_price }}</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {% if copy.condition_notes %}
+                        <div class="mt-2">
+                            <small class="text-muted">{% trans "Condition:" %}</small>
+                            <div class="small">
+                                <span class="condition-indicator condition-{{ copy.condition_rating }}"></span>
+                                {{ copy.condition_notes|truncatewords:5 }}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <div class="row action-buttons">
+                            <div class="col-3">
+                                <a href="{% url 'library:bookcopy_update' copy.pk %}" class="btn btn-outline-success w-100" title="{% trans 'Edit Copy' %}">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </div>
+                            <div class="col-3">
+                                <a href="{% url 'library:book_detail' copy.book.pk %}" class="btn btn-outline-primary w-100" title="{% trans 'View Book' %}">
+                                    <i class="bi bi-book"></i>
+                                </a>
+                            </div>
+                            <div class="col-3">
+                                {% if copy.copy_status == 'available' %}
+                                <button class="btn btn-outline-info w-100" title="{% trans 'Quick Borrow' %}" onclick="quickBorrow('{{ copy.id }}')">
+                                    <i class="bi bi-arrow-up-right"></i>
+                                </button>
+                                {% elif copy.copy_status == 'borrowed' %}
+                                <button class="btn btn-outline-warning w-100" title="{% trans 'Quick Return' %}" onclick="quickReturn('{{ copy.id }}')">
+                                    <i class="bi bi-arrow-down-left"></i>
+                                </button>
+                                {% else %}
+                                <button class="btn btn-outline-secondary w-100" disabled>
+                                    <i class="bi bi-dash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            <div class="col-3">
+                                <button class="btn btn-outline-dark w-100" title="{% trans 'View History' %}" onclick="viewCopyHistory('{{ copy.id }}')">
+                                    <i class="bi bi-clock-history"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="bi bi-journals display-4 text-muted d-block mb-3"></i>
+                        <h4>{% trans "No Copies Found" %}</h4>
+                        <p class="text-muted mb-4">
+                            {% if request.GET.search %}
+                            {% trans "No book copies match your search criteria." %}
+                            {% else %}
+                            {% trans "No book copies have been added yet." %}
+                            {% endif %}
+                        </p>
+                        <a href="{% url 'library:bookcopy_create' %}" class="btn btn-info">
+                            <i class="bi bi-plus-circle me-2"></i> {% trans "Add First Copy" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Pagination -->
+    {% if copies.has_other_pages %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <nav aria-label="Copies pagination">
+                <ul class="pagination justify-content-center">
+                    {% if copies.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ copies.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in copies.paginator.page_range %}
+                        {% if copies.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > copies.number|add:'-3' and num < copies.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if copies.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ copies.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ copies.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            
+            <div class="text-center text-muted mt-2">
+                {% blocktrans with number=copies.number num_pages=copies.paginator.num_pages count=copies.paginator.count %}
+                Page {{ number }} of {{ num_pages }} ({{ count }} total copies)
+                {% endblocktrans %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Quick Stats Footer -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3 col-6 border-end">
+                            <div class="py-2">
+                                <div class="h5 text-info mb-1">{{ total_books_with_copies }}</div>
+                                <small class="text-muted">{% trans "Books with Copies" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 border-end">
+                            <div class="py-2">
+                                <div class="h5 text-success mb-1">{{ average_copies_per_book|floatformat:1 }}</div>
+                                <small class="text-muted">{% trans "Avg Copies per Book" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 border-end">
+                            <div class="py-2">
+                                <div class="h5 text-warning mb-1">{{ most_copies_book.copies_count }}</div>
+                                <small class="text-muted">{% trans "Most Copies of a Book" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="py-2">
+                                <div class="h5 text-primary mb-1">{{ total_borrow_count }}</div>
+                                <small class="text-muted">{% trans "Total Borrow Operations" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View mode toggle
+        const tableViewRadio = document.getElementById('table-view');
+        const gridViewRadio = document.getElementById('grid-view');
+        const tableViewContent = document.getElementById('table-view-content');
+        const gridViewContent = document.getElementById('grid-view-content');
+        
+        function toggleView() {
+            if (tableViewRadio.checked) {
+                tableViewContent.style.display = 'block';
+                gridViewContent.style.display = 'none';
+            } else {
+                tableViewContent.style.display = 'none';
+                gridViewContent.style.display = 'block';
+            }
+        }
+        
+        tableViewRadio.addEventListener('change', toggleView);
+        gridViewRadio.addEventListener('change', toggleView);
+        
+        // Initialize view
+        toggleView();
+        
+        // Auto-submit form when sort, status, or book changes
+        const sortSelect = document.querySelector('select[name="sort"]');
+        const statusSelect = document.querySelector('select[name="status"]');
+        const bookSelect = document.querySelector('select[name="book"]');
+        
+        if (sortSelect) {
+            sortSelect.addEventListener('change', function() {
+                this.form.submit();
+            });
+        }
+        
+        if (statusSelect) {
+            statusSelect.addEventListener('change', function() {
+                this.form.submit();
+            });
+        }
+        
+        if (bookSelect) {
+            bookSelect.addEventListener('change', function() {
+                this.form.submit();
+            });
+        }
+        
+        // Clear search functionality
+        const searchInput = document.querySelector('input[name="search"]');
+        if (searchInput && searchInput.value) {
+            const clearSearchBtn = document.createElement('button');
+            clearSearchBtn.type = 'button';
+            clearSearchBtn.className = 'btn btn-outline-secondary';
+            clearSearchBtn.innerHTML = '<i class="bi bi-x"></i>';
+            clearSearchBtn.title = '{% trans "Clear search" %}';
+            
+            clearSearchBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                searchInput.form.submit();
+            });
+            
+            searchInput.parentNode.appendChild(clearSearchBtn);
+        }
+        
+        // Quick action functions
+        window.quickBorrow = function(copyId) {
+            if (confirm('{% trans "Are you sure you want to borrow this copy?" %}')) {
+                // Simulate AJAX call to borrow copy
+                console.log('Borrowing copy with ID:', copyId);
+                
+                // Show success message
+                alert('{% trans "Copy borrowed successfully!" %}');
+                
+                // In a real app, you would refresh the page or update the UI
+                // location.reload();
+            }
+        };
+        
+        window.quickReturn = function(copyId) {
+            if (confirm('{% trans "Are you sure you want to return this copy?" %}')) {
+                // Simulate AJAX call to return copy
+                console.log('Returning copy with ID:', copyId);
+                
+                // Show success message
+                alert('{% trans "Copy returned successfully!" %}');
+                
+                // In a real app, you would refresh the page or update the UI
+                // location.reload();
+            }
+        };
+        
+        window.viewCopyHistory = function(copyId) {
+            // This would open a modal with copy history in a real app
+            console.log('Viewing history for copy ID:', copyId);
+            alert('{% trans "Copy history feature coming soon!" %}');
+        };
+        
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Barcode scanning simulation
+        let barcodeBuffer = '';
+        let lastKeyTime = 0;
+        
+        document.addEventListener('keydown', function(e) {
+            const currentTime = new Date().getTime();
+            
+            // Reset buffer if too much time has passed between keystrokes
+            if (currentTime - lastKeyTime > 100) {
+                barcodeBuffer = '';
+            }
+            
+            // Only process alphanumeric keys
+            if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
+                barcodeBuffer += e.key;
+            }
+            
+            // Check for Enter key (barcode scanner termination)
+            if (e.key === 'Enter' && barcodeBuffer.length > 0) {
+                e.preventDefault();
+                
+                // Search for barcode
+                searchInput.value = barcodeBuffer;
+                searchInput.form.submit();
+                
+                barcodeBuffer = '';
+            }
+            
+            lastKeyTime = currentTime;
+        });
+    });
+</script>
+{% endblock %}

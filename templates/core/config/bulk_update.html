@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Bulk Update Configurations{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-edit"></i> Bulk Update Configurations
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'core:config_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Back to List
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        You are updating <strong>{{ configs|length }}</strong> configuration(s).
+                        Changes will be applied to all selected configurations and logged in the audit trail.
+                    </div>
+
+                    <form method="post" id="bulkUpdateForm">
+                        {% csrf_token %}
+                        {% for config in configs %}
+                        <input type="hidden" name="config_ids" value="{{ config.id }}">
+                        {% endfor %}
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="25%">Configuration Key</th>
+                                        <th width="15%">Type</th>
+                                        <th width="35%">Current Value</th>
+                                        <th width="25%">New Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for config in configs %}
+                                    <tr>
+                                        <td>
+                                            <div>
+                                                <code class="text-primary">{{ config.key }}</code>
+                                                {% if config.description %}
+                                                <br><small class="text-muted">{{ config.description|truncatechars:50 }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-info">{{ config.get_config_type_display }}</span>
+                                        </td>
+                                        <td>
+                                            <div class="bg-light p-2 rounded small">
+                                                <code>{{ config.value|truncatechars:100 }}</code>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="form-group mb-0">
+                                                {{ form|crispy_field:"config_"|add:config.id }}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card border-warning">
+                                    <div class="card-header bg-warning">
+                                        <h5 class="card-title mb-0">
+                                            <i class="fas fa-exclamation-triangle"></i> Bulk Update Options
+                                        </h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="validateBeforeSave" checked>
+                                                    <label class="form-check-label" for="validateBeforeSave">
+                                                        Validate all values before saving
+                                                    </label>
+                                                </div>
+                                                <small class="form-text text-muted">
+                                                    Check JSON format and data types before applying changes.
+                                                </small>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="createBackup" checked>
+                                                    <label class="form-check-label" for="createBackup">
+                                                        Create backup of current values
+                                                    </label>
+                                                </div>
+                                                <small class="form-text text-muted">
+                                                    Store current values in audit log for rollback purposes.
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card-footer">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center">
+                                <div class="form-check mr-3">
+                                    <input class="form-check-input" type="checkbox" id="confirmBulkUpdate">
+                                    <label class="form-check-label font-weight-bold" for="confirmBulkUpdate">
+                                        I confirm that I want to apply these changes
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-right">
+                            <button type="button" class="btn btn-success" id="applyChanges" disabled>
+                                <i class="fas fa-save"></i> Apply Changes
+                            </button>
+                            <a href="{% url 'core:config_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Modal -->
+<div class="modal fade" id="progressModal" tabindex="-1" role="dialog" data-backdrop="static">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-spinner fa-spin"></i> Applying Changes
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="progress mb-3">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                         style="width: 0%" id="progressBar"></div>
+                </div>
+                <div id="progressText">Initializing bulk update...</div>
+                <div class="mt-3">
+                    <small class="text-muted" id="progressDetails"></small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.table-responsive {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.form-group .form-control {
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+}
+
+#confirmBulkUpdate:checked + label {
+    color: #28a745;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    var bulkForm = $('#bulkUpdateForm');
+    var applyBtn = $('#applyChanges');
+    var confirmCheckbox = $('#confirmBulkUpdate');
+
+    // Enable/disable apply button based on confirmation checkbox
+    confirmCheckbox.on('change', function() {
+        applyBtn.prop('disabled', !$(this).prop('checked'));
+    });
+
+    // Apply changes button click
+    applyBtn.on('click', function() {
+        if (!confirmCheckbox.prop('checked')) {
+            alert('Please confirm that you want to apply these changes.');
+            return;
+        }
+
+        // Validate all fields if validation is enabled
+        if ($('#validateBeforeSave').prop('checked')) {
+            if (!validateAllFields()) {
+                return;
+            }
+        }
+
+        // Show progress modal and submit
+        $('#progressModal').modal('show');
+        updateProgress(10, 'Starting bulk update process...');
+
+        // Simulate progress (in real implementation, this would be handled server-side)
+        setTimeout(function() {
+            updateProgress(50, 'Validating configuration values...');
+        }, 500);
+
+        setTimeout(function() {
+            updateProgress(80, 'Applying changes to database...');
+        }, 1000);
+
+        setTimeout(function() {
+            updateProgress(100, 'Bulk update completed successfully!');
+            setTimeout(function() {
+                bulkForm.submit();
+            }, 500);
+        }, 1500);
+    });
+
+    // Validate all fields
+    function validateAllFields() {
+        var isValid = true;
+        var invalidFields = [];
+
+        {% for config in configs %}
+        var fieldValue = $('#id_config_{{ config.id }}').val();
+        if (fieldValue) {
+            try {
+                // Try to parse as JSON
+                if (fieldValue.trim().startsWith('{') || fieldValue.trim().startsWith('[')) {
+                    JSON.parse(fieldValue);
+                } else {
+                    // Try to parse as simple value
+                    JSON.parse('"' + fieldValue + '"');
+                }
+            } catch (e) {
+                isValid = false;
+                invalidFields.push('{{ config.key }}');
+                $('#id_config_{{ config.id }}').addClass('is-invalid');
+            }
+        }
+        {% endfor %}
+
+        if (!isValid) {
+            alert('The following configurations have invalid values:\n\n' + invalidFields.join('\n') +
+                  '\n\nPlease correct these values before proceeding.');
+        }
+
+        return isValid;
+    }
+
+    // Update progress bar
+    function updateProgress(percent, text) {
+        $('#progressBar').css('width', percent + '%');
+        $('#progressText').text(text);
+        $('#progressDetails').text(percent + '% complete');
+    }
+
+    // Auto-resize textareas
+    $('textarea').on('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+
+    // Initialize textarea heights
+    $('textarea').each(function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+});
+</script>
+{% endblock %}

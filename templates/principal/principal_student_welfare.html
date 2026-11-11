@@ -1,0 +1,1032 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">{{ page_title }}</h1>
+            <p class="text-muted">{% trans "Monitor student behavior, academic warnings, and welfare interventions" %}</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if current_session %}
+                <span class="badge bg-primary fs-6">{{ current_session.name }}</span>
+            {% endif %}
+            <small class="text-muted">{{ request.user.get_full_name }}</small>
+        </div>
+    </div>
+
+    <!-- Welfare Overview Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                {% trans "Recent Incidents" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ welfare_data.recent_incidents|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                {% trans "Active Warnings" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ welfare_data.active_warnings|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-bell fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                {% trans "Attendance Issues" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ welfare_data.attendance_issues|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-times fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                {% trans "Resolved Cases" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% for incident in welfare_data.recent_incidents %}
+                                    {% if incident.is_resolved %}
+                                        {% cycle 1 2 3 4 5 6 7 8 9 10 as resolved_count silent %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ resolved_count|default:0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "Welfare Management Tools" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <select class="form-select" id="timeFilter">
+                                <option value="30">{% trans "Last 30 Days" %}</option>
+                                <option value="90">{% trans "Last 3 Months" %}</option>
+                                <option value="180">{% trans "Last 6 Months" %}</option>
+                                <option value="365">{% trans "Last Year" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="severityFilter">
+                                <option value="">{% trans "All Severities" %}</option>
+                                <option value="low">{% trans "Low" %}</option>
+                                <option value="medium">{% trans "Medium" %}</option>
+                                <option value="high">{% trans "High" %}</option>
+                                <option value="critical">{% trans "Critical" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="statusFilter">
+                                <option value="">{% trans "All Status" %}</option>
+                                <option value="active">{% trans "Active" %}</option>
+                                <option value="resolved">{% trans "Resolved" %}</option>
+                                <option value="pending">{% trans "Pending Review" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary me-2" onclick="applyFilters()">
+                                <i class="fas fa-filter"></i> {% trans "Apply Filters" %}
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="exportWelfareReport()">
+                                <i class="fas fa-download"></i> {% trans "Export" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Tabs -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <ul class="nav nav-tabs card-header-tabs" id="welfareTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="incidents-tab" data-bs-toggle="tab" data-bs-target="#incidents" type="button" role="tab">
+                                <i class="fas fa-exclamation-triangle"></i> {% trans "Behavior Incidents" %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="warnings-tab" data-bs-toggle="tab" data-bs-target="#warnings" type="button" role="tab">
+                                <i class="fas fa-bell"></i> {% trans "Academic Warnings" %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="attendance-tab" data-bs-toggle="tab" data-bs-target="#attendance" type="button" role="tab">
+                                <i class="fas fa-calendar-times"></i> {% trans "Attendance Issues" %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="trends-tab" data-bs-toggle="tab" data-bs-target="#trends" type="button" role="tab">
+                                <i class="fas fa-chart-line"></i> {% trans "Behavior Trends" %}
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="welfareTabContent">
+
+                        <!-- Behavior Incidents Tab -->
+                        <div class="tab-pane fade show active" id="incidents" role="tabpanel">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>{% trans "Student" %}</th>
+                                            <th>{% trans "Incident" %}</th>
+                                            <th>{% trans "Date" %}</th>
+                                            <th>{% trans "Severity" %}</th>
+                                            <th>{% trans "Reported By" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                            <th>{% trans "Actions" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for incident in welfare_data.recent_incidents %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ incident.student.user.get_full_name }}</strong>
+                                                <br><small class="text-muted">{{ incident.student.student_id }}</small>
+                                            </td>
+                                            <td>
+                                                <strong>{{ incident.title }}</strong>
+                                                <br><small class="text-muted">{{ incident.get_incident_category_display }}</small>
+                                            </td>
+                                            <td>{{ incident.incident_date|date:"M d, Y" }}</td>
+                                            <td>
+                                                <span class="badge bg-{% if incident.severity == 'critical' %}danger{% elif incident.severity == 'high' %}warning{% elif incident.severity == 'medium' %}info{% else %}secondary{% endif %}">
+                                                    {{ incident.get_severity_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ incident.reported_by.user.get_full_name }}</td>
+                                            <td>
+                                                {% if incident.is_resolved %}
+                                                    <span class="badge bg-success">{% trans "Resolved" %}</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning">{% trans "Active" %}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary me-1" onclick="viewIncidentDetails({{ incident.id }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                {% if not incident.is_resolved %}
+                                                    <button class="btn btn-sm btn-outline-success" onclick="resolveIncident({{ incident.id }})">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="7" class="text-center py-4">
+                                                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                                <h5>{% trans "No Recent Incidents" %}</h5>
+                                                <p class="text-muted">{% trans "No behavior incidents reported in the selected time period." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Academic Warnings Tab -->
+                        <div class="tab-pane fade" id="warnings" role="tabpanel">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>{% trans "Student" %}</th>
+                                            <th>{% trans "Warning Type" %}</th>
+                                            <th>{% trans "Level" %}</th>
+                                            <th>{% trans "Issued Date" %}</th>
+                                            <th>{% trans "Due Date" %}</th>
+                                            <th>{% trans "Issued By" %}</th>
+                                            <th>{% trans "Status" %}</th>
+                                            <th>{% trans "Actions" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for warning in welfare_data.active_warnings %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ warning.student.user.get_full_name }}</strong>
+                                                <br><small class="text-muted">{{ warning.student.student_id }}</small>
+                                            </td>
+                                            <td>{{ warning.get_warning_type_display }}</td>
+                                            <td>
+                                                <span class="badge bg-{% if warning.warning_level == 'critical' %}danger{% elif warning.warning_level == 'serious' %}warning{% elif warning.warning_level == 'warning' %}info{% else %}secondary{% endif %}">
+                                                    {{ warning.get_warning_level_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ warning.issued_date|date:"M d, Y" }}</td>
+                                            <td>{{ warning.due_date|date:"M d, Y"|default:"--" }}</td>
+                                            <td>{{ warning.issued_by.user.get_full_name }}</td>
+                                            <td>
+                                                {% if warning.is_resolved %}
+                                                    <span class="badge bg-success">{% trans "Resolved" %}</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning">{% trans "Active" %}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary me-1" onclick="viewWarningDetails({{ warning.id }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                {% if not warning.is_resolved %}
+                                                    <button class="btn btn-sm btn-outline-success" onclick="resolveWarning({{ warning.id }})">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="8" class="text-center py-4">
+                                                <i class="fas fa-bell-slash fa-3x text-success mb-3"></i>
+                                                <h5>{% trans "No Active Warnings" %}</h5>
+                                                <p class="text-muted">{% trans "All academic warnings have been resolved." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Attendance Issues Tab -->
+                        <div class="tab-pane fade" id="attendance" role="tabpanel">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>{% trans "Student" %}</th>
+                                            <th>{% trans "Class" %}</th>
+                                            <th>{% trans "Attendance Rate" %}</th>
+                                            <th>{% trans "Days Absent" %}</th>
+                                            <th>{% trans "Last Attendance" %}</th>
+                                            <th>{% trans "Actions" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for issue in welfare_data.attendance_issues %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ issue.student.user.get_full_name }}</strong>
+                                                <br><small class="text-muted">{{ issue.student.student_id }}</small>
+                                            </td>
+                                            <td>{{ issue.class_name|default:"--" }}</td>
+                                            <td>
+                                                <span class="badge bg-danger">{{ issue.attendance_percentage }}%</span>
+                                            </td>
+                                            <td>--</td>
+                                            <td>--</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary me-1" onclick="viewAttendanceDetails({{ issue.student.id }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-warning" onclick="contactParent({{ issue.student.id }})">
+                                                    <i class="fas fa-phone"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center py-4">
+                                                <i class="fas fa-calendar-check fa-3x text-success mb-3"></i>
+                                                <h5>{% trans "Good Attendance" %}</h5>
+                                                <p class="text-muted">{% trans "No students with attendance issues found." %}</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Behavior Trends Tab -->
+                        <div class="tab-pane fade" id="trends" role="tabpanel">
+                            <div class="row">
+                                <div class="col-lg-6 mb-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="m-0 font-weight-bold text-primary">{% trans "Incidents by Category" %}</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="behaviorTrendsChart" width="100%" height="300"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6 mb-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="m-0 font-weight-bold text-primary">{% trans "Monthly Trends" %}</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="monthlyTrendsChart" width="100%" height="300"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="m-0 font-weight-bold text-primary">{% trans "Key Insights" %}</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <h6>{% trans "Most Common Issues" %}</h6>
+                                                    <ul class="list-group list-group-flush">
+                                                        {% for category, count in welfare_data.behavior_trends.items %}
+                                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                            {{ category|title }}
+                                                            <span class="badge bg-primary rounded-pill">{{ count }}</span>
+                                                        </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h6>{% trans "Recommendations" %}</h6>
+                                                    <ul class="list-group list-group-flush">
+                                                        <li class="list-group-item">
+                                                            <i class="fas fa-lightbulb text-warning me-2"></i>
+                                                            {% trans "Implement anti-bullying programs" %}
+                                                        </li>
+                                                        <li class="list-group-item">
+                                                            <i class="fas fa-lightbulb text-warning me-2"></i>
+                                                            {% trans "Enhance attendance monitoring" %}
+                                                        </li>
+                                                        <li class="list-group-item">
+                                                            <i class="fas fa-lightbulb text-warning me-2"></i>
+                                                            {% trans "Provide additional counseling support" %}
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+/* Student Welfare Styles */
+.card {
+    border: none;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+
+.border-left-danger {
+    border-left: 0.25rem solid #e74a3b !important;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.75em;
+    padding: 0.375rem 0.5rem;
+}
+
+.btn-outline-primary {
+    color: #4e73df;
+    border-color: #4e73df;
+}
+
+.btn-outline-primary:hover {
+    color: #fff;
+    background-color: #4e73df;
+    border-color: #4e73df;
+}
+
+.btn-outline-success {
+    color: #1cc88a;
+    border-color: #1cc88a;
+}
+
+.btn-outline-success:hover {
+    color: #fff;
+    background-color: #1cc88a;
+    border-color: #1cc88a;
+}
+
+.btn-outline-warning {
+    color: #f6c23e;
+    border-color: #f6c23e;
+    color: #f6c23e;
+}
+
+.btn-outline-warning:hover {
+    color: #fff;
+    background-color: #f6c23e;
+    border-color: #f6c23e;
+}
+
+/* Tab styles */
+.nav-tabs .nav-link {
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: #e9ecef;
+    color: #495057;
+}
+
+.nav-tabs .nav-link.active {
+    border-bottom-color: #4e73df;
+    color: #4e73df;
+    background-color: transparent;
+}
+
+/* Chart containers */
+canvas {
+    max-width: 100%;
+    height: auto !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+
+    .card-body .row {
+        margin-left: -5px;
+        margin-right: -5px;
+    }
+
+    .card-body .row > div {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+}
+
+/* Loading states */
+.chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    background: #f8f9fc;
+    border-radius: 0.5rem;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Status indicators */
+.status-active {
+    color: #e74a3b;
+    font-weight: bold;
+}
+
+.status-resolved {
+    color: #1cc88a;
+    font-weight: bold;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Student Welfare JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Student Welfare page loaded');
+
+    // Initialize page
+    initializeStudentWelfare();
+
+    // Set up event listeners
+    setupEventListeners();
+
+    // Load initial data
+    loadWelfareData();
+
+    function initializeStudentWelfare() {
+        // Show loading states for charts
+        showChartLoadingStates();
+
+        // Initialize filters
+        initializeFilters();
+
+        // Setup responsive design
+        setupResponsiveDesign();
+
+        // Initialize tab functionality
+        initializeTabs();
+    }
+
+    function showChartLoadingStates() {
+        const chartContainers = document.querySelectorAll('canvas');
+        chartContainers.forEach(canvas => {
+            const container = canvas.parentElement;
+            container.innerHTML = `
+                <div class="chart-loading">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="ms-2">Loading chart...</span>
+                </div>
+            `;
+        });
+    }
+
+    function initializeFilters() {
+        // Set up filter change handlers
+        const filters = document.querySelectorAll('select[id*="Filter"]');
+        filters.forEach(filter => {
+            filter.addEventListener('change', function() {
+                applyFilters();
+            });
+        });
+    }
+
+    function setupResponsiveDesign() {
+        // Handle mobile responsiveness
+        const handleResize = () => {
+            const width = window.innerWidth;
+
+            if (width < 768) {
+                // Mobile: adjust table layout
+                const tables = document.querySelectorAll('.table-responsive');
+                tables.forEach(table => {
+                    table.style.fontSize = '0.875rem';
+                });
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Initial call
+    }
+
+    function initializeTabs() {
+        // Bootstrap tabs are already initialized
+        // Add custom functionality if needed
+        const tabs = document.querySelectorAll('#welfareTabs .nav-link');
+        tabs.forEach(tab => {
+            tab.addEventListener('shown.bs.tab', function(e) {
+                const targetId = e.target.getAttribute('data-bs-target').substring(1);
+                console.log('Switched to tab:', targetId);
+
+                // Load data for specific tab if needed
+                if (targetId === 'trends') {
+                    loadTrendsData();
+                }
+            });
+        });
+    }
+
+    function setupEventListeners() {
+        // Add event listeners for action buttons
+        // These are handled by onclick attributes in the HTML
+    }
+
+    async function loadWelfareData() {
+        try {
+            // Fetch welfare data from API
+            const response = await fetch('/core/api/welfare/data/', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCSRFToken()
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                updateWelfareData(data);
+            } else {
+                throw new Error('Failed to load welfare data');
+            }
+        } catch (error) {
+            console.error('Error loading welfare data:', error);
+            showErrorMessage('Failed to load welfare data. Please try again.');
+        }
+    }
+
+    async function loadTrendsData() {
+        try {
+            // Fetch trends data from API
+            const response = await fetch('/core/api/welfare/trends/', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCSRFToken()
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                renderTrendsCharts(data);
+            }
+        } catch (error) {
+            console.error('Error loading trends data:', error);
+        }
+    }
+
+    function updateWelfareData(data) {
+        // Update incident counts, warning counts, etc.
+        // This would update the overview cards with fresh data
+        console.log('Updating welfare data:', data);
+    }
+
+    function renderTrendsCharts(data) {
+        // Render behavior trends chart
+        renderBehaviorTrendsChart(data.behavior_trends || {});
+
+        // Render monthly trends chart
+        renderMonthlyTrendsChart(data.monthly_trends || []);
+    }
+
+    function renderBehaviorTrendsChart(trendsData) {
+        const container = document.getElementById('behaviorTrendsChart').parentElement;
+        container.innerHTML = '<canvas id="behaviorTrendsChart" width="100%" height="300"></canvas>';
+
+        const ctx = document.getElementById('behaviorTrendsChart').getContext('2d');
+
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(trendsData),
+                datasets: [{
+                    data: Object.values(trendsData),
+                    backgroundColor: [
+                        '#e74a3b', '#f6c23e', '#1cc88a', '#36b9cc',
+                        '#6f42c1', '#fd7e14', '#20c997', '#dc3545'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0;
+                                return `${context.label}: ${context.parsed} incidents (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderMonthlyTrendsChart(monthlyData) {
+        const container = document.getElementById('monthlyTrendsChart').parentElement;
+        container.innerHTML = '<canvas id="monthlyTrendsChart" width="100%" height="300"></canvas>';
+
+        const ctx = document.getElementById('monthlyTrendsChart').getContext('2d');
+
+        const labels = monthlyData.map(item => item.month);
+        const values = monthlyData.map(item => item.incidents);
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Monthly Incidents',
+                    data: values,
+                    borderColor: '#e74a3b',
+                    backgroundColor: 'rgba(231, 74, 59, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#e74a3b',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Incidents: ${context.parsed.y}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function applyFilters() {
+        const timeFilter = document.getElementById('timeFilter').value;
+        const severityFilter = document.getElementById('severityFilter').value;
+        const statusFilter = document.getElementById('statusFilter').value;
+
+        console.log('Applying filters:', { timeFilter, severityFilter, statusFilter });
+
+        // Filter table rows based on criteria
+        filterTableRows(severityFilter, statusFilter);
+
+        // Reload data with filters
+        loadWelfareData();
+    }
+
+    function filterTableRows(severityFilter, statusFilter) {
+        const rows = document.querySelectorAll('#incidents tbody tr, #warnings tbody tr');
+
+        rows.forEach(row => {
+            let showRow = true;
+
+            // Severity filter
+            if (severityFilter) {
+                const severityBadge = row.querySelector('.badge');
+                if (severityBadge) {
+                    const severityText = severityBadge.textContent.toLowerCase().trim();
+                    if (!severityText.includes(severityFilter)) {
+                        showRow = false;
+                    }
+                }
+            }
+
+            // Status filter
+            if (statusFilter) {
+                const statusBadge = row.querySelector('.badge:last-child');
+                if (statusBadge) {
+                    const statusText = statusBadge.textContent.toLowerCase().trim();
+                    if (statusFilter === 'active' && statusText.includes('resolved')) {
+                        showRow = false;
+                    } else if (statusFilter === 'resolved' && !statusText.includes('resolved')) {
+                        showRow = false;
+                    }
+                }
+            }
+
+            row.style.display = showRow ? 'table-row' : 'none';
+        });
+    }
+
+    function viewIncidentDetails(incidentId) {
+        // Navigate to incident details page
+        window.location.href = `/academics/incidents/${incidentId}/`;
+    }
+
+    function resolveIncident(incidentId) {
+        if (confirm('Are you sure you want to mark this incident as resolved?')) {
+            // Make API call to resolve incident
+            resolveItem('incident', incidentId);
+        }
+    }
+
+    function viewWarningDetails(warningId) {
+        // Navigate to warning details page
+        window.location.href = `/academics/warnings/${warningId}/`;
+    }
+
+    function resolveWarning(warningId) {
+        if (confirm('Are you sure you want to mark this warning as resolved?')) {
+            // Make API call to resolve warning
+            resolveItem('warning', warningId);
+        }
+    }
+
+    function viewAttendanceDetails(studentId) {
+        // Navigate to student attendance details
+        window.location.href = `/academics/students/${studentId}/attendance/`;
+    }
+
+    function contactParent(studentId) {
+        // Open parent contact modal or navigate to contact page
+        window.location.href = `/communication/contact-parent/${studentId}/`;
+    }
+
+    async function resolveItem(type, itemId) {
+        try {
+            const response = await fetch(`/core/api/welfare/${type}/${itemId}/resolve/`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCSRFToken()
+                }
+            });
+
+            if (response.ok) {
+                // Reload the page to show updated data
+                location.reload();
+            } else {
+                throw new Error(`Failed to resolve ${type}`);
+            }
+        } catch (error) {
+            console.error(`Error resolving ${type}:`, error);
+            showErrorMessage(`Failed to resolve ${type}. Please try again.`);
+        }
+    }
+
+    function exportWelfareReport() {
+        // Export welfare report
+        const filters = {
+            time: document.getElementById('timeFilter').value,
+            severity: document.getElementById('severityFilter').value,
+            status: document.getElementById('statusFilter').value
+        };
+
+        const queryString = new URLSearchParams(filters).toString();
+        window.open(`/core/api/welfare/export/?${queryString}`, '_blank');
+    }
+
+    function showErrorMessage(message) {
+        // Show error message to user
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        document.body.appendChild(alertDiv);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+
+    function getCSRFToken() {
+        // Get CSRF token from cookies or meta tag
+        const tokenElement = document.querySelector('meta[name="csrf-token"]');
+        if (tokenElement) {
+            return tokenElement.getAttribute('content');
+        }
+
+        // Fallback: get from cookies
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'csrftoken') {
+                return value;
+            }
+        }
+        return '';
+    }
+
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + E to export
+        if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+            e.preventDefault();
+            exportWelfareReport();
+        }
+
+        // Alt + 1-4 to switch tabs
+        if (e.altKey && e.key >= '1' && e.key <= '4') {
+            e.preventDefault();
+            const tabIndex = parseInt(e.key) - 1;
+            const tabs = document.querySelectorAll('#welfareTabs .nav-link');
+            if (tabs[tabIndex]) {
+                tabs[tabIndex].click();
+            }
+        }
+    });
+
+    // Performance monitoring
+    if ('performance' in window && 'getEntriesByType' in performance) {
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                const navigation = performance.getEntriesByType('navigation')[0];
+                const loadTime = navigation.loadEventEnd - navigation.fetchStart;
+
+                console.log(`Student welfare page loaded in ${loadTime.toFixed(2)}ms`);
+            }, 0);
+        });
+    }
+});
+</script>
+{% endblock %}

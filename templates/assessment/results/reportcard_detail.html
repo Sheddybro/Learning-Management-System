@@ -1,0 +1,989 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Report Card - {{ report_card.student.user.get_full_name }}{% endblock %}
+
+{% block page_title %}Report Card{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'assessment:reportcard_list' %}">Report Cards</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ report_card.student.user.get_full_name }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'assessment:reportcard_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to List
+        </a>
+        <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i> Print
+        </button>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-download me-1"></i> Export
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="exportReportCard('pdf')">PDF Report</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportReportCard('excel')">Excel Data</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportReportCard('image')">As Image</a></li>
+            </ul>
+        </div>
+        {% if user.teacher_profile and not report_card.is_approved %}
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#approveModal">
+            <i class="bi bi-check-lg me-1"></i> Approve
+        </button>
+        {% endif %}
+        {% if report_card.is_approved %}
+        <span class="btn btn-success">
+            <i class="bi bi-patch-check me-1"></i> Approved
+        </span>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="reportcard-detail-container">
+    <!-- Report Card Header -->
+    <div class="card mb-4 reportcard-header">
+        <div class="card-body text-center">
+            <div class="school-header mb-4">
+                <h2 class="school-name">Nexus Intelligence School</h2>
+                <p class="school-address text-muted">123 Education Street, Learning City, LC 12345</p>
+                <h3 class="reportcard-title text-primary">REPORT CARD</h3>
+            </div>
+            
+            <div class="student-info">
+                <div class="row justify-content-center">
+                    <div class="col-md-8">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="info-item">
+                                    <strong>Student Name:</strong>
+                                    <span>{{ report_card.student.user.get_full_name }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Roll Number:</strong>
+                                    <span>{{ report_card.student.roll_number }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Class:</strong>
+                                    <span>{{ report_card.academic_class.name }}</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="info-item">
+                                    <strong>Academic Year:</strong>
+                                    <span>{{ report_card.academic_class.academic_session }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Exam Type:</strong>
+                                    <span>{{ report_card.exam_type.name }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Issue Date:</strong>
+                                    <span>{{ report_card.generated_at|date:"M d, Y" }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Academic Performance -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-graph-up me-2"></i>Academic Performance
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Overall Summary -->
+                <div class="col-md-4">
+                    <div class="performance-summary text-center">
+                        <div class="overall-grade">
+                            <div class="grade-circle {% if report_card.result.percentage >= 75 %}excellent{% elif report_card.result.percentage >= 50 %}good{% else %}needs-improvement{% endif %}">
+                                <span class="grade-letter">{{ report_card.result.grade.grade }}</span>
+                                <span class="grade-point">{{ report_card.result.grade.grade_point }}</span>
+                            </div>
+                            <h4 class="mt-3">{{ report_card.result.percentage|floatformat:1 }}%</h4>
+                            <p class="text-muted">Overall Percentage</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Key Metrics -->
+                <div class="col-md-8">
+                    <div class="key-metrics">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <div class="metric-value text-primary">{{ report_card.result.marks_obtained }}/{{ report_card.result.total_marks }}</div>
+                                    <div class="metric-label">Total Marks</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <div class="metric-value text-success">{{ report_card.result.rank }}/{{ report_card.result.total_students }}</div>
+                                    <div class="metric-label">Class Rank</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <div class="metric-value text-info">{{ report_card.result.attendance_percentage|floatformat:1 }}%</div>
+                                    <div class="metric-label">Attendance</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <div class="metric-value {% if report_card.result.is_promoted %}text-success{% else %}text-warning{% endif %}">
+                                        {% if report_card.result.is_promoted %}Promoted{% else %}Not Promoted{% endif %}
+                                    </div>
+                                    <div class="metric-label">Promotion Status</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subject-wise Performance -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-book me-2"></i>Subject-wise Performance
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="subjectPerformanceTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Subject</th>
+                            <th>Marks Obtained</th>
+                            <th>Maximum Marks</th>
+                            <th>Percentage</th>
+                            <th>Grade</th>
+                            <th>Grade Point</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for subject_mark in subject_marks %}
+                        <tr>
+                            <td>
+                                <strong>{{ subject_mark.subject.name }}</strong>
+                            </td>
+                            <td>{{ subject_mark.marks_obtained }}</td>
+                            <td>{{ subject_mark.max_marks }}</td>
+                            <td>
+                                <span class="percentage {% if subject_mark.percentage >= 75 %}text-success{% elif subject_mark.percentage >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                                    {{ subject_mark.percentage|floatformat:1 }}%
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge grade-badge grade-{{ subject_mark.grade.grade|lower }}">
+                                    {{ subject_mark.grade.grade }}
+                                </span>
+                            </td>
+                            <td>
+                                <strong>{{ subject_mark.grade.grade_point }}</strong>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ subject_mark.grade.remark }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <td><strong>Overall</strong></td>
+                            <td><strong>{{ report_card.result.marks_obtained }}</strong></td>
+                            <td><strong>{{ report_card.result.total_marks }}</strong></td>
+                            <td><strong>{{ report_card.result.percentage|floatformat:1 }}%</strong></td>
+                            <td>
+                                <span class="badge grade-badge grade-{{ report_card.result.grade.grade|lower }}">
+                                    {{ report_card.result.grade.grade }}
+                                </span>
+                            </td>
+                            <td><strong>{{ report_card.result.grade.grade_point }}</strong></td>
+                            <td><strong>{{ report_card.result.grade.remark }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Analysis -->
+    <div class="row mb-4">
+        <!-- Grade Distribution -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-pie-chart me-2"></i>Grade Distribution
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="gradeDistributionChart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Subject Comparison -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-bar-chart me-2"></i>Subject Comparison
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="subjectComparisonChart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comments and Signatures -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-chat-text me-2"></i>Comments & Signatures
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Teacher Comments -->
+                <div class="col-md-6">
+                    <div class="comments-section">
+                        <h6 class="section-title">Teacher's Comments</h6>
+                        <div class="comments-content">
+                            {% if report_card.result.remarks %}
+                                {{ report_card.result.remarks|linebreaks }}
+                            {% else %}
+                                <p class="text-muted">No comments provided.</p>
+                            {% endif %}
+                        </div>
+                        {% if report_card.generated_by %}
+                        <div class="signature-section mt-3">
+                            <div class="signature-line"></div>
+                            <p class="signature-name mb-0">
+                                {{ report_card.generated_by.user.get_full_name }}
+                            </p>
+                            <small class="text-muted">Class Teacher</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Additional Comments -->
+                <div class="col-md-6">
+                    <div class="comments-section">
+                        <h6 class="section-title">Additional Comments</h6>
+                        <div class="comments-content">
+                            {% if report_card.comments %}
+                                {{ report_card.comments|linebreaks }}
+                            {% else %}
+                                <p class="text-muted">No additional comments.</p>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Approval Section -->
+                        {% if report_card.is_approved %}
+                        <div class="approval-section mt-3">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-patch-check text-success me-2 fs-4"></i>
+                                <div>
+                                    <p class="mb-0 text-success">Report Card Approved</p>
+                                    <small class="text-muted">
+                                        By {{ report_card.approved_by.user.get_full_name }}
+                                        on {{ report_card.approved_at|date:"M d, Y" }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Parent Signature -->
+                        <div class="signature-section mt-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="parentSignature" 
+                                       {% if report_card.parent_signature %}checked{% endif %} disabled>
+                                <label class="form-check-label" for="parentSignature">
+                                    Parent/Guardian Signature Received
+                                </label>
+                            </div>
+                            {% if report_card.parent_signature %}
+                            <small class="text-muted">Acknowledged on {{ report_card.updated_at|date:"M d, Y" }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Card Actions -->
+    {% if user.teacher_profile or user.is_staff %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h6 class="card-title mb-0">
+                <i class="bi bi-gear me-2"></i>Report Card Actions
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="btn-group" role="group">
+                {% if not report_card.is_approved %}
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#approveModal">
+                    <i class="bi bi-check-lg me-1"></i> Approve Report Card
+                </button>
+                {% endif %}
+                
+                <a href="{% url 'assessment:result_detail' report_card.result.pk %}" class="btn btn-outline-primary">
+                    <i class="bi bi-eye me-1"></i> View Detailed Result
+                </a>
+                
+                {% if user.is_staff %}
+                <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#editModal">
+                    <i class="bi bi-pencil me-1"></i> Edit Comments
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Approve Modal -->
+<div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="approveModalLabel">Approve Report Card</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to approve this report card?</p>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirmApproval">
+                    <label class="form-check-label" for="confirmApproval">
+                        I have reviewed all details and confirm this report card is accurate
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" action="{% url 'assessment:approve_report_card' report_card.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success" id="confirmApproveBtn" disabled>
+                        <i class="bi bi-check-lg me-1"></i> Approve Report Card
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Comments Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">Edit Report Card Comments</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" id="editCommentsForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="comments" class="form-label">Additional Comments</label>
+                        <textarea class="form-control" id="comments" name="comments" rows="6">{{ report_card.comments }}</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="editCommentsForm" class="btn btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="shareModalLabel">Share Report Card</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Share Link</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="shareLink" value="{{ request.build_absolute_uri }}" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyShareLink()">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="enableSharing">
+                    <label class="form-check-label" for="enableSharing">
+                        Enable public sharing (expires in 7 days)
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.reportcard-detail-container {
+    max-width: 100%;
+}
+
+/* Report Card Header */
+.reportcard-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.reportcard-header .text-muted {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.school-name {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.reportcard-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 1rem 0;
+}
+
+/* Student Info */
+.student-info {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-item strong {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Performance Summary */
+.performance-summary {
+    padding: 1rem;
+}
+
+.grade-circle {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.grade-circle.excellent {
+    background: linear-gradient(135deg, #198754, #20c997);
+    color: white;
+}
+
+.grade-circle.good {
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+    color: white;
+}
+
+.grade-circle.needs-improvement {
+    background: linear-gradient(135deg, #dc3545, #e83e8c);
+    color: white;
+}
+
+.grade-letter {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.grade-point {
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+/* Key Metrics */
+.metric-card {
+    text-align: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.metric-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+/* Subject Performance Table */
+.table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    border: 1px solid #dee2e6;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+    text-align: center;
+}
+
+.grade-badge {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+}
+
+.grade-a { background-color: #198754; }
+.grade-b { background-color: #20c997; }
+.grade-c { background-color: #ffc107; color: #000; }
+.grade-d { background-color: #fd7e14; }
+.grade-f { background-color: #dc3545; }
+
+.percentage.text-success { font-weight: 600; }
+.percentage.text-warning { font-weight: 600; }
+.percentage.text-danger { font-weight: 600; }
+
+/* Charts */
+.chart-container {
+    position: relative;
+    height: 250px;
+    width: 100%;
+}
+
+/* Comments Section */
+.comments-section {
+    padding: 1rem;
+}
+
+.section-title {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #0d6efd;
+    padding-bottom: 0.5rem;
+}
+
+.comments-content {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.375rem;
+    border-left: 4px solid #0d6efd;
+    min-height: 120px;
+}
+
+/* Signature Section */
+.signature-section {
+    margin-top: 1.5rem;
+}
+
+.signature-line {
+    width: 200px;
+    height: 1px;
+    background: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+.signature-name {
+    font-weight: 600;
+    color: #495057;
+}
+
+/* Approval Section */
+.approval-section {
+    padding: 1rem;
+    background: #d1edff;
+    border-radius: 0.375rem;
+    border-left: 4px solid #0d6efd;
+}
+
+/* Print Styles */
+@media print {
+    .page-actions,
+    .btn-group,
+    .card-header .bi,
+    .modal {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    .card-header {
+        background-color: #f8f9fa !important;
+        color: #000 !important;
+        border-bottom: 2px solid #000 !important;
+    }
+    
+    .reportcard-header {
+        background: #fff !important;
+        color: #000 !important;
+        border: 2px solid #000 !important;
+    }
+    
+    .student-info {
+        background: #f8f9fa !important;
+        color: #000 !important;
+    }
+    
+    .table-bordered {
+        border: 1px solid #000 !important;
+    }
+    
+    .table-bordered th,
+    .table-bordered td {
+        border: 1px solid #000 !important;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .school-name {
+        font-size: 1.5rem;
+    }
+    
+    .reportcard-title {
+        font-size: 1.25rem;
+    }
+    
+    .grade-circle {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .grade-letter {
+        font-size: 1.5rem;
+    }
+    
+    .info-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .info-item strong {
+        margin-bottom: 0.25rem;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        margin-bottom: 0.5rem;
+        border-radius: 0.375rem !important;
+    }
+}
+
+/* Animation for grade circles */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.grade-circle {
+    animation: pulse 2s ease-in-out;
+}
+
+/* Custom scrollbar for tables */
+.table-responsive::-webkit-scrollbar {
+    height: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Sample data for charts - in real implementation, this would come from Django context
+const chartData = {
+    gradeDistribution: {
+        labels: ['A (90-100%)', 'B (80-89%)', 'C (70-79%)', 'D (60-69%)', 'F (<60%)'],
+        datasets: [{
+            data: [3, 4, 2, 1, 0], // This would be calculated from subject_marks
+            backgroundColor: [
+                '#198754',
+                '#20c997',
+                '#ffc107',
+                '#fd7e14',
+                '#dc3545'
+            ]
+        }]
+    },
+    subjectComparison: {
+        labels: {{ subject_names|safe }}, // This would be from context
+        datasets: [{
+            label: 'Percentage',
+            data: {{ subject_percentages|safe }}, // This would be from context
+            backgroundColor: 'rgba(13, 110, 253, 0.6)',
+            borderColor: '#0d6efd',
+            borderWidth: 1
+        }]
+    }
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts
+    initializeCharts();
+    
+    // Initialize event listeners
+    initializeEventListeners();
+    
+    // Initialize approval modal
+    initializeApprovalModal();
+
+    function initializeCharts() {
+        // Grade Distribution Chart (Doughnut)
+        const gradeCtx = document.getElementById('gradeDistributionChart').getContext('2d');
+        new Chart(gradeCtx, {
+            type: 'doughnut',
+            data: chartData.gradeDistribution,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.label}: ${context.parsed} subjects`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Subject Comparison Chart (Bar)
+        const subjectCtx = document.getElementById('subjectComparisonChart').getContext('2d');
+        new Chart(subjectCtx, {
+            type: 'bar',
+            data: chartData.subjectComparison,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Percentage'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+
+    function initializeEventListeners() {
+        // Approval confirmation
+        const confirmApproval = document.getElementById('confirmApproval');
+        const confirmApproveBtn = document.getElementById('confirmApproveBtn');
+        
+        if (confirmApproval && confirmApproveBtn) {
+            confirmApproval.addEventListener('change', function() {
+                confirmApproveBtn.disabled = !this.checked;
+            });
+        }
+
+        // Share functionality
+        const shareBtn = document.getElementById('shareBtn');
+        if (shareBtn) {
+            shareBtn.addEventListener('click', function() {
+                const shareModal = new bootstrap.Modal(document.getElementById('shareModal'));
+                shareModal.show();
+            });
+        }
+
+        // Print optimization
+        const printBtn = document.querySelector('[onclick="window.print()"]');
+        if (printBtn) {
+            printBtn.addEventListener('click', function() {
+                // Add print-specific optimizations
+                document.body.classList.add('printing');
+                setTimeout(() => {
+                    document.body.classList.remove('printing');
+                }, 1000);
+            });
+        }
+    }
+
+    function initializeApprovalModal() {
+        // Additional initialization for approval modal if needed
+        console.log('Approval modal initialized');
+    }
+});
+
+function exportReportCard(format) {
+    // Show loading state
+    const exportBtns = document.querySelectorAll('[onclick*="exportReportCard"]');
+    exportBtns.forEach(btn => {
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Exporting...';
+        btn.disabled = true;
+        
+        // Simulate export process
+        setTimeout(() => {
+            showToast(`Report card exported as ${format.toUpperCase()} successfully`, 'success');
+            
+            // Reset button
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }, 2000);
+    });
+    
+    // In real implementation, this would trigger a download
+    console.log(`Exporting report card as ${format}`);
+}
+
+function copyShareLink() {
+    const shareLink = document.getElementById('shareLink');
+    shareLink.select();
+    shareLink.setSelectionRange(0, 99999); // For mobile devices
+    
+    navigator.clipboard.writeText(shareLink.value).then(() => {
+        showToast('Link copied to clipboard!', 'success');
+    }).catch(() => {
+        // Fallback for older browsers
+        document.execCommand('copy');
+        showToast('Link copied to clipboard!', 'success');
+    });
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'primary'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+    });
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + P to print
+    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        window.print();
+    }
+    
+    // Ctrl/Cmd + E to export as PDF
+    if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+        e.preventDefault();
+        exportReportCard('pdf');
+    }
+});
+
+// Add share button if not present
+document.addEventListener('DOMContentLoaded', function() {
+    const pageActions = document.querySelector('.page-actions .btn-group');
+    if (pageActions && !document.getElementById('shareBtn')) {
+        const shareBtn = document.createElement('button');
+        shareBtn.className = 'btn btn-outline-info';
+        shareBtn.id = 'shareBtn';
+        shareBtn.innerHTML = '<i class="bi bi-share me-1"></i> Share';
+        pageActions.insertBefore(shareBtn, pageActions.children[1]);
+    }
+});
+</script>
+{% endblock %}

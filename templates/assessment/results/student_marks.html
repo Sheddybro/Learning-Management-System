@@ -1,0 +1,879 @@
+<!-- apps/assessment/templates/assessment/results/student_marks.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load assessment_filters %}
+
+{% block title %}My Marks{% endblock %}
+
+{% block page_title %}My Marks & Performance{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'assessment:dashboard' %}">Assessment</a></li>
+    <li class="breadcrumb-item active" aria-current="page">My Marks</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+            <i class="bi bi-funnel me-1"></i> Filter
+        </button>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-download me-1"></i> Export
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="exportMarks('pdf')"><i class="bi bi-file-pdf me-2"></i>PDF</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportMarks('excel')"><i class="bi bi-file-spreadsheet me-2"></i>Excel</a></li>
+                <li><a class="dropdown-item" href="#" onclick="printMarks()"><i class="bi bi-printer me-2"></i>Print</a></li>
+            </ul>
+        </div>
+        <a href="{% url 'assessment:result_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-trophy me-1"></i> View Results
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="student-marks-container">
+    <!-- Performance Overview Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-primary">
+                            <i class="bi bi-award"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">{{ total_exams }}</h4>
+                            <p class="text-muted mb-0">Total Exams</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-success">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">{{ passed_exams }}</h4>
+                            <p class="text-muted mb-0">Exams Passed</p>
+                        </div>
+                    </div>
+                    <div class="stat-trend mt-2">
+                        <span class="text-success">
+                            {{ pass_rate|floatformat:1 }}% success rate
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-info">
+                            <i class="bi bi-graph-up"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">{{ average_percentage|default:0|floatformat:1 }}%</h4>
+                            <p class="text-muted mb-0">Average Percentage</p>
+                        </div>
+                    </div>
+                    <div class="stat-trend mt-2">
+                        <span class="{% if average_percentage >= 75 %}text-success{% elif average_percentage >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                            {% if average_percentage >= 75 %}Excellent{% elif average_percentage >= 50 %}Good{% else %}Needs Improvement{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-warning">
+                            <i class="bi bi-star"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">{{ highest_percentage|default:0|floatformat:1 }}%</h4>
+                            <p class="text-muted mb-0">Highest Score</p>
+                        </div>
+                    </div>
+                    <div class="stat-trend mt-2">
+                        <span class="text-warning">
+                            {% if best_subject %}{{ best_subject }}{% else %}No data{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subject Performance Summary -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bar-chart me-2"></i>Subject Performance Summary
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if subject_performance %}
+                    <div class="row">
+                        {% for performance in subject_performance %}
+                        <div class="col-md-4 mb-3">
+                            <div class="subject-performance-item">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0">{{ performance.subject }}</h6>
+                                    <span class="badge {% if performance.average >= 75 %}bg-success{% elif performance.average >= 50 %}bg-warning{% else %}bg-danger{% endif %}">
+                                        {{ performance.average|floatformat:1 }}%
+                                    </span>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar {% if performance.average >= 75 %}bg-success{% elif performance.average >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                         style="width: {{ performance.average }}%">
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between mt-1">
+                                    <small class="text-muted">{{ performance.exam_count }} exam(s)</small>
+                                    <small class="text-muted">
+                                        Best: {{ performance.highest|floatformat:1 }}%
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="bi bi-bar-chart display-4 text-muted mb-2"></i>
+                        <p class="text-muted">No subject performance data available yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Marks List -->
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-list-check me-2"></i>All Exam Marks
+                </h5>
+                
+                <!-- Search and Filter Badges -->
+                <div class="d-flex align-items-center">
+                    {% if request.GET %}
+                    <div class="filter-badges me-3">
+                        {% for key, value in request.GET.items %}
+                            {% if key != 'page' and value %}
+                            <span class="badge bg-light text-dark me-1">
+                                {{ key }}: {{ value }}
+                                <a href="?{% for k, v in request.GET.items %}{% if k != key %}{{ k }}={{ v }}&{% endif %}{% endfor %}" class="text-decoration-none">
+                                    <i class="bi bi-x"></i>
+                                </a>
+                            </span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="input-group input-group-sm" style="width: 250px;">
+                        <input type="text" class="form-control" placeholder="Search exams..." id="searchInput">
+                        <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            {% if marks %}
+            <div class="table-responsive">
+                <table class="table table-hover" id="marksTable">
+                    <thead>
+                        <tr>
+                            <th>Exam</th>
+                            <th>Subject</th>
+                            <th>Date</th>
+                            <th>Marks Obtained</th>
+                            <th>Percentage</th>
+                            <th>Grade</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mark in marks %}
+                        <tr class="mark-item {% if not mark.is_pass %}table-warning{% endif %}">
+                            <td>
+                                <div class="exam-info">
+                                    <h6 class="mb-1">{{ mark.exam.name }}</h6>
+                                    <small class="text-muted">{{ mark.exam.exam_type.name }}</small>
+                                </div>
+                            </td>
+                            
+                            <td>
+                                <span class="fw-semibold">{{ mark.exam.subject.name }}</span>
+                                <br>
+                                <small class="text-muted">{{ mark.exam.academic_class.name }}</small>
+                            </td>
+                            
+                            <td>
+                                <div class="date-info">
+                                    <span class="d-block">{{ mark.exam.exam_date|date:"M d, Y" }}</span>
+                                    <small class="text-muted">
+                                        {{ mark.exam.start_time|time:"H:i" }} - {{ mark.exam.end_time|time:"H:i" }}
+                                    </small>
+                                </div>
+                            </td>
+                            
+                            <td>
+                                <div class="marks-display">
+                                    <span class="fw-bold">{{ mark.marks_obtained|floatformat:1 }}</span>
+                                    <small class="text-muted">/ {{ mark.exam.total_marks|floatformat:1 }}</small>
+                                    {% if mark.grace_marks > 0 %}
+                                    <small class="text-success d-block">+{{ mark.grace_marks }} grace</small>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            
+                            <td>
+                                <div class="percentage-display">
+                                    <span class="fw-bold {% if mark.percentage >= 75 %}text-success{% elif mark.percentage >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                                        {{ mark.percentage|floatformat:1 }}%
+                                    </span>
+                                    <div class="progress mt-1" style="height: 4px; width: 80px;">
+                                        <div class="progress-bar {% if mark.percentage >= 75 %}bg-success{% elif mark.percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                             style="width: {{ mark.percentage }}%">
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            
+                            <td>
+                                {% if mark.percentage >= 33 %}
+                                <span class="grade-badge grade-{{ mark.percentage|grade_class }}">
+                                    {{ mark.percentage|grade_letter }}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-danger">F</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td>
+                                {% if mark.is_pass %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle me-1"></i>Pass
+                                </span>
+                                {% else %}
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-x-circle me-1"></i>Fail
+                                </span>
+                                {% endif %}
+                                
+                                {% if mark.is_absent %}
+                                <span class="badge bg-secondary ms-1">Absent</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{% url 'assessment:exam_detail' mark.exam.pk %}" 
+                                       class="btn btn-outline-primary" title="View Exam Details">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <button type="button" 
+                                            class="btn btn-outline-info view-remarks-btn" 
+                                            title="View Remarks"
+                                            data-remarks="{{ mark.remarks }}"
+                                            data-exam-name="{{ mark.exam.name }}">
+                                        <i class="bi bi-chat-text"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Performance Trends -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-graph-up me-2"></i>Performance Trends
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-md-2">
+                                    <div class="trend-metric">
+                                        <div class="metric-value text-success">{{ excellent_count }}</div>
+                                        <div class="metric-label">Excellent</div>
+                                        <small class="text-muted">(75%+)</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="trend-metric">
+                                        <div class="metric-value text-warning">{{ good_count }}</div>
+                                        <div class="metric-label">Good</div>
+                                        <small class="text-muted">(60-74%)</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="trend-metric">
+                                        <div class="metric-value text-info">{{ average_count }}</div>
+                                        <div class="metric-label">Average</div>
+                                        <small class="text-muted">(50-59%)</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="trend-metric">
+                                        <div class="metric-value text-danger">{{ poor_count }}</div>
+                                        <div class="metric-label">Needs Improvement</div>
+                                        <small class="text-muted">(&lt;50%)</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="trend-metric">
+                                        <div class="metric-value text-primary">{{ improvement|floatformat:1 }}%</div>
+                                        <div class="metric-label">Improvement</div>
+                                        <small class="text-muted">vs last term</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="trend-metric">
+                                        <div class="metric-value 
+                                            {% if consistency >= 80 %}text-success
+                                            {% elif consistency >= 60 %}text-warning
+                                            {% else %}text-danger{% endif %}">
+                                            {{ consistency|floatformat:1 }}%
+                                        </div>
+                                        <div class="metric-label">Consistency</div>
+                                        <small class="text-muted">score stability</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="Marks pagination" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+            
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-inbox display-4 text-muted mb-3"></i>
+                <h4>No Marks Available</h4>
+                <p class="text-muted">You don't have any marks recorded yet.</p>
+                <a href="{% url 'assessment:exam_list' %}" class="btn btn-primary">
+                    <i class="bi bi-calendar-event me-1"></i> View Upcoming Exams
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterModalLabel">
+                    <i class="bi bi-funnel me-2"></i>Filter Marks
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="get" id="filterForm">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="subjectFilter" class="form-label">Subject</label>
+                            <select class="form-select" id="subjectFilter" name="subject">
+                                <option value="">All Subjects</option>
+                                {% for subject in subjects %}
+                                <option value="{{ subject.id }}" {% if request.GET.subject == subject.id|stringformat:"i" %}selected{% endif %}>
+                                    {{ subject.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label for="examTypeFilter" class="form-label">Exam Type</label>
+                            <select class="form-select" id="examTypeFilter" name="exam_type">
+                                <option value="">All Exam Types</option>
+                                {% for exam_type in exam_types %}
+                                <option value="{{ exam_type.id }}" {% if request.GET.exam_type == exam_type.id|stringformat:"i" %}selected{% endif %}>
+                                    {{ exam_type.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Date Range</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="date" class="form-control" name="date_from" 
+                                           value="{{ request.GET.date_from }}" placeholder="From Date">
+                                </div>
+                                <div class="col-6">
+                                    <input type="date" class="form-control" name="date_to" 
+                                           value="{{ request.GET.date_to }}" placeholder="To Date">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label for="statusFilter" class="form-label">Status</label>
+                            <select class="form-select" id="statusFilter" name="status">
+                                <option value="">All Status</option>
+                                <option value="pass" {% if request.GET.status == 'pass' %}selected{% endif %}>Passed</option>
+                                <option value="fail" {% if request.GET.status == 'fail' %}selected{% endif %}>Failed</option>
+                                <option value="absent" {% if request.GET.status == 'absent' %}selected{% endif %}>Absent</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="{% url 'assessment:student_marks' %}" class="btn btn-outline-danger">Clear Filters</a>
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Remarks Modal -->
+<div class="modal fade" id="remarksModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="remarksModalTitle">Exam Remarks</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="remarksContent" class="mb-0"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.student-marks-container {
+    max-width: 100%;
+}
+
+/* Stat Cards */
+.stat-card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: transform 0.2s ease-in-out;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+}
+
+.stat-trend {
+    font-size: 0.875rem;
+}
+
+/* Subject Performance */
+.subject-performance-item {
+    padding: 1rem;
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    transition: border-color 0.2s ease-in-out;
+}
+
+.subject-performance-item:hover {
+    border-color: #0d6efd;
+}
+
+/* Table Styles */
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.table td {
+    vertical-align: middle;
+    padding: 1rem 0.75rem;
+}
+
+.mark-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Grade Badges */
+.grade-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    text-transform: uppercase;
+}
+
+.grade-a-plus, .grade-a { background-color: #198754; color: white; }
+.grade-b-plus, .grade-b { background-color: #20c997; color: white; }
+.grade-c-plus, .grade-c { background-color: #ffc107; color: #000; }
+.grade-d { background-color: #fd7e14; color: white; }
+.grade-f { background-color: #dc3545; color: white; }
+
+/* Progress Bars */
+.progress {
+    background-color: #e9ecef;
+    border-radius: 0.375rem;
+}
+
+.progress-bar {
+    transition: width 0.3s ease;
+    border-radius: 0.375rem;
+}
+
+/* Trend Metrics */
+.trend-metric {
+    padding: 0.5rem;
+}
+
+.trend-metric .metric-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+}
+
+.trend-metric .metric-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+}
+
+/* Filter Badges */
+.filter-badges .badge {
+    font-size: 0.75rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .page-actions .btn-group {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .stat-card .d-flex {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .stat-icon {
+        margin: 0 auto 0.5rem auto;
+    }
+    
+    .subject-performance-item {
+        margin-bottom: 1rem;
+    }
+    
+    .trend-metric {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Loading Animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.mark-item, .subject-performance-item {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Print Styles */
+@media print {
+    .page-actions, .btn-group, .pagination, .filter-badges {
+        display: none !important;
+    }
+    
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .progress-bar {
+        border: 1px solid #000;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize student marks functionality
+    initializeStudentMarks();
+    
+    function initializeStudentMarks() {
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        
+        if (searchInput && searchButton) {
+            searchButton.addEventListener('click', performSearch);
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+        }
+        
+        // Filter form submission
+        const filterForm = document.getElementById('filterForm');
+        if (filterForm) {
+            filterForm.addEventListener('submit', function(e) {
+                // Remove empty fields from submission
+                const inputs = this.querySelectorAll('input, select');
+                inputs.forEach(input => {
+                    if (!input.value) {
+                        input.disabled = true;
+                    }
+                });
+            });
+        }
+        
+        // Remarks modal functionality
+        const viewRemarksButtons = document.querySelectorAll('.view-remarks-btn');
+        const remarksModal = new bootstrap.Modal(document.getElementById('remarksModal'));
+        const remarksModalTitle = document.getElementById('remarksModalTitle');
+        const remarksContent = document.getElementById('remarksContent');
+        
+        viewRemarksButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const remarks = this.getAttribute('data-remarks');
+                const examName = this.getAttribute('data-exam-name');
+                
+                remarksModalTitle.textContent = `Remarks - ${examName}`;
+                
+                if (remarks && remarks.trim() !== '') {
+                    remarksContent.textContent = remarks;
+                } else {
+                    remarksContent.textContent = 'No remarks available for this exam.';
+                    remarksContent.className = 'text-muted fst-italic';
+                }
+                
+                remarksModal.show();
+            });
+        });
+        
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+    
+    function performSearch() {
+        const searchTerm = searchInput.value.trim();
+        if (searchTerm) {
+            // Add search parameter to current URL
+            const url = new URL(window.location.href);
+            url.searchParams.set('search', searchTerm);
+            window.location.href = url.toString();
+        }
+    }
+    
+    // Calculate and display performance insights
+    calculatePerformanceInsights();
+});
+
+// Calculate performance insights
+function calculatePerformanceInsights() {
+    const marks = document.querySelectorAll('.mark-item');
+    let totalPercentage = 0;
+    let subjectPerformance = {};
+    
+    marks.forEach(mark => {
+        const percentageElement = mark.querySelector('.percentage-display .fw-bold');
+        const subjectElement = mark.querySelector('td:nth-child(2) .fw-semibold');
+        
+        if (percentageElement && subjectElement) {
+            const percentage = parseFloat(percentageElement.textContent);
+            const subject = subjectElement.textContent.trim();
+            
+            totalPercentage += percentage;
+            
+            if (!subjectPerformance[subject]) {
+                subjectPerformance[subject] = {
+                    total: 0,
+                    count: 0,
+                    highest: 0
+                };
+            }
+            
+            subjectPerformance[subject].total += percentage;
+            subjectPerformance[subject].count += 1;
+            subjectPerformance[subject].highest = Math.max(subjectPerformance[subject].highest, percentage);
+        }
+    });
+    
+    // Update any dynamic performance metrics
+    updatePerformanceMetrics(subjectPerformance);
+}
+
+function updatePerformanceMetrics(subjectPerformance) {
+    // This function can be extended to update any dynamic metrics on the page
+    console.log('Subject Performance:', subjectPerformance);
+}
+
+// Print marks
+function printMarks() {
+    window.print();
+}
+
+// Export marks in different formats
+function exportMarks(format) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('export', format);
+    
+    switch(format) {
+        case 'pdf':
+            window.open(url.toString(), '_blank');
+            break;
+        case 'excel':
+            window.location.href = url.toString();
+            break;
+        default:
+            window.location.href = url.toString();
+    }
+    
+    showNotification(`Exporting marks as ${format.toUpperCase()}...`, 'success');
+}
+
+// Show notification
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Utility function to calculate grade
+function calculateGrade(percentage) {
+    if (percentage >= 90) return { letter: 'A+', class: 'a-plus' };
+    if (percentage >= 80) return { letter: 'A', class: 'a' };
+    if (percentage >= 70) return { letter: 'B+', class: 'b-plus' };
+    if (percentage >= 60) return { letter: 'B', class: 'b' };
+    if (percentage >= 50) return { letter: 'C+', class: 'c-plus' };
+    if (percentage >= 40) return { letter: 'C', class: 'c' };
+    if (percentage >= 33) return { letter: 'D', class: 'd' };
+    return { letter: 'F', class: 'f' };
+}
+</script>
+{% endblock %}

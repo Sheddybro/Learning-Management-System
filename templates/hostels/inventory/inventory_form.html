@@ -1,0 +1,845 @@
+<!-- templates/hostels/inventory/inventory_form.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+
+{% block title %}{% if form.instance.pk %}Edit Inventory Item{% else %}Add New Inventory Item{% endif %} - Hostel Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .form-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .form-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+        padding: 1.5rem;
+    }
+    
+    .form-section {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        background: #f8f9fa;
+    }
+    
+    .form-section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #007bff;
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .form-actions {
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        padding: 1.5rem;
+        border-radius: 0 0 12px 12px;
+    }
+    
+    .info-badge {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+    
+    .preview-card {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .preview-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .preview-item:last-child {
+        border-bottom: none;
+    }
+    
+    .condition-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+    }
+    
+    .condition-excellent { background: linear-gradient(135deg, #28a745, #20c997); }
+    .condition-good { background: linear-gradient(135deg, #17a2b8, #6f42c1); }
+    .condition-fair { background: linear-gradient(135deg, #ffc107, #fd7e14); }
+    .condition-poor { background: linear-gradient(135deg, #dc3545, #e83e8c); }
+    .condition-damaged { background: linear-gradient(135deg, #6c757d, #495057); }
+    
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .status-available { background-color: #28a745; }
+    .status-in-use { background-color: #007bff; }
+    .status-maintenance { background-color: #ffc107; }
+    .status-discarded { background-color: #dc3545; }
+    
+    .warranty-alert {
+        border-left: 4px solid #17a2b8;
+        background: #d1ecf1;
+        color: #0c5460;
+        padding: 1rem;
+        border-radius: 4px;
+        margin: 1rem 0;
+    }
+    
+    .cost-estimator {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    
+    .dynamic-field {
+        transition: all 0.3s ease;
+    }
+    
+    .dynamic-field:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .help-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .image-upload-area {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        background: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .image-upload-area:hover {
+        border-color: #007bff;
+        background: #e7f3ff;
+    }
+    
+    .image-upload-icon {
+        font-size: 3rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}
+{% if form.instance.pk %}
+    <i class="bi bi-pencil-square me-2"></i>Edit Inventory Item
+{% else %}
+    <i class="bi bi-plus-circle me-2"></i>Add New Inventory Item
+{% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:dashboard' %}">Hostel Dashboard</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:inventory_list' %}">Inventory</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if form.instance.pk %}Edit Item{% else %}Add New Item{% endif %}
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card form-card">
+                <div class="form-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-0">
+                                {% if form.instance.pk %}
+                                    <i class="bi bi-pencil-square me-2"></i>Edit Inventory Item
+                                {% else %}
+                                    <i class="bi bi-plus-circle me-2"></i>Add New Inventory Item
+                                {% endif %}
+                            </h4>
+                            <p class="mb-0 opacity-75">
+                                {% if form.instance.pk %}
+                                    Update item details and maintenance information
+                                {% else %}
+                                    Add a new item to the hostel inventory system
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <span class="info-badge">
+                                <i class="bi bi-box-seam me-1"></i>
+                                {% if form.instance.pk %}Editing{% else %}Adding{% endif %} Item
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <form method="post" id="inventoryForm" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Basic Information Section -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-info-circle me-2"></i>Basic Information
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.hostel.id_for_label }}" class="form-label required-field">
+                                        <i class="bi bi-building me-1"></i>Hostel
+                                    </label>
+                                    {{ form.hostel }}
+                                    {% if form.hostel.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.hostel.errors }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="help-text">
+                                        Select the hostel where this item is located
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.room.id_for_label }}" class="form-label">
+                                        <i class="bi bi-door-closed me-1"></i>Room (Optional)
+                                    </label>
+                                    {{ form.room }}
+                                    {% if form.room.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.room.errors }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="help-text">
+                                        Specific room location (if applicable)
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.name.id_for_label }}" class="form-label required-field">
+                                        <i class="bi bi-tag me-1"></i>Item Name
+                                    </label>
+                                    {{ form.name }}
+                                    {% if form.name.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.name.errors }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="help-text">
+                                        Descriptive name of the inventory item
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.category.id_for_label }}" class="form-label required-field">
+                                        <i class="bi bi-grid-3x3 me-1"></i>Category
+                                    </label>
+                                    {{ form.category }}
+                                    {% if form.category.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.category.errors }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="help-text">
+                                        Item category (e.g., Furniture, Electronics, Appliances)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Identification & Quantity Section -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-upc-scan me-2"></i>Identification & Quantity
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.serial_number.id_for_label }}" class="form-label">
+                                        <i class="bi bi-barcode me-1"></i>Serial Number
+                                    </label>
+                                    {{ form.serial_number }}
+                                    {% if form.serial_number.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.serial_number.errors }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="help-text">
+                                        Unique serial number for tracking (if available)
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.quantity.id_for_label }}" class="form-label required-field">
+                                        <i class="bi bi-box me-1"></i>Quantity
+                                    </label>
+                                    {{ form.quantity }}
+                                    {% if form.quantity.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.quantity.errors }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="help-text">
+                                        Number of units available
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Condition & Status Section -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-clipboard-check me-2"></i>Condition & Status
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.condition.id_for_label }}" class="form-label required-field">
+                                        <i class="bi bi-heart-pulse me-1"></i>Condition
+                                    </label>
+                                    {{ form.condition }}
+                                    {% if form.condition.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.condition.errors }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="help-text">
+                                        Current physical condition of the item
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.status.id_for_label }}" class="form-label required-field">
+                                        <i class="bi bi-circle-fill me-1"></i>Status
+                                    </label>
+                                    {{ form.status }}
+                                    {% if form.status.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.status.errors }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="help-text">
+                                        Current usage status of the item
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Purchase Details Section -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-receipt me-2"></i>Purchase Details
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.purchase_date.id_for_label }}" class="form-label">
+                                        <i class="bi bi-calendar me-1"></i>Purchase Date
+                                    </label>
+                                    {{ form.purchase_date }}
+                                    {% if form.purchase_date.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.purchase_date.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.purchase_cost.id_for_label }}" class="form-label">
+                                        <i class="bi bi-currency-rupee me-1"></i>Purchase Cost
+                                    </label>
+                                    {{ form.purchase_cost }}
+                                    {% if form.purchase_cost.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.purchase_cost.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.warranty_expiry.id_for_label }}" class="form-label">
+                                        <i class="bi bi-shield-check me-1"></i>Warranty Expiry
+                                    </label>
+                                    {{ form.warranty_expiry }}
+                                    {% if form.warranty_expiry.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.warranty_expiry.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Warranty Status Alert -->
+                            {% if form.instance.warranty_expiry %}
+                            <div class="warranty-alert" id="warrantyAlert">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <i class="bi bi-shield-check me-2"></i>
+                                        <strong>Warranty Status:</strong> 
+                                        <span id="warrantyStatusText"></span>
+                                    </div>
+                                    <div class="col-md-4 text-end">
+                                        <span class="badge" id="warrantyBadge"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- Cost Estimation -->
+                            <div class="cost-estimator" id="costEstimator" style="display: none;">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <i class="bi bi-calculator me-2"></i>
+                                        <strong>Total Value:</strong> 
+                                        <span id="totalValue">₹0.00</span>
+                                    </div>
+                                    <div class="col-md-4 text-end">
+                                        <small>Quantity × Unit Cost</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Description & Notes Section -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-journal-text me-2"></i>Description & Notes
+                            </h5>
+                            <div class="mb-3">
+                                <label for="{{ form.description.id_for_label }}" class="form-label">
+                                    <i class="bi bi-card-text me-1"></i>Description
+                                </label>
+                                {{ form.description }}
+                                {% if form.description.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.description.errors }}
+                                    </div>
+                                {% endif %}
+                                <div class="help-text">
+                                    Detailed description of the item, features, and specifications
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.notes.id_for_label }}" class="form-label">
+                                    <i class="bi bi-sticky me-1"></i>Notes
+                                </label>
+                                {{ form.notes }}
+                                {% if form.notes.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.notes.errors }}
+                                    </div>
+                                {% endif %}
+                                <div class="help-text">
+                                    Additional notes, maintenance history, or special instructions
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Image Upload Section -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-image me-2"></i>Item Images (Optional)
+                            </h5>
+                            <div class="image-upload-area" onclick="document.getElementById('imageUpload').click()">
+                                <i class="bi bi-cloud-arrow-up image-upload-icon"></i>
+                                <h6>Click to Upload Images</h6>
+                                <p class="text-muted mb-0">Supports JPG, PNG, GIF - Max 5MB per image</p>
+                                <input type="file" id="imageUpload" accept="image/*" multiple style="display: none;">
+                            </div>
+                            <div id="imagePreview" class="mt-3"></div>
+                        </div>
+
+                        <!-- Live Preview Section -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-eye me-2"></i>Live Preview
+                            </h5>
+                            <div class="preview-card">
+                                <div class="preview-item">
+                                    <span>Item Identifier:</span>
+                                    <span id="previewIdentifier" class="fw-bold">
+                                        {% if form.instance.pk and form.instance.hostel_id %}
+                                            {{ form.instance.hostel.code }}-{{ form.instance.category|slice:":3"|upper }}-{{ form.instance.name|slice:":10"|upper }}
+                                        {% else %}
+                                            [Hostel]-[CAT]-[Item]
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="preview-item">
+                                    <span>Location:</span>
+                                    <span id="previewLocation">
+                                        {% if form.instance.room %}
+                                            {{ form.instance.room.hostel.name }} - Room {{ form.instance.room.room_number }}
+                                        {% elif form.instance.hostel_id %}
+                                            {{ form.instance.hostel.name }}
+                                        {% else %}
+                                            Not specified
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="preview-item">
+                                    <span>Condition:</span>
+                                    <span id="previewCondition">
+                                        {% if form.instance.condition %}
+                                            <span class="condition-badge condition-{{ form.instance.condition }}">
+                                                {{ form.instance.get_condition_display }}
+                                            </span>
+                                        {% else %}
+                                            Not set
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="preview-item">
+                                    <span>Status:</span>
+                                    <span id="previewStatus">
+                                        {% if form.instance.status %}
+                                            <span class="status-indicator status-{{ form.instance.status }}"></span>
+                                            {{ form.instance.get_status_display }}
+                                        {% else %}
+                                            Not set
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="preview-item">
+                                    <span>Warranty:</span>
+                                    <span id="previewWarranty">
+                                        {% if form.instance.is_warranty_valid %}
+                                            <span class="text-success">Valid</span>
+                                        {% else %}
+                                            <span class="text-muted">Expired/None</span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="form-actions">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <a href="{% url 'hostels:inventory_list' %}" class="btn btn-outline-secondary">
+                                        <i class="bi bi-arrow-left me-2"></i>
+                                        Back to Inventory
+                                    </a>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <button type="reset" class="btn btn-outline-danger me-2">
+                                        <i class="bi bi-arrow-clockwise me-2"></i>
+                                        Reset
+                                    </button>
+                                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                                        <i class="bi bi-check-circle me-2"></i>
+                                        {% if form.instance.pk %}Update Item{% else %}Add Item{% endif %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const inventoryForm = document.getElementById('inventoryForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const hostelSelect = document.getElementById('{{ form.hostel.id_for_label }}');
+        const roomSelect = document.getElementById('{{ form.room.id_for_label }}');
+        const nameInput = document.getElementById('{{ form.name.id_for_label }}');
+        const categoryInput = document.getElementById('{{ form.category.id_for_label }}');
+        const quantityInput = document.getElementById('{{ form.quantity.id_for_label }}');
+        const conditionSelect = document.getElementById('{{ form.condition.id_for_label }}');
+        const statusSelect = document.getElementById('{{ form.status.id_for_label }}');
+        const purchaseDateInput = document.getElementById('{{ form.purchase_date.id_for_label }}');
+        const purchaseCostInput = document.getElementById('{{ form.purchase_cost.id_for_label }}');
+        const warrantyExpiryInput = document.getElementById('{{ form.warranty_expiry.id_for_label }}');
+
+        // Dynamic room filtering based on hostel selection
+        function updateRoomOptions() {
+            const hostelId = hostelSelect.value;
+            
+            if (hostelId) {
+                // In a real implementation, this would be an AJAX call to fetch rooms
+                console.log('Fetching rooms for hostel:', hostelId);
+                // For now, we'll enable the room select
+                roomSelect.disabled = false;
+            } else {
+                roomSelect.disabled = true;
+                roomSelect.innerHTML = '<option value="">Select a hostel first</option>';
+            }
+            
+            updatePreview();
+        }
+
+        // Update live preview
+        function updatePreview() {
+            const previewIdentifier = document.getElementById('previewIdentifier');
+            const previewLocation = document.getElementById('previewLocation');
+            const previewCondition = document.getElementById('previewCondition');
+            const previewStatus = document.getElementById('previewStatus');
+            const previewWarranty = document.getElementById('previewWarranty');
+
+            // Update identifier
+            const hostelText = hostelSelect.options[hostelSelect.selectedIndex]?.text || '[Hostel]';
+            const category = categoryInput.value || 'CAT';
+            const name = nameInput.value || 'Item';
+            previewIdentifier.textContent = `${hostelText.split(' ')[0]}-${category.slice(0, 3).toUpperCase()}-${name.slice(0, 10).toUpperCase()}`;
+
+            // Update location
+            const roomText = roomSelect.options[roomSelect.selectedIndex]?.text;
+            if (roomText && roomText !== 'Select a room') {
+                previewLocation.textContent = roomText;
+            } else if (hostelSelect.value) {
+                previewLocation.textContent = hostelSelect.options[hostelSelect.selectedIndex].text;
+            } else {
+                previewLocation.textContent = 'Not specified';
+            }
+
+            // Update condition
+            const condition = conditionSelect.value;
+            if (condition) {
+                const conditionText = conditionSelect.options[conditionSelect.selectedIndex].text;
+                previewCondition.innerHTML = `<span class="condition-badge condition-${condition}">${conditionText}</span>`;
+            } else {
+                previewCondition.textContent = 'Not set';
+            }
+
+            // Update status
+            const status = statusSelect.value;
+            if (status) {
+                const statusText = statusSelect.options[statusSelect.selectedIndex].text;
+                previewStatus.innerHTML = `<span class="status-indicator status-${status}"></span>${statusText}`;
+            } else {
+                previewStatus.textContent = 'Not set';
+            }
+
+            // Update warranty
+            updateWarrantyStatus();
+        }
+
+        // Update warranty status
+        function updateWarrantyStatus() {
+            const warrantyExpiry = warrantyExpiryInput.value;
+            const warrantyAlert = document.getElementById('warrantyAlert');
+            const warrantyStatusText = document.getElementById('warrantyStatusText');
+            const warrantyBadge = document.getElementById('warrantyBadge');
+
+            if (warrantyExpiry) {
+                const expiryDate = new Date(warrantyExpiry);
+                const today = new Date();
+                const timeDiff = expiryDate - today;
+                const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+
+                if (warrantyAlert) warrantyAlert.style.display = 'block';
+
+                if (daysDiff < 0) {
+                    warrantyStatusText.textContent = 'Expired';
+                    warrantyBadge.textContent = 'EXPIRED';
+                    warrantyBadge.className = 'badge bg-danger';
+                } else if (daysDiff <= 30) {
+                    warrantyStatusText.textContent = `Expires in ${daysDiff} days`;
+                    warrantyBadge.textContent = 'SOON';
+                    warrantyBadge.className = 'badge bg-warning';
+                } else {
+                    warrantyStatusText.textContent = `Valid until ${expiryDate.toLocaleDateString()}`;
+                    warrantyBadge.textContent = 'VALID';
+                    warrantyBadge.className = 'badge bg-success';
+                }
+            } else if (warrantyAlert) {
+                warrantyAlert.style.display = 'none';
+            }
+
+            previewWarranty.textContent = warrantyExpiry ? 'Valid' : 'Expired/None';
+            previewWarranty.className = warrantyExpiry ? 'text-success' : 'text-muted';
+        }
+
+        // Calculate total value
+        function updateTotalValue() {
+            const quantity = parseInt(quantityInput.value) || 0;
+            const cost = parseFloat(purchaseCostInput.value) || 0;
+            const totalValue = quantity * cost;
+            
+            const costEstimator = document.getElementById('costEstimator');
+            const totalValueElement = document.getElementById('totalValue');
+            
+            if (quantity > 0 && cost > 0) {
+                costEstimator.style.display = 'block';
+                totalValueElement.textContent = `₹${totalValue.toFixed(2)}`;
+            } else {
+                costEstimator.style.display = 'none';
+            }
+        }
+
+        // Image upload handling
+        function handleImageUpload(event) {
+            const files = event.target.files;
+            const preview = document.getElementById('imagePreview');
+            preview.innerHTML = '';
+
+            for (let file of files) {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.className = 'img-thumbnail me-2 mb-2';
+                        img.style.maxWidth = '100px';
+                        img.style.maxHeight = '100px';
+                        preview.appendChild(img);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        }
+
+        // Form validation
+        function validateForm() {
+            let isValid = true;
+            const requiredFields = [hostelSelect, nameInput, categoryInput, quantityInput, conditionSelect, statusSelect];
+
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    field.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    field.classList.remove('is-invalid');
+                }
+            });
+
+            // Quantity validation
+            if (quantityInput.value && parseInt(quantityInput.value) < 1) {
+                quantityInput.classList.add('is-invalid');
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
+        // Event listeners
+        hostelSelect.addEventListener('change', updateRoomOptions);
+        roomSelect.addEventListener('change', updatePreview);
+        nameInput.addEventListener('input', updatePreview);
+        categoryInput.addEventListener('input', updatePreview);
+        conditionSelect.addEventListener('change', updatePreview);
+        statusSelect.addEventListener('change', updatePreview);
+        warrantyExpiryInput.addEventListener('change', updateWarrantyStatus);
+        quantityInput.addEventListener('input', updateTotalValue);
+        purchaseCostInput.addEventListener('input', updateTotalValue);
+        document.getElementById('imageUpload').addEventListener('change', handleImageUpload);
+
+        // Form submission
+        inventoryForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!validateForm()) {
+                alert('Please fill in all required fields correctly.');
+                return;
+            }
+
+            // Show loading state
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Saving...';
+            submitBtn.disabled = true;
+
+            // Submit the form
+            this.submit();
+        });
+
+        // Reset form handler
+        inventoryForm.addEventListener('reset', function() {
+            setTimeout(updatePreview, 100);
+            setTimeout(updateRoomOptions, 100);
+            setTimeout(updateTotalValue, 100);
+        });
+
+        // Initialize on page load
+        updateRoomOptions();
+        updatePreview();
+        updateWarrantyStatus();
+        updateTotalValue();
+
+        // Auto-focus on name input
+        nameInput.focus();
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                submitBtn.click();
+            }
+        });
+
+        // Show character count for description and notes
+        const descriptionTextarea = document.getElementById('{{ form.description.id_for_label }}');
+        const notesTextarea = document.getElementById('{{ form.notes.id_for_label }}');
+
+        function setupCharacterCount(textarea, maxLength = 1000) {
+            textarea.addEventListener('input', function() {
+                const currentLength = this.value.length;
+                let helpText = this.parentNode.querySelector('.help-text');
+                
+                if (!helpText.querySelector('.char-count')) {
+                    const charCount = document.createElement('span');
+                    charCount.className = 'char-count float-end';
+                    helpText.appendChild(charCount);
+                }
+                
+                const charCount = helpText.querySelector('.char-count');
+                charCount.textContent = `${currentLength}/${maxLength}`;
+                
+                if (currentLength > maxLength * 0.8) {
+                    charCount.className = 'char-count float-end text-warning';
+                } else {
+                    charCount.className = 'char-count float-end text-muted';
+                }
+            });
+
+            textarea.dispatchEvent(new Event('input'));
+        }
+
+        setupCharacterCount(descriptionTextarea);
+        setupCharacterCount(notesTextarea, 500);
+    });
+</script>
+{% endblock %}

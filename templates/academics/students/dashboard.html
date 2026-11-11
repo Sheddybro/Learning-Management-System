@@ -1,0 +1,532 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Student Dashboard" %} - {{ student.user.get_full_name }}{% endblock %}
+
+{% block content %}
+<div class="student-dashboard">
+    <!-- Header Section -->
+    <div class="dashboard-header bg-gradient-primary text-white p-4 mb-4 rounded">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h3 mb-1">
+                    <i class="fas fa-tachometer-alt mr-2"></i>
+                    {% trans "Welcome back" %}, {{ student.user.get_full_name }}!
+                </h1>
+                <p class="mb-0 opacity-75">
+                    {% if current_enrollment %}
+                        {% trans "Student ID" %}: {{ student.student_id }} |
+                        {% trans "Class" %}: {{ current_enrollment.class_enrolled.name }}
+                    {% else %}
+                        {% trans "Student ID" %}: {{ student.student_id }}
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-4 text-right">
+                <div class="current-date">
+                    <small class="opacity-75">{% trans "Today" %}</small>
+                    <div class="h5 mb-0">{{ today|date:"l, F j, Y" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Cards -->
+    <div class="row mb-4">
+        <!-- Today's Attendance -->
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-left-primary">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                {% trans "Today's Attendance" %}
+                            </div>
+                            {% if today_attendance %}
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                    {% if today_attendance.status == 'present' %}
+                                        <span class="text-success">
+                                            <i class="fas fa-check-circle"></i> {% trans "Present" %}
+                                        </span>
+                                    {% elif today_attendance.status == 'absent' %}
+                                        <span class="text-danger">
+                                            <i class="fas fa-times-circle"></i> {% trans "Absent" %}
+                                        </span>
+                                    {% elif today_attendance.status == 'late' %}
+                                        <span class="text-warning">
+                                            <i class="fas fa-clock"></i> {% trans "Late" %}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-info">{{ today_attendance.get_status_display }}</span>
+                                    {% endif %}
+                                </div>
+                                {% if today_attendance.late_minutes %}
+                                    <div class="text-xs text-muted">
+                                        {{ today_attendance.late_minutes }} {% trans "minutes late" %}
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                <div class="text-muted">
+                                    <i class="fas fa-question-circle"></i> {% trans "Not marked" %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-check fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Stats -->
+        {% if performance_stats %}
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-left-success">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                {% trans "Average Grade" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ performance_stats.average_percentage }}%
+                            </div>
+                            <div class="text-xs text-muted">
+                                {{ performance_stats.total_exams }} {% trans "exams" %} |
+                                {{ performance_stats.passed_exams }} {% trans "passed" %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chart-line fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Library Status -->
+        {% if library_status %}
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-left-info">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                {% trans "Library Books" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ library_status.current_borrows|length }}
+                            </div>
+                            <div class="text-xs text-muted">
+                                {% if library_status.can_borrow_more %}
+                                    <span class="text-success">{% trans "Can borrow more" %}</span>
+                                {% else %}
+                                    <span class="text-warning">{% trans "At limit" %}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-book fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Pending Assignments -->
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-left-warning">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                {% trans "Pending Assignments" %}
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ upcoming_assignments|length }}
+                            </div>
+                            <div class="text-xs text-muted">
+                                {% trans "Due this week" %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-tasks fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="row">
+        <!-- Today's Timetable -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-clock mr-2"></i>
+                        {% trans "Today's Schedule" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if today_timetable %}
+                        <div class="timetable-container">
+                            {% for period in today_timetable %}
+                            <div class="timetable-item mb-3 p-3 border-left-primary bg-light">
+                                <div class="row align-items-center">
+                                    <div class="col-md-2">
+                                        <div class="time-slot">
+                                            <strong>{{ period.start_time|time:"H:i" }} - {{ period.end_time|time:"H:i" }}</strong>
+                                            <br>
+                                            <small class="text-muted">Period {{ period.period_number }}</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="subject-info">
+                                            <h6 class="mb-1">
+                                                {% if period.subject %}
+                                                    {{ period.subject.name }}
+                                                {% else %}
+                                                    {{ period.title }}
+                                                {% endif %}
+                                            </h6>
+                                            {% if period.teacher %}
+                                                <small class="text-muted">
+                                                    <i class="fas fa-user mr-1"></i>{{ period.teacher.user.get_full_name }}
+                                                </small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 text-right">
+                                        {% if period.room_number %}
+                                            <span class="badge badge-primary">
+                                                <i class="fas fa-map-marker-alt mr-1"></i>
+                                                {{ period.room_number }}
+                                                {% if period.room_name %}({{ period.room_name }}){% endif %}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">{% trans "No classes scheduled for today" %}</h5>
+                            <p class="text-muted">{% trans "Enjoy your day off!" %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Recent Announcements -->
+            <div class="card mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-bullhorn mr-2"></i>
+                        {% trans "Recent Announcements" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_announcements %}
+                        {% for announcement in recent_announcements %}
+                        <div class="announcement-item mb-3 pb-3 border-bottom">
+                            <h6 class="mb-1">
+                                <a href="#" class="text-decoration-none" data-toggle="modal" data-target="#announcementModal{{ announcement.id }}">
+                                    {{ announcement.title }}
+                                </a>
+                            </h6>
+                            <p class="text-muted small mb-1">{{ announcement.content|truncatechars:100 }}</p>
+                            <small class="text-primary">
+                                <i class="fas fa-calendar mr-1"></i>{{ announcement.published_at|date:"M j, Y" }}
+                            </small>
+                        </div>
+
+                        <!-- Announcement Modal -->
+                        <div class="modal fade" id="announcementModal{{ announcement.id }}" tabindex="-1">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">{{ announcement.title }}</h5>
+                                        <button type="button" class="close" data-dismiss="modal">
+                                            <span>&times;</span>
+                                        </button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>{{ announcement.content }}</p>
+                                        <small class="text-muted">
+                                            {% trans "Published on" %} {{ announcement.published_at|date:"F j, Y \a\t g:i A" }}
+                                            {% if announcement.author %}
+                                                {% trans "by" %} {{ announcement.author.get_full_name }}
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <div class="text-center">
+                            <a href="{% url 'communication:announcement_list' %}" class="btn btn-sm btn-outline-primary">
+                                {% trans "View All Announcements" %}
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-info-circle fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">{% trans "No recent announcements" %}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-bolt mr-2"></i>
+                        {% trans "Quick Actions" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'academics:student_timetable' %}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-calendar-alt mr-2"></i>{% trans "View Full Timetable" %}
+                        </a>
+                        <a href="{% url 'academics:student_materials' %}" class="btn btn-outline-success btn-sm">
+                            <i class="fas fa-book mr-2"></i>{% trans "Learning Materials" %}
+                        </a>
+                        <a href="{% url 'academics:student_performance' %}" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-chart-bar mr-2"></i>{% trans "My Performance" %}
+                        </a>
+                        <a href="{% url 'academics:student_attendance' %}" class="btn btn-outline-warning btn-sm">
+                            <i class="fas fa-user-check mr-2"></i>{% trans "Attendance Records" %}
+                        </a>
+                        <a href="{% url 'communication:inbox' %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-envelope mr-2"></i>{% trans "Messages" %}
+                        </a>
+                        {% if library_status and library_status.can_borrow_more %}
+                        <a href="{% url 'library:dashboard' %}" class="btn btn-outline-dark btn-sm">
+                            <i class="fas fa-book-open mr-2"></i>{% trans "Library" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upcoming Assignments Section -->
+    {% if upcoming_assignments %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-tasks mr-2"></i>
+                        {% trans "Upcoming Assignments" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="assignments-list">
+                        {% for assignment in upcoming_assignments %}
+                        <div class="assignment-item mb-3 p-3 border-left-warning bg-light">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <h6 class="mb-1">{{ assignment.title }}</h6>
+                                    <p class="text-muted small mb-1">{{ assignment.description|truncatechars:100 }}</p>
+                                    <small class="text-muted">
+                                        <i class="fas fa-user mr-1"></i>{{ assignment.teacher.user.get_full_name }} |
+                                        <i class="fas fa-calendar mr-1"></i>{% trans "Due" %} {{ assignment.due_date|date:"M j, Y" }}
+                                    </small>
+                                </div>
+                                <div class="col-md-4 text-right">
+                                    <span class="badge badge-warning">
+                                        <i class="fas fa-clock mr-1"></i>
+                                        {% if assignment.due_date|date:"Y-m-d" == today|date:"Y-m-d" %}
+                                            {% trans "Due Today" %}
+                                        {% else %}
+                                            {{ assignment.due_date|timeuntil }}
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="text-center mt-3">
+                        <a href="{% url 'academics:student_materials' %}" class="btn btn-primary">
+                            {% trans "View All Assignments" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Grades Section -->
+    {% if recent_grades %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-star mr-2"></i>
+                        {% trans "Recent Grades" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="grades-grid">
+                        {% for grade in recent_grades %}
+                        <div class="grade-item text-center p-3 border rounded mr-3 mb-3">
+                            <div class="grade-score h4 mb-1
+                                {% if grade.percentage >= 90 %}text-success
+                                {% elif grade.percentage >= 80 %}text-info
+                                {% elif grade.percentage >= 70 %}text-warning
+                                {% else %}text-danger{% endif %}">
+                                {{ grade.percentage }}%
+                            </div>
+                            <div class="grade-subject small text-muted mb-1">{{ grade.exam.subject.name }}</div>
+                            <div class="grade-exam small">{{ grade.exam.name }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="text-center mt-3">
+                        <a href="{% url 'academics:student_performance' %}" class="btn btn-success">
+                            {% trans "View Full Performance" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Enrolled Subjects Section -->
+    {% if enrolled_subjects %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-book-open mr-2"></i>
+                        {% trans "My Subjects" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="subjects-grid">
+                        {% for subject_data in enrolled_subjects %}
+                        <div class="subject-item p-3 border rounded mr-3 mb-3">
+                            <div class="d-flex align-items-start">
+                                <div class="subject-icon mr-3">
+                                    <i class="fas fa-book fa-2x text-primary"></i>
+                                </div>
+                                <div class="subject-details flex-grow-1">
+                                    <h6 class="mb-1">{{ subject_data.subject.name }}</h6>
+                                    <p class="text-muted small mb-2">{{ subject_data.subject.description|truncatechars:80|default:"No description available" }}</p>
+                                    <div class="subject-meta">
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-user mr-1"></i>
+                                            <strong>{% trans "Teacher" %}:</strong> {{ subject_data.teacher.user.get_full_name }}
+                                        </small>
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-clock mr-1"></i>
+                                            <strong>{% trans "Periods/Week" %}:</strong> {{ subject_data.periods_per_week }}
+                                        </small>
+                                        {% if subject_data.is_primary_teacher %}
+                                        <small class="text-success d-block">
+                                            <i class="fas fa-star mr-1"></i>
+                                            {% trans "Primary Teacher" %}
+                                        </small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="text-center mt-3">
+                        <a href="{% url 'academics:student_timetable' %}" class="btn btn-primary">
+                            {% trans "View Timetable" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.dashboard-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.timetable-item {
+    transition: all 0.3s ease;
+}
+
+.timetable-item:hover {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.announcement-item:last-child {
+    border-bottom: none !important;
+    margin-bottom: 0 !important;
+}
+
+.grade-item {
+    min-width: 120px;
+    display: inline-block;
+}
+
+.subject-item {
+    min-width: 300px;
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+
+.subject-item:hover {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.subject-icon {
+    flex-shrink: 0;
+}
+
+.subject-details {
+    min-width: 0;
+}
+
+.assignments-list .assignment-item:last-child {
+    margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+    .grade-item {
+        min-width: 100px;
+        margin-right: 10px !important;
+        margin-bottom: 10px !important;
+    }
+
+    .subject-item {
+        min-width: 280px;
+        margin-right: 10px !important;
+        margin-bottom: 10px !important;
+    }
+}
+</style>
+
+<script src="{% static 'js/student_dashboard.js' %}"></script>
+{% endblock %}

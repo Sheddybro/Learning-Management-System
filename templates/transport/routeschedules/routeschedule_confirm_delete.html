@@ -1,0 +1,642 @@
+<!-- templates/transport/routeschedules/routeschedule_confirm_delete.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Delete Schedule" %} - {{ schedule.route.code }}{% endblock %}
+
+{% block page_title %}{% trans "Delete Schedule" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:routeschedule_list' %}">{% trans "Route Schedules" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:routeschedule_detail' schedule.pk %}">{{ schedule.route.code }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Delete Schedule" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-confirmation-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #dc3545;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .warning-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background-color: #f8d7da;
+        color: #dc3545;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        margin: 0 auto 1.5rem;
+    }
+    
+    .schedule-preview {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border: 1px solid #e9ecef;
+    }
+    
+    .preview-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .preview-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .preview-item:last-child {
+        border-bottom: none;
+    }
+    
+    .preview-label {
+        font-weight: 600;
+        color: #6c757d;
+        min-width: 150px;
+    }
+    
+    .preview-value {
+        font-weight: 500;
+        text-align: right;
+    }
+    
+    .impact-warning {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 1.5rem;
+        border-radius: 0 8px 8px 0;
+        margin: 1.5rem 0;
+    }
+    
+    .impact-item {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .impact-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .impact-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+    
+    .students-icon {
+        background-color: #e8f5e8;
+        color: #198754;
+    }
+    
+    .allocations-icon {
+        background-color: #e7f1ff;
+        color: #0d6efd;
+    }
+    
+    .incidents-icon {
+        background-color: #fef7e6;
+        color: #fd7e14;
+    }
+    
+    .btn-delete {
+        background-color: #dc3545;
+        border-color: #dc3545;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        border-radius: 8px;
+        min-width: 150px;
+    }
+    
+    .btn-delete:hover {
+        background-color: #bb2d3b;
+        border-color: #b02a37;
+    }
+    
+    .btn-delete:disabled {
+        background-color: #6c757d;
+        border-color: #6c757d;
+        cursor: not-allowed;
+    }
+    
+    .btn-cancel {
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        border-radius: 8px;
+        min-width: 150px;
+    }
+    
+    .critical-warning {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        text-align: center;
+    }
+    
+    .affected-items {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .affected-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+        background-color: white;
+        border-left: 4px solid #dc3545;
+    }
+    
+    .affected-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .item-count {
+        background-color: #dc3545;
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.875rem;
+        margin-right: 1rem;
+    }
+    
+    .confirmation-check {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border: 2px dashed #dee2e6;
+    }
+    
+    .pulse-warning {
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    .resource-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 15px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="route-schedule-delete-confirmation">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card delete-confirmation-card">
+                <div class="card-body py-4">
+                    <!-- Warning Icon -->
+                    <div class="warning-icon pulse-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    
+                    <!-- Confirmation Title -->
+                    <div class="text-center mb-4">
+                        <h3 class="card-title text-danger mb-3">{% trans "Delete Schedule Confirmation" %}</h3>
+                        <p class="card-text text-muted lead">
+                            {% trans "You are about to permanently delete this route schedule and all its associated data." %}
+                        </p>
+                    </div>
+                    
+                    <!-- Schedule Preview -->
+                    <div class="schedule-preview">
+                        <div class="preview-header">
+                            <div>
+                                <h5 class="mb-1">{{ schedule.route.code }} - {{ schedule.route.name }}</h5>
+                                <p class="text-muted mb-0">
+                                    {{ schedule.route.start_point }} → {{ schedule.route.end_point }}
+                                </p>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge {% if schedule.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ schedule.get_status_display }}
+                                </span>
+                                {% if schedule.is_operational_today %}
+                                <span class="badge bg-info ms-1">{% trans "Operational Today" %}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="preview-item">
+                                    <span class="preview-label">{% trans "Vehicle:" %}</span>
+                                    <span class="preview-value">
+                                        {{ schedule.vehicle.vehicle_number }}
+                                        <span class="badge bg-success resource-badge">{{ schedule.vehicle.get_vehicle_type_display }}</span>
+                                    </span>
+                                </div>
+                                <div class="preview-item">
+                                    <span class="preview-label">{% trans "Driver:" %}</span>
+                                    <span class="preview-value">
+                                        {{ schedule.driver.user.get_full_name }}
+                                        <span class="badge bg-info resource-badge">{{ schedule.driver.employee_id }}</span>
+                                    </span>
+                                </div>
+                                {% if schedule.attendant %}
+                                <div class="preview-item">
+                                    <span class="preview-label">{% trans "Attendant:" %}</span>
+                                    <span class="preview-value">{{ schedule.attendant.user.get_full_name }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <div class="preview-item">
+                                    <span class="preview-label">{% trans "Academic Session:" %}</span>
+                                    <span class="preview-value">{{ schedule.academic_session.name }}</span>
+                                </div>
+                                <div class="preview-item">
+                                    <span class="preview-label">{% trans "Morning Schedule:" %}</span>
+                                    <span class="preview-value">
+                                        {{ schedule.morning_start_time|time:"H:i" }} - {{ schedule.morning_end_time|time:"H:i" }}
+                                    </span>
+                                </div>
+                                {% if schedule.evening_start_time and schedule.evening_end_time %}
+                                <div class="preview-item">
+                                    <span class="preview-label">{% trans "Evening Schedule:" %}</span>
+                                    <span class="preview-value">
+                                        {{ schedule.evening_start_time|time:"H:i" }} - {{ schedule.evening_end_time|time:"H:i" }}
+                                    </span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Operating Days -->
+                        <div class="preview-item">
+                            <span class="preview-label">{% trans "Operating Days:" %}</span>
+                            <span class="preview-value">
+                                {% for day_num in schedule.days_of_week_list %}
+                                    {% cycle 'Monday' 'Tuesday' 'Wednesday' 'Thursday' 'Friday' 'Saturday' 'Sunday' as day_name silent %}
+                                    {% if forloop.counter0 in schedule.days_of_week_list %}{{ day_name }}{% if not forloop.last %}, {% endif %}{% endif %}
+                                {% endfor %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- Critical Warning -->
+                    <div class="critical-warning">
+                        <div class="d-flex align-items-center justify-content-center">
+                            <i class="fas fa-radiation-alt fa-2x me-3"></i>
+                            <div>
+                                <h4 class="mb-1">{% trans "CRITICAL ACTION" %}</h4>
+                                <p class="mb-0">{% trans "This operation cannot be undone and will affect multiple systems" %}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Impact Assessment -->
+                    <div class="impact-warning">
+                        <h5 class="text-warning mb-4">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            {% trans "This action will permanently remove:" %}
+                        </h5>
+                        
+                        <div class="impact-item">
+                            <div class="impact-icon students-icon">
+                                <i class="fas fa-user-graduate"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-2">{% trans "Student Transport Allocations" %}</h6>
+                                <p class="mb-2 text-muted">
+                                    <strong>{{ schedule.student_allocations.count }}</strong> {% trans "students will lose their transport allocation for this schedule." %}
+                                </p>
+                                <small class="text-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    {% trans "Parents and students will need to be notified about the cancellation." %}
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="impact-item">
+                            <div class="impact-icon allocations-icon">
+                                <i class="fas fa-route"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-2">{% trans "Schedule Operations" %}</h6>
+                                <p class="mb-2 text-muted">
+                                    {% trans "All scheduled operations for" %} <strong>{{ schedule.days_of_week_list|length }}</strong> {% trans "days per week will be cancelled." %}
+                                </p>
+                                <small class="text-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    {% trans "This may disrupt daily transportation services." %}
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="impact-item">
+                            <div class="impact-icon incidents-icon">
+                                <i class="fas fa-clipboard-list"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-2">{% trans "Historical Data" %}</h6>
+                                <p class="mb-2 text-muted">
+                                    <strong>{{ schedule.incident_reports.count }}</strong> {% trans "incident reports and all operational history will be deleted." %}
+                                </p>
+                                <small class="text-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    {% trans "This data is required for compliance and audit purposes." %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Affected Items Preview -->
+                    {% if schedule.student_allocations.exists or schedule.incident_reports.exists %}
+                    <div class="affected-items">
+                        <h6 class="mb-3">{% trans "Items that will be deleted:" %}</h6>
+                        
+                        <!-- Student Allocations -->
+                        {% if schedule.student_allocations.exists %}
+                        <div class="affected-item">
+                            <div class="item-count">{{ schedule.student_allocations.count }}</div>
+                            <div class="flex-grow-1">
+                                <strong>{% trans "Student Allocations" %}</strong>
+                                <p class="small text-muted mb-0">
+                                    {% trans "Including pickup/drop locations and fee records" %}
+                                </p>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Incident Reports -->
+                        {% if schedule.incident_reports.exists %}
+                        <div class="affected-item">
+                            <div class="item-count">{{ schedule.incident_reports.count }}</div>
+                            <div class="flex-grow-1">
+                                <strong>{% trans "Incident Reports" %}</strong>
+                                <p class="small text-muted mb-0">
+                                    {% trans "Safety records and incident documentation" %}
+                                </p>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Operational Data -->
+                        <div class="affected-item">
+                            <div class="item-count">∞</div>
+                            <div class="flex-grow-1">
+                                <strong>{% trans "Operational History" %}</strong>
+                                <p class="small text-muted mb-0">
+                                    {% trans "All historical data and performance metrics" %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Final Confirmation -->
+                    <div class="confirmation-check">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="confirmDelete" required>
+                            <label class="form-check-label" for="confirmDelete">
+                                <strong>{% trans "I understand that this action is permanent and cannot be undone" %}</strong>
+                            </label>
+                        </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="confirmBackup" required>
+                            <label class="form-check-label" for="confirmBackup">
+                                <strong>{% trans "I have backed up or exported any required data from this schedule" %}</strong>
+                            </label>
+                        </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="confirmNotification" required>
+                            <label class="form-check-label" for="confirmNotification">
+                                <strong>{% trans "I will notify affected students and parents about this cancellation" %}</strong>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-center gap-3 mt-4">
+                            <a href="{% url 'transport:routeschedule_detail' schedule.pk %}" class="btn btn-outline-secondary btn-cancel">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                {% trans "Back to Schedule" %}
+                            </a>
+                            <button type="submit" class="btn btn-delete" id="deleteButton" disabled>
+                                <i class="fas fa-trash me-2"></i>
+                                {% trans "Delete Schedule" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Alternative Actions -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title text-center mb-3">{% trans "Alternative Actions" %}</h5>
+                    <p class="card-text text-muted text-center mb-4">
+                        {% trans "Consider these alternatives before deleting the schedule:" %}
+                    </p>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <a href="{% url 'transport:routeschedule_update' schedule.pk %}" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-edit me-2"></i>
+                                {% trans "Edit Schedule" %}
+                            </a>
+                            <small class="text-muted d-block mt-1 text-center">{% trans "Modify timings or resources" %}</small>
+                        </div>
+                        <div class="col-md-4">
+                            {% if schedule.status == 'active' %}
+                            <button class="btn btn-outline-warning w-100" id="deactivateSchedule">
+                                <i class="fas fa-pause me-2"></i>
+                                {% trans "Deactivate" %}
+                            </button>
+                            <small class="text-muted d-block mt-1 text-center">{% trans "Temporarily disable the schedule" %}</small>
+                            {% else %}
+                            <button class="btn btn-outline-success w-100" id="activateSchedule">
+                                <i class="fas fa-play me-2"></i>
+                                {% trans "Activate" %}
+                            </button>
+                            <small class="text-muted d-block mt-1 text-center">{% trans "Re-enable the schedule" %}</small>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-outline-info w-100" id="exportData">
+                                <i class="fas fa-file-export me-2"></i>
+                                {% trans "Export Data" %}
+                            </button>
+                            <small class="text-muted d-block mt-1 text-center">{% trans "Backup schedule information" %}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Enable delete button only when all confirmation checkboxes are checked
+        const confirmDelete = document.getElementById('confirmDelete');
+        const confirmBackup = document.getElementById('confirmBackup');
+        const confirmNotification = document.getElementById('confirmNotification');
+        const deleteButton = document.getElementById('deleteButton');
+        
+        function updateDeleteButton() {
+            const allChecked = confirmDelete.checked && confirmBackup.checked && confirmNotification.checked;
+            deleteButton.disabled = !allChecked;
+            
+            if (allChecked) {
+                deleteButton.classList.remove('btn-secondary');
+                deleteButton.classList.add('btn-danger');
+            } else {
+                deleteButton.classList.remove('btn-danger');
+                deleteButton.classList.add('btn-secondary');
+            }
+        }
+        
+        confirmDelete.addEventListener('change', updateDeleteButton);
+        confirmBackup.addEventListener('change', updateDeleteButton);
+        confirmNotification.addEventListener('change', updateDeleteButton);
+        
+        // Add safety confirmation for delete button
+        deleteButton.addEventListener('click', function(e) {
+            if (!confirm('{% trans "FINAL WARNING: This will permanently delete the schedule and ALL associated data. This action cannot be reversed. Are you absolutely sure?" %}')) {
+                e.preventDefault();
+            } else {
+                // Add loading state
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> {% trans "Deleting..." %}';
+                this.disabled = true;
+            }
+        });
+        
+        // Alternative actions
+        document.getElementById('deactivateSchedule')?.addEventListener('click', function() {
+            if (confirm('{% trans "Deactivate this schedule instead of deleting? This will preserve all data but make the schedule unavailable for operations." %}')) {
+                // In a real implementation, this would make an API call
+                window.location.href = '{% url "transport:routeschedule_update" schedule.pk %}';
+            }
+        });
+        
+        document.getElementById('activateSchedule')?.addEventListener('click', function() {
+            // In a real implementation, this would make an API call
+            window.location.href = '{% url "transport:routeschedule_update" schedule.pk %}';
+        });
+        
+        document.getElementById('exportData')?.addEventListener('click', function() {
+            // In a real implementation, this would trigger data export
+            alert('{% trans "Export functionality would be implemented here. This would download a backup of all schedule data." %}');
+        });
+        
+        // Add safety delay for delete button even when enabled
+        let safetyTimer;
+        
+        function enableDeleteWithDelay() {
+            if (confirmDelete.checked && confirmBackup.checked && confirmNotification.checked) {
+                safetyTimer = setTimeout(() => {
+                    deleteButton.disabled = false;
+                    deleteButton.classList.remove('btn-secondary');
+                    deleteButton.classList.add('btn-danger');
+                }, 2000); // 2 second safety delay
+            } else {
+                clearTimeout(safetyTimer);
+                deleteButton.disabled = true;
+                deleteButton.classList.remove('btn-danger');
+                deleteButton.classList.add('btn-secondary');
+            }
+        }
+        
+        // Update the event listeners to use the delayed version
+        confirmDelete.addEventListener('change', enableDeleteWithDelay);
+        confirmBackup.addEventListener('change', enableDeleteWithDelay);
+        confirmNotification.addEventListener('change', enableDeleteWithDelay);
+        
+        // Add visual effects
+        const warningIcon = document.querySelector('.warning-icon');
+        let pulseInterval;
+        
+        function startPulseAnimation() {
+            pulseInterval = setInterval(() => {
+                warningIcon.classList.toggle('pulse-warning');
+            }, 4000);
+        }
+        
+        function stopPulseAnimation() {
+            clearInterval(pulseInterval);
+            warningIcon.classList.add('pulse-warning');
+        }
+        
+        startPulseAnimation();
+        
+        // Stop animation when user starts interacting with form
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('focus', stopPulseAnimation);
+        });
+        
+        // Add critical warning flash
+        const criticalWarning = document.querySelector('.critical-warning');
+        setInterval(() => {
+            criticalWarning.style.boxShadow = criticalWarning.style.boxShadow ? 
+                '' : '0 0 20px rgba(220, 53, 69, 0.5)';
+        }, 1000);
+        
+        // Prevent accidental form submission
+        document.querySelector('form').addEventListener('submit', function(e) {
+            if (deleteButton.disabled) {
+                e.preventDefault();
+                alert('{% trans "Please confirm all safety checks before deleting." %}');
+            }
+        });
+        
+        // Add keyboard shortcut prevention
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.key === 'Return')) {
+                e.preventDefault();
+                alert('{% trans "Please use the delete button instead of keyboard shortcuts for this critical action." %}');
+            }
+        });
+    });
+</script>
+{% endblock %}

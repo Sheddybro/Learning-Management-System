@@ -1,0 +1,1040 @@
+<!-- templates/transport/vehicles/vehicle_maintenance_schedule.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Vehicle Maintenance Schedule" %}{% endblock %}
+
+{% block page_title %}{% trans "Vehicle Maintenance Schedule" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:vehicle_list' %}">{% trans "Vehicles" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Maintenance Schedule" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'transport:maintenancerecord_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> {% trans "Add Maintenance" %}
+        </a>
+        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#scheduleMaintenanceModal">
+                    <i class="fas fa-calendar-plus me-2"></i> {% trans "Schedule Maintenance" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="#" id="exportMaintenanceSchedule">
+                    <i class="fas fa-file-export me-2"></i> {% trans "Export Schedule" %}
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#maintenanceSettingsModal">
+                    <i class="fas fa-cog me-2"></i> {% trans "Maintenance Settings" %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .maintenance-schedule {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .schedule-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+    
+    .stat-critical .stat-value {
+        color: #dc3545;
+    }
+    
+    .stat-warning .stat-value {
+        color: #fd7e14;
+    }
+    
+    .stat-info .stat-value {
+        color: #0dcaf0;
+    }
+    
+    .stat-success .stat-value {
+        color: #198754;
+    }
+    
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .maintenance-tabs .nav-link {
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: #6c757d;
+        font-weight: 500;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .maintenance-tabs .nav-link.active {
+        color: #0d6efd;
+        border-bottom-color: #0d6efd;
+        background: transparent;
+    }
+    
+    .maintenance-tabs .nav-link:hover {
+        color: #0d6efd;
+        border-bottom-color: #0d6efd;
+    }
+    
+    .schedule-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        transition: transform 0.3s ease;
+    }
+    
+    .schedule-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .card-header-custom {
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        padding: 1rem 1.5rem;
+        border-radius: 12px 12px 0 0 !important;
+    }
+    
+    .maintenance-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #f8f9fa;
+        transition: background-color 0.3s ease;
+    }
+    
+    .maintenance-item:last-child {
+        border-bottom: none;
+    }
+    
+    .maintenance-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .maintenance-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        margin-right: 1rem;
+        flex-shrink: 0;
+    }
+    
+    .maintenance-content {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .maintenance-title {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        color: #495057;
+    }
+    
+    .maintenance-subtitle {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    
+    .maintenance-meta {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .maintenance-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-shrink: 0;
+    }
+    
+    .status-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .status-overdue {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .status-due-soon {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .status-scheduled {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-completed {
+        background: #e0f2fe;
+        color: #075985;
+    }
+    
+    .calendar-view {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .calendar-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+        background: #e9ecef;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .calendar-day {
+        background: white;
+        padding: 0.75rem;
+        min-height: 100px;
+        position: relative;
+    }
+    
+    .calendar-day-header {
+        background: #f8f9fa;
+        padding: 0.75rem;
+        text-align: center;
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .day-number {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    
+    .calendar-event {
+        background: #0d6efd;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        margin-bottom: 0.25rem;
+        cursor: pointer;
+    }
+    
+    .calendar-event.overdue {
+        background: #dc3545;
+    }
+    
+    .calendar-event.due-soon {
+        background: #fd7e14;
+    }
+    
+    .calendar-event.completed {
+        background: #198754;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .progress-thin {
+        height: 6px;
+        margin: 0.5rem 0;
+    }
+    
+    .maintenance-type-badge {
+        background: #6c757d;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        margin-right: 0.5rem;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .schedule-header {
+            padding: 1.5rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .maintenance-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .maintenance-icon {
+            margin-bottom: 1rem;
+        }
+        
+        .maintenance-actions {
+            margin-top: 1rem;
+            width: 100%;
+            justify-content: flex-end;
+        }
+        
+        .maintenance-meta {
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .calendar-day {
+            min-height: 80px;
+            padding: 0.5rem;
+        }
+        
+        .calendar-event {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="maintenance-schedule">
+    <!-- Header Section -->
+    <div class="schedule-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h2 mb-3">
+                    <i class="fas fa-calendar-alt me-2"></i>
+                    {% trans "Vehicle Maintenance Schedule" %}
+                </h1>
+                <p class="lead mb-0 opacity-90">
+                    {% trans "Track and manage maintenance schedules for your entire vehicle fleet" %}
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="mt-3 mt-md-0">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-light active" data-view="list">
+                            <i class="fas fa-list"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-light" data-view="calendar">
+                            <i class="fas fa-calendar"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="stats-grid">
+        <div class="stat-card stat-critical">
+            <div class="stat-value">{{ overdue_maintenance.count }}</div>
+            <div class="stat-label">{% trans "Overdue Maintenance" %}</div>
+            <div class="progress progress-thin">
+                <div class="progress-bar bg-danger" style="width: 100%"></div>
+            </div>
+        </div>
+        <div class="stat-card stat-warning">
+            <div class="stat-value">{{ due_for_maintenance.count }}</div>
+            <div class="stat-label">{% trans "Due This Month" %}</div>
+            <div class="progress progress-thin">
+                <div class="progress-bar bg-warning" style="width: 75%"></div>
+            </div>
+        </div>
+        <div class="stat-card stat-info">
+            <div class="stat-value">{{ vehicles.count }}</div>
+            <div class="stat-label">{% trans "Total Vehicles" %}</div>
+            <div class="progress progress-thin">
+                <div class="progress-bar bg-info" style="width: 60%"></div>
+            </div>
+        </div>
+        <div class="stat-card stat-success">
+            <div class="stat-value">{{ completed_this_month }}</div>
+            <div class="stat-label">{% trans "Completed This Month" %}</div>
+            <div class="progress progress-thin">
+                <div class="progress-bar bg-success" style="width: 90%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-3">
+                <label for="vehicleFilter" class="form-label">{% trans "Vehicle" %}</label>
+                <select class="form-select" id="vehicleFilter">
+                    <option value="">{% trans "All Vehicles" %}</option>
+                    {% for vehicle in vehicles %}
+                    <option value="{{ vehicle.id }}">{{ vehicle.vehicle_number }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="statusFilter" class="form-label">{% trans "Maintenance Status" %}</label>
+                <select class="form-select" id="statusFilter">
+                    <option value="">{% trans "All Status" %}</option>
+                    <option value="overdue">{% trans "Overdue" %}</option>
+                    <option value="due_soon">{% trans "Due Soon" %}</option>
+                    <option value="scheduled">{% trans "Scheduled" %}</option>
+                    <option value="completed">{% trans "Completed" %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="typeFilter" class="form-label">{% trans "Maintenance Type" %}</label>
+                <select class="form-select" id="typeFilter">
+                    <option value="">{% trans "All Types" %}</option>
+                    <option value="routine">{% trans "Routine Maintenance" %}</option>
+                    <option value="repair">{% trans "Repair" %}</option>
+                    <option value="breakdown">{% trans "Breakdown Repair" %}</option>
+                    <option value="accident">{% trans "Accident Repair" %}</option>
+                    <option value="upgrade">{% trans "Upgrade" %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label d-block">&nbsp;</label>
+                <button class="btn btn-primary w-100" id="applyFilters">
+                    <i class="fas fa-filter me-1"></i> {% trans "Apply Filters" %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Maintenance Tabs -->
+    <ul class="nav nav-tabs maintenance-tabs mb-4" id="maintenanceTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="overdue-tab" data-bs-toggle="tab" data-bs-target="#overdue" type="button" role="tab">
+                <i class="fas fa-exclamation-triangle me-1"></i> {% trans "Overdue" %}
+                <span class="badge bg-danger ms-1">{{ overdue_maintenance.count }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="upcoming-tab" data-bs-toggle="tab" data-bs-target="#upcoming" type="button" role="tab">
+                <i class="fas fa-clock me-1"></i> {% trans "Due Soon" %}
+                <span class="badge bg-warning ms-1">{{ due_for_maintenance.count }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="scheduled-tab" data-bs-toggle="tab" data-bs-target="#scheduled" type="button" role="tab">
+                <i class="fas fa-calendar-check me-1"></i> {% trans "Scheduled" %}
+                <span class="badge bg-info ms-1">{{ scheduled_maintenance.count }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed" type="button" role="tab">
+                <i class="fas fa-check-circle me-1"></i> {% trans "Completed" %}
+                <span class="badge bg-success ms-1">{{ completed_maintenance.count }}</span>
+            </button>
+        </li>
+    </ul>
+
+    <!-- List View -->
+    <div class="view-content" id="listView">
+        <div class="tab-content" id="maintenanceTabContent">
+            <!-- Overdue Tab -->
+            <div class="tab-pane fade show active" id="overdue" role="tabpanel">
+                {% if overdue_maintenance %}
+                    {% for vehicle in overdue_maintenance %}
+                    <div class="card schedule-card">
+                        <div class="card-header card-header-custom">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-bus me-2 text-primary"></i>
+                                    {{ vehicle.vehicle_number }}
+                                    <small class="text-muted ms-2">{{ vehicle.make }} {{ vehicle.model }}</small>
+                                </h5>
+                                <span class="status-badge status-overdue">
+                                    <i class="fas fa-exclamation-triangle me-1"></i> {% trans "Overdue" %}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            {% for maintenance in vehicle.maintenance_records.all %}
+                                {% if maintenance.is_overdue %}
+                                <div class="maintenance-item">
+                                    <div class="maintenance-icon bg-danger bg-opacity-10 text-danger">
+                                        <i class="fas fa-tools"></i>
+                                    </div>
+                                    <div class="maintenance-content">
+                                        <div class="maintenance-title">
+                                            {{ maintenance.get_maintenance_type_display }}
+                                            <span class="maintenance-type-badge">{{ maintenance.maintenance_type }}</span>
+                                        </div>
+                                        <div class="maintenance-subtitle">
+                                            {{ maintenance.description|truncatewords:10 }}
+                                        </div>
+                                        <div class="maintenance-meta">
+                                            <span>
+                                                <i class="fas fa-calendar me-1"></i>
+                                                {% trans "Due:" %} {{ maintenance.next_due_date|date:"M d, Y" }}
+                                            </span>
+                                            <span>
+                                                <i class="fas fa-tachometer-alt me-1"></i>
+                                                {% trans "Odometer:" %} {{ maintenance.next_due_odometer|default:"-" }} km
+                                            </span>
+                                            <span>
+                                                <i class="fas fa-clock me-1"></i>
+                                                {% trans "Overdue by:" %} {{ maintenance.next_due_date|timesince }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="maintenance-actions">
+                                        <a href="{% url 'transport:maintenancerecord_update' maintenance.pk %}" class="btn btn-warning btn-sm">
+                                            <i class="fas fa-edit me-1"></i> {% trans "Update" %}
+                                        </a>
+                                        <a href="{% url 'transport:vehicle_detail' vehicle.pk %}" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-eye me-1"></i> {% trans "View" %}
+                                        </a>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <h5>{% trans "No Overdue Maintenance" %}</h5>
+                    <p class="text-muted">{% trans "Great job! All maintenance is up to date." %}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Due Soon Tab -->
+            <div class="tab-pane fade" id="upcoming" role="tabpanel">
+                {% if due_for_maintenance %}
+                    {% for vehicle in due_for_maintenance %}
+                    <div class="card schedule-card">
+                        <div class="card-header card-header-custom">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-bus me-2 text-primary"></i>
+                                    {{ vehicle.vehicle_number }}
+                                    <small class="text-muted ms-2">{{ vehicle.make }} {{ vehicle.model }}</small>
+                                </h5>
+                                <span class="status-badge status-due-soon">
+                                    <i class="fas fa-clock me-1"></i> {% trans "Due Soon" %}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            {% for maintenance in vehicle.maintenance_records.all %}
+                                {% if maintenance.next_due_date %}
+                                <div class="maintenance-item">
+                                    <div class="maintenance-icon bg-warning bg-opacity-10 text-warning">
+                                        <i class="fas fa-clock"></i>
+                                    </div>
+                                    <div class="maintenance-content">
+                                        <div class="maintenance-title">
+                                            {{ maintenance.get_maintenance_type_display }}
+                                            <span class="maintenance-type-badge">{{ maintenance.maintenance_type }}</span>
+                                        </div>
+                                        <div class="maintenance-subtitle">
+                                            {{ maintenance.description|truncatewords:10 }}
+                                        </div>
+                                        <div class="maintenance-meta">
+                                            <span>
+                                                <i class="fas fa-calendar me-1"></i>
+                                                {% trans "Due:" %} {{ maintenance.next_due_date|date:"M d, Y" }}
+                                            </span>
+                                            <span>
+                                                <i class="fas fa-tachometer-alt me-1"></i>
+                                                {% trans "Odometer:" %} {{ maintenance.next_due_odometer|default:"-" }} km
+                                            </span>
+                                            <span>
+                                                <i class="fas fa-history me-1"></i>
+                                                {% trans "Due in:" %} {{ maintenance.next_due_date|timeuntil }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="maintenance-actions">
+                                        <a href="{% url 'transport:maintenancerecord_update' maintenance.pk %}" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-edit me-1"></i> {% trans "Schedule" %}
+                                        </a>
+                                        <a href="{% url 'transport:vehicle_detail' vehicle.pk %}" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-eye me-1"></i> {% trans "View" %}
+                                        </a>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <h5>{% trans "No Upcoming Maintenance" %}</h5>
+                    <p class="text-muted">{% trans "No maintenance scheduled for the near future." %}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Add similar sections for Scheduled and Completed tabs -->
+        </div>
+    </div>
+
+    <!-- Calendar View (Hidden by default) -->
+    <div class="view-content" id="calendarView" style="display: none;">
+        <div class="calendar-view">
+            <div class="calendar-header">
+                <h4 class="mb-0">{% trans "Maintenance Calendar" %}</h4>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-outline-secondary" id="prevMonth">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary" id="currentMonth">
+                        {% trans "Current Month" %}
+                    </button>
+                    <button class="btn btn-outline-secondary" id="nextMonth">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="calendar-grid" id="maintenanceCalendar">
+                <!-- Calendar will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Maintenance Summary -->
+    <div class="card mt-4">
+        <div class="card-header card-header-custom">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-bar me-2 text-primary"></i>
+                {% trans "Maintenance Summary" %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <canvas id="maintenanceTypeChart" height="200"></canvas>
+                </div>
+                <div class="col-md-6">
+                    <canvas id="maintenanceCostChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Schedule Maintenance Modal -->
+<div class="modal fade" id="scheduleMaintenanceModal" tabindex="-1" aria-labelledby="scheduleMaintenanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="scheduleMaintenanceModalLabel">
+                    <i class="fas fa-calendar-plus me-2"></i>
+                    {% trans "Schedule Maintenance" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="scheduleMaintenanceForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="scheduleVehicle" class="form-label">{% trans "Vehicle" %}</label>
+                                <select class="form-select" id="scheduleVehicle" required>
+                                    <option value="">{% trans "Select Vehicle" %}</option>
+                                    {% for vehicle in vehicles %}
+                                    <option value="{{ vehicle.id }}">{{ vehicle.vehicle_number }} - {{ vehicle.make }} {{ vehicle.model }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="scheduleType" class="form-label">{% trans "Maintenance Type" %}</label>
+                                <select class="form-select" id="scheduleType" required>
+                                    <option value="">{% trans "Select Type" %}</option>
+                                    <option value="routine">{% trans "Routine Maintenance" %}</option>
+                                    <option value="repair">{% trans "Repair" %}</option>
+                                    <option value="breakdown">{% trans "Breakdown Repair" %}</option>
+                                    <option value="accident">{% trans "Accident Repair" %}</option>
+                                    <option value="upgrade">{% trans "Upgrade" %}</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="scheduleDate" class="form-label">{% trans "Scheduled Date" %}</label>
+                                <input type="date" class="form-control" id="scheduleDate" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="scheduleOdometer" class="form-label">{% trans "Odometer Reading" %}</label>
+                                <input type="number" class="form-control" id="scheduleOdometer" placeholder="{% trans 'Current odometer reading' %}">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="scheduleDescription" class="form-label">{% trans "Description" %}</label>
+                        <textarea class="form-control" id="scheduleDescription" rows="3" placeholder="{% trans 'Describe the maintenance work to be done...' %}"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="scheduleNotes" class="form-label">{% trans "Additional Notes" %}</label>
+                        <textarea class="form-control" id="scheduleNotes" rows="2" placeholder="{% trans 'Any additional notes or instructions...' %}"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="saveSchedule">{% trans "Schedule Maintenance" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const viewButtons = document.querySelectorAll('[data-view]');
+        const listView = document.getElementById('listView');
+        const calendarView = document.getElementById('calendarView');
+        
+        viewButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const viewType = this.getAttribute('data-view');
+                
+                // Update active button
+                viewButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide views
+                if (viewType === 'list') {
+                    listView.style.display = 'block';
+                    calendarView.style.display = 'none';
+                } else {
+                    listView.style.display = 'none';
+                    calendarView.style.display = 'block';
+                    initializeCalendar();
+                }
+            });
+        });
+
+        // Filter Functionality
+        document.getElementById('applyFilters').addEventListener('click', function() {
+            applyMaintenanceFilters();
+        });
+
+        function applyMaintenanceFilters() {
+            const vehicleFilter = document.getElementById('vehicleFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+            const typeFilter = document.getElementById('typeFilter').value;
+            
+            // Show loading state
+            showLoadingState();
+            
+            // In real implementation, this would filter data via AJAX
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Filters applied successfully" %}', 'success');
+            }, 1000);
+        }
+
+        // Calendar Initialization
+        function initializeCalendar() {
+            const calendar = document.getElementById('maintenanceCalendar');
+            if (!calendar) return;
+            
+            // Generate calendar grid
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth();
+            
+            generateCalendar(year, month);
+            
+            // Calendar navigation
+            document.getElementById('prevMonth').addEventListener('click', function() {
+                // Navigate to previous month
+            });
+            
+            document.getElementById('nextMonth').addEventListener('click', function() {
+                // Navigate to next month
+            });
+            
+            document.getElementById('currentMonth').addEventListener('click', function() {
+                // Return to current month
+                generateCalendar(today.getFullYear(), today.getMonth());
+            });
+        }
+
+        function generateCalendar(year, month) {
+            // Calendar generation logic would go here
+            // This is a simplified version
+            const calendar = document.getElementById('maintenanceCalendar');
+            calendar.innerHTML = '';
+            
+            // Add day headers
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            days.forEach(day => {
+                const dayHeader = document.createElement('div');
+                dayHeader.className = 'calendar-day-header';
+                dayHeader.textContent = day;
+                calendar.appendChild(dayHeader);
+            });
+            
+            // Add days (simplified)
+            for (let i = 1; i <= 31; i++) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'calendar-day';
+                dayElement.innerHTML = `
+                    <div class="day-number">${i}</div>
+                    <div class="calendar-event overdue" title="Overdue maintenance">Oil Change</div>
+                    <div class="calendar-event due-soon" title="Due soon">Brake Check</div>
+                `;
+                calendar.appendChild(dayElement);
+            }
+        }
+
+        // Schedule Maintenance Form
+        document.getElementById('saveSchedule').addEventListener('click', function() {
+            const form = document.getElementById('scheduleMaintenanceForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            // Show loading state
+            const saveBtn = this;
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> {% trans "Scheduling..." %}';
+            saveBtn.disabled = true;
+            
+            // In real implementation, this would submit the form via AJAX
+            setTimeout(() => {
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+                
+                // Close modal and show success message
+                bootstrap.Modal.getInstance(document.getElementById('scheduleMaintenanceModal')).hide();
+                showNotification('{% trans "Maintenance scheduled successfully" %}', 'success');
+                
+                // Refresh the maintenance list
+                applyMaintenanceFilters();
+            }, 1500);
+        });
+
+        // Export functionality
+        document.getElementById('exportMaintenanceSchedule').addEventListener('click', function() {
+            showLoadingState();
+            
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Maintenance schedule exported successfully" %}', 'success');
+                
+                // Simulate file download
+                const link = document.createElement('a');
+                link.href = '#'; // In real app, this would be the export URL
+                link.download = 'maintenance_schedule.xlsx';
+                link.click();
+            }, 1000);
+        });
+
+        // Initialize charts
+        initializeCharts();
+
+        function initializeCharts() {
+            // Maintenance Type Chart
+            const typeCtx = document.getElementById('maintenanceTypeChart')?.getContext('2d');
+            if (typeCtx) {
+                new Chart(typeCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: [
+                            '{% trans "Routine" %}',
+                            '{% trans "Repair" %}',
+                            '{% trans "Breakdown" %}',
+                            '{% trans "Accident" %}',
+                            '{% trans "Upgrade" %}'
+                        ],
+                        datasets: [{
+                            data: [45, 25, 15, 10, 5],
+                            backgroundColor: [
+                                '#0d6efd',
+                                '#fd7e14',
+                                '#dc3545',
+                                '#6f42c1',
+                                '#20c997'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            title: {
+                                display: true,
+                                text: '{% trans "Maintenance by Type" %}'
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Maintenance Cost Chart
+            const costCtx = document.getElementById('maintenanceCostChart')?.getContext('2d');
+            if (costCtx) {
+                new Chart(costCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        datasets: [{
+                            label: '{% trans "Maintenance Cost" %}',
+                            data: [12500, 18900, 15200, 23100, 17800, 19500],
+                            backgroundColor: '#0d6efd'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: '{% trans "Monthly Maintenance Cost" %}'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: '{% trans "Cost (₹)" %}'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Utility functions
+        function showLoadingState() {
+            // Implementation for loading state
+        }
+
+        function hideLoadingState() {
+            // Implementation to hide loading state
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i>
+                    <span>${message}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+
+        // Initialize calendar if calendar view is active
+        if (document.querySelector('[data-view="calendar"].active')) {
+            initializeCalendar();
+        }
+    });
+</script>
+{% endblock %}

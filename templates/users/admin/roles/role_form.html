@@ -1,0 +1,554 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Role Management" %} - {{ block.super }}{% endblock %}
+
+{% block page_title %}{% trans "Role Management" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:role_list' %}">{% trans "Roles" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Role Management" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-person-badge me-2"></i>
+                        {% if role %}
+                            {% trans "Edit Role" %}: {{ role.name }}
+                        {% else %}
+                            {% trans "Create New Role" %}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- System Role Alert -->
+                    <div id="systemRoleAlert" class="alert alert-warning {% if not role.is_system_role %}d-none{% endif %}">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <strong>{% trans "System Role" %}:</strong> {% trans "This is a system role. Some fields cannot be modified." %}
+                    </div>
+                    
+                    <!-- Success/Error Messages -->
+                    <div id="formMessages"></div>
+
+                    <form id="roleForm" method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Basic Information Section -->
+                        <div class="form-section mb-4">
+                            <h5 class="section-title text-primary mb-3">
+                                <i class="bi bi-info-circle me-2"></i>{% trans "Basic Information" %}
+                            </h5>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="roleName" class="form-label">{% trans "Role Name" %} *</label>
+                                    <input type="text" class="form-control {% if role.is_system_role %}readonly-field{% endif %}" 
+                                           id="roleName" name="name" value="{{ role.name|default:'' }}" 
+                                           {% if role.is_system_role %}readonly{% endif %} required>
+                                    <div class="invalid-feedback">{% trans "Please provide a role name." %}</div>
+                                    <div class="help-text text-muted small">
+                                        {% trans "Unique name for this role (e.g., 'Mathematics Teacher')" %}
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="roleType" class="form-label">{% trans "Role Type" %} *</label>
+                                    <select class="form-select {% if role.is_system_role %}readonly-field{% endif %}" 
+                                            id="roleType" name="role_type" {% if role.is_system_role %}disabled{% endif %} required>
+                                        <option value="">{% trans "Select a role type" %}</option>
+                                        <option value="super_admin" {% if role.role_type == 'super_admin' %}selected{% endif %}>
+                                            {% trans "Super Administrator" %}
+                                        </option>
+                                        <option value="admin" {% if role.role_type == 'admin' %}selected{% endif %}>
+                                            {% trans "Administrator" %}
+                                        </option>
+                                        <option value="principal" {% if role.role_type == 'principal' %}selected{% endif %}>
+                                            {% trans "Principal" %}
+                                        </option>
+                                        <option value="teacher" {% if role.role_type == 'teacher' %}selected{% endif %}>
+                                            {% trans "Teacher" %}
+                                        </option>
+                                        <option value="student" {% if role.role_type == 'student' %}selected{% endif %}>
+                                            {% trans "Student" %}
+                                        </option>
+                                        <option value="parent" {% if role.role_type == 'parent' %}selected{% endif %}>
+                                            {% trans "Parent" %}
+                                        </option>
+                                        <option value="accountant" {% if role.role_type == 'accountant' %}selected{% endif %}>
+                                            {% trans "Accountant" %}
+                                        </option>
+                                        <option value="librarian" {% if role.role_type == 'librarian' %}selected{% endif %}>
+                                            {% trans "Librarian" %}
+                                        </option>
+                                        <option value="driver" {% if role.role_type == 'driver' %}selected{% endif %}>
+                                            {% trans "Driver" %}
+                                        </option>
+                                        <option value="support" {% if role.role_type == 'support' %}selected{% endif %}>
+                                            {% trans "Support Staff" %}
+                                        </option>
+                                    </select>
+                                    <div class="invalid-feedback">{% trans "Please select a role type." %}</div>
+                                    <div class="help-text text-muted small">
+                                        {% trans "Defines the primary function of this role" %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="roleDescription" class="form-label">{% trans "Description" %}</label>
+                                <textarea class="form-control" id="roleDescription" name="description" rows="3">{{ role.description|default:'' }}</textarea>
+                                <div class="help-text text-muted small">
+                                    {% trans "Brief description of the role's responsibilities and purpose" %}
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="hierarchyLevel" class="form-label">{% trans "Hierarchy Level" %}</label>
+                                    <input type="number" class="form-control" id="hierarchyLevel" name="hierarchy_level" 
+                                           min="0" max="100" value="{{ role.hierarchy_level|default:'0' }}">
+                                    <div class="help-text text-muted small">
+                                        {% trans "Higher number indicates higher authority (0 = lowest)" %}
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check mt-4">
+                                        <input class="form-check-input" type="checkbox" id="isSystemRole" 
+                                               name="is_system_role" {% if role.is_system_role %}checked disabled{% endif %}>
+                                        <label class="form-check-label" for="isSystemRole">
+                                            {% trans "System Role" %}
+                                            <span class="badge bg-warning text-dark ms-1">{% trans "Read-only" %}</span>
+                                        </label>
+                                        <div class="help-text text-muted small">
+                                            {% trans "System roles are created automatically and cannot be modified" %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Permissions Section -->
+                        <div class="form-section mb-4">
+                            <h5 class="section-title text-primary mb-3">
+                                <i class="bi bi-shield-check me-2"></i>{% trans "Permissions" %}
+                            </h5>
+                            
+                            <div class="permissions-container border rounded p-3 bg-light">
+                                <!-- User Management Permissions -->
+                                <div class="permission-group mb-4">
+                                    <h6 class="permission-group-title border-bottom pb-2">{% trans "User Management" %}</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_view_users" 
+                                                       name="permissions" value="view_users" {% if 'view_users' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_view_users">{% trans "View Users" %}</label>
+                                            </div>
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_add_users" 
+                                                       name="permissions" value="add_users" {% if 'add_users' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_add_users">{% trans "Add Users" %}</label>
+                                            </div>
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_edit_users" 
+                                                       name="permissions" value="edit_users" {% if 'edit_users' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_edit_users">{% trans "Edit Users" %}</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_delete_users" 
+                                                       name="permissions" value="delete_users" {% if 'delete_users' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_delete_users">{% trans "Delete Users" %}</label>
+                                            </div>
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_manage_roles" 
+                                                       name="permissions" value="manage_roles" {% if 'manage_roles' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_manage_roles">{% trans "Manage Roles" %}</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Academic Management Permissions -->
+                                <div class="permission-group mb-4">
+                                    <h6 class="permission-group-title border-bottom pb-2">{% trans "Academic Management" %}</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_view_classes" 
+                                                       name="permissions" value="view_classes" {% if 'view_classes' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_view_classes">{% trans "View Classes" %}</label>
+                                            </div>
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_manage_classes" 
+                                                       name="permissions" value="manage_classes" {% if 'manage_classes' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_manage_classes">{% trans "Manage Classes" %}</label>
+                                            </div>
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_view_subjects" 
+                                                       name="permissions" value="view_subjects" {% if 'view_subjects' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_view_subjects">{% trans "View Subjects" %}</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_manage_subjects" 
+                                                       name="permissions" value="manage_subjects" {% if 'manage_subjects' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_manage_subjects">{% trans "Manage Subjects" %}</label>
+                                            </div>
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_view_timetable" 
+                                                       name="permissions" value="view_timetable" {% if 'view_timetable' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_view_timetable">{% trans "View Timetable" %}</label>
+                                            </div>
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_manage_timetable" 
+                                                       name="permissions" value="manage_timetable" {% if 'manage_timetable' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_manage_timetable">{% trans "Manage Timetable" %}</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Assessment Permissions -->
+                                <div class="permission-group mb-4">
+                                    <h6 class="permission-group-title border-bottom pb-2">{% trans "Assessment & Grading" %}</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_view_grades" 
+                                                       name="permissions" value="view_grades" {% if 'view_grades' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_view_grades">{% trans "View Grades" %}</label>
+                                            </div>
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_enter_grades" 
+                                                       name="permissions" value="enter_grades" {% if 'enter_grades' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_enter_grades">{% trans "Enter Grades" %}</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_manage_exams" 
+                                                       name="permissions" value="manage_exams" {% if 'manage_exams' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_manage_exams">{% trans "Manage Exams" %}</label>
+                                            </div>
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_generate_reports" 
+                                                       name="permissions" value="generate_reports" {% if 'generate_reports' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_generate_reports">{% trans "Generate Reports" %}</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Financial Permissions -->
+                                <div class="permission-group mb-4">
+                                    <h6 class="permission-group-title border-bottom pb-2">{% trans "Financial Management" %}</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_view_finances" 
+                                                       name="permissions" value="view_finances" {% if 'view_finances' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_view_finances">{% trans "View Financial Data" %}</label>
+                                            </div>
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_manage_fees" 
+                                                       name="permissions" value="manage_fees" {% if 'manage_fees' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_manage_fees">{% trans "Manage Fees" %}</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_process_payments" 
+                                                       name="permissions" value="process_payments" {% if 'process_payments' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_process_payments">{% trans "Process Payments" %}</label>
+                                            </div>
+                                            <div class="permission-item mb-2">
+                                                <input class="form-check-input" type="checkbox" id="perm_generate_invoices" 
+                                                       name="permissions" value="generate_invoices" {% if 'generate_invoices' in role_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="perm_generate_invoices">{% trans "Generate Invoices" %}</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Select All Permissions -->
+                                <div class="permission-item mt-3">
+                                    <input class="form-check-input" type="checkbox" id="selectAllPermissions">
+                                    <label class="form-check-label fw-bold" for="selectAllPermissions">{% trans "Select All Permissions" %}</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Status Section -->
+                        <div class="form-section mb-4">
+                            <h5 class="section-title text-primary mb-3">
+                                <i class="bi bi-toggle-on me-2"></i>{% trans "Status" %}
+                            </h5>
+                            
+                            <div class="mb-3">
+                                <label for="roleStatus" class="form-label">{% trans "Role Status" %}</label>
+                                <select class="form-select" id="roleStatus" name="status">
+                                    <option value="active" {% if role.status == 'active' %}selected{% endif %}>{% trans "Active" %}</option>
+                                    <option value="inactive" {% if role.status == 'inactive' %}selected{% endif %}>{% trans "Inactive" %}</option>
+                                    <option value="pending" {% if role.status == 'pending' %}selected{% endif %}>{% trans "Pending" %}</option>
+                                    <option value="suspended" {% if role.status == 'suspended' %}selected{% endif %}>{% trans "Suspended" %}</option>
+                                    <option value="archived" {% if role.status == 'archived' %}selected{% endif %}>{% trans "Archived" %}</option>
+                                </select>
+                                <div class="help-text text-muted small">
+                                    {% trans "Determines if this role is available for assignment" %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Form Actions -->
+                        <div class="form-actions border-top pt-4">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <a href="{% url 'users:role_list' %}" class="btn btn-outline-secondary">
+                                        <i class="bi bi-arrow-left me-1"></i>{% trans "Back to Roles" %}
+                                    </a>
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-outline-danger me-2" id="cancelBtn">
+                                        <i class="bi bi-x-circle me-1"></i>{% trans "Cancel" %}
+                                    </button>
+                                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                                        <i class="bi bi-check-lg me-1"></i>
+                                        {% if role %}
+                                            {% trans "Update Role" %}
+                                        {% else %}
+                                            {% trans "Create Role" %}
+                                        {% endif %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .form-section:last-child {
+        border-bottom: none;
+    }
+    
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1.25rem;
+        color: var(--primary-color);
+        display: flex;
+        align-items: center;
+    }
+    
+    .permissions-container {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .permission-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .permission-group-title {
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        color: var(--dark-color);
+    }
+    
+    .permission-item {
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .permission-item input {
+        margin-right: 0.5rem;
+    }
+    
+    .permission-item label {
+        margin-bottom: 0;
+        cursor: pointer;
+    }
+    
+    .readonly-field {
+        background-color: #e9ecef;
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+    
+    .help-text {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    @media (max-width: 768px) {
+        .permissions-container {
+            max-height: 300px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const roleForm = document.getElementById('roleForm');
+        const systemRoleCheckbox = document.getElementById('isSystemRole');
+        const systemRoleAlert = document.getElementById('systemRoleAlert');
+        const formMessages = document.getElementById('formMessages');
+        const selectAllPermissions = document.getElementById('selectAllPermissions');
+        const cancelBtn = document.getElementById('cancelBtn');
+        
+        // Check if we're editing an existing system role
+        const isSystemRole = systemRoleCheckbox.checked;
+        
+        // System role toggle handler
+        systemRoleCheckbox.addEventListener('change', function() {
+            toggleSystemRoleFields(this.checked);
+            if (this.checked) {
+                systemRoleAlert.classList.remove('d-none');
+            } else {
+                systemRoleAlert.classList.add('d-none');
+            }
+        });
+        
+        // Select All Permissions handler
+        selectAllPermissions.addEventListener('change', function() {
+            const permissionCheckboxes = document.querySelectorAll('input[name="permissions"]');
+            permissionCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+        
+        // Individual permission checkbox handler
+        document.querySelectorAll('input[name="permissions"]').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateSelectAllCheckbox();
+            });
+        });
+        
+        // Form submission handler
+        roleForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (validateForm()) {
+                submitForm();
+            }
+        });
+        
+        // Cancel button handler
+        cancelBtn.addEventListener('click', function() {
+            if (confirm('{% trans "Are you sure you want to cancel? Any unsaved changes will be lost." %}')) {
+                window.location.href = "{% url 'users:role_list' %}";
+            }
+        });
+        
+        // Function to toggle system role fields
+        function toggleSystemRoleFields(isSystemRole) {
+            const fieldsToToggle = ['roleName', 'roleType'];
+            
+            fieldsToToggle.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    if (isSystemRole) {
+                        field.setAttribute('readonly', 'readonly');
+                        field.classList.add('readonly-field');
+                        if (field.tagName === 'SELECT') {
+                            field.disabled = true;
+                        }
+                    } else {
+                        field.removeAttribute('readonly');
+                        field.classList.remove('readonly-field');
+                        if (field.tagName === 'SELECT') {
+                            field.disabled = false;
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Function to update Select All checkbox
+        function updateSelectAllCheckbox() {
+            const permissionCheckboxes = document.querySelectorAll('input[name="permissions"]');
+            const checkedCount = Array.from(permissionCheckboxes).filter(cb => cb.checked).length;
+            
+            if (checkedCount === 0) {
+                selectAllPermissions.checked = false;
+                selectAllPermissions.indeterminate = false;
+            } else if (checkedCount === permissionCheckboxes.length) {
+                selectAllPermissions.checked = true;
+                selectAllPermissions.indeterminate = false;
+            } else {
+                selectAllPermissions.checked = false;
+                selectAllPermissions.indeterminate = true;
+            }
+        }
+        
+        // Function to validate the form
+        function validateForm() {
+            let isValid = true;
+            
+            // Reset validation styles
+            const formControls = roleForm.querySelectorAll('.form-control, .form-select');
+            formControls.forEach(control => {
+                control.classList.remove('is-invalid');
+            });
+            
+            // Validate role name
+            const roleName = document.getElementById('roleName');
+            if (!roleName.value.trim()) {
+                roleName.classList.add('is-invalid');
+                isValid = false;
+            }
+            
+            // Validate role type
+            const roleType = document.getElementById('roleType');
+            if (!roleType.value) {
+                roleType.classList.add('is-invalid');
+                isValid = false;
+            }
+            
+            return isValid;
+        }
+        
+        // Function to submit the form
+        function submitForm() {
+            // Show loading state
+            const submitBtn = document.getElementById('submitBtn');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="bi bi-arrow-repeat spinner"></i> {% trans "Saving..." %}';
+            submitBtn.disabled = true;
+            
+            // Submit the form
+            roleForm.submit();
+        }
+        
+        // Initialize form state
+        if (isSystemRole) {
+            toggleSystemRoleFields(true);
+        }
+        updateSelectAllCheckbox();
+    });
+</script>
+{% endblock %}

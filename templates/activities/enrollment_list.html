@@ -1,0 +1,796 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Activity Enrollments" %}{% endblock %}
+
+{% block body_class %}activities-enrollments{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'activities:activity_list' %}">{% trans "Activities" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Enrollments" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'activities:activity_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>{% trans "Back to Activities" %}
+        </a>
+        {% if enrollments %}
+        <button type="button" class="btn btn-outline-info" id="exportBtn">
+            <i class="bi bi-download me-2"></i>{% trans "Export" %}
+        </button>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.enrollments-container {
+    max-width: 100%;
+}
+
+.enrollments-header {
+    background: linear-gradient(135deg, var(--bs-info), #0dcaf0);
+    color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--bs-primary);
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    opacity: 0.8;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.filters-section {
+    background: var(--bs-light);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.enrollments-table {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.student-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bs-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1rem;
+    margin-right: 1rem;
+}
+
+.status-badge {
+    padding: 0.375rem 0.75rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.status-pending { background: linear-gradient(135deg, #ffc107, #fd7e14); color: #212529; }
+.status-active { background: linear-gradient(135deg, #198754, #20c997); color: white; }
+.status-cancelled { background: linear-gradient(135deg, #dc3545, #e83e8c); color: white; }
+
+.payment-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.payment-paid { background: var(--bs-success); color: white; }
+.payment-pending { background: var(--bs-warning); color: #212529; }
+.payment-na { background: var(--bs-secondary); color: white; }
+
+.table-hover tbody tr:hover {
+    background-color: rgba(13, 202, 240, 0.05);
+}
+
+.btn-action {
+    transition: all 0.3s ease;
+    border: none;
+    padding: 0.375rem 0.75rem;
+}
+
+.btn-action:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.bulk-actions {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--bs-border-color);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-radius: 12px;
+    margin: 2rem 0;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    color: var(--bs-secondary);
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .enrollments-header {
+        padding: 1.5rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .student-avatar {
+        width: 35px;
+        height: 35px;
+        font-size: 0.875rem;
+        margin-right: 0.75rem;
+    }
+
+    .filters-section {
+        padding: 1rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="enrollments-container">
+    <!-- Statistics Header -->
+    <div class="enrollments-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2 class="mb-1">
+                    <i class="bi bi-people me-2"></i>{% trans "Activity Enrollments Management" %}
+                </h2>
+                <p class="mb-0 opacity-75">
+                    {% trans "Manage and track student enrollments across all activities" %}
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                {% if enrollments %}
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-number">{{ enrollments|length }}</span>
+                        <span class="stat-label">{% trans "Total" %}</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number">{{ enrollments|active_count }}</span>
+                        <span class="stat-label">{% trans "Active" %}</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number">{{ enrollments|pending_count }}</span>
+                        <span class="stat-label">{% trans "Pending" %}</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="filters-section">
+        <form method="get" id="filterForm" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="id_activity" class="form-label">{% trans "Activity" %}</label>
+                <select class="form-select" id="id_activity" name="activity">
+                    <option value="">{% trans "All Activities" %}</option>
+                    {% for activity in activities %}
+                    <option value="{{ activity.id }}" {% if request.GET.activity == activity.id|stringformat:'s' %}selected{% endif %}>
+                        {{ activity.title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="id_status" class="form-label">{% trans "Status" %}</label>
+                <select class="form-select" id="id_status" name="status">
+                    <option value="">{% trans "All Statuses" %}</option>
+                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>{% trans "Active" %}</option>
+                    <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>{% trans "Pending" %}</option>
+                    <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>{% trans "Cancelled" %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="id_search" class="form-label">{% trans "Search Student" %}</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" id="id_search" name="search"
+                           placeholder="{% trans 'Student name or ID...' %}"
+                           value="{{ request.GET.search|default:'' }}">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-info w-100">
+                    <i class="bi bi-search me-1"></i>{% trans "Filter" %}
+                </button>
+            </div>
+        </form>
+
+        <!-- Active Filters Display -->
+        {% if request.GET %}
+        <div class="mt-3">
+            <small class="text-muted">{% trans "Active filters:" %}</small>
+            {% for key, value in request.GET.items %}
+                {% if key != 'page' and value %}
+                    <span class="badge bg-light text-dark me-1">
+                        {% if key == 'activity' %}
+                            {% for activity in activities %}
+                                {% if activity.id|stringformat:'s' == value %}{{ activity.title }}{% endif %}
+                            {% endfor %}
+                        {% elif key == 'status' %}
+                            {{ value|title }}
+                        {% elif key == 'search' %}
+                            {% trans "Search:" %} {{ value }}
+                        {% endif %}
+                        <a href="?{% for k, v in request.GET.items %}{% if k != key %}{{ k }}={{ v }}&{% endif %}{% endfor %}" class="text-decoration-none ms-1">
+                            <i class="bi bi-x"></i>
+                        </a>
+                    </span>
+                {% endif %}
+            {% endfor %}
+            <a href="{% url 'activities:enrollment_list' %}" class="badge bg-secondary text-decoration-none">
+                <i class="bi bi-arrow-clockwise me-1"></i>{% trans "Clear All" %}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Bulk Actions (if user is staff) -->
+    {% if user.is_staff or user|has_role:'coordinator' %}
+    <div class="bulk-actions">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h6 class="mb-0">
+                    <i class="bi bi-magic me-2"></i>{% trans "Bulk Actions" %}
+                </h6>
+                <small class="text-muted">{% trans "Select multiple enrollments to perform bulk operations" %}</small>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-success" id="bulkApprove">
+                        <i class="bi bi-check-circle me-1"></i>{% trans "Approve Selected" %}
+                    </button>
+                    <button type="button" class="btn btn-outline-danger" id="bulkReject">
+                        <i class="bi bi-x-circle me-1"></i>{% trans "Reject Selected" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Enrollments Table -->
+    {% if enrollments %}
+    <div class="card enrollments-table">
+        <div class="card-header bg-light">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-list-ul me-2"></i>{% trans "Enrollment Records" %}
+                </h5>
+                <div class="d-flex align-items-center">
+                    <small class="text-muted me-2">
+                        {% trans "Showing" %} {{ enrollments|length }} {% trans "enrollments" %}
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="enrollmentsTable">
+                    <thead class="table-dark">
+                        <tr>
+                            {% if user.is_staff or user|has_role:'coordinator' %}
+                            <th class="text-center" width="50">
+                                <input type="checkbox" class="form-check-input" id="selectAll">
+                            </th>
+                            {% endif %}
+                            <th class="sortable" data-sort="student">
+                                <i class="bi bi-person me-1"></i>{% trans "Student" %}
+                                <i class="bi bi-chevron-expand sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="activity">
+                                <i class="bi bi-calendar-event me-1"></i>{% trans "Activity" %}
+                                <i class="bi bi-chevron-expand sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="date">
+                                <i class="bi bi-calendar me-1"></i>{% trans "Enrollment Date" %}
+                                <i class="bi bi-chevron-expand sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="status">
+                                <i class="bi bi-info-circle me-1"></i>{% trans "Status" %}
+                                <i class="bi bi-chevron-expand sort-icon"></i>
+                            </th>
+                            <th>
+                                <i class="bi bi-credit-card me-1"></i>{% trans "Payment" %}
+                            </th>
+                            <th class="text-center">
+                                <i class="bi bi-gear me-1"></i>{% trans "Actions" %}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for enrollment in enrollments %}
+                        <tr>
+                            {% if user.is_staff or user|has_role:'coordinator' %}
+                            <td class="text-center">
+                                {% if enrollment.status == 'pending' %}
+                                <input type="checkbox" class="form-check-input enrollment-checkbox"
+                                       value="{{ enrollment.id }}">
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="student-avatar">
+                                        {{ enrollment.student.user.get_full_name|make_list|first|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold">{{ enrollment.student.user.get_full_name }}</div>
+                                        <small class="text-muted">{{ enrollment.student.student_id }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <a href="{% url 'activities:activity_detail' enrollment.activity.pk %}"
+                                       class="text-decoration-none fw-bold text-primary">
+                                        {{ enrollment.activity.title }}
+                                    </a>
+                                    <br>
+                                    <small class="text-muted">
+                                        <i class="bi bi-tag me-1"></i>{{ enrollment.activity.category.name }}
+                                    </small>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <strong>{{ enrollment.enrollment_date|date:"M j, Y" }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ enrollment.enrollment_date|date:"H:i" }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="status-badge status-{{ enrollment.status }}">
+                                    {{ enrollment.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if enrollment.activity.fee_amount > 0 %}
+                                    <span class="payment-badge payment-{{ enrollment.payment_status|default:'na' }}">
+                                        {% if enrollment.payment_status == 'paid' %}
+                                            {% trans "Paid" %}
+                                        {% elif enrollment.payment_status == 'pending' %}
+                                            {% trans "Pending" %}
+                                        {% else %}
+                                            {% trans "N/A" %}
+                                        {% endif %}
+                                    </span>
+                                    <br>
+                                    <small class="text-muted">${{ enrollment.activity.fee_amount }}</small>
+                                {% else %}
+                                    <span class="payment-badge payment-na">{% trans "Free" %}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    {% if enrollment.status == 'pending' and (user.is_staff or user|has_role:'coordinator') %}
+                                    <button type="button" class="btn btn-outline-success btn-action update-status-btn"
+                                            data-enrollment-id="{{ enrollment.id }}"
+                                            data-status="active"
+                                            title="{% trans 'Approve Enrollment' %}">
+                                        <i class="bi bi-check"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-action update-status-btn"
+                                            data-enrollment-id="{{ enrollment.id }}"
+                                            data-status="cancelled"
+                                            title="{% trans 'Reject Enrollment' %}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                    {% elif enrollment.status == 'active' %}
+                                    <button type="button" class="btn btn-outline-warning btn-action update-status-btn"
+                                            data-enrollment-id="{{ enrollment.id }}"
+                                            data-status="cancelled"
+                                            title="{% trans 'Cancel Enrollment' %}">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                    {% endif %}
+                                    <div class="dropdown">
+                                        <button class="btn btn-outline-secondary btn-action dropdown-toggle"
+                                                type="button" data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item"
+                                                   href="{% url 'activities:activity_detail' enrollment.activity.pk %}">
+                                                <i class="bi bi-eye me-2"></i>{% trans "View Activity" %}
+                                            </a></li>
+                                            <li><a class="dropdown-item"
+                                                   href="mailto:{{ enrollment.student.user.email }}">
+                                                <i class="bi bi-envelope me-2"></i>{% trans "Contact Student" %}
+                                            </a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="{% trans 'Enrollment pagination' %}" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    <i class="bi bi-chevron-left"></i> {% trans "Previous" %}
+                </a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active">
+                <span class="page-link">{{ num }}</span>
+            </li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+            </li>
+            {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    {% trans "Next" %} <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="empty-state">
+        <div class="empty-state-icon">
+            <i class="bi bi-people"></i>
+        </div>
+        <h4 class="mb-3">{% trans "No Enrollments Found" %}</h4>
+        <p class="text-muted mb-4">
+            {% trans "No activity enrollments match your current filters. Try adjusting your search criteria." %}
+        </p>
+        <a href="{% url 'activities:activity_list' %}" class="btn btn-info btn-lg">
+            <i class="bi bi-calendar-event me-2"></i>{% trans "Browse Activities" %}
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('filterForm');
+    const enrollmentsTable = document.getElementById('enrollmentsTable');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const bulkApproveBtn = document.getElementById('bulkApprove');
+    const bulkRejectBtn = document.getElementById('bulkReject');
+    const exportBtn = document.getElementById('exportBtn');
+    const sortableHeaders = document.querySelectorAll('.sortable');
+
+    // Initialize sorting functionality
+    let sortDirection = {};
+    sortableHeaders.forEach(header => {
+        header.addEventListener('click', function() {
+            const sortKey = this.dataset.sort;
+            const currentDirection = sortDirection[sortKey] || 'asc';
+            const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+
+            sortDirection[sortKey] = newDirection;
+
+            // Update sort icons
+            sortableHeaders.forEach(h => {
+                const icon = h.querySelector('.sort-icon');
+                if (icon) {
+                    icon.className = 'bi bi-chevron-expand sort-icon';
+                }
+            });
+
+            const icon = this.querySelector('.sort-icon');
+            if (icon) {
+                icon.className = `bi bi-chevron-${newDirection === 'asc' ? 'up' : 'down'} sort-icon`;
+            }
+
+            // Sort table rows
+            sortTable(sortKey, newDirection);
+        });
+    });
+
+    function sortTable(sortKey, direction) {
+        if (!enrollmentsTable) return;
+
+        const tbody = enrollmentsTable.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+
+        rows.sort((a, b) => {
+            let aValue, bValue;
+
+            switch(sortKey) {
+                case 'student':
+                    aValue = a.querySelector('.fw-bold').textContent.toLowerCase();
+                    bValue = b.querySelector('.fw-bold').textContent.toLowerCase();
+                    break;
+                case 'activity':
+                    aValue = a.querySelector('td:nth-child(3) .fw-bold').textContent.toLowerCase();
+                    bValue = b.querySelector('td:nth-child(3) .fw-bold').textContent.toLowerCase();
+                    break;
+                case 'date':
+                    aValue = new Date(a.querySelector('td:nth-child(4) strong').textContent);
+                    bValue = new Date(b.querySelector('td:nth-child(4) strong').textContent);
+                    break;
+                case 'status':
+                    aValue = a.querySelector('.status-badge').textContent.trim();
+                    bValue = b.querySelector('.status-badge').textContent.trim();
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (direction === 'asc') {
+                return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+            } else {
+                return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+            }
+        });
+
+        // Re-append sorted rows
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    // Select all functionality
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.enrollment-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+    }
+
+    // Bulk actions
+    if (bulkApproveBtn) {
+        bulkApproveBtn.addEventListener('click', function() {
+            const selectedIds = Array.from(document.querySelectorAll('.enrollment-checkbox:checked'))
+                                   .map(cb => cb.value);
+
+            if (selectedIds.length === 0) {
+                showToast('{% trans "Please select enrollments to approve" %}', 'warning');
+                return;
+            }
+
+            if (confirm(`{% trans "Are you sure you want to approve" %} ${selectedIds.length} {% trans "enrollments?" %}`)) {
+                bulkUpdateStatus(selectedIds, 'active');
+            }
+        });
+    }
+
+    if (bulkRejectBtn) {
+        bulkRejectBtn.addEventListener('click', function() {
+            const selectedIds = Array.from(document.querySelectorAll('.enrollment-checkbox:checked'))
+                                   .map(cb => cb.value);
+
+            if (selectedIds.length === 0) {
+                showToast('{% trans "Please select enrollments to reject" %}', 'warning');
+                return;
+            }
+
+            if (confirm(`{% trans "Are you sure you want to reject" %} ${selectedIds.length} {% trans "enrollments?" %}`)) {
+                bulkUpdateStatus(selectedIds, 'cancelled');
+            }
+        });
+    }
+
+    function bulkUpdateStatus(ids, status) {
+        // Create form and submit
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `{% url 'activities:bulk_update_enrollment_status' %}`;
+
+        // Add CSRF token
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        form.appendChild(csrfInput);
+
+        // Add status
+        const statusInput = document.createElement('input');
+        statusInput.type = 'hidden';
+        statusInput.name = 'status';
+        statusInput.value = status;
+        form.appendChild(statusInput);
+
+        // Add enrollment IDs
+        ids.forEach(id => {
+            const idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = 'enrollment_ids';
+            idInput.value = id;
+            form.appendChild(idInput);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    // Individual status update buttons
+    document.querySelectorAll('.update-status-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const enrollmentId = this.dataset.enrollmentId;
+            const newStatus = this.dataset.status;
+            const statusText = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+
+            let confirmMessage = '';
+            if (newStatus === 'active') {
+                confirmMessage = '{% trans "Are you sure you want to approve this enrollment?" %}';
+            } else if (newStatus === 'cancelled') {
+                confirmMessage = '{% trans "Are you sure you want to reject/cancel this enrollment?" %}';
+            }
+
+            if (confirm(confirmMessage)) {
+                // Create form and submit
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `{% url 'activities:update_enrollment_status' 0 %}`.replace('0', enrollmentId);
+
+                const statusInput = document.createElement('input');
+                statusInput.type = 'hidden';
+                statusInput.name = 'status';
+                statusInput.value = newStatus;
+
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+                form.appendChild(statusInput);
+                form.appendChild(csrfInput);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        });
+    });
+
+    // Export functionality
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function() {
+            exportToCSV();
+        });
+    }
+
+    function exportToCSV() {
+        if (!enrollmentsTable) return;
+
+        const headers = ['{% trans "Student Name" %}', '{% trans "Student ID" %}', '{% trans "Activity" %}', '{% trans "Category" %}', '{% trans "Enrollment Date" %}', '{% trans "Status" %}', '{% trans "Payment Status" %}', '{% trans "Fee Amount" %}'];
+        const rows = [headers];
+
+        enrollmentsTable.querySelectorAll('tbody tr').forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 7) {
+                const rowData = [
+                    cells[1].querySelector('.fw-bold')?.textContent?.trim() || '',
+                    cells[1].querySelector('.text-muted')?.textContent?.trim() || '',
+                    cells[2].querySelector('.fw-bold')?.textContent?.trim() || '',
+                    cells[2].querySelector('.text-muted')?.textContent?.trim().replace('•', '').trim() || '',
+                    cells[3].querySelector('strong')?.textContent?.trim() || '',
+                    cells[4].querySelector('.status-badge')?.textContent?.trim() || '',
+                    cells[5].querySelector('.payment-badge')?.textContent?.trim() || '',
+                    cells[5].querySelector('.text-muted')?.textContent?.replace('$', '').trim() || '0'
+                ];
+                rows.push(rowData);
+            }
+        });
+
+        const csvContent = rows.map(row =>
+            row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')
+        ).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'activity_enrollments_{{ now|date:"Y-m-d" }}.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        showToast('{% trans "Enrollments exported successfully!" %}', 'success');
+    }
+
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type === 'success' ? 'primary' : type === 'primary'} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+
+        let toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+
+        toastContainer.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+
+        toast.addEventListener('hidden.bs.toast', function() {
+            toast.remove();
+        });
+    }
+});
+</script>
+{% endblock %}

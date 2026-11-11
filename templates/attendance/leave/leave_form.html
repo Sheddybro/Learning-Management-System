@@ -1,0 +1,755 @@
+<!-- templates/attendance/leave/leave_form.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}{% if form.instance.pk %}Edit Leave Application{% else %}Apply for Leave{% endif %} - School Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+.leave-form-card {
+    border-left: 4px solid #007bff;
+}
+.form-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+.form-section:last-of-type {
+    border-bottom: none;
+}
+.leave-type-preview {
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+.leave-type-preview.active {
+    background-color: #e7f3ff;
+    border-color: #007bff;
+}
+.days-preview {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+}
+.days-preview .number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    line-height: 1;
+}
+.days-preview .label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+.calendar-preview {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+.date-range-display {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #495057;
+}
+.document-upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    background-color: #fafbfc;
+    transition: all 0.3s ease;
+}
+.document-upload-area:hover {
+    border-color: #007bff;
+    background-color: #f0f8ff;
+}
+.document-upload-area.dragover {
+    border-color: #007bff;
+    background-color: #e7f3ff;
+}
+.upload-icon {
+    font-size: 3rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+.leave-balance-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px;
+}
+.leave-balance-card .balance-number {
+    font-size: 2rem;
+    font-weight: bold;
+    line-height: 1;
+}
+.form-actions {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 1rem 0;
+    border-top: 1px solid #e9ecef;
+    margin-top: 2rem;
+}
+.required-field::after {
+    content: " *";
+    color: #dc3545;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Page Header -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h1 class="h3 mb-2">
+                                {% if form.instance.pk %}
+                                Edit Leave Application
+                                {% else %}
+                                Apply for Leave
+                                {% endif %}
+                            </h1>
+                            <nav aria-label="breadcrumb">
+                                <ol class="breadcrumb">
+                                    <li class="breadcrumb-item"><a href="{% url 'attendance:dashboard' %}">Dashboard</a></li>
+                                    <li class="breadcrumb-item"><a href="{% url 'attendance:leave_list' %}">Leave Applications</a></li>
+                                    <li class="breadcrumb-item active">
+                                        {% if form.instance.pk %}Edit{% else %}Apply{% endif %}
+                                    </li>
+                                </ol>
+                            </nav>
+                        </div>
+                        <a href="{% url 'attendance:leave_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i> Back to List
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Leave Application Form -->
+                <div class="col-lg-8">
+                    <div class="card leave-form-card shadow">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">
+                                {% if form.instance.pk %}
+                                Edit Leave Application Details
+                                {% else %}
+                                New Leave Application
+                                {% endif %}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" id="leaveForm" enctype="multipart/form-data" novalidate>
+                                {% csrf_token %}
+                                
+                                <!-- Leave Type Selection -->
+                                <div class="form-section">
+                                    <h6 class="border-bottom pb-2 mb-3">Leave Type</h6>
+                                    <div class="mb-3">
+                                        <label for="{{ form.leave_type.id_for_label }}" class="form-label fw-bold required-field">
+                                            Leave Type
+                                        </label>
+                                        <select class="form-select {% if form.leave_type.errors %}is-invalid{% endif %}" 
+                                                id="{{ form.leave_type.id_for_label }}" 
+                                                name="{{ form.leave_type.name }}" required>
+                                            <option value="">Select Leave Type</option>
+                                            {% for choice in form.leave_type.field.queryset %}
+                                                <option value="{{ choice.pk }}" 
+                                                        data-max-days="{{ choice.max_days_per_year }}"
+                                                        data-requires-approval="{{ choice.requires_approval|yesno:'true,false' }}"
+                                                        data-is-paid="{{ choice.is_paid|yesno:'true,false' }}"
+                                                        data-color="{{ choice.color }}"
+                                                        {% if form.leave_type.value == choice.pk %}selected{% endif %}>
+                                                    {{ choice.name }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        {% if form.leave_type.errors %}
+                                            <div class="invalid-feedback">
+                                                {{ form.leave_type.errors.0 }}
+                                            </div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            Choose the type of leave you're applying for
+                                        </div>
+                                    </div>
+
+                                    <!-- Leave Type Preview -->
+                                    <div id="leaveTypePreview" class="leave-type-preview" style="display: none;">
+                                        <div class="row align-items-center">
+                                            <div class="col-auto">
+                                                <span class="badge" id="previewColor" style="width: 20px; height: 20px; display: inline-block;"></span>
+                                            </div>
+                                            <div class="col">
+                                                <strong id="previewName">Leave Type</strong>
+                                                <div class="small text-muted" id="previewDescription">
+                                                    Leave type description will appear here
+                                                </div>
+                                            </div>
+                                            <div class="col-auto">
+                                                <span class="badge bg-success" id="previewPaidStatus">Paid</span>
+                                                <span class="badge bg-warning" id="previewApprovalStatus" style="display: none;">Approval Required</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Leave Dates -->
+                                <div class="form-section">
+                                    <h6 class="border-bottom pb-2 mb-3">Leave Dates</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="{{ form.start_date.id_for_label }}" class="form-label fw-bold required-field">
+                                                    Start Date
+                                                </label>
+                                                <input type="date" 
+                                                       class="form-control {% if form.start_date.errors %}is-invalid{% endif %}" 
+                                                       id="{{ form.start_date.id_for_label }}" 
+                                                       name="{{ form.start_date.name }}" 
+                                                       value="{{ form.start_date.value|default:'' }}" 
+                                                       min="{{ today|date:'Y-m-d' }}" 
+                                                       required>
+                                                {% if form.start_date.errors %}
+                                                    <div class="invalid-feedback">
+                                                        {{ form.start_date.errors.0 }}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="{{ form.end_date.id_for_label }}" class="form-label fw-bold required-field">
+                                                    End Date
+                                                </label>
+                                                <input type="date" 
+                                                       class="form-control {% if form.end_date.errors %}is-invalid{% endif %}" 
+                                                       id="{{ form.end_date.id_for_label }}" 
+                                                       name="{{ form.end_date.name }}" 
+                                                       value="{{ form.end_date.value|default:'' }}" 
+                                                       min="{{ today|date:'Y-m-d' }}" 
+                                                       required>
+                                                {% if form.end_date.errors %}
+                                                    <div class="invalid-feedback">
+                                                        {{ form.end_date.errors.0 }}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Date Preview -->
+                                    <div class="row mt-3">
+                                        <div class="col-md-8">
+                                            <div class="calendar-preview">
+                                                <div class="date-range-display text-center mb-2">
+                                                    <span id="startDateDisplay">--</span> to <span id="endDateDisplay">--</span>
+                                                </div>
+                                                <div class="text-center text-muted small" id="totalDaysDisplay">
+                                                    Total Days: <strong>0</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="days-preview">
+                                                <div class="number" id="daysCount">0</div>
+                                                <div class="label">Days</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Reason for Leave -->
+                                <div class="form-section">
+                                    <h6 class="border-bottom pb-2 mb-3">Reason for Leave</h6>
+                                    <div class="mb-3">
+                                        <label for="{{ form.reason.id_for_label }}" class="form-label fw-bold required-field">
+                                            Reason
+                                        </label>
+                                        <textarea class="form-control {% if form.reason.errors %}is-invalid{% endif %}" 
+                                                  id="{{ form.reason.id_for_label }}" 
+                                                  name="{{ form.reason.name }}" 
+                                                  rows="5" 
+                                                  placeholder="Please provide a detailed reason for your leave application..." 
+                                                  required>{{ form.reason.value|default:'' }}</textarea>
+                                        {% if form.reason.errors %}
+                                            <div class="invalid-feedback">
+                                                {{ form.reason.errors.0 }}
+                                            </div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            Provide a clear and detailed explanation for your leave request
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Supporting Documents -->
+                                <div class="form-section">
+                                    <h6 class="border-bottom pb-2 mb-3">Supporting Documents</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Supporting Documents</label>
+                                        
+                                        <!-- Document Upload Area -->
+                                        <div class="document-upload-area" id="documentUploadArea">
+                                            <div class="upload-icon">
+                                                <i class="fas fa-cloud-upload-alt"></i>
+                                            </div>
+                                            <h5>Upload Supporting Documents</h5>
+                                            <p class="text-muted mb-3">
+                                                Drag & drop files here or click to browse
+                                            </p>
+                                            <input type="file" 
+                                                   id="documentInput" 
+                                                   name="supporting_documents" 
+                                                   multiple 
+                                                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                                   style="display: none;">
+                                            <button type="button" class="btn btn-primary" onclick="document.getElementById('documentInput').click()">
+                                                <i class="fas fa-folder-open me-1"></i> Browse Files
+                                            </button>
+                                            <div class="form-text mt-2">
+                                                Supported formats: PDF, DOC, DOCX, JPG, PNG (Max 10MB per file)
+                                            </div>
+                                        </div>
+
+                                        <!-- Uploaded Files List -->
+                                        <div id="uploadedFilesList" class="mt-3" style="display: none;">
+                                            <h6 class="mb-2">Selected Files:</h6>
+                                            <div id="fileList" class="list-group"></div>
+                                        </div>
+
+                                        <!-- Existing Documents (for edit mode) -->
+                                        {% if form.instance.pk and form.instance.supporting_documents.exists %}
+                                        <div class="mt-3">
+                                            <h6 class="mb-2">Current Documents:</h6>
+                                            <div class="list-group">
+                                                {% for document in form.instance.supporting_documents.all %}
+                                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <i class="fas fa-file-pdf text-danger me-2"></i>
+                                                        {{ document.filename }}
+                                                    </div>
+                                                    <div>
+                                                        <a href="{{ document.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary me-1">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeExistingDocument({{ document.id }})">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Form Actions -->
+                                <div class="form-actions">
+                                    <div class="d-flex justify-content-between">
+                                        <a href="{% url 'attendance:leave_list' %}" class="btn btn-outline-secondary">
+                                            <i class="fas fa-times me-1"></i> Cancel
+                                        </a>
+                                        <div class="btn-group">
+                                            <button type="submit" name="save_draft" value="true" class="btn btn-outline-primary">
+                                                <i class="fas fa-save me-1"></i> Save Draft
+                                            </button>
+                                            <button type="submit" name="submit" value="true" class="btn btn-success">
+                                                <i class="fas fa-paper-plane me-1"></i> Submit Application
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar Information -->
+                <div class="col-lg-4">
+                    <!-- Leave Balance -->
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Your Leave Balance</h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="leaveBalanceInfo">
+                                <div class="text-center text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Select a leave type to view your balance
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Application Guidelines -->
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Application Guidelines</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="small">
+                                <ul class="list-unstyled mb-0">
+                                    <li class="mb-2">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        Apply at least 3 days in advance for planned leaves
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        Provide sufficient reason and supporting documents
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        Check your leave balance before applying
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        Emergency leaves can be applied retrospectively
+                                    </li>
+                                    <li>
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        Approval typically takes 1-2 working days
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="card shadow">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Quick Actions</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'attendance:leave_list' %}" class="btn btn-outline-primary">
+                                    <i class="fas fa-list me-1"></i> View My Applications
+                                </a>
+                                <button type="button" class="btn btn-outline-info" onclick="resetForm()">
+                                    <i class="fas fa-redo me-1"></i> Reset Form
+                                </button>
+                                <button type="button" class="btn btn-outline-warning" onclick="printGuidelines()">
+                                    <i class="fas fa-print me-1"></i> Print Guidelines
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const leaveTypeSelect = document.getElementById('{{ form.leave_type.id_for_label }}');
+    const startDateInput = document.getElementById('{{ form.start_date.id_for_label }}');
+    const endDateInput = document.getElementById('{{ form.end_date.id_for_label }}');
+    const documentUploadArea = document.getElementById('documentUploadArea');
+    const documentInput = document.getElementById('documentInput');
+    const uploadedFilesList = document.getElementById('uploadedFilesList');
+    const fileList = document.getElementById('fileList');
+
+    // Initialize today's date as minimum for date inputs
+    const today = new Date().toISOString().split('T')[0];
+    startDateInput.min = today;
+    endDateInput.min = today;
+
+    // Leave Type Selection Handler
+    if (leaveTypeSelect) {
+        leaveTypeSelect.addEventListener('change', function() {
+            updateLeaveTypePreview(this);
+            updateLeaveBalance(this.value);
+        });
+
+        // Initialize preview if value exists
+        if (leaveTypeSelect.value) {
+            updateLeaveTypePreview(leaveTypeSelect);
+            updateLeaveBalance(leaveTypeSelect.value);
+        }
+    }
+
+    // Date Change Handlers
+    if (startDateInput && endDateInput) {
+        startDateInput.addEventListener('change', updateDatePreview);
+        endDateInput.addEventListener('change', updateDatePreview);
+        
+        // Initialize date preview if values exist
+        if (startDateInput.value && endDateInput.value) {
+            updateDatePreview();
+        }
+    }
+
+    // Document Upload Handlers
+    if (documentUploadArea && documentInput) {
+        // Drag and drop functionality
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            documentUploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            documentUploadArea.addEventListener(eventName, () => {
+                documentUploadArea.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            documentUploadArea.addEventListener(eventName, () => {
+                documentUploadArea.classList.remove('dragover');
+            }, false);
+        });
+
+        documentUploadArea.addEventListener('drop', handleDrop, false);
+        documentInput.addEventListener('change', handleFileSelect, false);
+    }
+
+    // Form Validation
+    const leaveForm = document.getElementById('leaveForm');
+    if (leaveForm) {
+        leaveForm.addEventListener('submit', function(e) {
+            if (!validateForm()) {
+                e.preventDefault();
+                showFormErrors();
+            }
+        });
+    }
+});
+
+function updateLeaveTypePreview(selectElement) {
+    const preview = document.getElementById('leaveTypePreview');
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+    
+    if (selectElement.value) {
+        const color = selectedOption.getAttribute('data-color');
+        const requiresApproval = selectedOption.getAttribute('data-requires-approval') === 'true';
+        const isPaid = selectedOption.getAttribute('data-is-paid') === 'true';
+        
+        document.getElementById('previewColor').style.backgroundColor = color;
+        document.getElementById('previewName').textContent = selectedOption.textContent;
+        document.getElementById('previewPaidStatus').textContent = isPaid ? 'Paid' : 'Unpaid';
+        document.getElementById('previewPaidStatus').className = isPaid ? 'badge bg-success' : 'badge bg-secondary';
+        document.getElementById('previewApprovalStatus').style.display = requiresApproval ? 'inline-block' : 'none';
+        
+        preview.style.display = 'block';
+    } else {
+        preview.style.display = 'none';
+    }
+}
+
+function updateDatePreview() {
+    const startDate = document.getElementById('{{ form.start_date.id_for_label }}').value;
+    const endDate = document.getElementById('{{ form.end_date.id_for_label }}').value;
+    
+    if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        if (start <= end) {
+            const days = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+            
+            document.getElementById('startDateDisplay').textContent = formatDate(start);
+            document.getElementById('endDateDisplay').textContent = formatDate(end);
+            document.getElementById('totalDaysDisplay').innerHTML = `Total Days: <strong>${days}</strong>`;
+            document.getElementById('daysCount').textContent = days;
+        } else {
+            // End date before start date
+            document.getElementById('startDateDisplay').textContent = '--';
+            document.getElementById('endDateDisplay').textContent = '--';
+            document.getElementById('totalDaysDisplay').innerHTML = 'Total Days: <strong>0</strong>';
+            document.getElementById('daysCount').textContent = '0';
+        }
+    }
+}
+
+function formatDate(date) {
+    return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+    });
+}
+
+function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    handleFiles(files);
+}
+
+function handleFileSelect(e) {
+    const files = e.target.files;
+    handleFiles(files);
+}
+
+function handleFiles(files) {
+    if (files.length > 0) {
+        fileList.innerHTML = '';
+        
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const listItem = document.createElement('div');
+            listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+            listItem.innerHTML = `
+                <div>
+                    <i class="fas fa-file me-2 text-muted"></i>
+                    ${file.name} (${formatFileSize(file.size)})
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(this)">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            fileList.appendChild(listItem);
+        }
+        
+        uploadedFilesList.style.display = 'block';
+    }
+}
+
+function removeFile(button) {
+    button.closest('.list-group-item').remove();
+    
+    if (fileList.children.length === 0) {
+        uploadedFilesList.style.display = 'none';
+        documentInput.value = '';
+    }
+}
+
+function removeExistingDocument(documentId) {
+    if (confirm('Are you sure you want to remove this document?')) {
+        // This would typically be handled via AJAX to remove the document
+        // For now, we'll just show a message
+        alert('Document removal would be processed on form submission.');
+    }
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function updateLeaveBalance(leaveTypeId) {
+    const balanceInfo = document.getElementById('leaveBalanceInfo');
+    
+    if (leaveTypeId) {
+        // This would typically be an AJAX call to get the user's leave balance
+        // For now, we'll simulate it
+        balanceInfo.innerHTML = `
+            <div class="text-center">
+                <div class="h4 text-primary">15</div>
+                <small class="text-muted">Available Days</small>
+                <div class="progress mt-2" style="height: 6px;">
+                    <div class="progress-bar" role="progressbar" style="width: 75%"></div>
+                </div>
+                <div class="row text-center mt-2">
+                    <div class="col-6">
+                        <div class="small">5 Used</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="small">2 Pending</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        balanceInfo.innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                Select a leave type to view your balance
+            </div>
+        `;
+    }
+}
+
+function validateForm() {
+    let isValid = true;
+    
+    // Basic validation - you can extend this as needed
+    const requiredFields = document.querySelectorAll('[required]');
+    requiredFields.forEach(field => {
+        if (!field.value.trim()) {
+            isValid = false;
+            field.classList.add('is-invalid');
+        } else {
+            field.classList.remove('is-invalid');
+        }
+    });
+    
+    // Date validation
+    const startDate = document.getElementById('{{ form.start_date.id_for_label }}').value;
+    const endDate = document.getElementById('{{ form.end_date.id_for_label }}').value;
+    
+    if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        if (end < start) {
+            isValid = false;
+            alert('End date cannot be before start date.');
+        }
+    }
+    
+    return isValid;
+}
+
+function showFormErrors() {
+    // Scroll to first error
+    const firstError = document.querySelector('.is-invalid');
+    if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firstError.focus();
+    }
+}
+
+function resetForm() {
+    if (confirm('Are you sure you want to reset the form? All entered data will be lost.')) {
+        document.getElementById('leaveForm').reset();
+        document.getElementById('leaveTypePreview').style.display = 'none';
+        document.getElementById('uploadedFilesList').style.display = 'none';
+        updateDatePreview();
+        updateLeaveBalance(null);
+    }
+}
+
+function printGuidelines() {
+    const guidelinesContent = document.querySelector('.card:has(.fa-info-circle)').innerHTML;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>Leave Application Guidelines</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+                    ul { line-height: 1.6; }
+                </style>
+            </head>
+            <body>
+                <h1>Leave Application Guidelines</h1>
+                ${guidelinesContent}
+            </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+}
+</script>
+{% endblock %}

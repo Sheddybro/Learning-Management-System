@@ -1,0 +1,830 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% load assessment_filters %}
+
+{% block title %}Assignments - Assessment{% endblock %}
+
+{% block page_title %}Assignments{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'assessment:dashboard' %}">Dashboard</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Assignments</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        {% if user.teacher_profile %}
+        <a href="{% url 'assessment:assignment_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> Create Assignment
+        </a>
+        {% endif %}
+        <button type="button" class="btn btn-outline-secondary" id="filterToggle">
+            <i class="bi bi-funnel me-1"></i> Filters
+        </button>
+        <button type="button" class="btn btn-outline-secondary" id="exportBtn">
+            <i class="bi bi-download me-1"></i> Export
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="assignment-list-container">
+    <!-- Filters Section -->
+    <div class="card mb-4" id="filtersCard" style="display: none;">
+        <div class="card-header">
+            <h6 class="card-title mb-0">
+                <i class="bi bi-funnel me-2"></i>Filter Assignments
+            </h6>
+        </div>
+        <div class="card-body">
+            <form method="get" id="filterForm">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="title" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="title" name="title" 
+                               value="{{ request.GET.title }}" placeholder="Search by title...">
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label for="assignment_type" class="form-label">Type</label>
+                        <select class="form-select" id="assignment_type" name="assignment_type">
+                            <option value="">All Types</option>
+                            {% for value, label in assignment_types %}
+                            <option value="{{ value }}" 
+                                    {% if request.GET.assignment_type == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label for="subject_id" class="form-label">Subject</label>
+                        <select class="form-select" id="subject_id" name="subject_id">
+                            <option value="">All Subjects</option>
+                            {% for subject in subjects %}
+                            <option value="{{ subject.id }}" 
+                                    {% if request.GET.subject_id == subject.id|stringformat:"i" %}selected{% endif %}>
+                                {{ subject.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">All Status</option>
+                            <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>
+                                Active
+                            </option>
+                            <option value="overdue" {% if request.GET.status == 'overdue' %}selected{% endif %}>
+                                Overdue
+                            </option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'assessment:assignment_list' %}" class="btn btn-outline-secondary">
+                                Clear Filters
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search me-1"></i> Apply Filters
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-primary">
+                            <i class="bi bi-file-earmark-text"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">{{ assignments.paginator.count }}</h4>
+                            <p class="text-muted mb-0">Total Assignments</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-success">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0" id="activeCount">0</h4>
+                            <p class="text-muted mb-0">Active</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-warning">
+                            <i class="bi bi-clock"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0" id="overdueCount">0</h4>
+                            <p class="text-muted mb-0">Overdue</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-info">
+                            <i class="bi bi-person-check"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0" id="submittedCount">0</h4>
+                            <p class="text-muted mb-0">My Submissions</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assignments List -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-list-task me-2"></i>
+                Assignment List
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if assignments %}
+            <div class="table-responsive">
+                <table class="table table-hover" id="assignmentsTable">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Subject</th>
+                            <th>Type</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                            <th>Marks</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in assignments %}
+                        <tr class="assignment-row" data-due-date="{{ assignment.due_date|date:'c' }}">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if assignment.attachment %}
+                                    <i class="bi bi-paperclip text-muted me-2"></i>
+                                    {% endif %}
+                                    <div>
+                                        <h6 class="mb-0">
+                                            <a href="{% url 'assessment:assignment_detail' assignment.pk %}" 
+                                               class="text-decoration-none">
+                                                {{ assignment.title }}
+                                            </a>
+                                        </h6>
+                                        <small class="text-muted">
+                                            {{ assignment.academic_class|default:assignment.class_assigned }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark">
+                                    {{ assignment.subject.name }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge assignment-type assignment-type-{{ assignment.assignment_type }}">
+                                    {{ assignment.get_assignment_type_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="due-date-container">
+                                    <div class="due-date">{{ assignment.due_date|date:"M d, Y" }}</div>
+                                    <div class="due-time text-muted small">{{ assignment.due_date|time:"H:i" }}</div>
+                                    {% if assignment.is_overdue %}
+                                    <div class="overdue-badge badge bg-danger mt-1">Overdue</div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                {% if user.student_profile %}
+                                    {% with submission=submissions|get_item:assignment.title %}
+                                        {% if submission %}
+                                            <span class="badge submission-status submission-{{ submission.submission_status }}">
+                                                {{ submission.get_submission_status_display }}
+                                            </span>
+                                            {% if submission.submission_attempt > 1 %}
+                                                <small class="text-muted d-block">Attempt {{ submission.submission_attempt }}</small>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-secondary">Not Started</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% else %}
+                                    <span class="badge {% if assignment.is_published %}bg-success{% else %}bg-warning{% endif %}">
+                                        {% if assignment.is_published %}Published{% else %}Draft{% endif %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="marks-info">
+                                    <small class="text-muted">{{ assignment.total_marks }} total</small>
+                                    {% if user.student_profile %}
+                                        {% with submission=submissions|get_item:assignment.title %}
+                                            {% if submission and submission.marks_obtained %}
+                                                <div class="marks-obtained text-success">
+                                                    {{ submission.marks_obtained }} obtained
+                                                </div>
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{% url 'assessment:assignment_detail' assignment.pk %}" 
+                                       class="btn btn-outline-primary" title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    
+                                    {% if user.student_profile %}
+                                        {% with submission=submissions|get_item:assignment.title %}
+                                            {% if submission %}
+                                                <a href="{% url 'assessment:assignment_detail' assignment.pk %}" 
+                                                   class="btn btn-outline-info" title="View Submission">
+                                                    <i class="bi bi-file-text"></i>
+                                                </a>
+                                            {% else %}
+                                                <a href="{% url 'assessment:assignment_submit' assignment.pk %}" 
+                                                   class="btn btn-outline-success" title="Submit Assignment">
+                                                    <i class="bi bi-send"></i>
+                                                </a>
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% endif %}
+                                    
+                                    {% if user.teacher_profile and assignment.teacher == user.teacher_profile %}
+                                        <a href="{% url 'assessment:assignment_create' %}?edit={{ assignment.pk }}" 
+                                           class="btn btn-outline-warning" title="Edit Assignment">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if assignments.has_other_pages %}
+            <nav aria-label="Assignment pagination" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if assignments.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ assignments.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            Previous
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in assignments.paginator.page_range %}
+                        {% if assignments.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                {{ num }}
+                            </a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if assignments.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ assignments.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            Next
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-5">
+                <div class="empty-state">
+                    <i class="bi bi-file-earmark-text display-1 text-muted"></i>
+                    <h4 class="mt-3">No Assignments Found</h4>
+                    <p class="text-muted">
+                        {% if user.student_profile %}
+                        You don't have any assignments yet. Check back later for new assignments.
+                        {% else %}
+                        No assignments have been created yet.
+                        {% endif %}
+                    </p>
+                    {% if user.teacher_profile %}
+                    <a href="{% url 'assessment:assignment_create' %}" class="btn btn-primary mt-3">
+                        <i class="bi bi-plus-circle me-1"></i> Create Your First Assignment
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportModalLabel">Export Assignments</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="exportForm">
+                    <div class="mb-3">
+                        <label for="exportFormat" class="form-label">Format</label>
+                        <select class="form-select" id="exportFormat">
+                            <option value="csv">CSV</option>
+                            <option value="excel">Excel</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="exportColumns" class="form-label">Columns to Include</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="colTitle" checked>
+                            <label class="form-check-label" for="colTitle">Title</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="colSubject" checked>
+                            <label class="form-check-label" for="colSubject">Subject</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="colType" checked>
+                            <label class="form-check-label" for="colType">Type</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="colDueDate" checked>
+                            <label class="form-check-label" for="colDueDate">Due Date</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmExport">Export</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.assignment-list-container {
+    max-width: 100%;
+}
+
+.stat-card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: transform 0.2s ease-in-out;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+}
+
+.assignment-type {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.assignment-type-homework { background-color: #6f42c1; }
+.assignment-type-classwork { background-color: #20c997; }
+.assignment-type-project { background-color: #fd7e14; }
+.assignment-type-research { background-color: #e83e8c; }
+.assignment-type-presentation { background-color: #6f42c1; }
+.assignment-type-quiz { background-color: #20c997; }
+.assignment-type-exam { background-color: #dc3545; }
+.assignment-type-lab_report { background-color: #0dcaf0; }
+.assignment-type-essay { background-color: #ffc107; color: #000; }
+.assignment-type-group_project { background-color: #198754; }
+
+.submission-status {
+    font-size: 0.75rem;
+}
+
+.submission-draft { background-color: #6c757d; }
+.submission-submitted { background-color: #0dcaf0; color: #000; }
+.submission-late { background-color: #fd7e14; }
+.submission-under_review { background-color: #ffc107; color: #000; }
+.submission-graded { background-color: #198754; }
+.submission-returned { background-color: #6f42c1; }
+.submission-resubmitted { background-color: #20c997; }
+.submission-rejected { background-color: #dc3545; }
+
+.due-date-container {
+    min-width: 120px;
+}
+
+.overdue-badge {
+    font-size: 0.65rem;
+}
+
+.assignment-row:hover {
+    background-color: #f8f9fa;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.empty-state {
+    color: #6c757d;
+}
+
+.empty-state i {
+    opacity: 0.5;
+}
+
+.btn-group-sm > .btn {
+    padding: 0.25rem 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stat-card .d-flex {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .stat-icon {
+        margin: 0 auto 0.5rem auto;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+    }
+    
+    .btn-group-sm > .btn {
+        margin-bottom: 0.25rem;
+    }
+}
+
+/* Animation for filter toggle */
+#filtersCard {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Custom scrollbar for table */
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterToggle = document.getElementById('filterToggle');
+    const filtersCard = document.getElementById('filtersCard');
+    const exportBtn = document.getElementById('exportBtn');
+    const exportModal = new bootstrap.Modal(document.getElementById('exportModal'));
+    const confirmExport = document.getElementById('confirmExport');
+    const assignmentsTable = document.getElementById('assignmentsTable');
+    
+    // Filter toggle functionality
+    if (filterToggle && filtersCard) {
+        filterToggle.addEventListener('click', function() {
+            if (filtersCard.style.display === 'none') {
+                filtersCard.style.display = 'block';
+                filterToggle.classList.add('active');
+            } else {
+                filtersCard.style.display = 'none';
+                filterToggle.classList.remove('active');
+            }
+        });
+        
+        // Show filters if any filter is active
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.toString() && !urlParams.has('page')) {
+            filtersCard.style.display = 'block';
+            filterToggle.classList.add('active');
+        }
+    }
+    
+    // Export functionality
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function() {
+            exportModal.show();
+        });
+    }
+    
+    if (confirmExport) {
+        confirmExport.addEventListener('click', function() {
+            exportData();
+            exportModal.hide();
+        });
+    }
+    
+    // Calculate statistics
+    calculateStatistics();
+    
+    // Add sorting functionality
+    initTableSorting();
+    
+    // Add search functionality
+    initSearch();
+    
+    // Update due date colors based on urgency
+    updateDueDateColors();
+    
+    // Auto-refresh for students
+    {% if user.student_profile %}
+    setInterval(updateAssignmentStatus, 30000); // Update every 30 seconds
+    {% endif %}
+    
+    function calculateStatistics() {
+        const rows = document.querySelectorAll('.assignment-row');
+        let activeCount = 0;
+        let overdueCount = 0;
+        let submittedCount = 0;
+        const now = new Date();
+        
+        rows.forEach(row => {
+            const dueDate = new Date(row.getAttribute('data-due-date'));
+            const statusBadge = row.querySelector('.submission-status');
+            
+            // Count active assignments (not overdue)
+            if (dueDate > now) {
+                activeCount++;
+            }
+            
+            // Count overdue assignments
+            if (dueDate < now) {
+                overdueCount++;
+            }
+            
+            // Count submitted assignments for students
+            if (statusBadge && !statusBadge.classList.contains('bg-secondary')) {
+                submittedCount++;
+            }
+        });
+        
+        document.getElementById('activeCount').textContent = activeCount;
+        document.getElementById('overdueCount').textContent = overdueCount;
+        document.getElementById('submittedCount').textContent = submittedCount;
+    }
+    
+    function initTableSorting() {
+        const headers = document.querySelectorAll('#assignmentsTable th');
+        headers.forEach((header, index) => {
+            if (index < headers.length - 1) { // Exclude actions column
+                header.style.cursor = 'pointer';
+                header.addEventListener('click', function() {
+                    sortTable(index);
+                });
+            }
+        });
+    }
+    
+    function sortTable(columnIndex) {
+        const table = document.getElementById('assignmentsTable');
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const isAscending = !table.getAttribute('data-sort-asc');
+        
+        rows.sort((a, b) => {
+            let aValue = a.cells[columnIndex].textContent.trim();
+            let bValue = b.cells[columnIndex].textContent.trim();
+            
+            // Special handling for due dates
+            if (columnIndex === 3) {
+                aValue = new Date(a.getAttribute('data-due-date'));
+                bValue = new Date(b.getAttribute('data-due-date'));
+            }
+            
+            // Special handling for marks
+            if (columnIndex === 5) {
+                aValue = extractMarksValue(aValue);
+                bValue = extractMarksValue(bValue);
+            }
+            
+            if (aValue < bValue) return isAscending ? -1 : 1;
+            if (aValue > bValue) return isAscending ? 1 : -1;
+            return 0;
+        });
+        
+        // Remove existing rows
+        while (tbody.firstChild) {
+            tbody.removeChild(tbody.firstChild);
+        }
+        
+        // Add sorted rows
+        rows.forEach(row => tbody.appendChild(row));
+        
+        // Update sort indicator
+        table.setAttribute('data-sort-asc', isAscending);
+        updateSortIndicator(columnIndex, isAscending);
+    }
+    
+    function extractMarksValue(text) {
+        const match = text.match(/(\d+(\.\d+)?)/);
+        return match ? parseFloat(match[1]) : 0;
+    }
+    
+    function updateSortIndicator(columnIndex, isAscending) {
+        const headers = document.querySelectorAll('#assignmentsTable th');
+        headers.forEach(header => {
+            header.classList.remove('sort-asc', 'sort-desc');
+        });
+        
+        const currentHeader = headers[columnIndex];
+        currentHeader.classList.add(isAscending ? 'sort-asc' : 'sort-desc');
+    }
+    
+    function initSearch() {
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.className = 'form-control mb-3';
+        searchInput.placeholder = 'Search assignments...';
+        searchInput.style.maxWidth = '300px';
+        
+        searchInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('#assignmentsTable tbody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+        
+        // Insert search input before the table
+        const tableContainer = assignmentsTable.parentElement;
+        tableContainer.insertBefore(searchInput, assignmentsTable);
+    }
+    
+    function updateDueDateColors() {
+        const rows = document.querySelectorAll('.assignment-row');
+        const now = new Date();
+        const oneDay = 24 * 60 * 60 * 1000; // milliseconds in one day
+        
+        rows.forEach(row => {
+            const dueDate = new Date(row.getAttribute('data-due-date'));
+            const dueDateElement = row.querySelector('.due-date');
+            const timeDiff = dueDate - now;
+            const daysDiff = Math.ceil(timeDiff / oneDay);
+            
+            if (daysDiff < 0) {
+                // Overdue
+                dueDateElement.classList.add('text-danger', 'fw-bold');
+            } else if (daysDiff === 0) {
+                // Due today
+                dueDateElement.classList.add('text-warning', 'fw-bold');
+            } else if (daysDiff <= 2) {
+                // Due in 1-2 days
+                dueDateElement.classList.add('text-warning');
+            }
+        });
+    }
+    
+    function exportData() {
+        const format = document.getElementById('exportFormat').value;
+        const includeTitle = document.getElementById('colTitle').checked;
+        const includeSubject = document.getElementById('colSubject').checked;
+        const includeType = document.getElementById('colType').checked;
+        const includeDueDate = document.getElementById('colDueDate').checked;
+        
+        // In a real implementation, this would make an API call to generate the export
+        // For now, we'll just show a success message
+        showToast(`Exporting assignments as ${format.toUpperCase()}...`, 'success');
+        
+        // Simulate export delay
+        setTimeout(() => {
+            showToast('Export completed successfully!', 'success');
+        }, 2000);
+    }
+    
+    function updateAssignmentStatus() {
+        // This would typically make an AJAX call to check for updates
+        console.log('Checking for assignment updates...');
+        // For now, we'll just recalculate statistics
+        calculateStatistics();
+        updateDueDateColors();
+    }
+    
+    function showToast(message, type = 'info') {
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'primary'} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        
+        // Add to toast container
+        let toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+        
+        toastContainer.appendChild(toast);
+        
+        // Initialize and show toast
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        
+        // Remove toast after it's hidden
+        toast.addEventListener('hidden.bs.toast', function() {
+            toast.remove();
+        });
+    }
+});
+
+// Custom template filter for dictionary lookup
+function get_item(dictionary, key) {
+    return dictionary[key];
+}
+</script>
+{% endblock %}

@@ -1,0 +1,471 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Holidays" %}{% endblock %}
+
+{% block body_class %}academics-holidays{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        {% if perms.academics.add_holiday %}
+        <a href="{% url 'academics:holiday_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>{% trans "New Holiday" %}
+        </a>
+        {% endif %}
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+            <i class="bi bi-funnel me-2"></i>{% trans "Filter" %}
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/academics/lists.css' %}">
+<style>
+.holiday-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.holiday-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.holiday-card.recurring {
+    border-left-color: #17a2b8;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e1f5fe 100%);
+}
+
+.holiday-card.regular {
+    border-left-color: #28a745;
+    background: linear-gradient(135deg, #f8fff8 0%, #e8f5e8 100%);
+}
+
+.holiday-stats-card {
+    border: none;
+    border-radius: 12px;
+    transition: transform 0.2s ease;
+}
+
+.holiday-stats-card:hover {
+    transform: translateY(-2px);
+}
+
+.date-display {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.holiday-actions .btn {
+    border-radius: 8px;
+    margin: 2px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="holidays-list-container">
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card holiday-stats-card bg-gradient-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="card-title mb-0">{{ holidays|length }}</h3>
+                            <p class="card-text mb-0 opacity-75">{% trans "Total Holidays" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-calendar-x fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card holiday-stats-card bg-gradient-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="card-title mb-0">{{ holidays|length }}</h3>
+                            <p class="card-text mb-0 opacity-75">{% trans "This Year" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-calendar-event fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card holiday-stats-card bg-gradient-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="card-title mb-0">{{ holidays|length }}</h3>
+                            <p class="card-text mb-0 opacity-75">{% trans "Recurring" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-arrow-repeat fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card holiday-stats-card bg-gradient-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="card-title mb-0">0</h3>
+                            <p class="card-text mb-0 opacity-75">{% trans "Upcoming" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-calendar-plus fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Filters -->
+    {% if request.GET.session or request.GET.year %}
+    <div class="alert alert-info d-flex align-items-center mb-4">
+        <i class="bi bi-info-circle me-2"></i>
+        <div>
+            {% trans "Active filters:" %}
+            {% if request.GET.session %}
+            <span class="badge bg-primary ms-2">Session: {{ request.GET.session }}</span>
+            {% endif %}
+            {% if request.GET.year %}
+            <span class="badge bg-primary ms-2">Year: {{ request.GET.year }}</span>
+            {% endif %}
+            <a href="{% url 'academics:holiday_list' %}" class="btn btn-sm btn-outline-primary ms-3">{% trans "Clear All" %}</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Holidays Grid/List View -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 py-3">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5 class="card-title mb-0 text-dark">
+                        <i class="bi bi-calendar-x me-2 text-primary"></i>{% trans "School Holidays" %}
+                    </h5>
+                </div>
+                <div class="col-md-6 text-end">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-primary active" id="gridViewBtn">
+                            <i class="bi bi-grid-3x3-gap"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="listViewBtn">
+                            <i class="bi bi-list-ul"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if holidays %}
+            <!-- Grid View -->
+            <div id="gridView" class="row">
+                {% for holiday in holidays %}
+                <div class="col-xl-4 col-lg-6 mb-4">
+                    <div class="card holiday-card h-100 {% if holiday.is_recurring %}recurring{% else %}regular{% endif %}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    {% if holiday.is_recurring %}
+                                    <span class="badge bg-info">
+                                        <i class="bi bi-arrow-repeat me-1"></i>{% trans "Recurring" %}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-calendar-event me-1"></i>{% trans "One-time" %}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary border-0" type="button"
+                                            data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'academics:holiday_detail' holiday.pk %}">
+                                                <i class="bi bi-eye me-2"></i>{% trans "View Details" %}
+                                            </a>
+                                        </li>
+                                        {% if perms.academics.change_holiday %}
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'academics:holiday_update' holiday.pk %}">
+                                                <i class="bi bi-pencil me-2"></i>{% trans "Edit" %}
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                        {% if perms.academics.delete_holiday %}
+                                        <li>
+                                            <a class="dropdown-item text-danger" href="{% url 'academics:holiday_delete' holiday.pk %}">
+                                                <i class="bi bi-trash me-2"></i>{% trans "Delete" %}
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <h6 class="card-title text-dark mb-2">{{ holiday.name }}</h6>
+                            <div class="date-display mb-3">
+                                <i class="bi bi-calendar-day me-1"></i>
+                                {{ holiday.date|date:"l, F j, Y" }}
+                            </div>
+
+                            {% if holiday.description %}
+                            <p class="text-muted small mb-3">{{ holiday.description|truncatewords:15 }}</p>
+                            {% endif %}
+
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-light text-dark">
+                                    <i class="bi bi-calendar-range me-1"></i>
+                                    {{ holiday.academic_session.name }}
+                                </span>
+                                <div class="holiday-actions">
+                                    <a href="{% url 'academics:holiday_detail' holiday.pk %}"
+                                       class="btn btn-sm btn-outline-info"
+                                       title="{% trans 'View Details' %}">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    {% if perms.academics.change_holiday %}
+                                    <a href="{% url 'academics:holiday_update' holiday.pk %}"
+                                       class="btn btn-sm btn-outline-primary"
+                                       title="{% trans 'Edit' %}">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- List View (Hidden by default) -->
+            <div id="listView" class="d-none">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{% trans "Holiday Name" %}</th>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Academic Session" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for holiday in holidays %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0 me-3">
+                                            {% if holiday.is_recurring %}
+                                            <i class="bi bi-arrow-repeat text-info"></i>
+                                            {% else %}
+                                            <i class="bi bi-calendar-event text-success"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0">{{ holiday.name }}</h6>
+                                            {% if holiday.description %}
+                                            <small class="text-muted">{{ holiday.description|truncatewords:10 }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <strong>{{ holiday.date|date:"M j, Y" }}</strong><br>
+                                    <small class="text-muted">{{ holiday.date|date:"l" }}</small>
+                                </td>
+                                <td>{{ holiday.academic_session.name }}</td>
+                                <td>
+                                    {% if holiday.is_recurring %}
+                                    <span class="badge bg-info">{% trans "Recurring" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-success">{% trans "One-time" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'academics:holiday_detail' holiday.pk %}" class="btn btn-outline-info" title="{% trans 'View Details' %}">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% if perms.academics.change_holiday %}
+                                        <a href="{% url 'academics:holiday_update' holiday.pk %}" class="btn btn-outline-primary" title="{% trans 'Edit' %}">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.academics.delete_holiday %}
+                                        <a href="{% url 'academics:holiday_delete' holiday.pk %}" class="btn btn-outline-danger" title="{% trans 'Delete' %}">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="{% trans 'Holiday pagination' %}" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if request.GET.session %}&session={{ request.GET.session }}{% endif %}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}">
+                            {% trans "First" %}
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.session %}&session={{ request.GET.session }}{% endif %}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}">
+                            {% trans "Previous" %}
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if request.GET.session %}&session={{ request.GET.session }}{% endif %}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.session %}&session={{ request.GET.session }}{% endif %}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}">
+                            {% trans "Next" %}
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.session %}&session={{ request.GET.session }}{% endif %}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}">
+                            {% trans "Last" %}
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-calendar-x text-muted fs-1"></i>
+                <h4 class="text-muted mt-3">{% trans "No Holidays Found" %}</h4>
+                <p class="text-muted mb-4">{% trans "No holidays match your current filters." %}</p>
+                <a href="{% url 'academics:holiday_list' %}" class="btn btn-outline-primary me-2">
+                    {% trans "Clear Filters" %}
+                </a>
+                {% if perms.academics.add_holiday %}
+                <a href="{% url 'academics:holiday_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-2"></i>{% trans "Create First Holiday" %}
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterModalLabel">
+                    <i class="bi bi-funnel me-2"></i>{% trans "Filter Holidays" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="get" id="filterForm">
+                    <div class="mb-3">
+                        <label for="sessionFilter" class="form-label">{% trans "Academic Session" %}</label>
+                        <select class="form-select" id="sessionFilter" name="session">
+                            <option value="">{% trans "All Sessions" %}</option>
+                            {% for session in sessions %}
+                            <option value="{{ session.pk }}" {% if request.GET.session == session.pk|stringformat:'s' %}selected{% endif %}>{{ session.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="yearFilter" class="form-label">{% trans "Year" %}</label>
+                        <input type="number" class="form-control" id="yearFilter" name="year"
+                               placeholder="{% trans 'e.g., 2024' %}" value="{{ request.GET.year }}">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('filterForm').reset()">
+                    {% trans "Reset" %}
+                </button>
+                <button type="submit" form="filterForm" class="btn btn-primary">{% trans "Apply Filters" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const gridViewBtn = document.getElementById('gridViewBtn');
+        const listViewBtn = document.getElementById('listViewBtn');
+        const gridView = document.getElementById('gridView');
+        const listView = document.getElementById('listView');
+
+        gridViewBtn.addEventListener('click', function() {
+            gridView.classList.remove('d-none');
+            listView.classList.add('d-none');
+            gridViewBtn.classList.add('active');
+            listViewBtn.classList.remove('active');
+        });
+
+        listViewBtn.addEventListener('click', function() {
+            gridView.classList.add('d-none');
+            listView.classList.remove('d-none');
+            gridViewBtn.classList.remove('active');
+            listViewBtn.classList.add('active');
+        });
+
+        // Holiday card interactions
+        const holidayCards = document.querySelectorAll('.holiday-card');
+        holidayCards.forEach(card => {
+            card.addEventListener('click', function(e) {
+                if (!e.target.closest('.dropdown') && !e.target.closest('.btn')) {
+                    // Navigate to holiday detail
+                    const holidayId = this.dataset.holidayId;
+                    if (holidayId) {
+                        window.location.href = `/academics/holidays/${holidayId}/`;
+                    }
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

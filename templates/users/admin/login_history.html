@@ -1,0 +1,432 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Login History" %} - {{ block.super }}{% endblock %}
+
+{% block page_title %}{% trans "Login History" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:user_list' %}">{% trans "Users" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Login History" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <!-- Quick Stats Cards -->
+            <div class="row">
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-start border-primary border-4">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h6 class="text-muted fw-normal mb-2">{% trans "Total Logins" %}</h6>
+                                    <h4 class="mb-0">{{ login_entries.paginator.count }}</h4>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <i class="bi bi-key-fill text-primary display-6"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-start border-success border-4">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h6 class="text-muted fw-normal mb-2">{% trans "Successful" %}</h6>
+                                    <h4 class="mb-0">{{ login_entries|length|default:0 }}</h4>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <i class="bi bi-check-circle text-success display-6"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-start border-danger border-4">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h6 class="text-muted fw-normal mb-2">{% trans "Failed Attempts" %}</h6>
+                                    <h4 class="mb-0">0</h4>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <i class="bi bi-x-circle text-danger display-6"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-start border-info border-4">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h6 class="text-muted fw-normal mb-2">{% trans "Unique IPs" %}</h6>
+                                    <h4 class="mb-0">0</h4>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <i class="bi bi-geo-alt text-info display-6"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        {% trans "Login History" %}
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <!-- Export Button -->
+                        <button class="btn btn-sm btn-light" id="exportLogins">
+                            <i class="bi bi-download me-1"></i>{% trans "Export" %}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Search and Filters -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <form method="get" id="filterForm">
+                                <div class="row g-3">
+                                    <div class="col-md-2">
+                                        <label class="form-label">{% trans "User" %}</label>
+                                        {{ form.user }}
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">{% trans "Status" %}</label>
+                                        {{ form.was_successful }}
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">{% trans "Login Method" %}</label>
+                                        {{ form.login_method }}
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">{% trans "Date Range" %}</label>
+                                        {{ form.date_range }}
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">{% trans "IP Address" %}</label>
+                                        {{ form.ip_address }}
+                                        {{ form.ip_address.errors }}
+                                    </div>
+                                    <div class="col-md-2 d-flex align-items-end">
+                                        <button type="submit" class="btn btn-primary me-2">
+                                            <i class="bi bi-search me-1"></i>{% trans "Filter" %}
+                                        </button>
+                                        <a href="{% url 'users:login_history' %}" class="btn btn-outline-secondary">
+                                            <i class="bi bi-x-circle me-1"></i>{% trans "Clear" %}
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="row g-3 mt-2" id="dateRangeCustom" style="display: none;">
+                                    <div class="col-md-3">
+                                        <label class="form-label">{% trans "Start Date" %}</label>
+                                        {{ form.start_date }}
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">{% trans "End Date" %}</label>
+                                        {{ form.end_date }}
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Login History Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped" id="loginHistoryTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% trans "User" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                    <th>{% trans "IP Address" %}</th>
+                                    <th>{% trans "Login Method" %}</th>
+                                    <th>{% trans "Date/Time" %}</th>
+                                    <th>{% trans "User Agent" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in login_entries %}
+                                <tr>
+                                    <td>
+                                        {% if entry.user %}
+                                            <div class="d-flex align-items-center">
+                                                <div class="flex-shrink-0 me-2">
+                                                    {% if entry.user.profile.profile_picture %}
+                                                        <img src="{{ entry.user.profile.profile_picture.url }}" alt="{{ entry.user.display_name }}"
+                                                             class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;">
+                                                    {% else %}
+                                                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
+                                                             style="width: 32px; height: 32px;">
+                                                            <span class="text-white small">{{ entry.user.get_initials }}</span>
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                                <div>
+                                                    <a href="{% url 'users:user_detail' entry.user.id %}" class="text-decoration-none">
+                                                        {{ entry.user.display_name }}
+                                                    </a>
+                                                    <br>
+                                                    <small class="text-muted">{{ entry.user.email }}</small>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">{% trans "Unknown User" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if entry.was_successful %}success{% else %}danger{% endif %}">
+                                            {% if entry.was_successful %}
+                                                <i class="bi bi-check-circle me-1"></i>{% trans "Success" %}
+                                            {% else %}
+                                                <i class="bi bi-x-circle me-1"></i>{% trans "Failed" %}
+                                            {% endif %}
+                                        </span>
+                                        {% if not entry.was_successful and entry.failure_reason %}
+                                            <br>
+                                            <small class="text-muted">{{ entry.failure_reason }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <code class="small">{{ entry.ip_address }}</code>
+                                        {% if entry.location %}
+                                            <br>
+                                            <small class="text-muted">{{ entry.location }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            {{ entry.get_login_method_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="text-muted small" title="{{ entry.created_at|date:'DATETIME_FORMAT' }}">
+                                            {{ entry.created_at|date:"SHORT_DATE_FORMAT" }} {{ entry.created_at|time:"H:i" }}
+                                        </span>
+                                        <br>
+                                        <small class="text-muted">{{ entry.created_at|timesince }}</small>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {% if entry.user_agent %}
+                                                {{ entry.user_agent|truncatechars:50 }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <div class="text-muted">
+                                            <i class="bi bi-clock-history display-4 d-block mb-2"></i>
+                                            <h5>{% trans "No login history found" %}</h5>
+                                            <p>{% trans "Try adjusting your search or filters to find what you're looking for." %}</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if login_entries.paginator.num_pages > 1 %}
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <div class="text-muted">
+                            {% blocktrans with start=login_entries.start_index end=login_entries.end_index total=login_entries.paginator.count %}
+                                Showing {{ start }} to {{ end }} of {{ total }} entries
+                            {% endblocktrans %}
+                        </div>
+                        <nav>
+                            <ul class="pagination mb-0">
+                                {% if login_entries.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-double-left"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ login_entries.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+
+                                {% for num in login_entries.paginator.page_range %}
+                                    {% if login_entries.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% elif num > login_entries.number|add:'-3' and num < login_entries.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                                {{ num }}
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if login_entries.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ login_entries.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ login_entries.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            <i class="bi bi-chevron-double-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportModalLabel">{% trans "Export Login History" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="get" action="#">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Export Format" %}</label>
+                        <select class="form-select" name="format">
+                            <option value="csv">CSV</option>
+                            <option value="excel">Excel</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Date Range" %}</label>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <input type="date" class="form-control" name="start_date" placeholder="Start date">
+                            </div>
+                            <div class="col-md-6">
+                                <input type="date" class="form-control" name="end_date" placeholder="End date">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                    <button type="submit" class="btn btn-primary">{% trans "Export" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table th {
+        border-top: none;
+        font-weight: 600;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(101, 160, 249, 0.05);
+    }
+
+    .badge {
+        font-size: 0.75rem;
+    }
+
+    .pagination .page-link {
+        color: #65a0f9;
+    }
+
+    .pagination .page-item.active .page-link {
+        background-color: #65a0f9;
+        border-color: #65a0f9;
+    }
+
+    code {
+        background-color: #f8f9fa;
+        padding: 2px 4px;
+        border-radius: 3px;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateRangeSelect = document.querySelector('[name="date_range"]');
+        const dateRangeCustom = document.getElementById('dateRangeCustom');
+        const exportModal = new bootstrap.Modal(document.getElementById('exportModal'));
+        const exportLoginsButton = document.getElementById('exportLogins');
+
+        // Toggle custom date range visibility
+        dateRangeSelect.addEventListener('change', function() {
+            if (this.value === 'custom') {
+                dateRangeCustom.style.display = 'block';
+            } else {
+                dateRangeCustom.style.display = 'none';
+            }
+        });
+
+        // Initialize custom date range visibility
+        if (dateRangeSelect.value === 'custom') {
+            dateRangeCustom.style.display = 'block';
+        }
+
+        // Export button handler
+        exportLoginsButton.addEventListener('click', function() {
+            exportModal.show();
+        });
+
+        // Handle form submission for filters
+        document.getElementById('filterForm').addEventListener('submit', function(e) {
+            // Remove empty form fields to keep URL clean
+            const formData = new FormData(this);
+            for (let [key, value] of formData.entries()) {
+                if (!value || value === '') {
+                    this.querySelector(`[name="${key}"]`).removeAttribute('name');
+                }
+            }
+        });
+    });
+</script>
+
+<!-- Applied form values for JavaScript -->
+{% if form.date_range.value == 'custom' %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('dateRangeCustom').style.display = 'block';
+    });
+</script>
+{% endif %}
+{% endblock %}

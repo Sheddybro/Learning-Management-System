@@ -1,0 +1,238 @@
+{% extends 'base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Quiz Results" %} - {{ attempt.question_bank.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="card-title mb-0">
+                                <i class="bi bi-trophy me-2"></i>
+                                {% trans "Quiz Results" %}: {{ attempt.question_bank.name }}
+                            </h4>
+                            <small class="text-muted">{{ attempt.question_bank.subject.name }}</small>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="d-flex justify-content-end align-items-center">
+                                <div class="me-3">
+                                    <div class="fw-bold fs-5">{{ attempt.get_percent_correct }}%</div>
+                                    <small class="text-muted">{% trans "Score" %}</small>
+                                </div>
+                                <div class="progress" style="width: 100px; height: 20px;">
+                                    <div class="progress-bar {% if attempt.check_if_passed %}bg-success{% else %}bg-danger{% endif %}"
+                                         style="width: {{ attempt.get_percent_correct }}%">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Summary Stats -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="fw-bold fs-4 text-primary">{{ attempt.current_score }}</div>
+                                <small class="text-muted">{% trans "Correct Answers" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="fw-bold fs-4 text-danger">{{ attempt.get_max_score|add:attempt.current_score|add:"-100" }}</div>
+                                <small class="text-muted">{% trans "Incorrect Answers" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="fw-bold fs-4 text-info">{{ attempt.get_max_score }}</div>
+                                <small class="text-muted">{% trans "Total Questions" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="fw-bold fs-4 {% if attempt.check_if_passed %}text-success{% else %}text-warning{% endif %}">
+                                    {{ attempt.question_bank.pass_mark }}%
+                                </div>
+                                <small class="text-muted">{% trans "Pass Mark" %}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Result Message -->
+                    <div class="alert {% if attempt.check_if_passed %}alert-success{% else %}alert-warning{% endif %} mb-4">
+                        <h5 class="alert-heading">
+                            {% if attempt.check_if_passed %}
+                            <i class="bi bi-check-circle-fill me-2"></i>{% trans "Congratulations!" %}
+                            {% else %}
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>{% trans "Try Again!" %}
+                            {% endif %}
+                        </h5>
+                        <p class="mb-0">{{ attempt.result_message }}</p>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="mb-4">
+                        <a href="{% url 'assessment:quiz_bank_list' %}" class="btn btn-primary me-2">
+                            <i class="bi bi-arrow-left me-1"></i>{% trans "Back to Quizzes" %}
+                        </a>
+                        <a href="{% url 'assessment:student_progress' %}" class="btn btn-outline-secondary me-2">
+                            <i class="bi bi-bar-chart me-1"></i>{% trans "View Progress" %}
+                        </a>
+                        {% if attempt.question_bank.single_attempt %}
+                        <span class="badge bg-info">
+                            <i class="bi bi-info-circle me-1"></i>{% trans "Single Attempt Quiz" %}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Detailed Results -->
+                    {% if show_answers %}
+                    <div class="accordion" id="questionsAccordion">
+                        <h5 class="mb-3">
+                            <i class="bi bi-list-check me-2"></i>{% trans "Detailed Results" %}
+                        </h5>
+
+                        {% for question in questions_with_answers %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+                                <button class="accordion-button {% if question.user_answer.is_graded|default:True %}collapsed{% endif %}"
+                                        type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}"
+                                        aria-expanded="{% if not question.user_answer.is_graded|default:True %}true{% else %}false{% endif %}"
+                                        aria-controls="collapse{{ forloop.counter }}">
+                                    <div class="d-flex justify-content-between align-items-center w-100 me-3">
+                                        <span>
+                                            <strong>{% trans "Question" %} {{ forloop.counter }}:</strong>
+                                            {{ question.content|truncatewords:10 }}
+                                        </span>
+                                        <span class="badge {% if question.user_answer.is_graded|default:True %}bg-success{% else %}bg-warning text-dark{% endif %} ms-2">
+                                            {% if question.question_type == 'essay' or question.question_type == 'short_answer' %}
+                                                {% if question.user_answer.is_graded|default:False %}
+                                                    {% trans "Graded" %}
+                                                {% else %}
+                                                    {% trans "Pending Grading" %}
+                                                {% endif %}
+                                            {% else %}
+                                                {% trans "Auto-Graded" %}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                </button>
+                            </h2>
+
+                            <div id="collapse{{ forloop.counter }}"
+                                 class="accordion-collapse collapse {% if not question.user_answer.is_graded|default:True %}show{% endif %}"
+                                 aria-labelledby="heading{{ forloop.counter }}"
+                                 data-bs-parent="#questionsAccordion">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <h6>{% trans "Question" %}:</h6>
+                                            <p>{{ question.content }}</p>
+
+                                            {% if question.figure %}
+                                            <div class="mb-3">
+                                                <img src="{{ question.figure.url }}" alt="Question figure" class="img-fluid rounded">
+                                            </div>
+                                            {% endif %}
+
+                                            <h6>{% trans "Your Answer" %}:</h6>
+                                            {% if question.question_type == 'multiple_choice' or question.question_type == 'true_false' %}
+                                                {% if question.user_answer.selected_options %}
+                                                    <div class="alert alert-info">
+                                                        {% for option_id in question.user_answer.selected_options %}
+                                                            {% for option in question.options.all %}
+                                                                {% if option.id == option_id|add:"0" %}
+                                                                    <p class="mb-0">{{ option.option_text }}</p>
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                        {% endfor %}
+                                                    </div>
+                                                {% else %}
+                                                    <div class="alert alert-warning">
+                                                        <em>{% trans "No answer selected" %}</em>
+                                                    </div>
+                                                {% endif %}
+                                            {% elif question.question_type == 'essay' or question.question_type == 'short_answer' %}
+                                                <div class="alert alert-info">
+                                                    {{ question.user_answer.answer_text|default:"No answer provided"|linebreaks }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <div class="card">
+                                                <div class="card-body">
+                                                    <h6 class="card-title">{% trans "Correct Answer" %}:</h6>
+                                                    {% if question.question_type == 'multiple_choice' or question.question_type == 'true_false' %}
+                                                        {% for option in question.options.all %}
+                                                            {% if option.is_correct %}
+                                                            <div class="alert alert-success">
+                                                                <strong>{{ option.option_text }}</strong>
+                                                            </div>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        <div class="alert alert-success">
+                                                            {{ question.explanation|default:"Answer will be provided after grading"|linebreaks }}
+                                                        </div>
+                                                    {% endif %}
+
+                                                    {% if question.user_answer.marks_obtained is not None %}
+                                                    <hr>
+                                                    <div class="text-center">
+                                                        <div class="fw-bold fs-5">
+                                                            {{ question.user_answer.marks_obtained }}/{{ question.marks }}
+                                                        </div>
+                                                        <small class="text-muted">{% trans "Marks Obtained" %}</small>
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {% if question.explanation %}
+                                    <div class="mt-3">
+                                        <h6>{% trans "Explanation" %}:</h6>
+                                        <div class="alert alert-light">
+                                            {{ question.explanation|linebreaks }}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.accordion-button:not(.collapsed) {
+    background-color: #f8f9fa;
+    color: #212529;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.progress {
+    border-radius: 10px;
+}
+
+.progress-bar {
+    border-radius: 10px;
+}
+</style>
+{% endblock %}

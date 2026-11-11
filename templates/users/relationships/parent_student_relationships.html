@@ -1,0 +1,664 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% trans "Parent-Student Relationships" %} - {{ block.super }}
+{% endblock %}
+
+{% block page_title %}
+    {% trans "Parent-Student Relationships" %}
+{% endblock %}
+
+{% block page_actions %}
+    <div class="page-actions">
+        {% if user.is_superuser or perms.users.manage_relationships %}
+        <a href="{% url 'users:parent_student_relationship_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-2"></i>
+            {% trans "Create Relationship" %}
+        </a>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Relationships" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="relationships-container">
+    <!-- Quick Stats Row -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted mb-2">{% trans "Total Relationships" %}</h6>
+                            <h3 class="fw-bold text-primary mb-0">{{ total_relationships }}</h3>
+                        </div>
+                        <div class="avatar avatar-sm bg-primary text-white rounded-circle">
+                            <i class="bi bi-people"></i>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-0 mt-2">
+                        {% trans "Active connections" %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted mb-2">{% trans "Primary Contacts" %}</h6>
+                            <h3 class="fw-bold text-success mb-0">{{ primary_contacts }}</h3>
+                        </div>
+                        <div class="avatar avatar-sm bg-success text-white rounded-circle">
+                            <i class="bi bi-person-check"></i>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-0 mt-2">
+                        {% trans "Main emergency contacts" %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted mb-2">{% trans "Can Pickup" %}</h6>
+                            <h3 class="fw-bold text-info mb-0">{{ can_pickup_count }}</h3>
+                        </div>
+                        <div class="avatar avatar-sm bg-info text-white rounded-circle">
+                            <i class="bi bi-car-front"></i>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-0 mt-2">
+                        {% trans "Authorized for pickup" %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted mb-2">{% trans "Unique Parents" %}</h6>
+                            <h3 class="fw-bold text-warning mb-0">{{ unique_parents }}</h3>
+                        </div>
+                        <div class="avatar avatar-sm bg-warning text-white rounded-circle">
+                            <i class="bi bi-person-badge"></i>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-0 mt-2">
+                        {% trans "Individual parents" %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="row">
+        <!-- Left Column - Main Table -->
+        <div class="col-lg-8">
+
+        <!-- Relationships Table -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-diagram-3 me-2"></i>
+                    {% trans "Parent-Student Relationships" %}
+                </h5>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-secondary me-3">
+                        {{ relationships|length }} {% trans "results" %}
+                    </span>
+                    {% if user.is_superuser or perms.users.manage_relationships %}
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" 
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-gear me-2"></i>{% trans "Actions" %}
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="#" id="export-relationships">
+                                    <i class="bi bi-download me-2"></i>{% trans "Export to CSV" %}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                {% if relationships %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped" id="relationships-table">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Parent" %}</th>
+                                <th>{% trans "Student" %}</th>
+                                <th>{% trans "Relationship" %}</th>
+                                <th>{% trans "Primary Contact" %}</th>
+                                <th>{% trans "Can Pickup" %}</th>
+                                <th>{% trans "Emergency Order" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                {% if user.is_superuser or perms.users.manage_relationships %}
+                                <th>{% trans "Actions" %}</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for relationship in relationships %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm me-3">
+                                            <div class="avatar-title bg-primary rounded-circle text-white">
+                                                {{ relationship.parent.get_initials }}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <strong>{{ relationship.parent.display_name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ relationship.parent.email }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm me-3">
+                                            <div class="avatar-title bg-success rounded-circle text-white">
+                                                {{ relationship.student.get_initials }}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <strong>{{ relationship.student.display_name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ relationship.student.email }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ relationship.get_relationship_type_display }}</span>
+                                </td>
+                                <td>
+                                    {% if relationship.is_primary_contact %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-lg me-1"></i>{% trans "Yes" %}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{% trans "No" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if relationship.can_pickup %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-lg me-1"></i>{% trans "Yes" %}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{% trans "No" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if relationship.emergency_contact_order == 0 %}
+                                    <span class="badge bg-danger">{% trans "First" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark">#{{ relationship.emergency_contact_order|add:1 }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if relationship.status == 'active' %}success{% else %}secondary{% endif %}">
+                                        {{ relationship.get_status_display }}
+                                    </span>
+                                </td>
+                                {% if user.is_superuser or perms.users.manage_relationships %}
+                                <td>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle" 
+                                                data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-gear"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item" href="#" 
+                                                   onclick="showRelationshipDetails('{{ relationship.id }}')">
+                                                    <i class="bi bi-eye me-2"></i>{% trans "View Details" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" 
+                                                   href="{% url 'users:parent_student_relationship_create' %}?edit={{ relationship.id }}">
+                                                    <i class="bi bi-pencil me-2"></i>{% trans "Edit" %}
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item text-danger" href="#" 
+                                                   onclick="confirmDelete('{{ relationship.id }}', '{{ relationship.parent.display_name }}', '{{ relationship.student.display_name }}')">
+                                                    <i class="bi bi-trash me-2"></i>{% trans "Delete" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <nav aria-label="{% trans 'Relationships pagination' %}" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                {% trans "First" %}
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                {% trans "Previous" %}
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <span class="page-link">
+                                {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
+                            </span>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                {% trans "Next" %}
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                {% trans "Last" %}
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-people display-1 text-muted"></i>
+                    <h4 class="mt-3">{% trans "No relationships found" %}</h4>
+                    <p class="text-muted">{% trans "No parent-student relationships match your current filters." %}</p>
+                    {% if user.is_superuser or perms.users.manage_relationships %}
+                    <a href="{% url 'users:parent_student_relationship_create' %}" class="btn btn-primary mt-3">
+                        <i class="bi bi-plus-lg me-2"></i>
+                        {% trans "Create First Relationship" %}
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        </div>
+
+        <!-- Right Column - Sidebar -->
+        <div class="col-lg-4">
+            <!-- Filters Card -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-funnel me-2"></i>
+                        {% trans "Filters" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-12">
+                            <label for="parent_filter" class="form-label">{% trans "Parent" %}</label>
+                            <input type="text" class="form-control" id="parent_filter" name="parent"
+                                   value="{{ request.GET.parent }}" placeholder="{% trans 'Search parent...' %}">
+                        </div>
+                        <div class="col-12">
+                            <label for="student_filter" class="form-label">{% trans "Student" %}</label>
+                            <input type="text" class="form-control" id="student_filter" name="student"
+                                   value="{{ request.GET.student }}" placeholder="{% trans 'Search student...' %}">
+                        </div>
+                        <div class="col-12">
+                            <label for="relationship_type_filter" class="form-label">{% trans "Relationship Type" %}</label>
+                            <select class="form-select" id="relationship_type_filter" name="relationship_type">
+                                <option value="">{% trans "All Types" %}</option>
+                                {% for value, label in relationship_types %}
+                                    <option value="{{ value }}" {% if request.GET.relationship_type == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label for="primary_contact_filter" class="form-label">{% trans "Primary Contact" %}</label>
+                            <select class="form-select" id="primary_contact_filter" name="is_primary_contact">
+                                <option value="">{% trans "All" %}</option>
+                                <option value="true" {% if request.GET.is_primary_contact == 'true' %}selected{% endif %}>
+                                    {% trans "Yes" %}
+                                </option>
+                                <option value="false" {% if request.GET.is_primary_contact == 'false' %}selected{% endif %}>
+                                    {% trans "No" %}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-filter me-2"></i>{% trans "Apply Filters" %}
+                                </button>
+                                <a href="{% url 'users:parent_student_relationships' %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-circle me-2"></i>{% trans "Clear All" %}
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <h5 class="card-title mb-0">{% trans "Quick Actions" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        {% if user.is_superuser or perms.users.manage_relationships %}
+                        <a href="{% url 'users:parent_student_relationship_create' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-lg me-2"></i>
+                            {% trans "Create Relationship" %}
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'users:dashboard' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-house me-2"></i>
+                            {% trans "Back to Dashboard" %}
+                        </a>
+                        <button class="btn btn-outline-success" onclick="window.print()">
+                            <i class="bi bi-printer me-2"></i>
+                            {% trans "Print View" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Relationship Insights -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <h5 class="card-title mb-0">{% trans "Insights" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">{% trans "Primary Contacts" %}</span>
+                            <span class="fw-bold">{{ primary_contacts }}/{{ total_relationships }}</span>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-success" style="width: {% widthratio primary_contacts total_relationships 100 %}%"></div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">{% trans "Pickup Authorized" %}</span>
+                            <span class="fw-bold">{{ can_pickup_count }}/{{ total_relationships }}</span>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-info" style="width: {% widthratio can_pickup_count total_relationships 100 %}%"></div>
+                        </div>
+                    </div>
+
+                    <hr class="my-3">
+
+                    <div class="text-center">
+                        <small class="text-muted">
+                            {% trans "Last updated:" %}<br>
+                            {% now "M j, Y g:i A" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Relationship Details Modal -->
+<div class="modal fade" id="relationshipDetailsModal" tabindex="-1" aria-labelledby="relationshipDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="relationshipDetailsModalLabel">{% trans "Relationship Details" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="relationshipDetailsContent">
+                <!-- Content will be loaded via JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteConfirmationModalLabel">{% trans "Confirm Deletion" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Are you sure you want to delete the relationship between" %} <strong id="deleteParentName"></strong> {% trans "and" %} <strong id="deleteStudentName"></strong>?</p>
+                <p class="text-danger">{% trans "This action cannot be undone." %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <form id="deleteRelationshipForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">{% trans "Delete Relationship" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Show relationship details in modal
+function showRelationshipDetails(relationshipId) {
+    // In a real implementation, this would fetch details via AJAX
+    // For now, we'll show a placeholder
+    const modalContent = document.getElementById('relationshipDetailsContent');
+    modalContent.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">{% trans "Loading..." %}</span>
+            </div>
+            <p class="mt-2">{% trans "Loading relationship details..." %}</p>
+        </div>
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('relationshipDetailsModal'));
+    modal.show();
+    
+    // Simulate AJAX call - replace with actual API call
+    setTimeout(() => {
+        modalContent.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                {% trans "Relationship details would be loaded here via AJAX in a real implementation." %}
+            </div>
+        `;
+    }, 1000);
+}
+
+// Confirm deletion
+function confirmDelete(relationshipId, parentName, studentName) {
+    document.getElementById('deleteParentName').textContent = parentName;
+    document.getElementById('deleteStudentName').textContent = studentName;
+    
+    // Set up the form action
+    const form = document.getElementById('deleteRelationshipForm');
+    form.action = `/users/relationships/${relationshipId}/delete/`; // Update with actual URL
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteConfirmationModal'));
+    modal.show();
+}
+
+// Export to CSV
+document.getElementById('export-relationships')?.addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    // Get current filters
+    const params = new URLSearchParams(window.location.search);
+    params.set('export', 'csv');
+    
+    // Trigger download
+    window.location.href = '{% url "users:parent_student_relationships" %}?' + params.toString();
+});
+
+// Initialize table sorting and search
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize DataTables if available
+    if (typeof $.fn.DataTable !== 'undefined') {
+        $('#relationships-table').DataTable({
+            pageLength: 25,
+            responsive: true,
+            order: [[0, 'asc']],
+            language: {
+                search: "{% trans 'Search:' %}",
+                lengthMenu: "{% trans 'Show _MENU_ entries' %}",
+                info: "{% trans 'Showing _START_ to _END_ of _TOTAL_ entries' %}",
+                infoEmpty: "{% trans 'Showing 0 to 0 of 0 entries' %}",
+                infoFiltered: "{% trans '(filtered from _MAX_ total entries)' %}",
+                paginate: {
+                    first: "{% trans 'First' %}",
+                    last: "{% trans 'Last' %}",
+                    next: "{% trans 'Next' %}",
+                    previous: "{% trans 'Previous' %}"
+                }
+            }
+        });
+    }
+    
+    // Quick search functionality
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'form-control form-control-sm';
+    searchInput.placeholder = '{% trans "Search relationships..." %}';
+    searchInput.style.width = '200px';
+    
+    searchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const rows = document.querySelectorAll('#relationships-table tbody tr');
+        
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        });
+    });
+    
+    // Add search input to header
+    const header = document.querySelector('.card-header');
+    if (header) {
+        header.appendChild(searchInput);
+    }
+});
+</script>
+
+<style>
+.relationships-container {
+    background-color: #f8f9fa;
+}
+
+.avatar {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.avatar-title {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+    background-color: #f8f9fa;
+}
+
+.card-header {
+    background-color: #fff;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+/* Dashboard-like responsive adjustments */
+@media (max-width: 992px) {
+    .relationships-container .row > .col-lg-8,
+    .relationships-container .row > .col-lg-4 {
+        margin-bottom: 2rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+
+    .btn-group .dropdown-menu {
+        position: absolute !important;
+    }
+
+    .relationships-container {
+        padding: 1rem;
+    }
+}
+
+/* Dark theme support */
+[data-bs-theme="dark"] .relationships-container {
+    background-color: #212529;
+}
+
+[data-bs-theme="dark"] .card {
+    background-color: #2d3338;
+    border-color: #495057;
+}
+
+[data-bs-theme="dark"] .text-muted {
+    color: #adb5bd !important;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,729 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Library Members" %}{% endblock %}
+
+{% block page_title %}{% trans "Library Members" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Library Members" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Library Member List Specific Styles */
+    .page-header-actions {
+        background: linear-gradient(135deg, #65a0f9 0%, #4a7df6 100%);
+        color: white;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .stats-card-1 { border-left-color: #65a0f9; }
+    .stats-card-2 { border-left-color: #28a745; }
+    .stats-card-3 { border-left-color: #ffc107; }
+    .stats-card-4 { border-left-color: #dc3545; }
+    
+    .stat-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+        opacity: 0.8;
+    }
+    
+    .member-card {
+        border-radius: 0.5rem;
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+    }
+    
+    .member-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        border-color: #65a0f9;
+    }
+    
+    .member-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #f8f9fa;
+    }
+    
+    .member-type-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .member-status-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    .member-actions {
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .member-card:hover .member-actions {
+        opacity: 1;
+    }
+    
+    .progress-thin {
+        height: 6px;
+    }
+    
+    .search-box {
+        position: relative;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    .filter-dropdown .dropdown-menu {
+        width: 300px;
+        padding: 1rem;
+    }
+    
+    .table-actions .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .empty-state {
+        padding: 3rem 1rem;
+        text-align: center;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        color: #dee2e6;
+        margin-bottom: 1rem;
+    }
+    
+    .pagination-container {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+    
+    @media (max-width: 768px) {
+        .stat-number {
+            font-size: 1.5rem;
+        }
+        
+        .member-avatar {
+            width: 50px;
+            height: 50px;
+        }
+        
+        .table-actions .btn {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+        }
+        
+        .page-header-actions {
+            padding: 1rem;
+        }
+    }
+    
+    /* Table specific styles */
+    .table-member-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    
+    .table > :not(caption) > * > * {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .view-toggle {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 0.5rem;
+    }
+    
+    .view-toggle-btn {
+        border: none;
+        background: transparent;
+        padding: 0.5rem 1rem;
+        border-radius: 0.25rem;
+        transition: all 0.3s ease;
+    }
+    
+    .view-toggle-btn.active {
+        background: #65a0f9;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header with Actions -->
+    <div class="page-header-actions">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1 class="h3 mb-2">{% trans "Library Members" %}</h1>
+                <p class="mb-0 opacity-75">{% trans "Manage all library members and their membership details" %}</p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <div class="d-flex flex-column flex-md-row justify-content-md-end gap-2">
+                    <a href="{% url 'library:librarymember_create' %}" class="btn btn-light">
+                        <i class="bi bi-person-plus me-2"></i>{% trans "Add New Member" %}
+                    </a>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-light dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="bi bi-download me-2"></i>{% trans "Export" %}
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-excel me-2"></i>{% trans "Excel" %}</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-pdf me-2"></i>{% trans "PDF" %}</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-text me-2"></i>{% trans "CSV" %}</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-1 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-primary">{{ members.paginator.count }}</div>
+                            <div class="stat-label">{% trans "Total Members" %}</div>
+                        </div>
+                        <div class="stat-icon text-primary">
+                            <i class="bi bi-people"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-2 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-success">{{ active_members_count }}</div>
+                            <div class="stat-label">{% trans "Active Members" %}</div>
+                        </div>
+                        <div class="stat-icon text-success">
+                            <i class="bi bi-person-check"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-3 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-warning">{{ students_count }}</div>
+                            <div class="stat-label">{% trans "Student Members" %}</div>
+                        </div>
+                        <div class="stat-icon text-warning">
+                            <i class="bi bi-mortarboard"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-danger">{{ expired_members_count }}</div>
+                            <div class="stat-label">{% trans "Expired Memberships" %}</div>
+                        </div>
+                        <div class="stat-icon text-danger">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Search and Filter Bar -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="row g-3">
+                        <div class="col-lg-4">
+                            <div class="search-box">
+                                <i class="bi bi-search search-icon"></i>
+                                <input type="text" class="form-control ps-5" placeholder="{% trans 'Search members...' %}" id="searchInput">
+                            </div>
+                        </div>
+                        <div class="col-lg-3">
+                            <select class="form-select" id="memberTypeFilter">
+                                <option value="">{% trans "All Types" %}</option>
+                                <option value="student">{% trans "Student" %}</option>
+                                <option value="teacher">{% trans "Teacher" %}</option>
+                                <option value="staff">{% trans "Staff" %}</option>
+                                <option value="parent">{% trans "Parent" %}</option>
+                                <option value="external">{% trans "External" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-3">
+                            <select class="form-select" id="statusFilter">
+                                <option value="">{% trans "All Status" %}</option>
+                                <option value="active">{% trans "Active" %}</option>
+                                <option value="expired">{% trans "Expired" %}</option>
+                                <option value="inactive">{% trans "Inactive" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-2">
+                            <button class="btn btn-outline-secondary w-100" id="clearFilters">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <div class="d-flex align-items-center justify-content-md-end gap-2 mt-3 mt-md-0">
+                        <span class="text-muted small">{% trans "View:" %}</span>
+                        <div class="view-toggle">
+                            <button class="view-toggle-btn active" data-view="table">
+                                <i class="bi bi-list"></i>
+                            </button>
+                            <button class="view-toggle-btn" data-view="grid">
+                                <i class="bi bi-grid-3x3-gap"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Table View -->
+    <div id="tableView" class="view-content">
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="50">{% trans "Avatar" %}</th>
+                                <th>{% trans "Member" %}</th>
+                                <th>{% trans "Member ID" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Membership" %}</th>
+                                <th>{% trans "Borrowing" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                <th width="120" class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for member in members %}
+                            <tr class="member-row" data-member-type="{{ member.member_type }}" data-status="{% if member.is_membership_active %}active{% else %}expired{% endif %}">
+                                <td>
+                                    <div class="table-member-avatar bg-light d-flex align-items-center justify-content-center">
+                                        <i class="bi bi-person text-muted"></i>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-column">
+                                        <strong>{{ member.user.get_full_name|default:member.user.username }}</strong>
+                                        <small class="text-muted">{{ member.user.email|default:"No email" }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <code>{{ member.member_id }}</code>
+                                </td>
+                                <td>
+                                    <span class="badge member-type-badge 
+                                        {% if member.member_type == 'student' %}bg-success
+                                        {% elif member.member_type == 'teacher' %}bg-warning
+                                        {% elif member.member_type == 'staff' %}bg-info
+                                        {% elif member.member_type == 'parent' %}bg-purple
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ member.get_member_type_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-column">
+                                        <small>{% trans "Since" %} {{ member.membership_date|date:"M d, Y" }}</small>
+                                        <small class="{% if not member.is_membership_active %}text-danger{% else %}text-muted{% endif %}">
+                                            {% trans "Expires" %} {{ member.expiry_date|date:"M d, Y" }}
+                                        </small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-column">
+                                        <small>{{ member.current_borrow_count }}/{{ member.max_borrow_limit }} {% trans "books" %}</small>
+                                        <div class="progress progress-thin mt-1">
+                                            <div class="progress-bar {% if member.can_borrow_more %}bg-success{% else %}bg-danger{% endif %}" 
+                                                 style="width: {% widthratio member.current_borrow_count member.max_borrow_limit 100 %}%">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if member.is_membership_active %}
+                                    <span class="badge bg-success member-status-badge">{% trans "Active" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-danger member-status-badge">{% trans "Expired" %}</span>
+                                    {% endif %}
+                                    {% if member.status == 'inactive' %}
+                                    <span class="badge bg-secondary member-status-badge">{% trans "Inactive" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <div class="table-actions">
+                                        <a href="{% url 'library:librarymember_detail' member.pk %}" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="{% trans 'View Details' %}">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{% url 'library:librarymember_update' member.pk %}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="{% trans 'Edit' %}">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a href="{% url 'library:borrowrecord_create' %}?member={{ member.pk }}" class="btn btn-sm btn-outline-success" data-bs-toggle="tooltip" title="{% trans 'Issue Book' %}">
+                                            <i class="bi bi-journal-plus"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8">
+                                    <div class="empty-state">
+                                        <div class="empty-state-icon">
+                                            <i class="bi bi-people"></i>
+                                        </div>
+                                        <h5>{% trans "No Members Found" %}</h5>
+                                        <p class="text-muted">{% trans "There are no library members matching your criteria." %}</p>
+                                        <a href="{% url 'library:librarymember_create' %}" class="btn btn-primary">
+                                            <i class="bi bi-person-plus me-2"></i>{% trans "Add First Member" %}
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Grid View -->
+    <div id="gridView" class="view-content" style="display: none;">
+        <div class="row">
+            {% for member in members %}
+            <div class="col-xl-4 col-lg-6 mb-4 member-card-container" data-member-type="{{ member.member_type }}" data-status="{% if member.is_membership_active %}active{% else %}expired{% endif %}">
+                <div class="card member-card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="member-avatar bg-light d-flex align-items-center justify-content-center me-3">
+                                <i class="bi bi-person text-muted" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-1">{{ member.user.get_full_name|default:member.user.username }}</h5>
+                                <p class="text-muted small mb-1">{{ member.user.email|default:"No email" }}</p>
+                                <div class="d-flex gap-1 mb-2">
+                                    <span class="badge member-type-badge 
+                                        {% if member.member_type == 'student' %}bg-success
+                                        {% elif member.member_type == 'teacher' %}bg-warning
+                                        {% elif member.member_type == 'staff' %}bg-info
+                                        {% elif member.member_type == 'parent' %}bg-purple
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ member.get_member_type_display }}
+                                    </span>
+                                    {% if member.is_membership_active %}
+                                    <span class="badge bg-success member-status-badge">{% trans "Active" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-danger member-status-badge">{% trans "Expired" %}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row text-center mb-3">
+                            <div class="col-4">
+                                <div class="border-end">
+                                    <div class="h6 mb-1">{{ member.member_id }}</div>
+                                    <small class="text-muted">{% trans "ID" %}</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="border-end">
+                                    <div class="h6 mb-1">{{ member.current_borrow_count }}</div>
+                                    <small class="text-muted">{% trans "Borrowed" %}</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="h6 mb-1">{{ member.max_borrow_limit }}</div>
+                                <small class="text-muted">{% trans "Limit" %}</small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between small text-muted mb-1">
+                                <span>{% trans "Borrowing Progress" %}</span>
+                                <span>{{ member.current_borrow_count }}/{{ member.max_borrow_limit }}</span>
+                            </div>
+                            <div class="progress progress-thin">
+                                <div class="progress-bar {% if member.can_borrow_more %}bg-success{% else %}bg-danger{% endif %}" 
+                                     style="width: {% widthratio member.current_borrow_count member.max_borrow_limit 100 %}%">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <small class="text-muted d-block">{% trans "Membership" %}</small>
+                            <small>
+                                {{ member.membership_date|date:"M d, Y" }} - 
+                                <span class="{% if not member.is_membership_active %}text-danger{% endif %}">
+                                    {{ member.expiry_date|date:"M d, Y" }}
+                                </span>
+                            </small>
+                        </div>
+                        
+                        <div class="member-actions">
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'library:librarymember_detail' member.pk %}" class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-eye me-1"></i>{% trans "View Details" %}
+                                </a>
+                                <div class="btn-group w-100">
+                                    <a href="{% url 'library:librarymember_update' member.pk %}" class="btn btn-outline-secondary btn-sm">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'library:borrowrecord_create' %}?member={{ member.pk }}" class="btn btn-outline-success btn-sm">
+                                        <i class="bi bi-journal-plus"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="bi bi-people"></i>
+                    </div>
+                    <h5>{% trans "No Members Found" %}</h5>
+                    <p class="text-muted">{% trans "There are no library members matching your criteria." %}</p>
+                    <a href="{% url 'library:librarymember_create' %}" class="btn btn-primary">
+                        <i class="bi bi-person-plus me-2"></i>{% trans "Add First Member" %}
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Pagination -->
+    {% if members.paginator.num_pages > 1 %}
+    <div class="pagination-container mt-4">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <p class="mb-0 text-muted">
+                    {% trans "Showing" %} {{ members.start_index }} - {{ members.end_index }} {% trans "of" %} {{ members.paginator.count }} {% trans "members" %}
+                </p>
+            </div>
+            <div class="col-md-6">
+                <nav aria-label="{% trans 'Member pagination' %}">
+                    <ul class="pagination justify-content-center justify-content-md-end mb-0">
+                        {% if members.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1" aria-label="{% trans 'First' %}">
+                                <i class="bi bi-chevron-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ members.previous_page_number }}" aria-label="{% trans 'Previous' %}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for num in members.paginator.page_range %}
+                            {% if members.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > members.number|add:'-3' and num < members.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if members.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ members.next_page_number }}" aria-label="{% trans 'Next' %}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ members.paginator.num_pages }}" aria-label="{% trans 'Last' %}">
+                                <i class="bi bi-chevron-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const viewToggleBtns = document.querySelectorAll('.view-toggle-btn');
+        const tableView = document.getElementById('tableView');
+        const gridView = document.getElementById('gridView');
+        
+        viewToggleBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const view = this.getAttribute('data-view');
+                
+                // Update active button
+                viewToggleBtns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide views
+                if (view === 'table') {
+                    tableView.style.display = 'block';
+                    gridView.style.display = 'none';
+                } else {
+                    tableView.style.display = 'none';
+                    gridView.style.display = 'block';
+                }
+            });
+        });
+        
+        // Search Functionality
+        const searchInput = document.getElementById('searchInput');
+        const memberTypeFilter = document.getElementById('memberTypeFilter');
+        const statusFilter = document.getElementById('statusFilter');
+        const clearFiltersBtn = document.getElementById('clearFilters');
+        const memberRows = document.querySelectorAll('.member-row, .member-card-container');
+        
+        function filterMembers() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const memberType = memberTypeFilter.value;
+            const status = statusFilter.value;
+            
+            memberRows.forEach(row => {
+                const rowMemberType = row.getAttribute('data-member-type');
+                const rowStatus = row.getAttribute('data-status');
+                const rowText = row.textContent.toLowerCase();
+                
+                const matchesSearch = searchTerm === '' || rowText.includes(searchTerm);
+                const matchesType = memberType === '' || rowMemberType === memberType;
+                const matchesStatus = status === '' || 
+                    (status === 'active' && rowStatus === 'active') ||
+                    (status === 'expired' && rowStatus === 'expired') ||
+                    (status === 'inactive' && rowStatus === 'inactive');
+                
+                if (matchesSearch && matchesType && matchesStatus) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+        
+        searchInput.addEventListener('input', filterMembers);
+        memberTypeFilter.addEventListener('change', filterMembers);
+        statusFilter.addEventListener('change', filterMembers);
+        
+        clearFiltersBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            memberTypeFilter.value = '';
+            statusFilter.value = '';
+            filterMembers();
+        });
+        
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Quick actions
+        function quickIssueBook(memberId) {
+            window.location.href = "{% url 'library:borrowrecord_create' %}?member=" + memberId;
+        }
+        
+        function quickViewDetails(memberId) {
+            window.location.href = window.location.origin + "/library/members/" + memberId + "/";
+        }
+        
+        // Export functions
+        function exportToExcel() {
+            // Implementation for Excel export
+            alert('{% trans "Export to Excel feature would be implemented here" %}');
+        }
+        
+        function exportToPDF() {
+            // Implementation for PDF export
+            alert('{% trans "Export to PDF feature would be implemented here" %}');
+        }
+        
+        function exportToCSV() {
+            // Implementation for CSV export
+            alert('{% trans "Export to CSV feature would be implemented here" %}');
+        }
+        
+        // Add global functions
+        window.quickIssueBook = quickIssueBook;
+        window.quickViewDetails = quickViewDetails;
+        window.exportToExcel = exportToExcel;
+        window.exportToPDF = exportToPDF;
+        window.exportToCSV = exportToCSV;
+    });
+</script>
+{% endblock %}

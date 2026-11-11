@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Behavior Records{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Behavior & Discipline Records</h3>
+                    <div class="card-tools">
+                        {% if perms.academics.add_behaviorrecord %}
+                        <a href="{% url 'attendance:behavior_create' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> Add Record
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="card-body border-bottom">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-2">
+                            <label for="student" class="form-label">Student</label>
+                            <select name="student" id="student" class="form-select form-select-sm">
+                                <option value="">All Students</option>
+                                {% for student in students %}
+                                <option value="{{ student.id }}" {% if request.GET.student == student.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ student.user.get_full_name }} ({{ student.student_id }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label for="behavior_type" class="form-label">Type</label>
+                            <select name="behavior_type" id="behavior_type" class="form-select form-select-sm">
+                                <option value="">All Types</option>
+                                {% for choice_value, choice_label in behavior_type_choices %}
+                                <option value="{{ choice_value }}" {% if request.GET.behavior_type == choice_value %}selected{% endif %}>
+                                    {{ choice_label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label for="severity" class="form-label">Severity</label>
+                            <select name="severity" id="severity" class="form-select form-select-sm">
+                                <option value="">All Severities</option>
+                                {% for choice_value, choice_label in severity_choices %}
+                                <option value="{{ choice_value }}" {% if request.GET.severity == choice_value %}selected{% endif %}>
+                                    {{ choice_label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label for="incident_category" class="form-label">Category</label>
+                            <select name="incident_category" id="incident_category" class="form-select form-select-sm">
+                                <option value="">All Categories</option>
+                                {% for choice_value, choice_label in incident_category_choices %}
+                                <option value="{{ choice_value }}" {% if request.GET.incident_category == choice_value %}selected{% endif %}>
+                                    {{ choice_label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label for="date_from" class="form-label">From Date</label>
+                            <input type="date" name="date_from" id="date_from" class="form-control form-control-sm"
+                                   value="{{ request.GET.date_from }}">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label for="date_to" class="form-label">To Date</label>
+                            <input type="date" name="date_to" id="date_to" class="form-control form-control-sm"
+                                   value="{{ request.GET.date_to }}">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label for="is_resolved" class="form-label">Status</label>
+                            <select name="is_resolved" id="is_resolved" class="form-select form-select-sm">
+                                <option value="">All</option>
+                                <option value="true" {% if request.GET.is_resolved == 'true' %}selected{% endif %}>Resolved</option>
+                                <option value="false" {% if request.GET.is_resolved == 'false' %}selected{% endif %}>Unresolved</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-outline-primary btn-sm me-2">
+                                <i class="fas fa-search"></i> Filter
+                            </button>
+                            <a href="{% url 'attendance:behavior_list' %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-times"></i> Clear
+                            </a>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Records Table -->
+                <div class="card-body table-responsive p-0">
+                    <table class="table table-hover text-nowrap">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Type</th>
+                                <th>Severity</th>
+                                <th>Category</th>
+                                <th>Title</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in behavior_records %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if record.student.photo %}
+                                        <img src="{{ record.student.photo.url }}" class="rounded-circle me-2" width="30" height="30" alt="Photo">
+                                        {% endif %}
+                                        <div>
+                                            <div class="fw-bold">{{ record.student.user.get_full_name }}</div>
+                                            <small class="text-muted">{{ record.student.student_id }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge {% if record.behavior_type == 'positive' %}bg-success{% elif record.behavior_type == 'negative' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                        {{ record.get_behavior_type_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if record.severity == 'critical' %}bg-danger{% elif record.severity == 'high' %}bg-warning{% elif record.severity == 'medium' %}bg-info{% else %}bg-light text-dark{% endif %}">
+                                        {{ record.get_severity_display }}
+                                    </span>
+                                </td>
+                                <td>{{ record.get_incident_category_display }}</td>
+                                <td>
+                                    <strong>{{ record.title }}</strong>
+                                    {% if record.description %}
+                                    <br><small class="text-muted">{{ record.description|truncatechars:50 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ record.incident_date|date:"M d, Y" }}</td>
+                                <td>
+                                    {% if record.is_resolved %}
+                                    <span class="badge bg-success">Resolved</span>
+                                    {% else %}
+                                    <span class="badge bg-warning">Open</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="#" class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#recordModal{{ record.id }}">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% if perms.academics.change_behaviorrecord %}
+                                        <a href="{% url 'attendance:behavior_edit' record.pk %}" class="btn btn-outline-warning btn-sm">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.academics.delete_behaviorrecord %}
+                                        <a href="{% url 'attendance:behavior_delete' record.pk %}" class="btn btn-outline-danger btn-sm">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- Modal for record details -->
+                            <div class="modal fade" id="recordModal{{ record.id }}" tabindex="-1">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">{{ record.title }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <h6>Incident Details</h6>
+                                                    <p><strong>Student:</strong> {{ record.student.user.get_full_name }} ({{ record.student.student_id }})</p>
+                                                    <p><strong>Date:</strong> {{ record.incident_date|date:"M d, Y" }}</p>
+                                                    <p><strong>Time:</strong> {{ record.incident_time|time:"H:i" }}</p>
+                                                    <p><strong>Location:</strong> {{ record.location }}</p>
+                                                    <p><strong>Reported by:</strong> {{ record.reported_by.get_full_name }}</p>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h6>Classification</h6>
+                                                    <p><strong>Type:</strong> {{ record.get_behavior_type_display }}</p>
+                                                    <p><strong>Severity:</strong> {{ record.get_severity_display }}</p>
+                                                    <p><strong>Category:</strong> {{ record.get_incident_category_display }}</p>
+                                                    <p><strong>Status:</strong> {% if record.is_resolved %}Resolved{% else %}Open{% endif %}</p>
+                                                </div>
+                                            </div>
+                                            <div class="row mt-3">
+                                                <div class="col-12">
+                                                    <h6>Description</h6>
+                                                    <p>{{ record.description }}</p>
+                                                </div>
+                                            </div>
+                                            {% if record.action_taken %}
+                                            <div class="row mt-3">
+                                                <div class="col-12">
+                                                    <h6>Action Taken</h6>
+                                                    <p>{{ record.action_taken }}</p>
+                                                    {% if record.consequence_type %}
+                                                    <p><strong>Consequence:</strong> {{ record.get_consequence_type_display }}</p>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted">
+                                    No behavior records found.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="card-footer">
+                    <nav aria-label="Behavior records pagination">
+                        <ul class="pagination pagination-sm m-0">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Previous</a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <a class="page-link" href="#">{{ num }}</a>
+                            </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-submit form on filter change
+document.querySelectorAll('select').forEach(select => {
+    select.addEventListener('change', function() {
+        this.closest('form').submit();
+    });
+});
+</script>
+{% endblock %}

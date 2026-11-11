@@ -1,0 +1,986 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}{% trans "Edit Borrow Record" %}{% else %}{% trans "Issue New Book" %}{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Borrow Record" %}
+    {% else %}
+        {% trans "Issue New Book" %}
+    {% endif %}
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <a href="{% url 'library:borrowrecord_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i> {% trans "Back to Records" %}
+    </a>
+</div>
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:borrowrecord_list' %}">{% trans "Borrow Records" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if form.instance.pk %}{% trans "Edit Record" %}{% else %}{% trans "Issue Book" %}{% endif %}
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Borrow Form Specific Styles */
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #65a0f9;
+    }
+    
+    .form-section h5 {
+        color: #495057;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+    
+    .form-section-icon {
+        font-size: 1.2rem;
+        margin-right: 0.5rem;
+        color: #65a0f9;
+    }
+    
+    .member-info-card, .book-info-card {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: border-color 0.2s ease;
+    }
+    
+    .member-info-card.valid {
+        border-color: #28a745;
+        background-color: rgba(40, 167, 69, 0.05);
+    }
+    
+    .member-info-card.invalid {
+        border-color: #dc3545;
+        background-color: rgba(220, 53, 69, 0.05);
+    }
+    
+    .book-info-card.valid {
+        border-color: #28a745;
+        background-color: rgba(40, 167, 69, 0.05);
+    }
+    
+    .book-info-card.invalid {
+        border-color: #dc3545;
+        background-color: rgba(220, 53, 69, 0.05);
+    }
+    
+    .member-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    
+    .member-avatar-placeholder {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #65a0f9 0%, #8bb8ff 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 1.25rem;
+    }
+    
+    .book-cover {
+        width: 80px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 6px;
+    }
+    
+    .book-cover-placeholder {
+        width: 80px;
+        height: 100px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        color: #6c757d;
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .search-results {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        display: none;
+        position: absolute;
+        width: 100%;
+        background: white;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .search-result-item {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e9ecef;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .search-result-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .search-result-item:last-child {
+        border-bottom: none;
+    }
+    
+    .validation-alert {
+        display: none;
+        margin-top: 0.5rem;
+    }
+    
+    .due-date-calculator {
+        background: #e7f3ff;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .copy-selector {
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .copy-option {
+        padding: 0.75rem;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .copy-option:hover {
+        background-color: #f8f9fa;
+        border-color: #65a0f9;
+    }
+    
+    .copy-option.selected {
+        background-color: #e7f3ff;
+        border-color: #65a0f9;
+    }
+    
+    .copy-option.unavailable {
+        opacity: 0.6;
+        cursor: not-allowed;
+        background-color: #f8f9fa;
+    }
+    
+    .form-actions {
+        background: #fff;
+        border-top: 1px solid #dee2e6;
+        padding: 1.5rem;
+        margin: 2rem -1.5rem -1.5rem;
+        position: sticky;
+        bottom: 0;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    }
+    
+    @media (max-width: 768px) {
+        .form-section {
+            padding: 1rem;
+        }
+        
+        .member-avatar,
+        .member-avatar-placeholder {
+            width: 50px;
+            height: 50px;
+            font-size: 1rem;
+        }
+        
+        .book-cover,
+        .book-cover-placeholder {
+            width: 60px;
+            height: 75px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" id="borrowForm" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Error Display -->
+                        {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            {% trans "Please correct the errors below." %}
+                            {% if form.non_field_errors %}
+                            <ul class="mt-2 mb-0">
+                                {% for error in form.non_field_errors %}
+                                <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Member Selection Section -->
+                        <div class="form-section">
+                            <h5><i class="bi bi-person form-section-icon"></i> {% trans "1. Select Member" %}</h5>
+                            
+                            <div class="mb-3">
+                                <label for="memberSearch" class="form-label">
+                                    {% trans "Search Member" %} <span class="text-danger">*</span>
+                                </label>
+                                <div class="position-relative">
+                                    <input type="text" class="form-control" id="memberSearch" 
+                                           placeholder="{% trans 'Search by member ID, name, or email...' %}" 
+                                           value="{% if form.member.value %}{{ form.member.instance.member.user.get_full_name }}{% endif %}">
+                                    <input type="hidden" name="member" id="selectedMember" value="{{ form.member.value|default:'' }}">
+                                    <div class="search-results" id="memberSearchResults"></div>
+                                </div>
+                                {% if form.member.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.member.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Member Information Display -->
+                            <div id="memberInfo" class="member-info-card" style="display: none;">
+                                <div class="row align-items-center">
+                                    <div class="col-auto">
+                                        <div id="memberAvatar" class="member-avatar-placeholder">
+                                            <i class="bi bi-person"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <h6 id="memberName" class="mb-1"></h6>
+                                        <p id="memberDetails" class="text-muted mb-1 small"></p>
+                                        <div id="memberStatus" class="d-flex flex-wrap gap-2"></div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearMemberSelection()">
+                                            <i class="bi bi-x"></i> {% trans "Change" %}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Member Validation Alerts -->
+                            <div id="memberValidation" class="validation-alert"></div>
+                        </div>
+                        
+                        <!-- Book Selection Section -->
+                        <div class="form-section">
+                            <h5><i class="bi bi-book form-section-icon"></i> {% trans "2. Select Book" %}</h5>
+                            
+                            <div class="mb-3">
+                                <label for="bookSearch" class="form-label">
+                                    {% trans "Search Book" %} <span class="text-danger">*</span>
+                                </label>
+                                <div class="position-relative">
+                                    <input type="text" class="form-control" id="bookSearch" 
+                                           placeholder="{% trans 'Search by title, author, ISBN, or barcode...' %}">
+                                    <input type="hidden" name="book_copy" id="selectedBookCopy" value="{{ form.book_copy.value|default:'' }}">
+                                    <div class="search-results" id="bookSearchResults"></div>
+                                </div>
+                                {% if form.book_copy.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.book_copy.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Book Information Display -->
+                            <div id="bookInfo" class="book-info-card" style="display: none;">
+                                <div class="row align-items-center">
+                                    <div class="col-auto">
+                                        <div id="bookCover" class="book-cover-placeholder">
+                                            <i class="bi bi-book"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <h6 id="bookTitle" class="mb-1"></h6>
+                                        <p id="bookDetails" class="text-muted mb-1 small"></p>
+                                        <div id="bookStatus" class="d-flex flex-wrap gap-2"></div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearBookSelection()">
+                                            <i class="bi bi-x"></i> {% trans "Change" %}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Available Copies -->
+                            <div id="copySelector" class="copy-selector" style="display: none;">
+                                <h6 class="mb-3">{% trans "Available Copies" %}</h6>
+                                <div id="copyOptions"></div>
+                            </div>
+                            
+                            <!-- Book Validation Alerts -->
+                            <div id="bookValidation" class="validation-alert"></div>
+                        </div>
+                        
+                        <!-- Borrow Details Section -->
+                        <div class="form-section">
+                            <h5><i class="bi bi-calendar form-section-icon"></i> {% trans "3. Borrow Details" %}</h5>
+                            
+                            <div class="due-date-calculator">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="{{ form.borrow_date.id_for_label }}" class="form-label">
+                                                {% trans "Borrow Date" %} <span class="text-danger">*</span>
+                                            </label>
+                                            {{ form.borrow_date }}
+                                            {% if form.borrow_date.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.borrow_date.errors.0 }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="{{ form.due_date.id_for_label }}" class="form-label">
+                                                {% trans "Due Date" %} <span class="text-danger">*</span>
+                                            </label>
+                                            {{ form.due_date }}
+                                            {% if form.due_date.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.due_date.errors.0 }}
+                                            </div>
+                                            {% endif %}
+                                            <div class="form-text">
+                                                {% trans "Standard borrowing period:" %} <span id="standardPeriod">14</span> {% trans "days" %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="calculateDueDate()">
+                                        <i class="bi bi-calculator me-1"></i> {% trans "Calculate Due Date" %}
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setToday()">
+                                        <i class="bi bi-calendar-check me-1"></i> {% trans "Set Today" %}
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Additional Options -->
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="{{ form.max_renewals.id_for_label }}" class="form-label">
+                                            {% trans "Maximum Renewals" %}
+                                        </label>
+                                        {{ form.max_renewals }}
+                                        {% if form.max_renewals.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.max_renewals.errors.0 }}
+                                        </div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            {% trans "Number of times this book can be renewed" %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="{{ form.issued_by.id_for_label }}" class="form-label">
+                                            {% trans "Issued By" %} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.issued_by }}
+                                        {% if form.issued_by.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.issued_by.errors.0 }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Notes -->
+                            <div class="mb-3">
+                                <label for="{{ form.notes.id_for_label }}" class="form-label">
+                                    {% trans "Notes" %}
+                                </label>
+                                {{ form.notes }}
+                                {% if form.notes.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.notes.errors.0 }}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">
+                                    {% trans "Any additional notes about this borrowing" %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Form Actions -->
+                        <div class="form-actions">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="issueAnother" name="issue_another">
+                                        <label class="form-check-label" for="issueAnother">
+                                            {% trans "Issue another book after saving" %}
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <a href="{% url 'library:borrowrecord_list' %}" class="btn btn-secondary me-2">
+                                        <i class="bi bi-x-circle me-2"></i> {% trans "Cancel" %}
+                                    </a>
+                                    <button type="submit" class="btn btn-primary" id="submitButton" disabled>
+                                        <i class="bi bi-check-circle me-2"></i>
+                                        {% if form.instance.pk %}
+                                            {% trans "Update Record" %}
+                                        {% else %}
+                                            {% trans "Issue Book" %}
+                                        {% endif %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Member Modal -->
+<div class="modal fade" id="quickMemberModal" tabindex="-1" aria-labelledby="quickMemberModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickMemberModalLabel">{% trans "Member Not Found" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "The member you searched for was not found. Would you like to:" %}</p>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'library:librarymember_create' %}?next={{ request.path }}" 
+                       class="btn btn-primary" target="_blank">
+                        <i class="bi bi-person-plus me-2"></i> {% trans "Create New Member" %}
+                    </a>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        {% trans "Try Another Search" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize form
+        initializeForm();
+        
+        // Setup member search
+        setupMemberSearch();
+        
+        // Setup book search
+        setupBookSearch();
+        
+        // Setup date handling
+        setupDateHandling();
+        
+        // Setup form validation
+        setupFormValidation();
+        
+        // Set current user as issued_by if new record
+        {% if not form.instance.pk %}
+        document.getElementById('{{ form.issued_by.id_for_label }}').value = '{{ user.id }}';
+        {% endif %}
+    });
+    
+    function initializeForm() {
+        // Add Bootstrap classes to form elements
+        const formElements = document.querySelectorAll('input, select, textarea');
+        formElements.forEach(element => {
+            if (element.type !== 'checkbox' && element.type !== 'radio') {
+                element.classList.add('form-control');
+            }
+            
+            if (element.classList.contains('is-invalid')) {
+                element.classList.add('is-invalid');
+            }
+        });
+        
+        // Set today's date as default borrow date
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('{{ form.borrow_date.id_for_label }}').value = today;
+        
+        // Calculate initial due date
+        calculateDueDate();
+    }
+    
+    function setupMemberSearch() {
+        const memberSearch = document.getElementById('memberSearch');
+        const memberResults = document.getElementById('memberSearchResults');
+        let searchTimeout;
+        
+        memberSearch.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+            
+            if (query.length < 2) {
+                memberResults.style.display = 'none';
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => {
+                searchMembers(query);
+            }, 300);
+        });
+        
+        // Close results when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!memberSearch.contains(e.target) && !memberResults.contains(e.target)) {
+                memberResults.style.display = 'none';
+            }
+        });
+    }
+    
+    function searchMembers(query) {
+        const memberResults = document.getElementById('memberSearchResults');
+        
+        // Simulate API call - in real app, this would be fetch()
+        setTimeout(() => {
+            // Mock data - replace with actual API call
+            const mockMembers = [
+                {
+                    id: 1,
+                    member_id: 'MEM2023001',
+                    full_name: 'John Smith',
+                    email: 'john.smith@example.com',
+                    member_type: 'student',
+                    avatar: null,
+                    current_borrows: 2,
+                    max_borrow_limit: 5,
+                    membership_active: true
+                },
+                {
+                    id: 2,
+                    member_id: 'MEM2023002',
+                    full_name: 'Sarah Johnson',
+                    email: 'sarah.j@example.com',
+                    member_type: 'teacher',
+                    avatar: null,
+                    current_borrows: 0,
+                    max_borrow_limit: 10,
+                    membership_active: true
+                }
+            ];
+            
+            displayMemberResults(mockMembers.filter(member => 
+                member.member_id.toLowerCase().includes(query.toLowerCase()) ||
+                member.full_name.toLowerCase().includes(query.toLowerCase()) ||
+                member.email.toLowerCase().includes(query.toLowerCase())
+            ));
+        }, 500);
+    }
+    
+    function displayMemberResults(members) {
+        const memberResults = document.getElementById('memberSearchResults');
+        
+        if (members.length === 0) {
+            memberResults.innerHTML = `
+                <div class="search-result-item text-muted">
+                    <i class="bi bi-search me-2"></i> {% trans "No members found" %}
+                </div>
+            `;
+        } else {
+            memberResults.innerHTML = members.map(member => `
+                <div class="search-result-item" onclick="selectMember(${member.id}, '${member.member_id}', '${member.full_name}', '${member.email}', '${member.member_type}', ${member.current_borrows}, ${member.max_borrow_limit}, ${member.membership_active})">
+                    <div class="fw-semibold">${member.full_name}</div>
+                    <div class="small text-muted">
+                        ${member.member_id} • ${member.email}
+                        <span class="badge bg-light text-dark ms-2">${member.member_type}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        memberResults.style.display = 'block';
+    }
+    
+    function selectMember(id, memberId, fullName, email, memberType, currentBorrows, maxLimit, membershipActive) {
+        document.getElementById('selectedMember').value = id;
+        document.getElementById('memberSearch').value = fullName;
+        document.getElementById('memberSearchResults').style.display = 'none';
+        
+        // Display member info
+        const memberInfo = document.getElementById('memberInfo');
+        const memberAvatar = document.getElementById('memberAvatar');
+        const memberName = document.getElementById('memberName');
+        const memberDetails = document.getElementById('memberDetails');
+        const memberStatus = document.getElementById('memberStatus');
+        
+        memberAvatar.innerHTML = fullName.charAt(0).toUpperCase();
+        memberName.textContent = fullName;
+        memberDetails.innerHTML = `${memberId} • ${email}<br>${memberType.charAt(0).toUpperCase() + memberType.slice(1)} Member`;
+        
+        let statusHTML = '';
+        if (membershipActive) {
+            statusHTML += `<span class="badge bg-success status-badge">{% trans "Active Membership" %}</span>`;
+        } else {
+            statusHTML += `<span class="badge bg-danger status-badge">{% trans "Membership Expired" %}</span>`;
+        }
+        
+        if (currentBorrows < maxLimit) {
+            statusHTML += `<span class="badge bg-primary status-badge">${currentBorrows}/${maxLimit} {% trans "Books" %}</span>`;
+        } else {
+            statusHTML += `<span class="badge bg-warning status-badge">{% trans "Borrow Limit Reached" %}</span>`;
+        }
+        
+        memberStatus.innerHTML = statusHTML;
+        memberInfo.style.display = 'block';
+        
+        // Validate member
+        validateMember(membershipActive, currentBorrows, maxLimit);
+        
+        // Enable book search if member is valid
+        document.getElementById('bookSearch').disabled = !membershipActive || currentBorrows >= maxLimit;
+        
+        checkFormValidity();
+    }
+    
+    function validateMember(membershipActive, currentBorrows, maxLimit) {
+        const validationAlert = document.getElementById('memberValidation');
+        const memberInfo = document.getElementById('memberInfo');
+        
+        memberInfo.classList.remove('valid', 'invalid');
+        validationAlert.style.display = 'none';
+        
+        if (!membershipActive) {
+            showValidationAlert('member', 'danger', '{% trans "This member\'s library membership has expired and cannot borrow books." %}');
+            memberInfo.classList.add('invalid');
+        } else if (currentBorrows >= maxLimit) {
+            showValidationAlert('member', 'warning', `{% trans "This member has reached their borrowing limit (" %}${currentBorrows}/${maxLimit}{% trans "). They cannot borrow more books until some are returned." %}`);
+            memberInfo.classList.add('invalid');
+        } else {
+            showValidationAlert('member', 'success', `{% trans "Member is eligible to borrow books. Current usage: " %}${currentBorrows}/${maxLimit}`);
+            memberInfo.classList.add('valid');
+        }
+    }
+    
+    function clearMemberSelection() {
+        document.getElementById('selectedMember').value = '';
+        document.getElementById('memberSearch').value = '';
+        document.getElementById('memberInfo').style.display = 'none';
+        document.getElementById('memberValidation').style.display = 'none';
+        document.getElementById('bookSearch').disabled = false;
+        clearBookSelection();
+        checkFormValidity();
+    }
+    
+    // Book search and selection functions (similar pattern to member functions)
+    function setupBookSearch() {
+        const bookSearch = document.getElementById('bookSearch');
+        const bookResults = document.getElementById('bookSearchResults');
+        let searchTimeout;
+        
+        bookSearch.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+            
+            if (query.length < 2) {
+                bookResults.style.display = 'none';
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => {
+                searchBooks(query);
+            }, 300);
+        });
+        
+        document.addEventListener('click', function(e) {
+            if (!bookSearch.contains(e.target) && !bookResults.contains(e.target)) {
+                bookResults.style.display = 'none';
+            }
+        });
+    }
+    
+    function searchBooks(query) {
+        // Simulate API call for books
+        setTimeout(() => {
+            const mockBooks = [
+                {
+                    id: 1,
+                    title: 'Introduction to Django Web Development',
+                    authors: 'John Smith, Sarah Johnson',
+                    isbn: '978-0123456789',
+                    available_copies: 3,
+                    total_copies: 5,
+                    cover_image: null
+                },
+                {
+                    id: 2,
+                    title: 'Advanced Python Programming',
+                    authors: 'Michael Brown',
+                    isbn: '978-0987654321',
+                    available_copies: 0,
+                    total_copies: 2,
+                    cover_image: null
+                }
+            ];
+            
+            displayBookResults(mockBooks.filter(book => 
+                book.title.toLowerCase().includes(query.toLowerCase()) ||
+                book.authors.toLowerCase().includes(query.toLowerCase()) ||
+                book.isbn.includes(query)
+            ));
+        }, 500);
+    }
+    
+    function displayBookResults(books) {
+        const bookResults = document.getElementById('bookSearchResults');
+        
+        if (books.length === 0) {
+            bookResults.innerHTML = `
+                <div class="search-result-item text-muted">
+                    <i class="bi bi-search me-2"></i> {% trans "No books found" %}
+                </div>
+            `;
+        } else {
+            bookResults.innerHTML = books.map(book => `
+                <div class="search-result-item" onclick="selectBook(${book.id}, '${book.title.replace(/'/g, "\\'")}', '${book.authors.replace(/'/g, "\\'")}', '${book.isbn}', ${book.available_copies}, ${book.total_copies})">
+                    <div class="fw-semibold">${book.title}</div>
+                    <div class="small text-muted">
+                        ${book.authors} • ISBN: ${book.isbn}
+                        <span class="badge ${book.available_copies > 0 ? 'bg-success' : 'bg-secondary'} ms-2">
+                            ${book.available_copies}/${book.total_copies} {% trans "available" %}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        bookResults.style.display = 'block';
+    }
+    
+    function selectBook(bookId, title, authors, isbn, availableCopies, totalCopies) {
+        document.getElementById('bookSearch').value = title;
+        document.getElementById('bookSearchResults').style.display = 'none';
+        
+        // Display book info
+        const bookInfo = document.getElementById('bookInfo');
+        const bookTitle = document.getElementById('bookTitle');
+        const bookDetails = document.getElementById('bookDetails');
+        const bookStatus = document.getElementById('bookStatus');
+        
+        bookTitle.textContent = title;
+        bookDetails.innerHTML = `${authors}<br>ISBN: ${isbn}`;
+        
+        let statusHTML = '';
+        if (availableCopies > 0) {
+            statusHTML += `<span class="badge bg-success status-badge">${availableCopies} {% trans "copies available" %}</span>`;
+        } else {
+            statusHTML += `<span class="badge bg-secondary status-badge">{% trans "No copies available" %}</span>`;
+        }
+        
+        bookStatus.innerHTML = statusHTML;
+        bookInfo.style.display = 'block';
+        
+        // Show available copies if any
+        if (availableCopies > 0) {
+            showAvailableCopies(bookId, title);
+        }
+        
+        validateBook(availableCopies);
+        checkFormValidity();
+    }
+    
+    function showAvailableCopies(bookId, bookTitle) {
+        const copySelector = document.getElementById('copySelector');
+        const copyOptions = document.getElementById('copyOptions');
+        
+        // Simulate fetching copies
+        setTimeout(() => {
+            const mockCopies = [
+                { id: 1, copy_number: 1, barcode: 'BK001', status: 'available', condition: 'Good' },
+                { id: 2, copy_number: 2, barcode: 'BK002', status: 'available', condition: 'Excellent' },
+                { id: 3, copy_number: 3, barcode: 'BK003', status: 'maintenance', condition: 'Under repair' }
+            ];
+            
+            copyOptions.innerHTML = mockCopies.map(copy => `
+                <div class="copy-option ${copy.status === 'available' ? '' : 'unavailable'}" 
+                     onclick="${copy.status === 'available' ? `selectCopy(${copy.id}, ${copy.copy_number}, '${copy.barcode}')` : ''}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{% trans "Copy" %} #${copy.copy_number}</strong>
+                            <div class="small text-muted">${copy.barcode} • ${copy.condition}</div>
+                        </div>
+                        <div>
+                            ${copy.status === 'available' ? 
+                                '<span class="badge bg-success">{% trans "Available" %}</span>' : 
+                                '<span class="badge bg-secondary">{% trans "Unavailable" %}</span>'
+                            }
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            copySelector.style.display = 'block';
+        }, 300);
+    }
+    
+    function selectCopy(copyId, copyNumber, barcode) {
+        document.getElementById('selectedBookCopy').value = copyId;
+        
+        // Highlight selected copy
+        document.querySelectorAll('.copy-option').forEach(option => {
+            option.classList.remove('selected');
+        });
+        event.currentTarget.classList.add('selected');
+        
+        validateBook(true);
+        checkFormValidity();
+    }
+    
+    function validateBook(hasAvailableCopies) {
+        const validationAlert = document.getElementById('bookValidation');
+        const bookInfo = document.getElementById('bookInfo');
+        
+        bookInfo.classList.remove('valid', 'invalid');
+        validationAlert.style.display = 'none';
+        
+        if (!hasAvailableCopies) {
+            showValidationAlert('book', 'danger', '{% trans "This book has no available copies for borrowing." %}');
+            bookInfo.classList.add('invalid');
+        } else if (document.getElementById('selectedBookCopy').value) {
+            showValidationAlert('book', 'success', '{% trans "Book copy selected and available for borrowing." %}');
+            bookInfo.classList.add('valid');
+        } else {
+            showValidationAlert('book', 'info', '{% trans "Please select an available copy from the list above." %}');
+        }
+    }
+    
+    function clearBookSelection() {
+        document.getElementById('selectedBookCopy').value = '';
+        document.getElementById('bookSearch').value = '';
+        document.getElementById('bookInfo').style.display = 'none';
+        document.getElementById('copySelector').style.display = 'none';
+        document.getElementById('bookValidation').style.display = 'none';
+        checkFormValidity();
+    }
+    
+    function showValidationAlert(type, alertType, message) {
+        const validationAlert = document.getElementById(`${type}Validation`);
+        validationAlert.innerHTML = `
+            <div class="alert alert-${alertType} alert-dismissible fade show">
+                <i class="bi bi-${alertType === 'success' ? 'check-circle' : alertType === 'warning' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        validationAlert.style.display = 'block';
+    }
+    
+    // Date handling functions
+    function setupDateHandling() {
+        const borrowDateInput = document.getElementById('{{ form.borrow_date.id_for_label }}');
+        const dueDateInput = document.getElementById('{{ form.due_date.id_for_label }}');
+        
+        borrowDateInput.addEventListener('change', calculateDueDate);
+    }
+    
+    function calculateDueDate() {
+        const borrowDateInput = document.getElementById('{{ form.borrow_date.id_for_label }}');
+        const dueDateInput = document.getElementById('{{ form.due_date.id_for_label }}');
+        const standardPeriod = 14; // Default borrowing period
+        
+        if (borrowDateInput.value) {
+            const borrowDate = new Date(borrowDateInput.value);
+            const dueDate = new Date(borrowDate);
+            dueDate.setDate(dueDate.getDate() + standardPeriod);
+            dueDateInput.value = dueDate.toISOString().split('T')[0];
+        }
+    }
+    
+    function setToday() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('{{ form.borrow_date.id_for_label }}').value = today;
+        calculateDueDate();
+    }
+    
+    // Form validation
+    function setupFormValidation() {
+        const form = document.getElementById('borrowForm');
+        
+        form.addEventListener('submit', function(e) {
+            if (!validateForm()) {
+                e.preventDefault();
+                showFormErrors();
+            }
+        });
+    }
+    
+    function validateForm() {
+        const memberSelected = document.getElementById('selectedMember').value !== '';
+        const bookCopySelected = document.getElementById('selectedBookCopy').value !== '';
+        const borrowDate = document.getElementById('{{ form.borrow_date.id_for_label }}').value;
+        const dueDate = document.getElementById('{{ form.due_date.id_for_label }}').value;
+        
+        return memberSelected && bookCopySelected && borrowDate && dueDate;
+    }
+    
+    function checkFormValidity() {
+        const isValid = validateForm();
+        document.getElementById('submitButton').disabled = !isValid;
+    }
+    
+    function showFormErrors() {
+        // Highlight missing fields
+        if (!document.getElementById('selectedMember').value) {
+            document.getElementById('memberSearch').classList.add('is-invalid');
+        }
+        if (!document.getElementById('selectedBookCopy').value) {
+            document.getElementById('bookSearch').classList.add('is-invalid');
+        }
+        
+        // Scroll to first error
+        const firstError = document.querySelector('.is-invalid');
+        if (firstError) {
+            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            firstError.focus();
+        }
+    }
+</script>
+{% endblock %}

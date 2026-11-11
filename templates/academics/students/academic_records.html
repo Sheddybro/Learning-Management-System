@@ -1,0 +1,404 @@
+{% extends 'base/base.html' %}
+{% load i18n static %}
+
+{% block title %}{% trans "My Academic Records" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="bi bi-journal-bookmark-fill me-2"></i>
+                        {% trans "My Academic Records" %} - {{ student.user.get_full_name }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Overview Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">{{ total_exams }}</h5>
+                                    <p class="card-text">{% trans "Total Exams" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">{{ average_percentage|floatformat:1 }}%</h5>
+                                    <p class="card-text">{% trans "Average Score" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">{{ attendance_summary.attendance_percentage|default:0 }}%</h5>
+                                    <p class="card-text">{% trans "Attendance Rate" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">{{ subject_performance|length }}</h5>
+                                    <p class="card-text">{% trans "Subjects" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabs for different sections -->
+                    <ul class="nav nav-tabs" id="academicRecordsTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+                                <i class="bi bi-house-door me-1"></i>{% trans "Overview" %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="subjects-tab" data-bs-toggle="tab" data-bs-target="#subjects" type="button" role="tab">
+                                <i class="bi bi-book me-1"></i>{% trans "Subject Performance" %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">
+                                <i class="bi bi-clock-history me-1"></i>{% trans "Academic History" %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="attendance-tab" data-bs-toggle="tab" data-bs-target="#attendance" type="button" role="tab">
+                                <i class="bi bi-calendar-check me-1"></i>{% trans "Attendance" %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="results-tab" data-bs-toggle="tab" data-bs-target="#results" type="button" role="tab">
+                                <i class="bi bi-trophy me-1"></i>{% trans "Results & Reports" %}
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content mt-3" id="academicRecordsTabContent">
+                        <!-- Overview Tab -->
+                        <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h5>{% trans "Recent Performance" %}</h5>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>{% trans "Subject" %}</th>
+                                                    <th>{% trans "Exam Type" %}</th>
+                                                    <th>{% trans "Date" %}</th>
+                                                    <th>{% trans "Score" %}</th>
+                                                    <th>{% trans "Grade" %}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for mark in marks %}
+                                                <tr>
+                                                    <td>{{ mark.exam.subject.name }}</td>
+                                                    <td>{{ mark.exam.exam_type.name }}</td>
+                                                    <td>{{ mark.exam.exam_date|date:"M d, Y" }}</td>
+                                                    <td>{{ mark.percentage|floatformat:1 }}%</td>
+                                                    <td>
+                                                        {% if mark.percentage >= 90 %}A+
+                                                        {% elif mark.percentage >= 80 %}A
+                                                        {% elif mark.percentage >= 70 %}B+
+                                                        {% elif mark.percentage >= 60 %}B
+                                                        {% elif mark.percentage >= 50 %}C
+                                                        {% else %}F{% endif %}
+                                                    </td>
+                                                </tr>
+                                                {% empty %}
+                                                <tr>
+                                                    <td colspan="5" class="text-center text-muted">{% trans "No exam records found." %}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <h5>{% trans "Progress Trends" %}</h5>
+                                    <canvas id="progressChart" width="300" height="200"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Subject Performance Tab -->
+                        <div class="tab-pane fade" id="subjects" role="tabpanel">
+                            <div class="row">
+                                {% for subject_name, data in subject_performance.items %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="card-title mb-0">{{ subject_name }}</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row text-center">
+                                                <div class="col-4">
+                                                    <h4 class="text-primary">{{ data.average|floatformat:1 }}%</h4>
+                                                    <small class="text-muted">{% trans "Average" %}</small>
+                                                </div>
+                                                <div class="col-4">
+                                                    <h4 class="text-success">{{ data.highest }}%</h4>
+                                                    <small class="text-muted">{% trans "Highest" %}</small>
+                                                </div>
+                                                <div class="col-4">
+                                                    <h4 class="text-info">{{ data.exams }}</h4>
+                                                    <small class="text-muted">{% trans "Exams" %}</small>
+                                                </div>
+                                            </div>
+                                            <div class="mt-3">
+                                                <small class="text-muted">
+                                                    {% if data.trend == 'improving' %}
+                                                        <i class="bi bi-arrow-up-circle text-success"></i> {% trans "Improving" %}
+                                                    {% elif data.trend == 'declining' %}
+                                                        <i class="bi bi-arrow-down-circle text-danger"></i> {% trans "Declining" %}
+                                                    {% else %}
+                                                        <i class="bi bi-dash-circle text-warning"></i> {% trans "Stable" %}
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                            <div class="progress mt-2" style="height: 8px;">
+                                                <div class="progress-bar" role="progressbar"
+                                                     style="width: {{ data.average }}%"
+                                                     aria-valuenow="{{ data.average }}"
+                                                     aria-valuemin="0" aria-valuemax="100"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="col-12">
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        {% trans "No subject performance data available." %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Academic History Tab -->
+                        <div class="tab-pane fade" id="history" role="tabpanel">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Academic Session" %}</th>
+                                            <th>{% trans "Class" %}</th>
+                                            <th>{% trans "Overall Grade" %}</th>
+                                            <th>{% trans "Percentage" %}</th>
+                                            <th>{% trans "Rank" %}</th>
+                                            <th>{% trans "Remarks" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for record in academic_records %}
+                                        <tr>
+                                            <td>{{ record.academic_session.name }}</td>
+                                            <td>{{ record.class_enrolled.name }}</td>
+                                            <td>
+                                                <span class="badge
+                                                    {% if record.overall_grade == 'A+' %}bg-success
+                                                    {% elif record.overall_grade == 'A' %}bg-success
+                                                    {% elif record.overall_grade == 'B+' %}bg-info
+                                                    {% elif record.overall_grade == 'B' %}bg-info
+                                                    {% elif record.overall_grade == 'C' %}bg-warning
+                                                    {% else %}bg-danger{% endif %}">
+                                                    {{ record.overall_grade|default:"N/A" }}
+                                                </span>
+                                            </td>
+                                            <td>{{ record.percentage|floatformat:1 }}%</td>
+                                            <td>{{ record.rank_in_class|default:"N/A" }}</td>
+                                            <td>{{ record.remarks|truncatechars:50|default:"-" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted">{% trans "No academic records found." %}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Attendance Tab -->
+                        <div class="tab-pane fade" id="attendance" role="tabpanel">
+                            {% if attendance_summary %}
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="card-title mb-0">{% trans "Current Session Attendance" %}</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row text-center">
+                                                <div class="col-3">
+                                                    <h3 class="text-primary">{{ attendance_summary.total_days }}</h3>
+                                                    <small class="text-muted">{% trans "Total Days" %}</small>
+                                                </div>
+                                                <div class="col-3">
+                                                    <h3 class="text-success">{{ attendance_summary.present_days }}</h3>
+                                                    <small class="text-muted">{% trans "Present" %}</small>
+                                                </div>
+                                                <div class="col-3">
+                                                    <h3 class="text-danger">{{ attendance_summary.absent_days }}</h3>
+                                                    <small class="text-muted">{% trans "Absent" %}</small>
+                                                </div>
+                                                <div class="col-3">
+                                                    <h3 class="text-warning">{{ attendance_summary.late_days }}</h3>
+                                                    <small class="text-muted">{% trans "Late" %}</small>
+                                                </div>
+                                            </div>
+                                            <div class="mt-3">
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar bg-success" role="progressbar"
+                                                         style="width: {{ attendance_summary.attendance_percentage }}%"
+                                                         aria-valuenow="{{ attendance_summary.attendance_percentage }}"
+                                                         aria-valuemin="0" aria-valuemax="100">
+                                                        {{ attendance_summary.attendance_percentage }}%
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <canvas id="attendanceChart" width="300" height="200"></canvas>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                {% trans "No attendance data available for the current session." %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Results & Reports Tab -->
+                        <div class="tab-pane fade" id="results" role="tabpanel">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Exam Type" %}</th>
+                                            <th>{% trans "Academic Session" %}</th>
+                                            <th>{% trans "Class" %}</th>
+                                            <th>{% trans "Total Marks" %}</th>
+                                            <th>{% trans "Obtained Marks" %}</th>
+                                            <th>{% trans "Percentage" %}</th>
+                                            <th>{% trans "Grade" %}</th>
+                                            <th>{% trans "Rank" %}</th>
+                                            <th>{% trans "Actions" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for result in results %}
+                                        <tr>
+                                            <td>{{ result.exam_type.name }}</td>
+                                            <td>{{ result.academic_class.academic_session.name }}</td>
+                                            <td>{{ result.academic_class.name }}</td>
+                                            <td>{{ result.total_marks }}</td>
+                                            <td>{{ result.marks_obtained }}</td>
+                                            <td>{{ result.percentage|floatformat:1 }}%</td>
+                                            <td>
+                                                <span class="badge
+                                                    {% if result.grade %}
+                                                        {% if result.grade.grade|slice:":1" == "A" %}bg-success
+                                                        {% elif result.grade.grade|slice:":1" == "B" %}bg-info
+                                                        {% elif result.grade.grade|slice:":1" == "C" %}bg-warning
+                                                        {% else %}bg-danger{% endif %}
+                                                    {% else %}bg-secondary{% endif %}">
+                                                    {{ result.grade.grade if result.grade else "N/A" }}
+                                                </span>
+                                            </td>
+                                            <td>{{ result.rank|default:"N/A" }}</td>
+                                            <td>
+                                                {% if result.result.report_card %}
+                                                <a href="{% url 'assessment:reportcard_detail' pk=result.result.report_card.id %}"
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <i class="bi bi-eye"></i> {% trans "View Report" %}
+                                                </a>
+                                                {% else %}
+                                                <span class="text-muted">{% trans "No Report" %}</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted">{% trans "No results found." %}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Progress Trends Chart
+    const progressCtx = document.getElementById('progressChart');
+    if (progressCtx) {
+        const progressData = {{ progress_trends|safe }};
+        new Chart(progressCtx, {
+            type: 'line',
+            data: {
+                labels: progressData.map(item => item.session.substring(0, 10)),
+                datasets: [{
+                    label: 'Percentage',
+                    data: progressData.map(item => item.percentage),
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+    }
+
+    // Attendance Chart
+    const attendanceCtx = document.getElementById('attendanceChart');
+    if (attendanceCtx && {{ attendance_summary|length }} > 0) {
+        const attendanceData = {{ attendance_summary|safe }};
+        new Chart(attendanceCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Present', 'Absent', 'Late'],
+                datasets: [{
+                    data: [attendanceData.present_days, attendanceData.absent_days, attendanceData.late_days],
+                    backgroundColor: [
+                        'rgb(40, 167, 69)',
+                        'rgb(220, 53, 69)',
+                        'rgb(255, 193, 7)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

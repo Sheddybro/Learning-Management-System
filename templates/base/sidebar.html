@@ -1,0 +1,925 @@
+{% load static i18n %}
+<!-- Sidebar Component -->
+<aside class="sidebar border-end" id="sidebar" style="background-color: #212529; color: rgba(255, 255, 255, 0.85); border-right: 1px solid #343a40;">
+    <div class="sidebar-inner">
+        <!-- Sidebar Header -->
+        <div class="sidebar-header p-3" style="background-color: #343a40; color: #ffffff;">
+            <div class="d-flex align-items-center">
+                <!-- School Logo/User Avatar -->
+                <div class="sidebar-logo me-3">
+                    {% if user.is_authenticated %}
+                    <div class="avatar avatar-sm bg-white text-primary rounded-circle d-flex align-items-center justify-content-center">
+                        {% if user.profile.profile_picture %}
+                        <img src="{{ user.profile.profile_picture.url }}" alt="{{ user.display_name }}" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;">
+                        {% else %}
+                        <span class="fw-bold">{{ user.get_initials }}</span>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="avatar avatar-sm bg-white text-primary rounded-circle d-flex align-items-center justify-content-center">
+                        <i class="bi bi-building"></i>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- School/User Info -->
+                <div class="sidebar-info flex-grow-1">
+                    {% if user.is_authenticated %}
+                    <h6 class="mb-0 fw-semibold text-truncate">{{ user.display_name }}</h6>
+                    <small class="opacity-75 text-truncate d-block">
+                        {% if user_primary_role %}
+                            {{ user_primary_role.name }}
+                            {% if user_roles|length > 1 %}
+                                <span class="badge bg-secondary ms-1" style="font-size: 0.6rem;">+{{ user_roles|length|add:"-1" }}</span>
+                            {% endif %}
+                        {% else %}
+                            {% trans "User" %}
+                        {% endif %}
+                    </small>
+                    {% else %}
+                    <h6 class="mb-0 fw-semibold">{% trans "School System" %}</h6>
+                    <small class="opacity-75">{% trans "Guest Access" %}</small>
+                    {% endif %}
+                </div>
+                
+                <!-- Sidebar Toggle (Mobile) -->
+                <button class="btn btn-link p-0 text-white sidebar-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-expanded="true" aria-controls="sidebarMenu">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Sidebar Content -->
+        <div class="sidebar-content">
+            <!-- Quick Actions -->
+            {% if user.is_authenticated %}
+            <div class="quick-actions p-3 border-bottom">
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-plus-circle me-1"></i>
+                        {% trans "Quick Action" %}
+                    </button>
+                    <ul class="dropdown-menu">
+                        <!-- Student Quick Actions -->
+                        {% if is_student %}
+                        <li><a class="dropdown-item" href="{% url 'assessment:assignment_list' %}"><i class="bi bi-journal-text me-2"></i>{% trans "Assignments" %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'assessment:student_marks' %}"><i class="bi bi-graph-up me-2"></i>{% trans "View Marks" %}</a></li>
+                        {% endif %}
+
+                        <!-- Teacher Quick Actions -->
+                        {% if is_teacher %}
+                        <li><a class="dropdown-item" href="{% url 'attendance:bulk_class_select' %}"><i class="bi bi-clipboard-check me-2"></i>{% trans "Take Attendance" %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'assessment:grading_overview' %}"><i class="bi bi-pencil-square me-2"></i>{% trans "Enter Grades" %}</a></li>
+                        {% endif %}
+
+                        <!-- Parent Quick Actions -->
+                        {% if is_parent %}
+                        <li><a class="dropdown-item" href="{% url 'communication:notification_list' %}"><i class="bi bi-bell me-2"></i>{% trans "Check Updates" %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'finance:student_invoices' %}"><i class="bi bi-receipt me-2"></i>{% trans "Fee Status" %}</a></li>
+                        {% endif %}
+
+                        <!-- Admin Quick Actions -->
+                        {% if can_manage_users %}
+                        <li><a class="dropdown-item" href="{% url 'users:user_create' %}"><i class="bi bi-person-plus me-2"></i>{% trans "Add User" %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'users:pending_applications' %}"><i class="bi bi-person-check me-2"></i>{% trans "Applications" %}</a></li>
+                        {% endif %}
+
+                        <!-- Common Quick Actions -->
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'communication:notification_list' %}"><i class="bi bi-bell me-2"></i>{% trans "Notifications" %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'support:home' %}"><i class="bi bi-headset me-2"></i>{% trans "Get Help" %}</a></li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Navigation Menu -->
+            <nav class="sidebar-nav" id="sidebarMenu">
+                <div class="nav-scroller">
+                    <ul class="nav nav-pills flex-column mb-0">
+                        <!-- Dashboard -->
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'users:dashboard' %}">
+                                <i class="bi bi-speedometer2 me-2"></i>
+                                {% trans "Dashboard" %}
+                            </a>
+                        </li>
+
+                        {% if user.is_authenticated %}
+                        <!-- Personal Section - Available to all authenticated users -->
+                        <li class="nav-item dropdown-wrapper">
+                            <a class="nav-link dropdown-toggle" href="#personalSubmenu" data-bs-toggle="collapse" aria-expanded="{% if 'profile' in request.resolver_match.url_name or 'notification' in request.resolver_match.url_name or 'parent_student_relationships' in request.resolver_match.url_name %}true{% else %}false{% endif %}">
+                                <i class="bi bi-person-circle me-2"></i>
+                                {% trans "Personal" %}
+                                <span class="dropdown-indicator">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </a>
+                            <ul class="collapse list-unstyled {% if 'profile' in request.resolver_match.url_name or 'notification' in request.resolver_match.url_name or 'parent_student_relationships' in request.resolver_match.url_name %}show{% endif %}" id="personalSubmenu">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" href="{% url 'users:profile' %}">
+                                        <i class="bi bi-person me-2"></i>
+                                        {% trans "My Profile" %}
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'communication:notification_list' %}">
+                                        <i class="bi bi-bell me-2"></i>
+                                        {% trans "Notifications" %}
+                                        {% if unread_notification_count > 0 %}
+                                        <span class="badge bg-danger float-end">{{ unread_notification_count }}</span>
+                                        {% endif %}
+                                    </a>
+                                </li>
+                                {% if is_student or is_parent %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.resolver_match.url_name == 'parent_student_relationships' %}active{% endif %}" href="{% url 'users:parent_student_relationships' %}">
+                                        <i class="bi bi-people me-2"></i>
+                                        {% if is_parent %}
+                                            {% trans "My Children" %}
+                                        {% else %}
+                                            {% trans "My Parents" %}
+                                        {% endif %}
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </li>
+
+                        <!-- Academics - Staff, Teachers, Students, Parents -->
+                        {% if can_manage_academics or is_student or is_parent %}
+                        <li class="nav-item dropdown-wrapper">
+                            <a class="nav-link dropdown-toggle" href="#academicsSubmenu" data-bs-toggle="collapse" aria-expanded="{% if 'academics' in request.resolver_match.app_name %}true{% else %}false{% endif %}">
+                                <i class="bi bi-mortarboard me-2"></i>
+                                {% trans "Academics" %}
+                                <span class="dropdown-indicator">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </a>
+                            <ul class="collapse list-unstyled {% if 'academics' in request.resolver_match.app_name %}show{% endif %}" id="academicsSubmenu">
+                                {% if can_manage_academics %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'academics:dashboard' %}"><i class="bi bi-house-door me-2"></i>{% trans "Dashboard" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'academics:session_list' %}"><i class="bi bi-calendar-event me-2"></i>{% trans "Sessions" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'academics:department_list' %}"><i class="bi bi-building me-2"></i>{% trans "Departments" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'academics:subject_list' %}"><i class="bi bi-book me-2"></i>{% trans "Subjects" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'academics:grade_level_list' %}"><i class="bi bi-bar-chart-steps me-2"></i>{% trans "Grade Levels" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'academics:class_list' %}"><i class="bi bi-easel me-2"></i>{% trans "Classes" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'academics:student_list' %}"><i class="bi bi-person-badge me-2"></i>{% trans "Students" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'academics:teacher_list' %}"><i class="bi bi-person-video2 me-2"></i>{% trans "Teachers" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'academics:enrollment_list' %}"><i class="bi bi-person-plus me-2"></i>{% trans "Enrollments" %}</a></li>
+                                {% endif %}
+                                {% if is_teacher %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'academics:timetable_list' %}"><i class="bi bi-calendar-week me-2"></i>{% trans "Timetable" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'academics:material_list' %}"><i class="bi bi-folder2-open me-2"></i>{% trans "Class Materials" %}</a></li>
+                                {% endif %}
+                                {% if is_student %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'academics:student_timetable' %}"><i class="bi bi-calendar-week me-2"></i>{% trans "My Timetable" %}</a></li>
+                                {% endif %}
+                                {% if is_student or is_parent %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'academics:academic_calendar' %}"><i class="bi bi-calendar me-2"></i>{% trans "Calendar" %}</a></li>
+                                {% endif %}
+                            </ul>
+                        </li>
+                        {% endif %}
+
+                        <!-- Assessment - Staff, Teachers, Students, Parents -->
+                        {% if can_manage_academics or is_student or is_parent %}
+                        <li class="nav-item dropdown-wrapper">
+                            <a class="nav-link dropdown-toggle" href="#assessmentSubmenu" data-bs-toggle="collapse" aria-expanded="{% if 'assessment' in request.resolver_match.app_name %}true{% else %}false{% endif %}">
+                                <i class="bi bi-journal-check me-2"></i>
+                                {% trans "Assessment" %}
+                                <span class="dropdown-indicator">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </a>
+                            <ul class="collapse list-unstyled {% if 'assessment' in request.resolver_match.app_name %}show{% endif %}" id="assessmentSubmenu">
+                                {% if can_manage_academics %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessment:dashboard' %}"><i class="bi bi-graph-up me-2"></i>{% trans "Dashboard" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessment:exam_list' %}"><i class="bi bi-journal-text me-2"></i>{% trans "Exams" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessment:assignment_list' %}"><i class="bi bi-pencil-square me-2"></i>{% trans "Assignments" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessment:quiz_bank_list' %}"><i class="bi bi-question-circle me-2"></i>{% trans "Quizzes" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessment:quiz_marking_list' %}"><i class="bi bi-edit me-2"></i>{% trans "Grade Quizzes" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessment:quiz_attempt_list' %}"><i class="bi bi-list-check me-2"></i>{% trans "Quiz Attempts" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessment:result_list' %}"><i class="bi bi-file-earmark-ruled me-2"></i>{% trans "Results" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessment:reportcard_list' %}"><i class="bi bi-card-list me-2"></i>{% trans "Report Cards" %}</a></li>
+                                {% endif %}
+                                {% if is_student %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessment:student_marks' %}"><i class="bi bi-mortarboard me-2"></i>{% trans "My Marks" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessment:student_progress' %}"><i class="bi bi-bar-chart-line me-2"></i>{% trans "My Quiz Progress" %}</a></li>
+                                {% endif %}
+                                {% if can_manage_academics %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessment:analytics' %}"><i class="bi bi-bar-chart-line me-2"></i>{% trans "Analytics" %}</a></li>
+                                {% endif %}
+                            </ul>
+                        </li>
+                        {% endif %}
+
+                        <!-- Attendance - Staff, Teachers, Students -->
+                        {% if can_manage_academics or is_student %}
+                        <li class="nav-item dropdown-wrapper">
+                            <a class="nav-link dropdown-toggle" href="#attendanceSubmenu" data-bs-toggle="collapse" aria-expanded="{% if 'attendance' in request.resolver_match.app_name %}true{% else %}false{% endif %}">
+                                <i class="bi bi-calendar-check me-2"></i>
+                                {% trans "Attendance" %}
+                                <span class="dropdown-indicator">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </a>
+                            <ul class="collapse list-unstyled {% if 'attendance' in request.resolver_match.app_name %}show{% endif %}" id="attendanceSubmenu">
+                                {% if can_manage_academics %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'attendance:dashboard' %}"><i class="bi bi-calendar-check me-2"></i>{% trans "Dashboard" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'attendance:config' %}"><i class="bi bi-gear me-2"></i>{% trans "Configuration" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'attendance:session_list' %}"><i class="bi bi-calendar-event me-2"></i>{% trans "Sessions" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'attendance:daily_list' %}"><i class="bi bi-list-check me-2"></i>{% trans "Daily Attendance" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'attendance:bulk_class_select' %}"><i class="bi bi-people me-2"></i>{% trans "Bulk Attendance" %}</a></li>
+                                {% endif %}
+                                {% if is_student %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'attendance:student_my_attendance' %}"><i class="bi bi-person-check me-2"></i>{% trans "My Attendance" %}</a></li>
+                                {% endif %}
+                                {% if can_manage_academics %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'attendance:period_list' %}"><i class="bi bi-clock me-2"></i>{% trans "Period Attendance" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'attendance:leave_list' %}"><i class="bi bi-journal-minus me-2"></i>{% trans "Leave Management" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'attendance:summary' %}"><i class="bi bi-file-earmark-bar-graph me-2"></i>{% trans "Summary" %}</a></li>
+                                {% endif %}
+                            </ul>
+                        </li>
+                        {% endif %}
+
+                        <!-- Communication - All authenticated users -->
+                        <li class="nav-item dropdown-wrapper">
+                            <a class="nav-link dropdown-toggle" href="#communicationSubmenu" data-bs-toggle="collapse" aria-expanded="{% if 'communication' in request.resolver_match.app_name %}true{% else %}false{% endif %}">
+                                <i class="bi bi-chat-dots me-2"></i>
+                                {% trans "Communication" %}
+                                {% if noticeboard_count > 0 %}
+                                <span class="badge bg-warning text-dark ms-2">{{ noticeboard_count }}</span>
+                                {% endif %}
+                                <span class="dropdown-indicator">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </a>
+                            <ul class="collapse list-unstyled {% if 'communication' in request.resolver_match.app_name %}show{% endif %}" id="communicationSubmenu">
+                                <!-- Notice Boards - Make this very prominent -->
+                                {% if noticeboard_count > 0 %}
+                                <li class="nav-item">
+                                    <a class="nav-link fw-bold text-warning" href="#noticeboardsModal" data-bs-toggle="modal" style="background: rgba(255, 193, 7, 0.1); border-left: 3px solid #ffc107;">
+                                        <i class="bi bi-display me-2"></i>
+                                        📢 {% trans "Notice Boards" %}
+                                        {% if noticeboard_count > 0 %}
+                                        <span class="badge bg-warning text-dark ms-2">{{ noticeboard_count }}</span>
+                                        {% endif %}
+                                    </a>
+                                </li>
+                                {% endif %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'communication:notification_list' %}"><i class="bi bi-inbox me-2"></i>{% trans "Inbox" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'communication:inbox' %}"><i class="bi bi-chat-left-dots me-2"></i>{% trans "Messages" %}</a></li>
+                                {% if can_manage_academics %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'communication:dashboard' %}"><i class="bi bi-chat-dots me-2"></i>{% trans "Dashboard" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'communication:announcement_list' %}"><i class="bi bi-megaphone me-2"></i>{% trans "Announcements" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'communication:noticeboard_list' %}"><i class="bi bi-clipboard-data me-2"></i>{% trans "Manage Notice Boards" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'communication:emailtemplate_list' %}"><i class="bi bi-envelope-open me-2"></i>{% trans "Email Templates" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'communication:smstemplate_list' %}"><i class="bi bi-chat-text me-2"></i>{% trans "SMS Templates" %}</a></li>
+                                {% endif %}
+                            </ul>
+                        </li>
+
+                        <!-- Finance - Accountants, Admins, Parents, Students -->
+                        {% if can_manage_finance or is_parent or is_student %}
+                        <li class="nav-item dropdown-wrapper">
+                            <a class="nav-link dropdown-toggle" href="#financeSubmenu" data-bs-toggle="collapse" aria-expanded="{% if 'finance' in request.resolver_match.app_name %}true{% else %}false{% endif %}">
+                                <i class="bi bi-cash-stack me-2"></i>
+                                {% trans "Finance" %}
+                                <span class="dropdown-indicator">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </a>
+                            <ul class="collapse list-unstyled {% if 'finance' in request.resolver_match.app_name %}show{% endif %}" id="financeSubmenu">
+                                {% if can_manage_finance %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'finance:dashboard' %}"><i class="bi bi-cash-stack me-2"></i>{% trans "Dashboard" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'finance:invoice_list' %}"><i class="bi bi-receipt me-2"></i>{% trans "Invoices" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'finance:feestructure_list' %}"><i class="bi bi-currency-dollar me-2"></i>{% trans "Fee Structures" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'finance:expense_list' %}"><i class="bi bi-wallet2 me-2"></i>{% trans "Expenses" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'finance:financialreport_list' %}"><i class="bi bi-file-earmark-bar-graph me-2"></i>{% trans "Financial Reports" %}</a></li>
+                                {% endif %}
+                                {% if is_student %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'finance:student_invoices' %}"><i class="bi bi-receipt me-2"></i>{% trans "My Invoices" %}</a></li>
+                                {% endif %}
+                            </ul>
+                        </li>
+                        {% endif %}
+
+                        <!-- Library - Librarians, Staff, Students -->
+                        {% if can_manage_library or is_student %}
+                        <li class="nav-item dropdown-wrapper">
+                            <a class="nav-link dropdown-toggle" href="#librarySubmenu" data-bs-toggle="collapse" aria-expanded="{% if 'library' in request.resolver_match.app_name %}true{% else %}false{% endif %}">
+                                <i class="bi bi-book-half me-2"></i>
+                                {% trans "Library" %}
+                                <span class="dropdown-indicator">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </a>
+                            <ul class="collapse list-unstyled {% if 'library' in request.resolver_match.app_name %}show{% endif %}" id="librarySubmenu">
+                                {% if can_manage_library %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:dashboard' %}"><i class="bi bi-book-half me-2"></i>{% trans "Dashboard" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:library_list' %}"><i class="bi bi-building me-2"></i>{% trans "Libraries" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:author_list' %}"><i class="bi bi-person-lines-fill me-2"></i>{% trans "Authors" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:publisher_list' %}"><i class="bi bi-globe me-2"></i>{% trans "Publishers" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:bookcategory_list' %}"><i class="bi bi-tags me-2"></i>{% trans "Book Categories" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:book_list' %}"><i class="bi bi-book me-2"></i>{% trans "Books" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:bookcopy_list' %}"><i class="bi bi-journal-bookmark me-2"></i>{% trans "Book Copies" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:librarymember_list' %}"><i class="bi bi-person-vcard me-2"></i>{% trans "Library Members" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:borrowrecord_list' %}"><i class="bi bi-arrow-left-right me-2"></i>{% trans "Borrow Records" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:reservation_list' %}"><i class="bi bi-bookmark-check me-2"></i>{% trans "Reservations" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:finepayment_list' %}"><i class="bi bi-cash-coin me-2"></i>{% trans "Fine Payments" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:report_overdue_books' %}"><i class="bi bi-exclamation-triangle me-2"></i>{% trans "Overdue Books Report" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:report_popular_books' %}"><i class="bi bi-graph-up me-2"></i>{% trans "Popular Books Report" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:report_member_activity' %}"><i class="bi bi-activity me-2"></i>{% trans "Member Activity Report" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:report_fine_collection' %}"><i class="bi bi-currency-dollar me-2"></i>{% trans "Fine Collection Report" %}</a></li>
+                                {% endif %}
+                                {% if is_student %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'library:member_dashboard' %}"><i class="bi bi-bookmark me-2"></i>{% trans "My Books" %}</a></li>
+                                {% endif %}
+                            </ul>
+                        </li>
+                        {% endif %}
+
+                        <!-- Activities - Activities Coordinator, Students, Parents -->
+                        {% if can_manage_academics or is_student or is_parent %}
+                        <li class="nav-item dropdown-wrapper">
+                            <a class="nav-link dropdown-toggle" href="#activitiesSubmenu" data-bs-toggle="collapse" aria-expanded="{% if 'activities' in request.resolver_match.app_name %}true{% else %}false{% endif %}">
+                                <i class="bi bi-trophy me-2"></i>
+                                {% trans "Activities" %}
+                                <span class="dropdown-indicator">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </a>
+                            <ul class="collapse list-unstyled {% if 'activities' in request.resolver_match.app_name %}show{% endif %}" id="activitiesSubmenu">
+                                <li class="nav-item"><a class="nav-link" href="{% url 'activities:activity_list' %}"><i class="bi bi-list-ul me-2"></i>{% trans "Browse Activities" %}</a></li>
+                                {% if can_manage_academics %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'activities:activity_create' %}"><i class="bi bi-plus-circle me-2"></i>{% trans "Create Activity" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'activities:enrollment_list' %}"><i class="bi bi-person-check me-2"></i>{% trans "Manage Enrollments" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'activities:equipment_list' %}"><i class="bi bi-tools me-2"></i>{% trans "Equipment" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'activities:budget_list' %}"><i class="bi bi-cash-stack me-2"></i>{% trans "Budgets" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'activities:competition_list' %}"><i class="bi bi-trophy me-2"></i>{% trans "Competitions" %}</a></li>
+                                {% endif %}
+                                {% if is_student %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'activities:my_activities' %}"><i class="bi bi-person-circle me-2"></i>{% trans "My Activities" %}</a></li>
+                                {% endif %}
+                            </ul>
+                        </li>
+                        {% endif %}
+
+                        <!-- Transport - Transport Managers, Drivers, Staff -->
+                        {% if can_manage_transport %}
+                        <li class="nav-item dropdown-wrapper">
+                            <a class="nav-link dropdown-toggle" href="#transportSubmenu" data-bs-toggle="collapse" aria-expanded="{% if 'transport' in request.resolver_match.app_name %}true{% else %}false{% endif %}">
+                                <i class="bi bi-bus-front me-2"></i>
+                                {% trans "Transport" %}
+                                <span class="dropdown-indicator">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </a>
+                            <ul class="collapse list-unstyled {% if 'transport' in request.resolver_match.app_name %}show{% endif %}" id="transportSubmenu">
+                                <li class="nav-item"><a class="nav-link" href="{% url 'transport:dashboard' %}"><i class="bi bi-bus-front me-2"></i>{% trans "Dashboard" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'transport:analytics' %}"><i class="bi bi-graph-up me-2"></i>{% trans "Analytics" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'transport:vehicle_list' %}"><i class="bi bi-truck me-2"></i>{% trans "Vehicles" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'transport:maintenancerecord_list' %}"><i class="bi bi-tools me-2"></i>{% trans "Maintenance Records" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'transport:fuelrecord_list' %}"><i class="bi bi-fuel-pump me-2"></i>{% trans "Fuel Records" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'transport:driver_list' %}"><i class="bi bi-person-vcard me-2"></i>{% trans "Drivers" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'transport:attendant_list' %}"><i class="bi bi-person-badge me-2"></i>{% trans "Attendants" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'transport:route_list' %}"><i class="bi bi-geo-alt me-2"></i>{% trans "Routes" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'transport:routeschedule_list' %}"><i class="bi bi-calendar-week me-2"></i>{% trans "Route Schedules" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'transport:transportallocation_list' %}"><i class="bi bi-person-bounding-box me-2"></i>{% trans "Allocations" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'transport:incidentreport_list' %}"><i class="bi bi-exclamation-triangle me-2"></i>{% trans "Incident Reports" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'transport:reports' %}"><i class="bi bi-file-earmark-bar-graph me-2"></i>{% trans "Reports" %}</a></li>
+                            </ul>
+                        </li>
+                        {% endif %}
+
+                        <!-- Hostels - Hostel Wardens, Staff -->
+                        {% if can_manage_hostels %}
+                        <li class="nav-item dropdown-wrapper">
+                            <a class="nav-link dropdown-toggle" href="#hostelsSubmenu" data-bs-toggle="collapse" aria-expanded="{% if 'hostels' in request.resolver_match.app_name %}true{% else %}false{% endif %}">
+                                <i class="bi bi-building me-2"></i>
+                                {% trans "Hostels" %}
+                                <span class="dropdown-indicator">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </a>
+                            <ul class="collapse list-unstyled {% if 'hostels' in request.resolver_match.app_name %}show{% endif %}" id="hostelsSubmenu">
+                                <li class="nav-item"><a class="nav-link" href="{% url 'hostels:dashboard' %}"><i class="bi bi-building me-2"></i>{% trans "Dashboard" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'hostels:hostel_list' %}"><i class="bi bi-house-door me-2"></i>{% trans "Hostel Management" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'hostels:room_list' %}"><i class="bi bi-door-open me-2"></i>{% trans "Room Management" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'hostels:bed_list' %}"><i class="bi bi-bed me-2"></i>{% trans "Bed Management" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'hostels:allocation_list' %}"><i class="bi bi-person-bounding-box me-2"></i>{% trans "Allocations" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'hostels:fee_list' %}"><i class="bi bi-cash me-2"></i>{% trans "Hostel Fees" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'hostels:visitor_list' %}"><i class="bi bi-person-lines-fill me-2"></i>{% trans "Visitor Logs" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'hostels:maintenance_list' %}"><i class="bi bi-tools me-2"></i>{% trans "Maintenance" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'hostels:inventory_list' %}"><i class="bi bi-box-seam me-2"></i>{% trans "Inventory" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'hostels:occupancy_report' %}"><i class="bi bi-bar-chart-fill me-2"></i>{% trans "Occupancy Report" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'hostels:fee_collection_report' %}"><i class="bi bi-cash-coin me-2"></i>{% trans "Fee Collection Report" %}</a></li>
+                            </ul>
+                        </li>
+                        {% endif %}
+
+                        <!-- Administration - Super Admin, Admin, Principal -->
+                        {% if can_manage_users %}
+                        <li class="nav-item dropdown-wrapper">
+                            <a class="nav-link dropdown-toggle" href="#administrationSubmenu" data-bs-toggle="collapse" aria-expanded="{% if sidebar_administration_expanded %}true{% else %}false{% endif %}">
+                                <i class="bi bi-gear me-2"></i>
+                                {% if user.is_superuser %}
+                                    {% trans "Super Admin" %}
+                                {% else %}
+                                    {% trans "Administration" %}
+                                {% endif %}
+                                <span class="dropdown-indicator">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </a>
+                            <ul class="collapse list-unstyled {% if sidebar_administration_expanded %}show{% else %}{% endif %}" id="administrationSubmenu">
+                                {% if user.is_superuser %}
+                                <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'super_admin_dashboard' %}active{% endif %}" href="{% url 'core:super_admin_dashboard' %}"><i class="bi bi-speedometer2 me-2"></i>{% trans "Super Admin Dashboard" %}</a></li>
+                                <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'super_admin_entities' %}active{% endif %}" href="{% url 'core:super_admin_entities' %}"><i class="bi bi-cogs me-2"></i>{% trans "System Entities" %}</a></li>
+                                <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'institution_list' %}active{% endif %}" href="{% url 'core:institution_list' %}"><i class="bi bi-building me-2"></i>{% trans "Institution Management" %}</a></li>
+                                <li class="nav-item"><hr class="dropdown-divider"></li>
+                                {% endif %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'users:user_list' %}"><i class="bi bi-people me-2"></i>{% trans "User Management" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'users:role_list' %}"><i class="bi bi-person-gear me-2"></i>{% trans "Role Management" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'users:pending_applications' %}"><i class="bi bi-person-check me-2"></i>{% trans "Applications" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'audit:auditlog_dashboard' %}"><i class="bi bi-shield-check me-2"></i>{% trans "Audit Logs" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'analytics:settings' %}"><i class="bi bi-gear me-2"></i>{% trans "Analytics Settings" %}</a></li>
+                            </ul>
+                        </li>
+                        {% endif %}
+
+                        <!-- Support - All authenticated users -->
+                        <li class="nav-item dropdown-wrapper">
+                            <a class="nav-link dropdown-toggle" href="#supportSubmenu" data-bs-toggle="collapse" aria-expanded="{% if 'support' in request.resolver_match.app_name %}true{% else %}false{% endif %}">
+                                <i class="bi bi-question-circle me-2"></i>
+                                {% trans "Support" %}
+                                <span class="dropdown-indicator">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </a>
+                            <ul class="collapse list-unstyled {% if 'support' in request.resolver_match.app_name %}show{% endif %}" id="supportSubmenu">
+                                <li class="nav-item"><a class="nav-link" href="{% url 'support:home' %}"><i class="bi bi-question-circle me-2"></i>{% trans "Help Center" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'support:resource_list' %}"><i class="bi bi-journal-bookmark me-2"></i>{% trans "Resources" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'support:faq_list' %}"><i class="bi bi-patch-question me-2"></i>{% trans "FAQ" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'support:contact' %}"><i class="bi bi-headset me-2"></i>{% trans "Contact Support" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'support:privacy_policy' %}"><i class="bi bi-file-earmark-lock me-2"></i>{% trans "Privacy Policy" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'support:terms_of_service' %}"><i class="bi bi-file-earmark-text me-2"></i>{% trans "Terms of Service" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'support:data_protection' %}"><i class="bi bi-shield-fill-check me-2"></i>{% trans "Data Protection" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'support:cookie_policy' %}"><i class="bi bi-cookie me-2"></i>{% trans "Cookie Policy" %}</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'support:accessibility_statement' %}"><i class="bi bi-universal-access me-2"></i>{% trans "Accessibility" %}</a></li>
+                            </ul>
+                        </li>
+
+                        {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'users:login' %}">
+                                <i class="bi bi-box-arrow-in-right me-2"></i>
+                                {% trans "Login" %}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'users:application_portal' %}">
+                                <i class="bi bi-person-plus me-2"></i>
+                                {% trans "Apply Now" %}
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Sidebar Footer -->
+            <div class="sidebar-footer mt-auto p-3 border-top">
+                {% if user.is_authenticated %}
+                <div class="d-grid gap-2">
+                    <!-- Quick Settings -->
+                    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                        <i class="bi bi-gear me-1"></i>
+                        {% trans "Settings" %}
+                    </button>
+                    
+                    <!-- Logout -->
+                    <form method="post" action="{% url 'users:logout' %}" class="d-grid">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-box-arrow-right me-1"></i>
+                            {% trans "Logout" %}
+                        </button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="d-grid gap-2">
+                    <a href="{% url 'users:login' %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>
+                        {% trans "Sign In" %}
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- System Status -->
+                <div class="system-status mt-3 text-center">
+                    <small class="text-muted d-block">
+                        <i class="bi bi-circle-fill text-success me-1"></i>
+                        {% trans "System Online" %}
+                    </small>
+                    <small class="text-muted">
+                        v{{ SYSTEM_VERSION|default:"1.0.0" }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</aside>
+
+
+
+<!-- Mobile Sidebar Overlay -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<style>
+/* Ensure modal takes precedence over sidebar */
+.modal {
+    z-index: 1070 !important;
+}
+
+.modal-backdrop {
+    z-index: 1060 !important;
+}
+
+.sidebar {
+    width: 280px;
+    min-height: 100vh;
+    transition: all 0.3s ease;
+    z-index: 1000;
+    background-color: #0b2b4bff !important; /* Dark background for the sidebar */
+    color: rgba(255, 255, 255, 0.85) !important; /* Light text color */
+    border-right: 1px solid #343a40 !important;
+}
+
+    .sidebar.collapsed {
+        margin-left: -280px;
+    }
+
+    .sidebar-header {
+        background: #2186ebff !important; /* Darker header */
+        color: #ffffff !important;
+    }
+
+    .sidebar-logo .avatar {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: #ffffff !important;
+    }
+
+    .sidebar-info h6,
+    .sidebar-info small {
+        color: #ffffff !important;
+    }
+
+    .sidebar-toggle {
+        color: #ffffff !important;
+    }
+
+    .quick-actions .btn-outline-primary {
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.5) !important;
+        background-color: rgba(255, 255, 255, 0.05) !important;
+    }
+
+    .quick-actions .btn-outline-primary:hover {
+        background-color: rgba(255, 255, 255, 0.15) !important;
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.7) !important;
+    }
+
+    .quick-actions .btn-outline-primary:focus {
+        background-color: rgba(255, 255, 255, 0.2) !important;
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.8) !important;
+        box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25) !important;
+    }
+
+    /* Ensure dropdown menu is visible in dark mode */
+    .quick-actions .dropdown-menu {
+        background-color: rgba(33, 37, 41, 0.95) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(10px);
+    }
+
+    .quick-actions .dropdown-item {
+        color: rgba(255, 255, 255, 0.9) !important;
+    }
+
+    .quick-actions .dropdown-item:hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: #ffffff !important;
+    }
+
+    .sidebar-nav .nav-link {
+        border-radius: 0;
+        padding: 0.75rem 1rem;
+        color: rgba(255, 255, 255, 0.7) !important;
+        border: none;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+
+    .sidebar-nav .nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.08) !important;
+        color: #ffffff !important;
+    }
+
+    .sidebar-nav .nav-link.active {
+        background-color: #007bff !important; /* A contrasting accent color for active state */
+        color: #ffffff !important;
+        border-right: 3px solid #0056b3 !important;
+    }
+
+    .sidebar-nav .nav-link i {
+        width: 20px;
+        text-align: center;
+    }
+
+    .avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 0.875rem;
+    }
+
+    .quick-actions .btn {
+        font-size: 0.875rem;
+    }
+
+    .system-status {
+        font-size: 0.75rem;
+    }
+
+    /* Enhanced Dropdown Styles */
+    .dropdown-wrapper {
+        position: relative;
+    }
+
+    .dropdown-indicator {
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        transition: transform 0.3s ease;
+    }
+
+    .dropdown-toggle[aria-expanded="true"] .dropdown-indicator {
+        transform: translateY(-50%) rotate(180deg);
+    }
+
+    .dropdown-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: relative;
+        padding-right: 2.5rem !important;
+    }
+
+    .list-unstyled {
+        padding-left: 1.5rem;
+        background-color: rgba(0, 0, 0, 0.1) !important;
+        border-left: 2px solid rgba(255, 255, 255, 0.1) !important;
+        transition: all 0.3s ease;
+        max-height: 0;
+        overflow: hidden;
+    }
+
+    .list-unstyled.show {
+        max-height: 2000px;
+        animation: slideDown 0.4s ease-out;
+    }
+
+    .list-unstyled.collapsing {
+        transition: height 0.35s ease;
+    }
+
+    .list-unstyled .nav-link {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+        border-left: 2px solid transparent;
+        transition: all 0.2s ease;
+        color: rgba(255, 255, 255, 0.6) !important;
+    }
+
+    .list-unstyled .nav-link:hover {
+        border-left-color: #007bff !important;
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        color: #ffffff !important;
+    }
+
+    .list-unstyled .nav-link.active {
+        border-left-color: #007bff !important;
+        background-color: rgba(0, 123, 255, 0.2) !important;
+        color: #ffffff !important;
+    }
+
+    /* Smooth animations */
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Hover effects for dropdown items */
+    .list-unstyled .nav-link {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .list-unstyled .nav-link::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        transition: left 0.5s;
+    }
+
+    .list-unstyled .nav-link:hover::before {
+        left: 100%;
+    }
+
+    /* Mobile Styles */
+    @media (max-width: 991.98px) {
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            transform: translateX(-100%);
+        }
+        
+        .sidebar.show {
+            transform: translateX(0);
+        }
+        
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+        
+        .sidebar-overlay.show {
+            display: block;
+        }
+    }
+
+    .sidebar-footer {
+        border-top: 1px solid #343a40 !important;
+    }
+
+    .sidebar-footer .btn-outline-secondary {
+        color: rgba(255, 255, 255, 0.7) !important;
+        border-color: rgba(255, 255, 255, 0.25) !important;
+    }
+
+    .sidebar-footer .btn-outline-secondary:hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: #ffffff !important;
+    }
+
+    .sidebar-footer .btn-outline-danger {
+        color: #dc3545 !important;
+        border-color: #dc3545 !important;
+    }
+
+    .sidebar-footer .btn-outline-danger:hover {
+        background-color: #dc3545 !important;
+        color: #ffffff !important;
+    }
+
+    .system-status small {
+        color: rgba(255, 255, 255, 0.6) !important;
+    }
+</style>
+
+<script>
+    // Enhanced dropdown functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.querySelector('.sidebar-toggle');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+
+        // Sidebar toggle functionality
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', function() {
+                sidebar.classList.toggle('collapsed');
+                this.querySelector('i').classList.toggle('bi-chevron-left');
+                this.querySelector('i').classList.toggle('bi-chevron-right');
+            });
+        }
+
+        // Mobile sidebar overlay
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', function() {
+                sidebar.classList.remove('show');
+                this.classList.remove('show');
+            });
+        }
+
+        // Ensure sidebar overlay is hidden when quick action modal opens
+        document.addEventListener('show.bs.modal', function (event) {
+            if (event.target.id === 'quickActionModal') {
+                if (sidebarOverlay) {
+                    sidebarOverlay.classList.remove('show');
+                    sidebarOverlay.style.display = 'none';
+                }
+                if (sidebar) {
+                    sidebar.classList.remove('show');
+                }
+            }
+        });
+        
+        // Enhanced dropdown interactions
+        dropdownToggles.forEach(toggle => {
+            toggle.addEventListener('click', function(e) {
+                const href = this.getAttribute('href');
+                if (!href) return; // Skip if no href attribute
+
+                // Prevent default if it's a hash link
+                if (href === '#') {
+                    e.preventDefault();
+                }
+
+                const targetId = href.substring(1);
+                const target = document.getElementById(targetId);
+
+                if (target) {
+                    // Close other dropdowns when opening a new one (optional)
+                    if (!target.classList.contains('show')) {
+                        document.querySelectorAll('.list-unstyled.show').forEach(openDropdown => {
+                            if (openDropdown.id !== targetId) {
+                                const bsCollapse = new bootstrap.Collapse(openDropdown, {
+                                    toggle: false
+                                });
+                                bsCollapse.hide();
+                            }
+                        });
+                    }
+                }
+            });
+            
+            // Removed hover effect for desktop as per user request.
+            // if (window.innerWidth > 992) {
+            //     toggle.addEventListener('mouseenter', function() {
+            //         const targetId = this.getAttribute('href').substring(1);
+            //         const target = document.getElementById(targetId);
+                    
+            //         // Only auto-open if not already manually controlled
+            //         if (!target.classList.contains('show') && !this.classList.contains('user-interacted')) {
+            //             const bsCollapse = new bootstrap.Collapse(target, {
+            //                 toggle: false
+            //             });
+            //             bsCollapse.show();
+            //         }
+            //     });
+                
+            //     // Track manual interactions
+            //     toggle.addEventListener('click', function() {
+            //         this.classList.add('user-interacted');
+            //     });
+            // }
+        });
+        
+        // Auto-collapse sidebar on mobile
+        function handleResize() {
+            if (window.innerWidth < 992) {
+                sidebar.classList.remove('collapsed');
+            }
+        }
+        
+        window.addEventListener('resize', handleResize);
+        handleResize();
+        
+        // Add smooth scrolling to dropdown items
+        document.querySelectorAll('.list-unstyled .nav-link').forEach(link => {
+            link.addEventListener('click', function() {
+                // Close mobile sidebar after clicking a link
+                if (window.innerWidth < 992) {
+                    sidebar.classList.remove('show');
+                    if (sidebarOverlay) {
+                        sidebarOverlay.classList.remove('show');
+                    }
+                }
+            });
+        });
+    });
+</script>

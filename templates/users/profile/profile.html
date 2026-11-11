@@ -1,0 +1,2418 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "My Profile - School Management System" %}{% endblock %}
+
+{% block meta_description %}{% trans "Manage your personal information, contact details, and account settings in your School Management System profile." %}{% endblock %}
+
+{% block body_class %}profile-page{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Profile Sidebar -->
+        <div class="col-lg-4 col-xl-3">
+            <div class="card profile-sidebar border-0 shadow-sm mb-4">
+                <div class="card-body text-center p-4">
+                    <!-- Profile Picture -->
+                    <div class="profile-picture-section mb-4">
+                        <div class="profile-picture-wrapper position-relative mx-auto">
+                            {% if user.profile.profile_picture %}
+                            <img src="{{ user.profile.profile_picture.url }}" 
+                                 alt="{{ user.display_name }}" 
+                                 class="profile-picture rounded-circle"
+                                 id="profilePicture">
+                            {% else %}
+                            <div class="profile-picture-placeholder rounded-circle bg-primary text-white d-flex align-items-center justify-content-center mx-auto"
+                                 id="profilePicturePlaceholder">
+                                <span class="fw-bold fs-3">{{ user.get_initials }}</span>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- Profile Picture Upload -->
+                            <button type="button" class="btn btn-primary btn-sm rounded-circle position-absolute bottom-0 end-0 profile-picture-upload"
+                                    data-bs-toggle="modal" data-bs-target="#profilePictureModal">
+                                <i class="bi bi-camera"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h4 class="fw-bold mb-1">{{ user.display_name }}</h4>
+                            <p class="text-muted mb-2">
+                                {% with primary_role=user.user_roles.filter.is_primary.first %}
+                                    {{ primary_role.role.name|default:"User" }}
+                                {% endwith %}
+                            </p>
+                            <span class="badge bg-{% if user.is_verified %}success{% else %}warning{% endif %}">
+                                <i class="bi bi-{% if user.is_verified %}check-circle{% else %}clock{% endif %} me-1"></i>
+                                {% if user.is_verified %}{% trans "Verified" %}{% else %}{% trans "Pending Verification" %}{% endif %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="profile-stats row g-2 mb-4">
+                        <div class="col-4">
+                            <div class="stat-item p-2 rounded bg-light">
+                                <div class="fw-bold text-primary">{{ user.login_count }}</div>
+                                <small class="text-muted">{% trans "Logins" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-item p-2 rounded bg-light">
+                                <div class="fw-bold text-success">
+                                   {% with unread_count=user.notifications.unread.count %}
+                                        {{ unread_count|default:0 }}
+                                        {% endwith %}
+                                </div>
+                                <small class="text-muted">{% trans "Alerts" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-item p-2 rounded bg-light">
+                                <div class="fw-bold text-info">
+                                    {{ user.user_roles.count }}
+                                </div>
+                                <small class="text-muted">{% trans "Roles" %}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Menu -->
+                    <div class="profile-navigation">
+                        <div class="nav flex-column nav-pills" id="profileTab" role="tablist">
+                            <button class="nav-link active" id="personal-tab" data-bs-toggle="pill" data-bs-target="#personal" type="button">
+                                <i class="bi bi-person me-2"></i>
+                                {% trans "Personal Info" %}
+                            </button>
+                            <button class="nav-link" id="contact-tab" data-bs-toggle="pill" data-bs-target="#contact" type="button">
+                                <i class="bi bi-telephone me-2"></i>
+                                {% trans "Contact Details" %}
+                            </button>
+                            <button class="nav-link" id="account-tab" data-bs-toggle="pill" data-bs-target="#account" type="button">
+                                <i class="bi bi-shield-lock me-2"></i>
+                                {% trans "Account Settings" %}
+                            </button>
+                            <button class="nav-link" id="preferences-tab" data-bs-toggle="pill" data-bs-target="#preferences" type="button">
+                                <i class="bi bi-gear me-2"></i>
+                                {% trans "Preferences" %}
+                            </button>
+                            {% if has_academic_data or has_assessment_data %}
+                            <button class="nav-link" id="academic-tab" data-bs-toggle="pill" data-bs-target="#academic" type="button">
+                                <i class="bi bi-book me-2"></i>
+                                {% trans "Academic Records" %}
+                            </button>
+                            {% endif %}
+                            {% if has_assessment_data %}
+                            <button class="nav-link" id="assessment-tab" data-bs-toggle="pill" data-bs-target="#assessment" type="button">
+                                <i class="bi bi-graph-up me-2"></i>
+                                {% trans "Assessment Results" %}
+                            </button>
+                            {% endif %}
+                            {% if has_attendance_data %}
+                            <button class="nav-link" id="attendance-tab" data-bs-toggle="pill" data-bs-target="#attendance" type="button">
+                                <i class="bi bi-calendar-check me-2"></i>
+                                {% trans "Attendance History" %}
+                            </button>
+                            {% endif %}
+                            {% if has_finance_data %}
+                            <button class="nav-link" id="finance-tab" data-bs-toggle="pill" data-bs-target="#finance" type="button">
+                                <i class="bi bi-cash me-2"></i>
+                                {% trans "Financial Records" %}
+                            </button>
+                            {% endif %}
+                            {% if has_library_data %}
+                            <button class="nav-link" id="library-tab" data-bs-toggle="pill" data-bs-target="#library" type="button">
+                                <i class="bi bi-bookmark me-2"></i>
+                                {% trans "Library Records" %}
+                            </button>
+                            {% endif %}
+                            {% if has_health_data %}
+                            <button class="nav-link" id="health-tab" data-bs-toggle="pill" data-bs-target="#health" type="button">
+                                <i class="bi bi-heart me-2"></i>
+                                {% trans "Health Records" %}
+                            </button>
+                            {% endif %}
+                            {% if has_transport_data %}
+                            <button class="nav-link" id="transport-tab" data-bs-toggle="pill" data-bs-target="#transport" type="button">
+                                <i class="bi bi-bus-front me-2"></i>
+                                {% trans "Transport Info" %}
+                            </button>
+                            {% endif %}
+                            {% if has_activity_data %}
+                            <button class="nav-link" id="activity-tab" data-bs-toggle="pill" data-bs-target="#activity" type="button">
+                                <i class="bi bi-activity me-2"></i>
+                                {% trans "Activity Log" %}
+                            </button>
+                            {% endif %}
+                            {% if has_parent_data or has_student_data %}
+                            <button class="nav-link" id="relationships-tab" data-bs-toggle="pill" data-bs-target="#relationships" type="button">
+                                <i class="bi bi-people me-2"></i>
+                                {% trans "Relationships" %}
+                            </button>
+                            {% endif %}
+                            {% if student_application or staff_application %}
+                            <button class="nav-link" id="application-tab" data-bs-toggle="pill" data-bs-target="#application" type="button">
+                                <i class="bi bi-file-earmark-person me-2"></i>
+                                {% trans "Application Details" %}
+                            </button>
+                            {% endif %}
+                            {% if user.user_roles.count > 0 %}
+                            <button class="nav-link" id="roles-tab" data-bs-toggle="pill" data-bs-target="#roles" type="button">
+                                <i class="bi bi-person-badge me-2"></i>
+                                {% trans "My Roles" %}
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Status Card -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-3">{% trans "Security Status" %}</h6>
+                    <div class="security-status">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small">{% trans "Email Verification" %}</span>
+                            {% if user.is_verified %}
+                            <i class="bi bi-check-circle-fill text-success"></i>
+                            {% else %}
+                            <i class="bi bi-exclamation-circle-fill text-warning"></i>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small">{% trans "Password Strength" %}</span>
+                            <i class="bi bi-shield-check text-success"></i>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small">{% trans "Two-Factor Auth" %}</span>
+                            <i class="bi bi-shield-x text-muted"></i>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="small">{% trans "Last Login" %}</span>
+                            <span class="small text-muted">{{ user.last_login|timesince }} ago</span>
+                        </div>
+                    </div>
+                    <hr>
+                    <a href="{% url 'users:password_change' %}" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="bi bi-key me-1"></i>
+                        {% trans "Change Password" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Content -->
+        <div class="col-lg-8 col-xl-9">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <!-- Tab Content -->
+                    <div class="tab-content" id="profileTabContent">
+                        <!-- Personal Information Tab -->
+                        <div class="tab-pane fade show active" id="personal" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="fw-bold mb-0">{% trans "Personal Information" %}</h4>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="enableEditing('personal')">
+                                    <i class="bi bi-pencil me-1"></i>
+                                    {% trans "Edit" %}
+                                </button>
+                            </div>
+
+                            <form method="post" id="personalForm">
+                                {% csrf_token %}
+                                <input type="hidden" name="form_type" value="personal">
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="{{ user_form.first_name.id_for_label }}" class="form-label">
+                                            {% trans "First Name" %} *
+                                        </label>
+                                        {{ user_form.first_name }}
+                                        {% if user_form.first_name.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ user_form.first_name.errors.0 }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ user_form.last_name.id_for_label }}" class="form-label">
+                                            {% trans "Last Name" %} *
+                                        </label>
+                                        {{ user_form.last_name }}
+                                        {% if user_form.last_name.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ user_form.last_name.errors.0 }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ profile_form.date_of_birth.id_for_label }}" class="form-label">
+                                            {% trans "Date of Birth" %}
+                                        </label>
+                                        {{ profile_form.date_of_birth }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ profile_form.gender.id_for_label }}" class="form-label">
+                                            {% trans "Gender" %}
+                                        </label>
+                                        {{ profile_form.gender }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ profile_form.nationality.id_for_label }}" class="form-label">
+                                            {% trans "Nationality" %}
+                                        </label>
+                                        {{ profile_form.nationality }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ profile_form.identification_number.id_for_label }}" class="form-label">
+                                            {% trans "Identification Number" %}
+                                        </label>
+                                        {{ profile_form.identification_number }}
+                                    </div>
+                                    <div class="col-12">
+                                        <label for="{{ profile_form.bio.id_for_label }}" class="form-label">
+                                            {% trans "Biography" %}
+                                        </label>
+                                        {{ profile_form.bio }}
+                                        <div class="form-text">{% trans "Tell us a bit about yourself" %}</div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4">
+                                    <button type="submit" class="btn btn-primary" name="save_personal">
+                                        <i class="bi bi-check-lg me-1"></i>
+                                        {% trans "Save Changes" %}
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="disableEditing('personal')">
+                                        {% trans "Cancel" %}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Contact Details Tab -->
+                        <div class="tab-pane fade" id="contact" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="fw-bold mb-0">{% trans "Contact Details" %}</h4>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="enableEditing('contact')">
+                                    <i class="bi bi-pencil me-1"></i>
+                                    {% trans "Edit" %}
+                                </button>
+                            </div>
+
+                            <form method="post" id="contactForm">
+                                {% csrf_token %}
+                                <input type="hidden" name="form_type" value="contact">
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">{% trans "Primary Email" %}</label>
+                                        <input type="email" class="form-control" value="{{ user.email }}" readonly>
+                                        <div class="form-text">{% trans "Primary email cannot be changed" %}</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ user_form.mobile.id_for_label }}" class="form-label">
+                                            {% trans "Mobile Number" %}
+                                        </label>
+                                        {{ user_form.mobile }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ profile_form.phone.id_for_label }}" class="form-label">
+                                            {% trans "Phone Number" %}
+                                        </label>
+                                        {{ profile_form.phone }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ profile_form.email.id_for_label }}" class="form-label">
+                                            {% trans "Alternative Email" %}
+                                        </label>
+                                        {{ profile_form.email }}
+                                    </div>
+                                </div>
+
+                                <h6 class="mt-4 mb-3 fw-semibold">{% trans "Emergency Contact" %}</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="{{ profile_form.emergency_contact.id_for_label }}" class="form-label">
+                                            {% trans "Emergency Contact Name" %}
+                                        </label>
+                                        {{ profile_form.emergency_contact }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ profile_form.emergency_phone.id_for_label }}" class="form-label">
+                                            {% trans "Emergency Phone" %}
+                                        </label>
+                                        {{ profile_form.emergency_phone }}
+                                    </div>
+                                </div>
+
+                                <h6 class="mt-4 mb-3 fw-semibold">{% trans "Address" %}</h6>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label for="{{ profile_form.address_line_1.id_for_label }}" class="form-label">
+                                            {% trans "Address Line 1" %}
+                                        </label>
+                                        {{ profile_form.address_line_1 }}
+                                    </div>
+                                    <div class="col-12">
+                                        <label for="{{ profile_form.address_line_2.id_for_label }}" class="form-label">
+                                            {% trans "Address Line 2" %}
+                                        </label>
+                                        {{ profile_form.address_line_2 }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="{{ profile_form.city.id_for_label }}" class="form-label">
+                                            {% trans "City" %}
+                                        </label>
+                                        {{ profile_form.city }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="{{ profile_form.state.id_for_label }}" class="form-label">
+                                            {% trans "State/Province" %}
+                                        </label>
+                                        {{ profile_form.state }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="{{ profile_form.postal_code.id_for_label }}" class="form-label">
+                                            {% trans "Postal Code" %}
+                                        </label>
+                                        {{ profile_form.postal_code }}
+                                    </div>
+                                    <div class="col-12">
+                                        <label for="{{ profile_form.country.id_for_label }}" class="form-label">
+                                            {% trans "Country" %}
+                                        </label>
+                                        {{ profile_form.country }}
+                                    </div>
+                                </div>
+
+                                <div class="mt-4">
+                                    <button type="submit" class="btn btn-primary" name="save_contact">
+                                        <i class="bi bi-check-lg me-1"></i>
+                                        {% trans "Save Changes" %}
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="disableEditing('contact')">
+                                        {% trans "Cancel" %}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Account Settings Tab -->
+                        <div class="tab-pane fade" id="account" role="tabpanel">
+                            <h4 class="fw-bold mb-4">{% trans "Account Settings" %}</h4>
+                            
+                            <div class="row g-4">
+                                <!-- Email Verification -->
+                                <div class="col-12">
+                                    <div class="alert alert-info mb-0">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <small>
+                                                    {% trans "Email Status" %}:
+                                                    {% if user.is_verified %}
+                                                        <strong class="text-success">{% trans "Verified" %}</strong>
+                                                        {% if user.email_verified_at %}
+                                                            ({{ user.email_verified_at|date:"M j, Y H:i" }})
+                                                        {% endif %}
+                                                    {% else %}
+                                                        <strong class="text-warning">{% trans "Not Verified" %}</strong>
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                            <div>
+                                                {% if user.is_verified %}
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-check-circle me-1"></i>
+                                                    {% trans "Verified" %}
+                                                </span>
+                                                {% else %}
+                                                <button class="btn btn-outline-warning btn-sm">
+                                                    <i class="bi bi-envelope me-1"></i>
+                                                    {% trans "Verify Email" %}
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Password Change -->
+                                <div class="col-12">
+                                    <div class="card border-0 bg-light">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="fw-semibold mb-1">{% trans "Password Security" %}</h6>
+                                                    <p class="text-muted mb-0 small">
+                                                        {% trans "Last changed" %} {{ user.password_history.last.changed_at|timesince|default:"never" }} ago
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <a href="{% url 'users:password_change' %}" class="btn btn-primary btn-sm">
+                                                        <i class="bi bi-key me-1"></i>
+                                                        {% trans "Change Password" %}
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Login History -->
+                                <div class="col-12">
+                                    <div class="card border-0 bg-light">
+                                        <div class="card-body">
+                                            <h6 class="fw-semibold mb-3">{% trans "Recent Login Activity" %}</h6>
+                                            <div class="login-history">
+                                                {% for login in user.login_history.all|slice:":5" %}
+                                                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                                    <div>
+                                                        <div class="fw-semibold">
+                                                            <i class="bi bi-{{ login.login_method }} me-1"></i>
+                                                            {{ login.get_login_method_display }}
+                                                        </div>
+                                                        <small class="text-muted">
+                                                            {{ login.ip_address }} • {{ login.created_at|timesince }} ago
+                                                        </small>
+                                                    </div>
+                                                    <span class="badge bg-{% if login.was_successful %}success{% else %}danger{% endif %}">
+                                                        {% if login.was_successful %}{% trans "Success" %}{% else %}{% trans "Failed" %}{% endif %}
+                                                    </span>
+                                                </div>
+                                                {% empty %}
+                                                <p class="text-muted text-center mb-0">{% trans "No login history available" %}</p>
+                                                {% endfor %}
+                                            </div>
+                                            <div class="mt-3">
+                                                {% comment %} <a href="{% url 'users:login_history' %}" class="btn btn-outline-secondary btn-sm w-100">
+                                                    {% trans "View Full History" %}
+                                                </a> {% endcomment %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Account Status -->
+                                <div class="col-12">
+                                    <div class="card border-0 bg-light">
+                                        <div class="card-body">
+                                            <h6 class="fw-semibold mb-3">{% trans "Account Status" %}</h6>
+                                            <div class="row g-2">
+                                                <div class="col-6">
+                                                    <small class="text-muted">{% trans "Status" %}</small>
+                                                    <div class="fw-semibold">
+                                                        <span class="badge bg-{% if user.status == 'active' %}success{% else %}warning{% endif %}">
+                                                            {{ user.get_status_display }}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <small class="text-muted">{% trans "Member Since" %}</small>
+                                                    <div class="fw-semibold">{{ user.created_at|date:"M j, Y" }}</div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <small class="text-muted">{% trans "Last Login" %}</small>
+                                                    <div class="fw-semibold">{{ user.last_login|timesince }} ago</div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <small class="text-muted">{% trans "Login Count" %}</small>
+                                                    <div class="fw-semibold">{{ user.login_count }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Audit Activity Summary -->
+                                <div class="col-12">
+                                    <div class="card border-0 bg-light">
+                                        <div class="card-body">
+                                            <h6 class="fw-semibold mb-3">{% trans "Recent Activity Summary" %}</h6>
+                                            <div class="row g-2">
+                                                {% with activity_count=activity_data.login_history|length %}
+                                                <div class="col-3">
+                                                    <small class="text-muted">{% trans "Recent Logins" %}</small>
+                                                    <div class="fw-semibold">{{ activity_count }}</div>
+                                                </div>
+                                                {% endwith %}
+                                                {% with transfer_count=activity_data.transfer_requests|length %}
+                                                <div class="col-3">
+                                                    <small class="text-muted">{% trans "Transfer Requests" %}</small>
+                                                    <div class="fw-semibold">{{ transfer_count }}</div>
+                                                </div>
+                                                {% endwith %}
+                                                {% with role_count=user.user_roles.count %}
+                                                <div class="col-3">
+                                                    <small class="text-muted">{% trans "Active Roles" %}</small>
+                                                    <div class="fw-semibold">{{ role_count }}</div>
+                                                </div>
+                                                {% endwith %}
+                                                {% with password_count=user.password_history|length %}
+                                                <div class="col-3">
+                                                    <small class="text-muted">{% trans "Password Changes" %}</small>
+                                                    <div class="fw-semibold">{{ password_count }}</div>
+                                                </div>
+                                                {% endwith %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Security Recommendations -->
+                                {% if not user.is_verified %}
+                                <div class="col-12">
+                                    <div class="card border-0 bg-warning bg-opacity-10">
+                                        <div class="card-body">
+                                            <h6 class="fw-semibold mb-3 text-warning">
+                                                <i class="bi bi-shield-exclamation me-2"></i>
+                                                {% trans "Security Recommendations" %}
+                                            </h6>
+                                            <ul class="list-unstyled mb-0 small">
+                                                {% if not user.is_verified %}
+                                                <li class="mb-1">
+                                                    <i class="bi bi-arrow-right text-warning me-1"></i>
+                                                    {% trans "Verify your email address for enhanced security" %}
+                                                </li>
+                                                {% endif %}
+                                                <li class="mb-1">
+                                                    <i class="bi bi-arrow-right text-warning me-1"></i>
+                                                    {% trans "Review your recent login activity and consider enabling additional security measures" %}
+                                                </li>
+                                                {% if not user.two_factor_enabled %}
+                                                <li class="mb-1">
+                                                    <i class="bi bi-arrow-right text-warning me-1"></i>
+                                                    {% trans "Enable two-factor authentication when available" %}
+                                                </li>
+                                                {% endif %}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Preferences Tab -->
+                        <div class="tab-pane fade" id="preferences" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="fw-bold mb-0">{% trans "Preferences" %}</h4>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="enableEditing('preferences')">
+                                    <i class="bi bi-pencil me-1"></i>
+                                    {% trans "Edit" %}
+                                </button>
+                            </div>
+
+                            <form method="post" id="preferencesForm">
+                                {% csrf_token %}
+                                <input type="hidden" name="form_type" value="preferences">
+                                
+                                <div class="row g-4">
+                                    <div class="col-md-6">
+                                        <label for="{{ user_form.language.id_for_label }}" class="form-label">
+                                            {% trans "Language" %}
+                                        </label>
+                                        {{ user_form.language }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ user_form.timezone.id_for_label }}" class="form-label">
+                                            {% trans "Timezone" %}
+                                        </label>
+                                        {{ user_form.timezone }}
+                                    </div>
+                                </div>
+
+                                <h6 class="mt-4 mb-3 fw-semibold">{% trans "Notification Preferences" %}</h6>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <div class="form-check form-switch">
+                                            {{ profile_form.email_notifications }}
+                                            <label class="form-check-label" for="{{ profile_form.email_notifications.id_for_label }}">
+                                                {% trans "Email Notifications" %}
+                                            </label>
+                                        </div>
+                                        <div class="form-text">{% trans "Receive important updates via email" %}</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-check form-switch">
+                                            {{ profile_form.sms_notifications }}
+                                            <label class="form-check-label" for="{{ profile_form.sms_notifications.id_for_label }}">
+                                                {% trans "SMS Notifications" %}
+                                            </label>
+                                        </div>
+                                        <div class="form-text">{% trans "Receive urgent alerts via SMS" %}</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-check form-switch">
+                                            {{ profile_form.push_notifications }}
+                                            <label class="form-check-label" for="{{ profile_form.push_notifications.id_for_label }}">
+                                                {% trans "Push Notifications" %}
+                                            </label>
+                                        </div>
+                                        <div class="form-text">{% trans "Receive notifications in your browser" %}</div>
+                                    </div>
+                                </div>
+
+                                <h6 class="mt-4 mb-3 fw-semibold">{% trans "Social Media" %}</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="{{ profile_form.website.id_for_label }}" class="form-label">
+                                            {% trans "Website" %}
+                                        </label>
+                                        {{ profile_form.website }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ profile_form.linkedin.id_for_label }}" class="form-label">
+                                            {% trans "LinkedIn" %}
+                                        </label>
+                                        {{ profile_form.linkedin }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ profile_form.facebook.id_for_label }}" class="form-label">
+                                            {% trans "Facebook" %}
+                                        </label>
+                                        {{ profile_form.facebook }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ profile_form.twitter.id_for_label }}" class="form-label">
+                                            {% trans "Twitter" %}
+                                        </label>
+                                        {{ profile_form.twitter }}
+                                    </div>
+                                </div>
+
+                                {% if user.is_staff or user.is_superuser %}
+                                <h6 class="mt-4 mb-3 fw-semibold">{% trans "Administrator Preferences" %}</h6>
+                                <div class="alert alert-info">
+                                    <small>
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        {% trans "Admin-specific settings and preferences will be available here. These may include dashboard configurations, notification filtering, and system management preferences." %}
+                                    </small>
+                                </div>
+                                {% endif %}
+
+                                <div class="mt-4">
+                                    <button type="submit" class="btn btn-primary" name="save_preferences">
+                                        <i class="bi bi-check-lg me-1"></i>
+                                        {% trans "Save Preferences" %}
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="disableEditing('preferences')">
+                                        {% trans "Cancel" %}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        {% if has_academic_data or has_assessment_data %}
+                        <!-- Academic Records Tab -->
+                        <div class="tab-pane fade" id="academic" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="fw-bold mb-0">{% trans "Academic Records" %}</h4>
+                                <small class="text-muted">{% trans "Academic information from your school records" %}</small>
+                            </div>
+
+                            <div class="row g-4">
+                                {% if academic_data.student_profile %}
+                                <!-- Student Academic Profile -->
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-person-vcard text-primary me-2"></i>
+                                                {% trans "Student Profile" %}
+                                            </h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-3">
+                                                    <small class="text-muted">{% trans "Student ID" %}</small><br>
+                                                    <strong>{{ academic_data.student_profile.student_id|default:"N/A" }}</strong>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <small class="text-muted">{% trans "Admission Date" %}</small><br>
+                                                    <strong>{{ academic_data.student_profile.admission_date|date:"M j, Y"|default:"N/A" }}</strong>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <small class="text-muted">{% trans "Enrollment Status" %}</small><br>
+                                                    <span class="badge bg-{% if academic_data.student_profile.status == 'active' %}success{% else %}warning{% endif %}">
+                                                        {{ academic_data.student_profile.get_status_display|default:"Active" }}
+                                                    </span>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <small class="text-muted">{% trans "Previous School" %}</small><br>
+                                                    <strong>{{ academic_data.student_profile.previous_school|default:"Not specified" }}</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Current Enrollment -->
+                                {% if academic_data.current_enrollment %}
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-book-open text-success me-2"></i>
+                                                {% trans "Current Enrollment" %}
+                                            </h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-4">
+                                                    <small class="text-muted">{% trans "Academic Session" %}</small><br>
+                                                    <strong>{{ academic_data.current_enrollment.academic_session.name }}</strong>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <small class="text-muted">{% trans "Class" %}</small><br>
+                                                    <strong>{{ academic_data.current_enrollment.class_enrolled.name }}</strong>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <small class="text-muted">{% trans "Enrollment Date" %}</small><br>
+                                                    <strong>{{ academic_data.current_enrollment.enrollment_date|date:"M j, Y" }}</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Timetable -->
+                                {% if academic_data.timetable_entries %}
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-calendar-week text-info me-2"></i>
+                                                {% trans "Class Timetable" %}
+                                            </h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>{% trans "Day" %}</th>
+                                                            <th>{% trans "Period" %}</th>
+                                                            <th>{% trans "Subject" %}</th>
+                                                            <th>{% trans "Teacher" %}</th>
+                                                            <th>{% trans "Time" %}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for entry in academic_data.timetable_entries %}
+                                                        <tr>
+                                                            <td class="fw-semibold">{{ entry.get_day_of_week_display }}</td>
+                                                            <td>{{ entry.period_number }}</td>
+                                                            <td>{{ entry.subject.name }}</td>
+                                                            <td>{{ entry.teacher.user.get_full_name }}</td>
+                                                            <td>{{ entry.start_time }} - {{ entry.end_time }}</td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% elif academic_data.teacher_profile %}
+                                <!-- Teacher Academic Profile -->
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-person-workspace text-primary me-2"></i>
+                                                {% trans "Teacher Profile" %}
+                                            </h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-3">
+                                                    <small class="text-muted">{% trans "Employee ID" %}</small><br>
+                                                    <strong>{{ academic_data.teacher_profile.employee_id|default:"N/A" }}</strong>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <small class="text-muted">{% trans "Joining Date" %}</small><br>
+                                                    <strong>{{ academic_data.teacher_profile.joining_date|date:"M j, Y"|default:"N/A" }}</strong>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <small class="text-muted">{% trans "Qualification" %}</small><br>
+                                                    <strong>{{ academic_data.teacher_profile.qualification|default:"N/A" }}</strong>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <small class="text-muted">{% trans "Specialization" %}</small><br>
+                                                    <strong>{{ academic_data.teacher_profile.specialization|default:"N/A" }}</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if has_assessment_data %}
+                        <!-- Assessment Results Tab -->
+                        <div class="tab-pane fade" id="assessment" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="fw-bold mb-0">{% trans "Assessment Results" %}</h4>
+                                <small class="text-muted">{% trans "Exam marks, grades, and performance records" %}</small>
+                            </div>
+
+                            <div class="row g-4">
+                                {% if assessment_data.exam_marks %}
+                                <!-- Recent Exam Marks -->
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-graph-up-arrow text-success me-2"></i>
+                                                {% trans "Recent Exam Marks" %}
+                                            </h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>{% trans "Subject" %}</th>
+                                                            <th>{% trans "Exam Type" %}</th>
+                                                            <th>{% trans "Marks" %}</th>
+                                                            <th>{% trans "Percentage" %}</th>
+                                                            <th>{% trans "Grade" %}</th>
+                                                            <th>{% trans "Date" %}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for mark in assessment_data.exam_marks %}
+                                                        <tr>
+                                                            <td>{{ mark.exam.subject.name }}</td>
+                                                            <td>{{ mark.exam.exam_type.name }}</td>
+                                                            <td>{{ mark.marks_obtained }}/{{ mark.exam.total_marks }}</td>
+                                                            <td>
+                                                                <span class="badge bg-{% if mark.percentage >= 80 %}success{% elif mark.percentage >= 60 %}warning{% else %}danger{% endif %}">
+                                                                    {{ mark.percentage }}%
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                {% if mark.grade %}
+                                                                    <span class="badge bg-{% if mark.grade.grade in 'ABC' %}success{% elif mark.grade.grade in 'DEF' %}warning{% else %}danger{% endif %}">
+                                                                        {{ mark.grade.grade }}
+                                                                    </span>
+                                                                {% else %}
+                                                                N/A
+                                                                {% endif %}
+                                                            </td>
+                                                            <td>{{ mark.exam.exam_date|date:"M j, Y" }}</td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% if assessment_data.results %}
+                                <!-- Results Summary -->
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-trophy text-warning me-2"></i>
+                                                {% trans "Results Summary" %}
+                                            </h6>
+                                            <div class="row g-3">
+                                                {% for result in assessment_data.results %}
+                                                <div class="col-md-6">
+                                                    <div class="card bg-light border-0">
+                                                        <div class="card-body">
+                                                            <h6 class="mb-2">{{ result.exam_type.name }}</h6>
+                                                            {% if result.grade %}
+                                                            <div class="d-flex justify-content-between">
+                                                                <span>{% trans "Grade" %}:</span>
+                                                                <strong>{{ result.grade.grade }}</strong>
+                                                            </div>
+                                                            {% endif %}
+                                                            {% if result.percentage %}
+                                                            <div class="d-flex justify-content-between">
+                                                                <span>{% trans "Percentage" %}:</span>
+                                                                <strong>{{ result.percentage }}%</strong>
+                                                            </div>
+                                                            {% endif %}
+                                                            <small class="text-muted">{{ result.created_at|date:"M j, Y" }}</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if has_attendance_data %}
+                        <!-- Attendance History Tab -->
+                        <div class="tab-pane fade" id="attendance" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="fw-bold mb-0">{% trans "Attendance History" %}</h4>
+                                <small class="text-muted">{% trans "Your attendance records and leave history" %}</small>
+                            </div>
+
+                            <div class="row g-4">
+                                {% if attendance_data.daily_attendance %}
+                                <!-- Recent Daily Attendance -->
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-calendar-check text-primary me-2"></i>
+                                                {% trans "Recent Daily Attendance" %}
+                                            </h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>{% trans "Date" %}</th>
+                                                            <th>{% trans "Status" %}</th>
+                                                            <th>{% trans "Check In" %}</th>
+                                                            <th>{% trans "Check Out" %}</th>
+                                                            <th>{% trans "Remarks" %}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for attendance in attendance_data.daily_attendance %}
+                                                        <tr>
+                                                            <td>{{ attendance.date|date:"M j, Y" }}</td>
+                                                            <td>
+                                                                <span class="badge bg-{{ attendance.get_status_badge }}">
+                                                                    {{ attendance.get_status_display }}
+                                                                </span>
+                                                            </td>
+                                                            <td>{{ attendance.check_in_time|time:"H:i"|default:"-" }}</td>
+                                                            <td>{{ attendance.check_out_time|time:"H:i"|default:"-" }}</td>
+                                                            <td>{{ attendance.remarks|default:"-" }}</td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% if attendance_data.attendance_summaries %}
+                                <!-- Monthly Summaries -->
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-bar-chart text-info me-2"></i>
+                                                {% trans "Monthly Attendance Summaries" %}
+                                            </h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>{% trans "Month" %}</th>
+                                                            <th>{% trans "Total Days" %}</th>
+                                                            <th>{% trans "Present" %}</th>
+                                                            <th>{% trans "Absent" %}</th>
+                                                            <th>{% trans "Percentage" %}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for summary in attendance_data.attendance_summaries %}
+                                                        <tr>
+                                                            <td>{{ summary.get_month_display }} {{ summary.year }}</td>
+                                                            <td>{{ summary.total_working_days }}</td>
+                                                            <td><span class="text-success">{{ summary.days_present }}</span></td>
+                                                            <td><span class="text-danger">{{ summary.days_absent }}</span></td>
+                                                            <td>
+                                                                <span class="badge bg-{% if summary.attendance_percentage >= 80 %}success{% elif summary.attendance_percentage >= 60 %}warning{% else %}danger{% endif %}">
+                                                                    {{ summary.attendance_percentage|floatformat:1 }}%
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% if attendance_data.leave_applications %}
+                                <!-- Leave Applications -->
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-calendar-minus text-danger me-2"></i>
+                                                {% trans "Leave Applications" %}
+                                            </h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>{% trans "Type" %}</th>
+                                                            <th>{% trans "Days" %}</th>
+                                                            <th>{% trans "From" %}</th>
+                                                            <th>{% trans "To" %}</th>
+                                                            <th>{% trans "Status" %}</th>
+                                                            <th>{% trans "Applied On" %}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for leave in attendance_data.leave_applications %}
+                                                        <tr>
+                                                            <td>{{ leave.get_leave_type_display }}</td>
+                                                            <td>{{ leave.days_applied }}</td>
+                                                            <td>{{ leave.start_date|date:"M j, Y" }}</td>
+                                                            <td>{{ leave.end_date|date:"M j, Y" }}</td>
+                                                            <td>
+                                                                <span class="badge bg-{% if leave.status == 'approved' %}success{% elif leave.status == 'rejected' %}danger{% else %}warning{% endif %}">
+                                                                    {{ leave.get_status_display }}
+                                                                </span>
+                                                            </td>
+                                                            <td>{{ leave.created_at|date:"M j, Y" }}</td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if has_finance_data %}
+                        <!-- Financial Records Tab -->
+                        <div class="tab-pane fade" id="finance" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="fw-bold mb-0">{% trans "Financial Records" %}</h4>
+                                <small class="text-muted">{% trans "Invoices, payments, and financial history" %}</small>
+                            </div>
+
+                            <div class="row g-4">
+                                {% if finance_data.pending_invoices %}
+                                <!-- Pending Invoices -->
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3 text-warning">
+                                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                                {% trans "Pending Invoices" %}
+                                            </h6>
+                                            {% for invoice in finance_data.pending_invoices %}
+                                            <div class="d-flex justify-content-between border-bottom py-2">
+                                                <div>
+                                                    <strong>{{ invoice.invoice_number }}</strong><br>
+                                                    <small class="text-muted">{{ invoice.issue_date|date:"M j, Y" }}</small>
+                                                </div>
+                                                <div class="text-end">
+                                                    <span class="text-danger fw-bold">${{ invoice.balance_due }}</span><br>
+                                                    <small class="text-muted">{{ invoice.get_status_display }}</small>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% if finance_data.recent_payments %}
+                                <!-- Recent Payments -->
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3 text-success">
+                                                <i class="bi bi-check-circle me-2"></i>
+                                                {% trans "Recent Payments" %}
+                                            </h6>
+                                            {% for payment in finance_data.recent_payments %}
+                                            <div class="d-flex justify-content-between border-bottom py-2">
+                                                <div>
+                                                    <strong>{{ payment.invoice.invoice_number }}</strong><br>
+                                                    <small class="text-muted">{{ payment.payment_date|date:"M j, Y" }}</small>
+                                                </div>
+                                                <div class="text-end">
+                                                    <span class="text-success fw-bold">${{ payment.amount }}</span><br>
+                                                    <small class="text-muted">{{ payment.get_payment_method_display }}</small>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Fee Balance Summary -->
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-cash-stack text-primary me-2"></i>
+                                                {% trans "Fee Status Summary" %}
+                                            </h6>
+                                            <div class="row g-3">
+                                                {% with total_outstanding=finance_data.pending_invoices|length %}
+                                                <div class="col-md-3">
+                                                    <div class="text-center p-3 bg-light rounded">
+                                                        <h4 class="text-warning mb-1">{{ total_outstanding }}</h4>
+                                                        <small class="text-muted">{% trans "Outstanding Invoices" %}</small>
+                                                    </div>
+                                                </div>
+                                                {% endwith %}
+                                                {% with total_paid=finance_data.recent_payments|length %}
+                                                <div class="col-md-3">
+                                                    <div class="text-center p-3 bg-light rounded">
+                                                        <h4 class="text-success mb-1">{{ total_paid }}</h4>
+                                                        <small class="text-muted">{% trans "Recent Payments" %}</small>
+                                                    </div>
+                                                </div>
+                                                {% endwith %}
+                                                <div class="col-md-6">
+                                                    <div class="alert alert-info mb-0">
+                                                        <small>
+                                                            {% trans "Total outstanding amount" %}:
+                                                            <strong>${{ finance_data.total_outstanding }}</strong><br>
+                                                            {% trans "Last payment" %}:
+                                                            {% if finance_data.recent_payments %}
+                                                            <strong>{{ finance_data.recent_payments.0.payment_date|date:"M j, Y" }}</strong>
+                                                            {% else %}
+                                                            <em>{% trans "No recent payments" %}</em>
+                                                            {% endif %}
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if has_library_data %}
+                        <!-- Library Records Tab -->
+                        <div class="tab-pane fade" id="library" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="fw-bold mb-0">{% trans "Library Records" %}</h4>
+                                <small class="text-muted">{% trans "Books borrowed and return status" %}</small>
+                            </div>
+
+                            <div class="row g-4">
+                                {% if library_data.current_borrows %}
+                                <!-- Current Borrows -->
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-book-read text-primary me-2"></i>
+                                                {% trans "Currently Borrowed Books" %}
+                                            </h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>{% trans "Book Title" %}</th>
+                                                            <th>{% trans "Author" %}</th>
+                                                            <th>{% trans "Borrow Date" %}</th>
+                                                            <th>{% trans "Due Date" %}</th>
+                                                            <th>{% trans "Status" %}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for borrow in library_data.current_borrows %}
+                                                        <tr>
+                                                            <td>{{ borrow.book.title }}</td>
+                                                            <td>{{ borrow.book.author|default:"-" }}</td>
+                                                            <td>{{ borrow.borrow_date|date:"M j, Y" }}</td>
+                                                            <td>
+                                                                {% if borrow.due_date < today %}
+                                                                <span class="text-danger fw-bold">{{ borrow.due_date|date:"M j, Y" }}</span>
+                                                                {% else %}
+                                                                {{ borrow.due_date|date:"M j, Y" }}
+                                                                {% endif %}
+                                                            </td>
+                                                            <td>
+                                                                {% if borrow.due_date < today %}
+                                                                <span class="badge bg-danger">{% trans "Overdue" %}</span>
+                                                                {% elif borrow.return_date %}
+                                                                <span class="badge bg-success">{% trans "Returned" %}</span>
+                                                                {% else %}
+                                                                <span class="badge bg-info">{% trans "On Loan" %}</span>
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            {% if library_data.overdue_books > 0 %}
+                                            <div class="alert alert-danger mt-3">
+                                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                                <strong>{{ library_data.overdue_books }}</strong> {% trans "book(s) are overdue. Please return them immediately." %}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if has_health_data %}
+                        <!-- Health Records Tab -->
+                        <div class="tab-pane fade" id="health" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="fw-bold mb-0">{% trans "Health Records" %}</h4>
+                                <small class="text-muted">{% trans "Medical records and health information" %}</small>
+                            </div>
+
+                            <div class="row g-4">
+                                {% if health_data.medical_records %}
+                                <!-- Medical Records -->
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-heart-pulse text-danger me-2"></i>
+                                                {% trans "Medical Records" %}
+                                            </h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>{% trans "Visit Date" %}</th>
+                                                            <th>{% trans "Doctor" %}</th>
+                                                            <th>{% trans "Diagnosis" %}</th>
+                                                            <th>{% trans "Treatment" %}</th>
+                                                            <th>{% trans "Notes" %}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for record in health_data.medical_records %}
+                                                        <tr>
+                                                            <td>{{ record.visit_date|date:"M j, Y" }}</td>
+                                                            <td>{{ record.doctor.first_name }} {{ record.doctor.last_name }}</td>
+                                                            <td>{{ record.diagnosis|truncatewords:5 }}</td>
+                                                            <td>{{ record.treatment|truncatewords:5 }}</td>
+                                                            <td>{{ record.notes|truncatewords:8|default:"-" }}</td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if has_transport_data %}
+                        <!-- Transport Info Tab -->
+                        <div class="tab-pane fade" id="transport" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="fw-bold mb-0">{% trans "Transport Information" %}</h4>
+                                <small class="text-muted">{% trans "Bus routes, pick-up/drop-off times, and transport details" %}</small>
+                            </div>
+
+                            <div class="row g-4">
+                                {% if transport_data.transport_enrollment %}
+                                <!-- Current Enrollment -->
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-bus-front text-primary me-2"></i>
+                                                {% trans "Transport Enrollment" %}
+                                            </h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-3">
+                                                    <small class="text-muted">{% trans "Route" %}</small><br>
+                                                    <strong>{{ transport_data.transport_enrollment.route.name }}</strong>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <small class="text-muted">{% trans "Vehicle" %}</small><br>
+                                                    <strong>{{ transport_data.transport_enrollment.route.vehicle.number_plate }}</strong>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <small class="text-muted">{% trans "Stop Point" %}</small><br>
+                                                    <strong>{{ transport_data.transport_enrollment.pickup_point.name }}</strong>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <small class="text-muted">{% trans "Fee" %}</small><br>
+                                                    <strong class="text-success">${{ transport_data.transport_enrollment.fee_monthly }}/mo</strong>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <small class="text-muted">{% trans "Pick-up Time" %}</small><br>
+                                                    <strong>{{ transport_data.transport_enrollment.pickup_time }}</strong>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <small class="text-muted">{% trans "Drop-off Time" %}</small><br>
+                                                    <strong>{{ transport_data.transport_enrollment.dropoff_time }}</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if has_activity_data %}
+                        <!-- Activity Log Tab -->
+                        <div class="tab-pane fade" id="activity" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="fw-bold mb-0">{% trans "Activity Log" %}</h4>
+                                <small class="text-muted">{% trans "System activities, role changes, and account history" %}</small>
+                            </div>
+
+                            <div class="row g-4">
+                                <!-- Login History -->
+                                {% if activity_data.login_history %}
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-shield-lock text-primary me-2"></i>
+                                                {% trans "Recent Logins" %}
+                                            </h6>
+                                            <div class="activity-feed">
+                                                {% for login in activity_data.login_history %}
+                                                <div class="d-flex mb-2">
+                                                    <div class="me-3">
+                                                        {% if login.was_successful %}
+                                                        <i class="bi bi-check-circle text-success"></i>
+                                                        {% else %}
+                                                        <i class="bi bi-x-circle text-danger"></i>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <small class="text-muted">{{ login.created_at|timesince }} ago</small><br>
+                                                        <span class="small">{{ login.get_login_method_display }} from {{ login.ip_address }}</span>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Password History -->
+                                {% if activity_data.password_history %}
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-key text-warning me-2"></i>
+                                                {% trans "Password Changes" %}
+                                            </h6>
+                                            <div class="activity-feed">
+                                                {% for password_change in activity_data.password_history %}
+                                                <div class="d-flex mb-2">
+                                                    <div class="me-3">
+                                                        <i class="bi bi-shield-check text-success"></i>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <small class="text-muted">{{ password_change.changed_at|timesince }} ago</small><br>
+                                                        <span class="small">Password changed by {{ password_change.changed_by.get_full_name }}</span>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Transfer Requests -->
+                                {% if activity_data.transfer_requests %}
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-arrow-left-right text-info me-2"></i>
+                                                {% trans "Transfer Requests" %}
+                                            </h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>{% trans "Request #" %}</th>
+                                                            <th>{% trans "Requested Institution" %}</th>
+                                                            <th>{% trans "Status" %}</th>
+                                                            <th>{% trans "Requested On" %}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for request in activity_data.transfer_requests %}
+                                                        <tr>
+                                                            <td>{{ request.request_number }}</td>
+                                                            <td>{{ request.requested_institution.name }}</td>
+                                                            <td>
+                                                                <span class="badge bg-{% if request.request_status == 'approved' %}success{% elif request.request_status == 'rejected' %}danger{% else %}warning{% endif %}">
+                                                                    {{ request.get_request_status_display }}
+                                                                </span>
+                                                            </td>
+                                                            <td>{{ request.created_at|date:"M j, Y" }}</td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if has_parent_data or has_student_data %}
+                        <!-- Relationships Tab -->
+                        <div class="tab-pane fade" id="relationships" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="fw-bold mb-0">{% trans "Relationships" %}</h4>
+                                <small class="text-muted">{% trans "Family connections and guardians" %}</small>
+                            </div>
+
+                            <div class="row g-4">
+                                {% if relationships_data.children %}
+                                <!-- Children (For Parents) -->
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-people-fill text-primary me-2"></i>
+                                                {% trans "My Children" %}
+                                            </h6>
+                                            <div class="row g-3">
+                                                {% for child in relationships_data.children %}
+                                                <div class="col-md-6">
+                                                    <div class="card bg-light border-0">
+                                                        <div class="card-body">
+                                                            <div class="d-flex align-items-center mb-2">
+                                                                <i class="bi bi-person-circle fs-4 me-3"></i>
+                                                                <div>
+                                                                    <h6 class="mb-1">{{ child.student.user.get_full_name }}</h6>
+                                                                    <small class="text-muted">Student ID: {{ child.student.student_id }}</small>
+                                                                </div>
+                                                            </div>
+                                                            <div class="row g-2">
+                                                                <div class="col-6">
+                                                                    <small class="text-muted">{% trans "Relationship" %}:</small><br>
+                                                                    <strong>{{ child.get_relationship_type_display }}</strong>
+                                                                </div>
+                                                                <div class="col-6">
+                                                                    <small class="text-muted">{% trans "Contact" %}:</small><br>
+                                                                    <strong>{{ child.student.user.mobile|default:"Not provided" }}</strong>
+                                                                </div>
+                                                            </div>
+                                                            {% if child.is_primary_contact %}
+                                                            <div class="mt-2">
+                                                                <span class="badge bg-success">{% trans "Primary Contact" %}</span>
+                                                            </div>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% if has_student_data %}
+                                <!-- Guardians (For Students) -->
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-shield-person text-success me-2"></i>
+                                                {% trans "My Guardians" %}
+                                            </h6>
+                                            {% if academic_data.current_enrollment %}
+                                            <div class="alert alert-info">
+                                                <small>{% trans "Guardian information is managed through the enrollment records." %}</small>
+                                            </div>
+                                            {% else %}
+                                            <div class="alert alert-warning">
+                                                <small>{% trans "No enrollment records found. Contact the school administration." %}</small>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Application Details Tab -->
+                        {% if student_application or staff_application %}
+                        <div class="tab-pane fade" id="application" role="tabpanel">
+                            <h4 class="fw-bold mb-4">{% trans "Application Details" %}</h4>
+
+                            {% if student_application %}
+                            <!-- Student Application Details -->
+                            <div class="row g-4">
+                                <div class="col-12">
+                                    <div class="card border-0 bg-light">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                <h5 class="fw-bold mb-0">{% trans "Student Application" %}</h5>
+                                                <span class="badge bg-{{ application_status_badge }}">{{ student_application.get_application_status_display }}</span>
+                                            </div>
+                                            <p class="text-muted mb-3">{% trans "Application submitted on" %} {{ student_application.application_date|date:"M j, Y H:i" }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-person-vcard text-primary me-2"></i>
+                                                {% trans "Personal Information" %}
+                                            </h6>
+                                            <div class="row g-2">
+                                                <div class="col-6"><small class="text-muted">{% trans "Full Name" %}</small><br>
+                                                <strong>{{ student_application.full_name }}</strong></div>
+                                                <div class="col-6"><small class="text-muted">{% trans "Date of Birth" %}</small><br>
+                                                <strong>{{ student_application.date_of_birth|date:"M j, Y" }}{% if student_application.age %} ({{ student_application.age }} {% trans "years old" %}){% endif %}</strong></div>
+                                                <div class="col-6"><small class="text-muted">{% trans "Gender" %}</small><br>
+                                                <strong>{{ student_application.get_gender_display }}</strong></div>
+                                                <div class="col-6"><small class="text-muted">{% trans "Nationality" %}</small><br>
+                                                <strong>{{ student_application.nationality }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Email" %}</small><br>
+                                                <strong>{{ student_application.email }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Phone" %}</small><br>
+                                                <strong>{{ student_application.phone }}</strong></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-geo-alt text-success me-2"></i>
+                                                {% trans "Address" %}
+                                            </h6>
+                                            <address class="mb-0">
+                                                {{ student_application.address }}<br>
+                                                {{ student_application.city }}, {{ student_application.state }} {{ student_application.postal_code }}<br>
+                                                {{ student_application.country }}
+                                            </address>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-people text-info me-2"></i>
+                                                {% trans "Parent/Guardian" %}
+                                            </h6>
+                                            <div class="row g-2">
+                                                <div class="col-12"><small class="text-muted">{% trans "Parent Name" %}</small><br>
+                                                <strong>{{ student_application.parent_full_name }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Parent Email" %}</small><br>
+                                                <strong>{{ student_application.parent_email }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Parent Phone" %}</small><br>
+                                                <strong>{{ student_application.parent_phone }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Relationship" %}</small><br>
+                                                <strong>{{ student_application.get_parent_relationship_display }}</strong></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-book text-warning me-2"></i>
+                                                {% trans "Academic Information" %}
+                                            </h6>
+                                            <div class="row g-2">
+                                                <div class="col-12"><small class="text-muted">{% trans "Grade Applying For" %}</small><br>
+                                                <strong>{{ student_application.get_grade_applying_for_display }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Previous School" %}</small><br>
+                                                <strong>{{ student_application.previous_school|default:_("Not specified") }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Previous Grade" %}</small><br>
+                                                <strong>{{ student_application.previous_grade|default:_("Not specified") }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Academic Session" %}</small><br>
+                                                <strong>{% if student_application.academic_session %}{{ student_application.academic_session.name }}{% else %}{% trans "N/A" %}{% endif %}</strong></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {% if student_application.academic_achievements or student_application.medical_conditions or student_application.special_needs or student_application.extracurricular_interests %}
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-info-circle text-secondary me-2"></i>
+                                                {% trans "Additional Information" %}
+                                            </h6>
+                                            <div class="row g-3">
+                                                {% if student_application.academic_achievements %}
+                                                <div class="col-md-6">
+                                                    <small class="text-muted">{% trans "Academic Achievements" %}</small>
+                                                    <div class="mt-1">{{ student_application.academic_achievements }}</div>
+                                                </div>
+                                                {% endif %}
+                                                {% if student_application.medical_conditions %}
+                                                <div class="col-md-6">
+                                                    <small class="text-muted">{% trans "Medical Conditions" %}</small>
+                                                    <div class="mt-1">{{ student_application.medical_conditions }}</div>
+                                                </div>
+                                                {% endif %}
+                                                {% if student_application.special_needs %}
+                                                <div class="col-md-6">
+                                                    <small class="text-muted">{% trans "Special Needs" %}</small>
+                                                    <div class="mt-1">{{ student_application.special_needs }}</div>
+                                                </div>
+                                                {% endif %}
+                                                {% if student_application.extracurricular_interests %}
+                                                <div class="col-md-6">
+                                                    <small class="text-muted">{% trans "Extracurricular Interests" %}</small>
+                                                    <div class="mt-1">{{ student_application.extracurricular_interests }}</div>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% if student_application.birth_certificate or student_application.previous_school_transcript or student_application.recommendation_letter or student_application.medical_report %}
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-file-earmark-arrow-down text-danger me-2"></i>
+                                                {% trans "Uploaded Documents" %}
+                                            </h6>
+                                            <div class="row g-2">
+                                                {% if student_application.birth_certificate %}
+                                                <div class="col-md-3">
+                                                    <a href="{{ student_application.birth_certificate.url }}" target="_blank" class="d-flex align-items-center justify-content-center flex-column btn btn-outline-primary btn-sm h-100">
+                                                        <i class="bi bi-file-earmark-person fs-4 mb-1"></i>
+                                                        {% trans "Birth Certificate" %}
+                                                    </a>
+                                                </div>
+                                                {% endif %}
+                                                {% if student_application.previous_school_transcript %}
+                                                <div class="col-md-3">
+                                                    <a href="{{ student_application.previous_school_transcript.url }}" target="_blank" class="d-flex align-items-center justify-content-center flex-column btn btn-outline-primary btn-sm h-100">
+                                                        <i class="bi bi-file-earmark-text fs-4 mb-1"></i>
+                                                        {% trans "Transcript" %}
+                                                    </a>
+                                                </div>
+                                                {% endif %}
+                                                {% if student_application.recommendation_letter %}
+                                                <div class="col-md-3">
+                                                    <a href="{{ student_application.recommendation_letter.url }}" target="_blank" class="d-flex align-items-center justify-content-center flex-column btn btn-outline-primary btn-sm h-100">
+                                                        <i class="bi bi-file-earmark-arrow-up fs-4 mb-1"></i>
+                                                        {% trans "Recommendation" %}
+                                                    </a>
+                                                </div>
+                                                {% endif %}
+                                                {% if student_application.medical_report %}
+                                                <div class="col-md-3">
+                                                    <a href="{{ student_application.medical_report.url }}" target="_blank" class="d-flex align-items-center justify-content-center flex-column btn btn-outline-primary btn-sm h-100">
+                                                        <i class="bi bi-file-earmark-medical fs-4 mb-1"></i>
+                                                        {% trans "Medical Report" %}
+                                                    </a>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            {% elif staff_application %}
+                            <!-- Staff Application Details -->
+                            <div class="row g-4">
+                                <div class="col-12">
+                                    <div class="card border-0 bg-light">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                <h5 class="fw-bold mb-0">{% trans "Staff Application" %}</h5>
+                                                <span class="badge bg-{{ application_status_badge }}">{{ staff_application.get_application_status_display }}</span>
+                                            </div>
+                                            <p class="text-muted mb-3">{% trans "Application submitted on" %} {{ staff_application.application_date|date:"M j, Y H:i" }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-person-vcard text-primary me-2"></i>
+                                                {% trans "Personal Information" %}
+                                            </h6>
+                                            <div class="row g-2">
+                                                <div class="col-6"><small class="text-muted">{% trans "Full Name" %}</small><br>
+                                                <strong>{{ staff_application.full_name }}</strong></div>
+                                                <div class="col-6"><small class="text-muted">{% trans "Date of Birth" %}</small><br>
+                                                <strong>{{ staff_application.date_of_birth|date:"M j, Y" }}{% if staff_application.age %} ({{ staff_application.age }} {% trans "years old" %}){% endif %}</strong></div>
+                                                <div class="col-6"><small class="text-muted">{% trans "Gender" %}</small><br>
+                                                <strong>{{ staff_application.get_gender_display }}</strong></div>
+                                                <div class="col-6"><small class="text-muted">{% trans "Nationality" %}</small><br>
+                                                <strong>{{ staff_application.nationality }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Email" %}</small><br>
+                                                <strong>{{ staff_application.email }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Phone" %}</small><br>
+                                                <strong>{{ staff_application.phone }}</strong></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-geo-alt text-success me-2"></i>
+                                                {% trans "Address" %}
+                                            </h6>
+                                            <address class="mb-0">
+                                                {{ staff_application.address }}<br>
+                                                {{ staff_application.city }}, {{ staff_application.state }} {{ staff_application.postal_code }}<br>
+                                                {{ staff_application.country }}
+                                            </address>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-briefcase text-info me-2"></i>
+                                                {% trans "Professional Information" %}
+                                            </h6>
+                                            <div class="row g-2">
+                                                <div class="col-12"><small class="text-muted">{% trans "Position Applied For" %}</small><br>
+                                                <strong>{{ staff_application.position_applied_for.name }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Position Type" %}</small><br>
+                                                <strong>{{ staff_application.get_position_type_display }}</strong></div>
+                                                {% if staff_application.expected_salary %}
+                                                <div class="col-12"><small class="text-muted">{% trans "Expected Salary" %}</small><br>
+                                                <strong>{{ staff_application.expected_salary }}</strong></div>
+                                                {% endif %}
+                                                <div class="col-12"><small class="text-muted">{% trans "Academic Session" %}</small><br>
+                                                <strong>{% if staff_application.academic_session %}{{ staff_application.academic_session.name }}{% else %}{% trans "N/A" %}{% endif %}</strong></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-mortarboard text-warning me-2"></i>
+                                                {% trans "Qualifications" %}
+                                            </h6>
+                                            <div class="row g-2">
+                                                <div class="col-12"><small class="text-muted">{% trans "Highest Qualification" %}</small><br>
+                                                <strong>{{ staff_application.highest_qualification }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Institution" %}</small><br>
+                                                <strong>{{ staff_application.institution }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Year Graduated" %}</small><br>
+                                                <strong>{{ staff_application.year_graduated }}</strong></div>
+                                                <div class="col-12"><small class="text-muted">{% trans "Years of Experience" %}</small><br>
+                                                <strong>{{ staff_application.years_of_experience }} {% trans "years" %}</strong></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {% if staff_application.previous_employer or staff_application.previous_position %}
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-building text-secondary me-2"></i>
+                                                {% trans "Previous Employment" %}
+                                            </h6>
+                                            <div class="row g-2">
+                                                {% if staff_application.previous_employer %}
+                                                <div class="col-12"><small class="text-muted">{% trans "Previous Employer" %}</small><br>
+                                                <strong>{{ staff_application.previous_employer }}</strong></div>
+                                                {% endif %}
+                                                {% if staff_application.previous_position %}
+                                                <div class="col-12"><small class="text-muted">{% trans "Previous Position" %}</small><br>
+                                                <strong>{{ staff_application.previous_position }}</strong></div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% if staff_application.reference1_name or staff_application.reference2_name %}
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-person-check text-info me-2"></i>
+                                                {% trans "References" %}
+                                            </h6>
+                                            {% if staff_application.reference1_name %}
+                                            <div class="mb-3">
+                                                <small class="text-muted d-block">{% trans "Reference 1" %}</small>
+                                                <strong>{{ staff_application.reference1_name }}</strong><br>
+                                                <span class="text-muted small">{{ staff_application.reference1_position }}</span><br>
+                                                <span class="text-muted small">{{ staff_application.reference1_contact }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if staff_application.reference2_name %}
+                                            <div class="mb-0">
+                                                <small class="text-muted d-block">{% trans "Reference 2" %}</small>
+                                                <strong>{{ staff_application.reference2_name }}</strong><br>
+                                                <span class="text-muted small">{{ staff_application.reference2_position }}</span><br>
+                                                <span class="text-muted small">{{ staff_application.reference2_contact }}</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% if staff_application.cv or staff_application.cover_letter or staff_application.certificates %}
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="bi bi-file-earmark-arrow-down text-danger me-2"></i>
+                                                {% trans "Uploaded Documents" %}
+                                            </h6>
+                                            <div class="row g-2">
+                                                {% if staff_application.cv %}
+                                                <div class="col-md-4">
+                                                    <a href="{{ staff_application.cv.url }}" target="_blank" class="d-flex align-items-center justify-content-center flex-column btn btn-outline-primary btn-sm h-100">
+                                                        <i class="bi bi-file-earmark-person fs-4 mb-1"></i>
+                                                        {% trans "CV/Resume" %}
+                                                    </a>
+                                                </div>
+                                                {% endif %}
+                                                {% if staff_application.cover_letter %}
+                                                <div class="col-md-4">
+                                                    <a href="{{ staff_application.cover_letter.url }}" target="_blank" class="d-flex align-items-center justify-content-center flex-column btn btn-outline-primary btn-sm h-100">
+                                                        <i class="bi bi-envelope-paper fs-4 mb-1"></i>
+                                                        {% trans "Cover Letter" %}
+                                                    </a>
+                                                </div>
+                                                {% endif %}
+                                                {% if staff_application.certificates %}
+                                                <div class="col-md-4">
+                                                    <a href="{{ staff_application.certificates.url }}" target="_blank" class="d-flex align-items-center justify-content-center flex-column btn btn-outline-primary btn-sm h-100">
+                                                        <i class="bi bi-award fs-4 mb-1"></i>
+                                                        {% trans "Certificates" %}
+                                                    </a>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% if staff_application.interview_date %}
+                                <div class="col-12">
+                                    <div class="card border-0 bg-warning bg-opacity-10">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-2">
+                                                <i class="bi bi-calendar-event text-warning me-2"></i>
+                                                {% trans "Interview Scheduled" %}
+                                            </h6>
+                                            <p class="mb-0 text-warning fw-semibold">{{ staff_application.interview_date|date:"M j, Y H:i" }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Roles Tab -->
+                        {% if user.user_roles.count > 0 %}
+                        <div class="tab-pane fade" id="roles" role="tabpanel">
+                            <h4 class="fw-bold mb-4">{% trans "My Roles" %}</h4>
+                            
+                            <div class="row g-4">
+                                {% for user_role in user.user_roles.all %}
+                                <div class="col-lg-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                                <div>
+                                                    <h5 class="fw-bold mb-1">{{ user_role.role.name }}</h5>
+                                                    <span class="badge bg-{% if user_role.is_primary %}primary{% else %}secondary{% endif %}">
+                                                        {% if user_role.is_primary %}{% trans "Primary" %}{% else %}{% trans "Secondary" %}{% endif %}
+                                                    </span>
+                                                </div>
+                                                <i class="bi bi-person-badge fs-4 text-{{ user_role.role.role_type }}"></i>
+                                            </div>
+                                            
+                                            <p class="text-muted small mb-3">{{ user_role.role.description }}</p>
+                                            
+                                            <div class="role-meta">
+                                                <div class="d-flex justify-content-between small text-muted mb-1">
+                                                    <span>{% trans "Academic Session" %}</span>
+                                                    <span>{{ user_role.academic_session.name|default:"N/A" }}</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between small text-muted mb-1">
+                                                    <span>{% trans "Context" %}</span>
+                                                    <span>{{ user_role.context_id|default:"N/A" }}</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between small text-muted">
+                                                    <span>{% trans "Assigned" %}</span>
+                                                    <span>{{ user_role.created_at|timesince }} ago</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Profile Picture Modal -->
+<div class="modal fade" id="profilePictureModal" tabindex="-1" aria-labelledby="profilePictureModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="profilePictureModalLabel">{% trans "Update Profile Picture" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="profilePictureForm" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="text-center mb-4">
+                        <div class="profile-picture-preview mx-auto mb-3">
+                            {% if user.profile.profile_picture %}
+                            <img src="{{ user.profile.profile_picture.url }}" alt="Preview" class="rounded-circle" id="picturePreview" style="width: 150px; height: 150px; object-fit: cover;">
+                            {% else %}
+                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto" id="picturePreviewPlaceholder" style="width: 150px; height: 150px;">
+                                <span class="fw-bold fs-1">{{ user.get_initials }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <input type="file" class="form-control" id="profile_picture" name="profile_picture" accept="image/*" style="display: none;">
+                        <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('profile_picture').click()">
+                            <i class="bi bi-upload me-1"></i>
+                            {% trans "Choose Image" %}
+                        </button>
+                    </div>
+                    <div class="form-text text-center">
+                        {% trans "Recommended: Square image, 500x500 pixels, JPG or PNG format" %}
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" onclick="uploadProfilePicture()">{% trans "Save Picture" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.profile-page {
+    background-color: #f8f9fa;
+}
+
+.profile-sidebar {
+    position: sticky;
+    top: 1rem;
+}
+
+.profile-picture-wrapper {
+    width: 120px;
+    height: 120px;
+}
+
+.profile-picture,
+.profile-picture-placeholder {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+}
+
+.profile-picture-upload {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-navigation .nav-link {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    color: #495057;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.profile-navigation .nav-link:hover,
+.profile-navigation .nav-link.active {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.profile-navigation .nav-link i {
+    width: 20px;
+    text-align: center;
+}
+
+.stat-item {
+    transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Form Styles */
+.form-control:disabled,
+.form-control[readonly] {
+    background-color: #f8f9fa;
+    opacity: 1;
+}
+
+.form-control:not(:disabled):not([readonly]) {
+    background-color: white;
+}
+
+/* Tab Content Animations */
+.tab-pane {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Role Cards */
+.role-meta {
+    border-top: 1px solid #e9ecef;
+    padding-top: 1rem;
+}
+
+/* Security Status */
+.security-status .bi-check-circle-fill {
+    font-size: 1.1rem;
+}
+
+/* Dark Theme Support */
+[data-bs-theme="dark"] .profile-page {
+    background-color: #212529;
+}
+
+[data-bs-theme="dark"] .card.bg-light {
+    background-color: #343a40 !important;
+}
+
+[data-bs-theme="dark"] .form-control:disabled,
+[data-bs-theme="dark"] .form-control[readonly] {
+    background-color: #495057;
+}
+
+[data-bs-theme="dark"] .text-muted {
+    color: #adb5bd !important;
+}
+
+/* Responsive Design */
+@media (max-width: 991.98px) {
+    .profile-sidebar {
+        position: static;
+        margin-bottom: 1rem;
+    }
+    
+    .profile-picture-wrapper {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .profile-picture,
+    .profile-picture-placeholder {
+        width: 100px;
+        height: 100px;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .profile-stats .col-4 {
+        margin-bottom: 0.5rem;
+    }
+    
+    .profile-navigation .nav-link {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize form states
+    disableAllEditing();
+    
+    // Profile picture preview
+    const profilePictureInput = document.getElementById('profile_picture');
+    if (profilePictureInput) {
+        profilePictureInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('picturePreview');
+                    const placeholder = document.getElementById('picturePreviewPlaceholder');
+                    
+                    if (preview) {
+                        preview.src = e.target.result;
+                    } else if (placeholder) {
+                        placeholder.innerHTML = `<img src="${e.target.result}" class="rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">`;
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+    
+    // Tab persistence
+    const activeTab = localStorage.getItem('activeProfileTab');
+    if (activeTab) {
+        const tab = document.querySelector(`[data-bs-target="${activeTab}"]`);
+        if (tab) {
+            new bootstrap.Tab(tab).show();
+        }
+    }
+    
+    // Save active tab on change
+    const tabEl = document.querySelector('a[data-bs-toggle="pill"]');
+    if (tabEl) {
+        tabEl.addEventListener('shown.bs.tab', function (e) {
+            localStorage.setItem('activeProfileTab', e.target.getAttribute('data-bs-target'));
+        });
+    }
+});
+
+function enableEditing(formType) {
+    const form = document.getElementById(formType + 'Form');
+    const inputs = form.querySelectorAll('input, select, textarea');
+    
+    inputs.forEach(input => {
+        if (!input.hasAttribute('readonly') && input.type !== 'hidden') {
+            input.disabled = false;
+        }
+    });
+    
+    // Show save/cancel buttons
+    const saveButton = form.querySelector('button[type="submit"]');
+    const cancelButton = form.querySelector('button[type="button"]');
+    
+    if (saveButton) saveButton.style.display = 'inline-block';
+    if (cancelButton) cancelButton.style.display = 'inline-block';
+}
+
+function disableEditing(formType) {
+    const form = document.getElementById(formType + 'Form');
+    const inputs = form.querySelectorAll('input, select, textarea');
+    
+    inputs.forEach(input => {
+        if (!input.hasAttribute('readonly') && input.type !== 'hidden') {
+            input.disabled = true;
+        }
+    });
+    
+    // Hide save/cancel buttons
+    const saveButton = form.querySelector('button[type="submit"]');
+    const cancelButton = form.querySelector('button[type="button"]');
+    
+    if (saveButton) saveButton.style.display = 'none';
+    if (cancelButton) cancelButton.style.display = 'none';
+    
+    // Reset form to original values
+    form.reset();
+}
+
+function disableAllEditing() {
+    const forms = ['personal', 'contact', 'preferences'];
+    forms.forEach(formType => {
+        disableEditing(formType);
+    });
+}
+
+function uploadProfilePicture() {
+    const form = document.getElementById('profilePictureForm');
+    const formData = new FormData(form);
+    const fileInput = document.getElementById('profile_picture');
+
+    // Check if a file is selected
+    if (!fileInput.files || fileInput.files.length === 0) {
+        showToast('{% trans "Please select a file first" %}', 'warning');
+        return;
+    }
+
+    // Show loading state
+    const saveButton = document.querySelector('#profilePictureModal .btn-primary');
+    const originalText = saveButton.innerHTML;
+    saveButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading...';
+    saveButton.disabled = true;
+
+    // Add CSRF token
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken.value);
+    }
+
+    // Make AJAX request
+    fetch('{% url "users:upload_profile_picture" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update profile picture in sidebar
+            const profilePicture = document.getElementById('profilePicture');
+            const profilePicturePlaceholder = document.getElementById('profilePicturePlaceholder');
+
+            if (data.picture_url) {
+                if (profilePicture) {
+                    profilePicture.src = data.picture_url;
+                } else if (profilePicturePlaceholder) {
+                    profilePicturePlaceholder.innerHTML = `<img src="${data.picture_url}" alt="{{ user.display_name }}" class="profile-picture rounded-circle">`;
+                }
+            }
+
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('profilePictureModal'));
+            modal.hide();
+
+            // Show success message
+            showToast(data.message, 'success');
+
+            // Reset form
+            form.reset();
+            const picturePreview = document.getElementById('picturePreview');
+            const picturePreviewPlaceholder = document.getElementById('picturePreviewPlaceholder');
+            if (picturePreview) picturePreview.src = '';
+            if (picturePreviewPlaceholder) picturePreviewPlaceholder.innerHTML = '<span class="fw-bold fs-1">{{ user.get_initials }}</span>';
+
+        } else {
+            // Show error message
+            showToast(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error uploading profile picture:', error);
+        showToast('{% trans "An error occurred while uploading the picture" %}', 'danger');
+    })
+    .finally(() => {
+        // Reset button state
+        saveButton.innerHTML = originalText;
+        saveButton.disabled = false;
+    });
+}
+
+function showToast(message, type = 'info') {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    // Add to container
+    const container = document.querySelector('.toast-container') || createToastContainer();
+    container.appendChild(toast);
+    
+    // Show toast
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    // Remove after hide
+    toast.addEventListener('hidden.bs.toast', () => {
+        toast.remove();
+    });
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+    container.style.zIndex = '9999';
+    document.body.appendChild(container);
+    return container;
+}
+
+// Form submission handling
+document.addEventListener('submit', function(e) {
+    if (e.target.matches('form')) {
+        // Show loading state
+        const submitButton = e.target.querySelector('button[type="submit"]');
+        if (submitButton) {
+            const originalText = submitButton.innerHTML;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+            submitButton.disabled = true;
+            
+            // Re-enable after submission (in case of error)
+            setTimeout(() => {
+                submitButton.innerHTML = originalText;
+                submitButton.disabled = false;
+            }, 3000);
+        }
+    }
+});
+</script>
+{% endblock %}

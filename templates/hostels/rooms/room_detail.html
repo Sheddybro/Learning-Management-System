@@ -1,0 +1,880 @@
+<!-- templates/hostels/rooms/room_detail.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Room {{ room.room_number }} - {{ room.hostel.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .room-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .room-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 200px;
+        height: 200px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        transform: translate(50px, -50px);
+    }
+    
+    .room-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: bold;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .room-badge {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .info-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        transition: transform 0.2s ease;
+    }
+    
+    .info-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .info-card .card-header {
+        background: white;
+        border-bottom: 1px solid #e9ecef;
+        font-weight: 600;
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: between;
+    }
+    
+    .info-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .info-list li {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #f8f9fa;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .info-list li:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 500;
+        color: #495057;
+    }
+    
+    .info-value {
+        color: #6c757d;
+        text-align: right;
+    }
+    
+    .bed-card {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .bed-card:hover {
+        border-color: #007bff;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+    }
+    
+    .bed-card.occupied {
+        background: #f8f9fa;
+    }
+    
+    .bed-card.maintenance {
+        border-color: #ffc107;
+        background: #fffcf5;
+    }
+    
+    .bed-status {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .status-available { background: #28a745; }
+    .status-occupied { background: #dc3545; }
+    .status-maintenance { background: #ffc107; }
+    
+    .resident-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.875rem;
+        font-weight: bold;
+        margin-right: 1rem;
+    }
+    
+    .progress-container {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .progress-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+    
+    .occupancy-progress {
+        height: 12px;
+        border-radius: 6px;
+        background-color: #e9ecef;
+        overflow: hidden;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        border-radius: 6px;
+        transition: width 0.3s ease;
+        background: linear-gradient(90deg, #28a745, #20c997);
+    }
+    
+    .progress-full {
+        background: linear-gradient(90deg, #dc3545, #fd7e14);
+    }
+    
+    .action-buttons {
+        position: absolute;
+        top: 2rem;
+        right: 2rem;
+    }
+    
+    .maintenance-alert {
+        border-left: 4px solid #ffc107;
+        background: #fffcf5;
+        padding: 1rem 1.5rem;
+        border-radius: 0 8px 8px 0;
+        margin-bottom: 1.5rem;
+    }
+    
+    .feature-tag {
+        background: #e3f2fd;
+        color: #1976d2;
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        margin: 0.25rem;
+        display: inline-block;
+    }
+    
+    .tab-content {
+        padding: 1.5rem 0;
+    }
+    
+    .history-item {
+        padding: 1rem 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .history-item:last-child {
+        border-bottom: none;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .quick-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-item {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+    
+    .stat-number {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+    
+    @media (max-width: 768px) {
+        .quick-stats {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .action-buttons {
+            position: static;
+            margin-top: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}Room {{ room.room_number }}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:dashboard' %}">Hostels</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:hostel_list' %}">All Hostels</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:hostel_detail' pk=room.hostel.pk %}">{{ room.hostel.name }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">Room {{ room.room_number }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="action-buttons">
+    <div class="btn-group" role="group">
+        <a href="{% url 'hostels:room_update' pk=room.pk %}" class="btn btn-light">
+            <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+        <button type="button" class="btn btn-light dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="visually-hidden">Toggle Dropdown</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'hostels:bed_create' %}?room={{ room.pk }}"><i class="bi bi-plus-circle me-2"></i>Add Bed</a></li>
+            <li><a class="dropdown-item" href="{% url 'hostels:allocation_create' %}?room={{ room.pk }}"><i class="bi bi-person-plus me-2"></i>Allocate Student</a></li>
+            <li><a class="dropdown-item" href="{% url 'hostels:maintenance_create' %}?room={{ room.pk }}"><i class="bi bi-tools me-2"></i>Maintenance Request</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#"><i class="bi bi-printer me-2"></i>Print Details</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Room Header -->
+    <div class="room-header">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                <div class="room-avatar">
+                    {{ room.room_number|slice:":3"|upper }}
+                </div>
+            </div>
+            <div class="col">
+                <h1 class="h2 mb-2">Room {{ room.room_number }}</h1>
+                <p class="mb-3 opacity-75">{{ room.hostel.name }} • Floor {{ room.floor }} • {{ room.get_room_type_display }}</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="room-badge">
+                        <i class="bi bi-people me-1"></i>{{ room.current_occupancy }}/{{ room.capacity }} Beds
+                    </span>
+                    <span class="room-badge">
+                        <i class="bi bi-cash-coin me-1"></i>₹{{ room.effective_rent }}/month
+                    </span>
+                    <span class="room-badge {% if room.is_available %}bg-success{% else %}bg-secondary{% endif %}">
+                        {{ room.is_available|yesno:"Available,Occupied" }}
+                    </span>
+                    {% if room.maintenance_required %}
+                    <span class="room-badge bg-warning text-dark">
+                        <i class="bi bi-tools me-1"></i>Maintenance Required
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="quick-stats">
+        <div class="stat-item">
+            <div class="stat-number">{{ room.capacity }}</div>
+            <div class="stat-label">Total Beds</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ room.current_occupancy }}</div>
+            <div class="stat-label">Occupied Beds</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ room.available_beds }}</div>
+            <div class="stat-label">Available Beds</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ maintenance_count }}</div>
+            <div class="stat-label">Maintenance Requests</div>
+        </div>
+    </div>
+
+    <!-- Maintenance Alert -->
+    {% if room.maintenance_required %}
+    <div class="maintenance-alert">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-exclamation-triangle-fill text-warning me-2" style="font-size: 1.5rem;"></i>
+            <div class="flex-grow-1">
+                <strong>Maintenance Required</strong>
+                {% if room.maintenance_notes %}
+                <p class="mb-0 mt-1">{{ room.maintenance_notes }}</p>
+                {% else %}
+                <p class="mb-0 mt-1">This room requires maintenance attention.</p>
+                {% endif %}
+            </div>
+            <a href="{% url 'hostels:maintenance_create' %}?room={{ room.pk }}" class="btn btn-warning btn-sm">
+                <i class="bi bi-tools me-1"></i>Request Maintenance
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Main Content Tabs -->
+    <ul class="nav nav-tabs" id="roomTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+                <i class="bi bi-info-circle me-1"></i>Overview
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="beds-tab" data-bs-toggle="tab" data-bs-target="#beds" type="button" role="tab">
+                <i class="bi bi-layout-text-sidebar me-1"></i>Beds ({{ beds.count }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="residents-tab" data-bs-toggle="tab" data-bs-target="#residents" type="button" role="tab">
+                <i class="bi bi-people me-1"></i>Current Residents ({{ current_residents|length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="maintenance-tab" data-bs-toggle="tab" data-bs-target="#maintenance" type="button" role="tab">
+                <i class="bi bi-tools me-1"></i>Maintenance History
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="roomTabsContent">
+        <!-- Overview Tab -->
+        <div class="tab-pane fade show active" id="overview" role="tabpanel">
+            <div class="row">
+                <!-- Left Column -->
+                <div class="col-lg-8">
+                    <!-- Occupancy Progress -->
+                    <div class="progress-container">
+                        <div class="progress-label">
+                            <span>Room Occupancy</span>
+                            <span>
+                                {% widthratio room.current_occupancy room.capacity 100 %}% 
+                                ({{ room.current_occupancy }}/{{ room.capacity }})
+                            </span>
+                        </div>
+                        <div class="occupancy-progress">
+                            <div class="progress-fill {% if room.is_full %}progress-full{% endif %}" 
+                                 style="width: {% widthratio room.current_occupancy room.capacity 100 %}%">
+                            </div>
+                        </div>
+                        <div class="mt-2 text-center">
+                            <small class="text-muted">
+                                {% if room.is_full %}
+                                    <i class="bi bi-exclamation-triangle text-danger me-1"></i>Room is fully occupied
+                                {% else %}
+                                    {{ room.available_beds }} bed{{ room.available_beds|pluralize }} available
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Room Information -->
+                    <div class="card info-card">
+                        <div class="card-header">
+                            <i class="bi bi-info-circle me-2"></i>Room Information
+                        </div>
+                        <div class="card-body">
+                            <ul class="info-list">
+                                <li>
+                                    <span class="info-label">Room Number</span>
+                                    <span class="info-value">{{ room.room_number }}</span>
+                                </li>
+                                <li>
+                                    <span class="info-label">Hostel</span>
+                                    <span class="info-value">
+                                        <a href="{% url 'hostels:hostel_detail' pk=room.hostel.pk %}">{{ room.hostel.name }}</a>
+                                    </span>
+                                </li>
+                                <li>
+                                    <span class="info-label">Floor</span>
+                                    <span class="info-value">{{ room.floor }}</span>
+                                </li>
+                                <li>
+                                    <span class="info-label">Room Type</span>
+                                    <span class="info-value">{{ room.get_room_type_display }}</span>
+                                </li>
+                                <li>
+                                    <span class="info-label">Capacity</span>
+                                    <span class="info-value">{{ room.capacity }} students</span>
+                                </li>
+                                <li>
+                                    <span class="info-label">Current Occupancy</span>
+                                    <span class="info-value">{{ room.current_occupancy }} students</span>
+                                </li>
+                                <li>
+                                    <span class="info-label">Monthly Rent</span>
+                                    <span class="info-value">
+                                        ₹{{ room.effective_rent }}
+                                        {% if room.rent %}
+                                        <small class="text-muted">(Room-specific)</small>
+                                        {% else %}
+                                        <small class="text-muted">(Hostel default)</small>
+                                        {% endif %}
+                                    </span>
+                                </li>
+                                <li>
+                                    <span class="info-label">Preferred Class</span>
+                                    <span class="info-value">
+                                        {% if room.preferred_class %}
+                                        {{ room.preferred_class.name }}
+                                        {% else %}
+                                        <span class="text-muted">No preference</span>
+                                        {% endif %}
+                                    </span>
+                                </li>
+                                <li>
+                                    <span class="info-label">Status</span>
+                                    <span class="info-value">
+                                        <span class="badge {% if room.is_available %}bg-success{% else %}bg-secondary{% endif %}">
+                                            {{ room.is_available|yesno:"Available,Occupied" }}
+                                        </span>
+                                    </span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Room Amenities -->
+                    {% if room.amenities %}
+                    <div class="card info-card">
+                        <div class="card-header">
+                            <i class="bi bi-star me-2"></i>Room Amenities
+                        </div>
+                        <div class="card-body">
+                            <div class="amenities-list">
+                                {% for amenity in room.amenities %}
+                                <span class="feature-tag">{{ amenity }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Right Column -->
+                <div class="col-lg-4">
+                    <!-- Quick Actions -->
+                    <div class="card info-card">
+                        <div class="card-header">
+                            <i class="bi bi-lightning me-2"></i>Quick Actions
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'hostels:allocation_create' %}?room={{ room.pk }}" class="btn btn-primary">
+                                    <i class="bi bi-person-plus me-2"></i>Allocate Student
+                                </a>
+                                <a href="{% url 'hostels:bed_create' %}?room={{ room.pk }}" class="btn btn-outline-primary">
+                                    <i class="bi bi-plus-circle me-2"></i>Add Bed
+                                </a>
+                                <a href="{% url 'hostels:maintenance_create' %}?room={{ room.pk }}" class="btn btn-outline-warning">
+                                    <i class="bi bi-tools me-2"></i>Maintenance Request
+                                </a>
+                                {% if room.maintenance_required %}
+                                <button class="btn btn-success" id="markRepaired">
+                                    <i class="bi bi-check-circle me-2"></i>Mark as Repaired
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hostel Information -->
+                    <div class="card info-card">
+                        <div class="card-header">
+                            <i class="bi bi-building me-2"></i>Hostel Information
+                        </div>
+                        <div class="card-body">
+                            <ul class="info-list">
+                                <li>
+                                    <span class="info-label">Hostel Name</span>
+                                    <span class="info-value">{{ room.hostel.name }}</span>
+                                </li>
+                                <li>
+                                    <span class="info-label">Hostel Code</span>
+                                    <span class="info-value">{{ room.hostel.code }}</span>
+                                </li>
+                                <li>
+                                    <span class="info-label">Type</span>
+                                    <span class="info-value">{{ room.hostel.get_hostel_type_display }}</span>
+                                </li>
+                                <li>
+                                    <span class="info-label">Warden</span>
+                                    <span class="info-value">
+                                        {% if room.hostel.warden %}
+                                        {{ room.hostel.warden.get_full_name|default:room.hostel.warden.username }}
+                                        {% else %}
+                                        <span class="text-muted">Not assigned</span>
+                                        {% endif %}
+                                    </span>
+                                </li>
+                            </ul>
+                            <div class="text-center mt-2">
+                                <a href="{% url 'hostels:hostel_detail' pk=room.hostel.pk %}" class="btn btn-sm btn-outline-primary">
+                                    View Hostel Details
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Beds Tab -->
+        <div class="tab-pane fade" id="beds" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>Beds in Room {{ room.room_number }}</h5>
+                <a href="{% url 'hostels:bed_create' %}?room={{ room.pk }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i>Add Bed
+                </a>
+            </div>
+            
+            <div class="row">
+                {% for bed in beds %}
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="bed-card {% if not bed.is_available %}occupied{% endif %} {% if bed.requires_maintenance %}maintenance{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="mb-0">Bed {{ bed.bed_number }}</h6>
+                            <span class="badge {% if bed.is_available %}bg-success{% else %}bg-secondary{% endif %}">
+                                <span class="bed-status status-{% if bed.is_available %}available{% else %}occupied{% endif %}"></span>
+                                {{ bed.is_available|yesno:"Available,Occupied" }}
+                            </span>
+                        </div>
+                        
+                        <div class="small text-muted mb-2">
+                            {{ bed.get_bed_type_display }}
+                            {% if bed.requires_maintenance %}
+                            <span class="text-warning ms-2">
+                                <i class="bi bi-tools me-1"></i>Maintenance
+                            </span>
+                            {% endif %}
+                        </div>
+                        
+                        {% if bed.features %}
+                        <div class="small mb-2">
+                            <strong>Features:</strong> {{ bed.features }}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Current Allocation -->
+                        {% with allocation=bed.get_current_allocation %}
+                        {% if allocation %}
+                        <div class="d-flex align-items-center mt-2 p-2 bg-light rounded">
+                            <div class="resident-avatar">
+                                {{ allocation.student.user.get_full_name|slice:":2"|upper|default:"ST" }}
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">{{ allocation.student.user.get_full_name|default:allocation.student.user.username }}</div>
+                                <div class="small text-muted">{{ allocation.class_enrolled.name|default:"N/A" }}</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endwith %}
+                        
+                        <div class="d-flex gap-1 mt-3">
+                            {% if bed.is_available %}
+                            <a href="{% url 'hostels:allocation_create' %}?bed={{ bed.pk }}" class="btn btn-sm btn-success flex-fill">
+                                <i class="bi bi-person-plus"></i> Allocate
+                            </a>
+                            {% else %}
+                            <a href="{% url 'hostels:allocation_list' %}?bed={{ bed.pk }}" class="btn btn-sm btn-outline-primary flex-fill">
+                                <i class="bi bi-eye"></i> View
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'hostels:bed_update' pk=bed.pk %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="empty-state">
+                        <i class="bi bi-layout-text-sidebar-reverse empty-state-icon"></i>
+                        <h4>No Beds Added</h4>
+                        <p class="mb-4">Start by adding beds to this room.</p>
+                        <a href="{% url 'hostels:bed_create' %}?room={{ room.pk }}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle me-2"></i>Add First Bed
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Residents Tab -->
+        <div class="tab-pane fade" id="residents" role="tabpanel">
+            {% if current_residents %}
+            <div class="card info-card">
+                <div class="card-header">
+                    <i class="bi bi-people me-2"></i>Current Residents
+                </div>
+                <div class="card-body">
+                    {% for resident in current_residents %}
+                    <div class="d-flex align-items-center py-3 border-bottom">
+                        <div class="resident-avatar">
+                            {{ resident.user.get_full_name|slice:":2"|upper|default:"ST" }}
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">{{ resident.user.get_full_name|default:resident.user.username }}</h6>
+                            <div class="small text-muted">
+                                {{ resident.current_class.name|default:"N/A" }} • 
+                                {{ resident.admission_number|default:"No ID" }}
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="small text-muted">
+                                {% with allocation=resident.hostel_allocations.last %}
+                                {% if allocation %}
+                                Allocated: {{ allocation.allocation_date|date:"M d, Y" }}
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                            <a href="{% url 'hostels:allocation_list' %}?student={{ resident.pk }}" class="btn btn-sm btn-outline-primary">
+                                View Allocation
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="bi bi-person-x empty-state-icon"></i>
+                <h4>No Current Residents</h4>
+                <p class="mb-4">This room is currently unoccupied.</p>
+                <a href="{% url 'hostels:allocation_create' %}?room={{ room.pk }}" class="btn btn-primary">
+                    <i class="bi bi-person-plus me-2"></i>Allocate Student
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Maintenance Tab -->
+        <div class="tab-pane fade" id="maintenance" role="tabpanel">
+            {% if maintenance_history %}
+            <div class="card info-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-tools me-2"></i>Maintenance History</span>
+                    <a href="{% url 'hostels:maintenance_create' %}?room={{ room.pk }}" class="btn btn-sm btn-warning">
+                        <i class="bi bi-plus-circle me-1"></i>New Request
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% for maintenance in maintenance_history %}
+                    <div class="history-item">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="mb-0">{{ maintenance.title }}</h6>
+                            <span class="badge 
+                                {% if maintenance.status == 'completed' %}bg-success
+                                {% elif maintenance.status == 'in_progress' %}bg-primary
+                                {% elif maintenance.status == 'pending' %}bg-warning
+                                {% else %}bg-secondary{% endif %}">
+                                {{ maintenance.get_status_display }}
+                            </span>
+                        </div>
+                        <p class="text-muted mb-2">{{ maintenance.description }}</p>
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span>
+                                <i class="bi bi-calendar me-1"></i>
+                                {{ maintenance.requested_date|date:"M d, Y" }}
+                            </span>
+                            <span>
+                                Priority: 
+                                <span class="badge 
+                                    {% if maintenance.priority == 'urgent' %}bg-danger
+                                    {% elif maintenance.priority == 'high' %}bg-warning
+                                    {% elif maintenance.priority == 'medium' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ maintenance.get_priority_display }}
+                                </span>
+                            </span>
+                        </div>
+                        {% if maintenance.assigned_to %}
+                        <div class="small text-muted mt-1">
+                            <i class="bi bi-person me-1"></i>
+                            Assigned to: {{ maintenance.assigned_to.get_full_name|default:maintenance.assigned_to.username }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="bi bi-tools empty-state-icon"></i>
+                <h4>No Maintenance History</h4>
+                <p class="mb-4">No maintenance requests have been logged for this room.</p>
+                <a href="{% url 'hostels:maintenance_create' %}?room={{ room.pk }}" class="btn btn-warning">
+                    <i class="bi bi-plus-circle me-2"></i>Create Maintenance Request
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Tab persistence
+        const roomTabs = document.getElementById('roomTabs');
+        const storedTab = localStorage.getItem('roomDetailActiveTab');
+        
+        if (storedTab) {
+            const tab = new bootstrap.Tab(document.querySelector(`[data-bs-target="${storedTab}"]`));
+            tab.show();
+        }
+        
+        roomTabs.addEventListener('show.bs.tab', function(event) {
+            localStorage.setItem('roomDetailActiveTab', event.target.getAttribute('data-bs-target'));
+        });
+
+        // Mark as repaired functionality
+        const markRepairedBtn = document.getElementById('markRepaired');
+        if (markRepairedBtn) {
+            markRepairedBtn.addEventListener('click', function() {
+                if (confirm('Are you sure you want to mark this room as repaired?')) {
+                    // Here you would typically make an AJAX call to update the room status
+                    fetch(`/hostels/api/rooms/${'{{ room.pk }}'}/mark-repaired/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': window.CSRF_TOKEN,
+                            'Content-Type': 'application/json',
+                        },
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert('Error updating room status.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error updating room status.');
+                    });
+                }
+            });
+        }
+
+        // Bed card interactions
+        document.querySelectorAll('.bed-card').forEach(card => {
+            card.addEventListener('click', function(e) {
+                if (!e.target.closest('a') && !e.target.closest('button')) {
+                    const allocationLink = this.querySelector('a[href*="allocation"]');
+                    if (allocationLink) {
+                        window.location.href = allocationLink.href;
+                    }
+                }
+            });
+        });
+
+        // Quick status updates for beds
+        document.querySelectorAll('.bed-card .btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                
+                // Add loading state
+                const originalHtml = this.innerHTML;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+                this.disabled = true;
+                
+                setTimeout(() => {
+                    this.innerHTML = originalHtml;
+                    this.disabled = false;
+                }, 1000);
+            });
+        });
+
+        // Print functionality
+        document.querySelector('[href="#"]').addEventListener('click', function(e) {
+            e.preventDefault();
+            window.print();
+        });
+
+        // Auto-refresh room occupancy (every 30 seconds)
+        function refreshRoomData() {
+            fetch(`/hostels/api/rooms/${'{{ room.pk }}'}/`)
+                .then(response => response.json())
+                .then(data => {
+                    // Update occupancy display
+                    const occupancyElement = document.querySelector('.progress-fill');
+                    const occupancyText = document.querySelector('.progress-label span:last-child');
+                    const availableBedsText = document.querySelector('.progress-container .text-muted');
+                    
+                    if (occupancyElement && occupancyText && availableBedsText) {
+                        occupancyElement.style.width = data.occupancy_percentage + '%';
+                        occupancyText.textContent = data.occupancy_percentage + '% (' + data.current_occupancy + '/' + data.capacity + ')';
+                        availableBedsText.textContent = data.available_beds + ' bed' + (data.available_beds !== 1 ? 's' : '') + ' available';
+                    }
+                })
+                .catch(error => console.error('Error refreshing room data:', error));
+        }
+
+        // Uncomment to enable auto-refresh
+        // setInterval(refreshRoomData, 30000);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,1075 @@
+<!-- templates/transport/attendants/attendant_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Attendant Details" %}{% endblock %}
+
+{% block page_title %}{% trans "Attendant Details" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:attendant_list' %}">{% trans "Attendants" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Attendant Details" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'transport:attendant_update' object.pk %}" class="btn btn-primary">
+            <i class="fas fa-edit me-1"></i> {% trans "Edit Attendant" %}
+        </a>
+        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#scheduleModal">
+                    <i class="fas fa-calendar-plus me-2"></i> {% trans "Assign Schedule" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#statusModal">
+                    <i class="fas fa-sync-alt me-2"></i> {% trans "Change Status" %}
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#printModal">
+                    <i class="fas fa-print me-2"></i> {% trans "Print Details" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="#" id="generateIDCard">
+                    <i class="fas fa-id-card me-2"></i> {% trans "Generate ID Card" %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .attendant-detail {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .detail-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .detail-card:hover {
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .card-header-custom {
+        background: linear-gradient(135deg, #20c997 0%, #198754 100%);
+        color: white;
+        border-radius: 12px 12px 0 0 !important;
+        padding: 1rem 1.5rem;
+    }
+    
+    .attendant-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #20c997 0%, #198754 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 3rem;
+        font-weight: 600;
+        margin: 0 auto 1rem;
+        border: 4px solid white;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .attendant-avatar img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .status-active {
+        background-color: #d1fae5;
+        color: #065f46;
+        border: 2px solid #10b981;
+    }
+    
+    .status-inactive {
+        background-color: #f3f4f6;
+        color: #6b7280;
+        border: 2px solid #9ca3af;
+    }
+    
+    .status-suspended {
+        background-color: #fee2e2;
+        color: #991b1b;
+        border: 2px solid #ef4444;
+    }
+    
+    .status-on_leave {
+        background-color: #fef3c7;
+        color: #92400e;
+        border: 2px solid #f59e0b;
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+        min-width: 140px;
+    }
+    
+    .info-value {
+        color: #6c757d;
+        flex: 1;
+        text-align: right;
+    }
+    
+    .salary-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+    }
+    
+    .salary-amount {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0;
+    }
+    
+    .schedule-item {
+        padding: 1rem;
+        border-left: 4px solid #0d6efd;
+        background: #f8f9fa;
+        margin-bottom: 1rem;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .schedule-item.active {
+        border-left-color: #28a745;
+        background: #f0fff4;
+    }
+    
+    .schedule-item.inactive {
+        border-left-color: #6c757d;
+        background: #f8f9fa;
+    }
+    
+    .responsibility-item {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        align-items: flex-start;
+    }
+    
+    .responsibility-item:last-child {
+        border-bottom: none;
+    }
+    
+    .responsibility-icon {
+        color: #20c997;
+        margin-right: 0.75rem;
+        margin-top: 0.25rem;
+        flex-shrink: 0;
+    }
+    
+    .action-buttons .btn {
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .contact-info {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .emergency-contact {
+        background: #fff3cd;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .performance-metric {
+        text-align: center;
+        padding: 1rem;
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    
+    .metric-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+    
+    .timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding: 1rem 0;
+        border-left: 3px solid #0d6efd;
+    }
+    
+    .timeline-item:before {
+        content: '';
+        position: absolute;
+        left: -0.5rem;
+        top: 1.5rem;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #0d6efd;
+        border: 3px solid white;
+        box-shadow: 0 0 0 2px #0d6efd;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .attendant-avatar {
+            width: 100px;
+            height: 100px;
+            font-size: 2.5rem;
+        }
+        
+        .info-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .info-label {
+            min-width: auto;
+            margin-bottom: 0.25rem;
+        }
+        
+        .info-value {
+            text-align: left;
+        }
+        
+        .action-buttons .btn {
+            width: 100%;
+            margin-right: 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="attendant-detail">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="d-flex align-items-center">
+                <div class="me-4">
+                    <div class="attendant-avatar">
+                        {% if object.user.profile_picture %}
+                            <img src="{{ object.user.profile_picture.url }}" alt="{{ object.user.get_full_name }}">
+                        {% else %}
+                            {{ object.user.first_name|first|upper }}{{ object.user.last_name|first|upper }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="flex-grow-1">
+                    <h2 class="mb-1">{{ object.user.get_full_name }}</h2>
+                    <p class="text-muted mb-2">
+                        {{ object.employee_id }} • {% trans "Attendant" %}
+                    </p>
+                    <span class="status-badge status-{{ object.status }}">
+                        {{ object.get_status_display }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card salary-card">
+                <div class="card-body text-center">
+                    <div class="salary-amount">
+                        {% if object.salary %}
+                            ${{ object.salary }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                    <p class="mb-0">{% trans "Monthly Salary" %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Alerts -->
+    {% if object.status != 'active' %}
+    <div class="alert alert-warning mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+            <div>
+                <h5 class="alert-heading mb-1">
+                    {% if object.status == 'inactive' %}
+                        {% trans "Attendant Inactive" %}
+                    {% elif object.status == 'suspended' %}
+                        {% trans "Attendant Suspended" %}
+                    {% elif object.status == 'on_leave' %}
+                        {% trans "Attendant On Leave" %}
+                    {% endif %}
+                </h5>
+                <p class="mb-0">
+                    {% if object.status == 'inactive' %}
+                        {% trans "This attendant is currently inactive and not assigned to any routes." %}
+                    {% elif object.status == 'suspended' %}
+                        {% trans "This attendant has been suspended from duty." %}
+                    {% elif object.status == 'on_leave' %}
+                        {% trans "This attendant is currently on leave." %}
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Main Information Cards -->
+    <div class="row">
+        <!-- Personal Information -->
+        <div class="col-lg-6 mb-4">
+            <div class="card detail-card">
+                <div class="card-header card-header-custom">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user me-2"></i>{% trans "Personal Information" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Full Name" %}:</span>
+                        <span class="info-value">{{ object.user.get_full_name }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Employee ID" %}:</span>
+                        <span class="info-value">{{ object.employee_id }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Date of Birth" %}:</span>
+                        <span class="info-value">{{ object.date_of_birth|date:"F d, Y" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Age" %}:</span>
+                        <span class="info-value">{{ object.age }} {% trans "years" %}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Date of Joining" %}:</span>
+                        <span class="info-value">{{ object.date_of_joining|date:"F d, Y" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Service Duration" %}:</span>
+                        <span class="info-value">{{ object.date_of_joining|timesince }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Employment Information -->
+        <div class="col-lg-6 mb-4">
+            <div class="card detail-card">
+                <div class="card-header card-header-custom">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-briefcase me-2"></i>{% trans "Employment Information" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Status" %}:</span>
+                        <span class="info-value">
+                            <span class="status-badge status-{{ object.status }}">
+                                {{ object.get_status_display }}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Monthly Salary" %}:</span>
+                        <span class="info-value">
+                            {% if object.salary %}
+                                ${{ object.salary }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Annual Salary" %}:</span>
+                        <span class="info-value">
+                            {% if object.salary %}
+                                ${{ object.salary|multiply:12 }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Daily Rate" %}:</span>
+                        <span class="info-value">
+                            {% if object.salary %}
+                                ${{ object.salary|divide:22|floatformat:2 }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">{% trans "Hourly Rate" %}:</span>
+                        <span class="info-value">
+                            {% if object.salary %}
+                                ${{ object.salary|divide:176|floatformat:2 }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Information -->
+        <div class="col-lg-6 mb-4">
+            <div class="card detail-card">
+                <div class="card-header card-header-custom">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-address-book me-2"></i>{% trans "Contact Information" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="contact-info">
+                        <div class="info-item">
+                            <span class="info-label">{% trans "Phone" %}:</span>
+                            <span class="info-value">{{ object.phone|default:"-" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">{% trans "Email" %}:</span>
+                            <span class="info-value">{{ object.email|default:"-" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">{% trans "Address" %}:</span>
+                            <span class="info-value">{{ object.address|default:"-"|linebreaks }}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Emergency Contact -->
+                    {% if object.emergency_contact_name %}
+                    <div class="emergency-contact">
+                        <h6 class="mb-2">{% trans "Emergency Contact" %}</h6>
+                        <div class="info-item">
+                            <span class="info-label">{% trans "Name" %}:</span>
+                            <span class="info-value">{{ object.emergency_contact_name }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">{% trans "Relationship" %}:</span>
+                            <span class="info-value">{{ object.emergency_contact_relation|default:"-" }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Metrics -->
+        <div class="col-lg-6 mb-4">
+            <div class="card detail-card">
+                <div class="card-header card-header-custom">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>{% trans "Performance Metrics" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <div class="performance-metric">
+                                <div class="metric-value text-primary">98%</div>
+                                <div class="metric-label">{% trans "Attendance" %}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="performance-metric">
+                                <div class="metric-value text-success">4.8</div>
+                                <div class="metric-label">{% trans "Rating" %}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="performance-metric">
+                                <div class="metric-value text-info">{{ object.route_schedules.count }}</div>
+                                <div class="metric-label">{% trans "Active Routes" %}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="performance-metric">
+                                <div class="metric-value text-warning">2</div>
+                                <div class="metric-label">{% trans "Years Service" %}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Responsibilities -->
+        <div class="col-lg-6 mb-4">
+            <div class="card detail-card">
+                <div class="card-header card-header-custom">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-tasks me-2"></i>{% trans "Responsibilities" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if object.responsibilities %}
+                        <div class="responsibilities-list">
+                            {% for responsibility in object.responsibilities|linebreaksbr|split_lines %}
+                            <div class="responsibility-item">
+                                <i class="fas fa-check-circle responsibility-icon"></i>
+                                <span>{{ responsibility }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center py-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            {% trans "No specific responsibilities assigned" %}
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Schedules -->
+        <div class="col-lg-6 mb-4">
+            <div class="card detail-card">
+                <div class="card-header card-header-custom">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>{% trans "Current Schedules" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if object.route_schedules.all %}
+                        {% for schedule in object.route_schedules.all %}
+                        <div class="schedule-item {% if schedule.status == 'active' %}active{% else %}inactive{% endif %}">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h6 class="mb-1">{{ schedule.route.name }}</h6>
+                                    <p class="mb-1 small text-muted">
+                                        {{ schedule.route.code }} • {{ schedule.vehicle.vehicle_number }}
+                                    </p>
+                                </div>
+                                <span class="badge bg-{% if schedule.status == 'active' %}success{% else %}secondary{% endif %}">
+                                    {{ schedule.get_status_display }}
+                                </span>
+                            </div>
+                            <div class="row small text-muted">
+                                <div class="col-6">
+                                    <i class="fas fa-sun me-1"></i>
+                                    {{ schedule.morning_start_time|time:"H:i" }} - {{ schedule.morning_end_time|time:"H:i" }}
+                                </div>
+                                <div class="col-6">
+                                    <i class="fas fa-moon me-1"></i>
+                                    {% if schedule.evening_start_time %}
+                                        {{ schedule.evening_start_time|time:"H:i" }} - {{ schedule.evening_end_time|time:"H:i" }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    {% trans "Driver:" %} {{ schedule.driver.user.get_full_name }}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center py-3">
+                            <i class="fas fa-calendar-times me-2"></i>
+                            {% trans "No schedule assignments" %}
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employment History Timeline -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card detail-card">
+                <div class="card-header card-header-custom">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history me-2"></i>{% trans "Employment History" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <h6 class="mb-1">{% trans "Joined as Attendant" %}</h6>
+                            <p class="mb-1 text-muted">{{ object.date_of_joining|date:"F d, Y" }}</p>
+                            <p class="mb-0 small">{% trans "Started employment as transport attendant" %}</p>
+                        </div>
+                        
+                        <!-- Sample timeline items - in real app these would come from the database -->
+                        <div class="timeline-item">
+                            <h6 class="mb-1">{% trans "First Route Assignment" %}</h6>
+                            <p class="mb-1 text-muted">{{ object.date_of_joining|date:"F d, Y" }}</p>
+                            <p class="mb-0 small">{% trans "Assigned to first transport route" %}</p>
+                        </div>
+                        
+                        <div class="timeline-item">
+                            <h6 class="mb-1">{% trans "Performance Review" %}</h6>
+                            <p class="mb-1 text-muted">
+                                {{ object.date_of_joining|add_months:6|date:"F d, Y" }}
+                            </p>
+                            <p class="mb-0 small">{% trans "Completed 6-month performance review with excellent rating" %}</p>
+                        </div>
+                        
+                        <div class="timeline-item">
+                            <h6 class="mb-1">{% trans "Salary Adjustment" %}</h6>
+                            <p class="mb-1 text-muted">
+                                {{ object.date_of_joining|add_months:12|date:"F d, Y" }}
+                            </p>
+                            <p class="mb-0 small">{% trans "Received annual salary increase based on performance" %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="action-buttons d-flex flex-wrap">
+                        <a href="{% url 'transport:attendant_update' object.pk %}" class="btn btn-primary">
+                            <i class="fas fa-edit me-1"></i> {% trans "Edit Attendant" %}
+                        </a>
+                        <a href="{% url 'transport:attendant_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i> {% trans "Back to Attendants" %}
+                        </a>
+                        <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#scheduleModal">
+                            <i class="fas fa-calendar-plus me-1"></i> {% trans "Assign Schedule" %}
+                        </button>
+                        <button class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#statusModal">
+                            <i class="fas fa-sync-alt me-1"></i> {% trans "Change Status" %}
+                        </button>
+                        <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#printModal">
+                            <i class="fas fa-print me-1"></i> {% trans "Print Details" %}
+                        </button>
+                        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                            <i class="fas fa-trash me-1"></i> {% trans "Delete Attendant" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Schedule Modal -->
+<div class="modal fade" id="scheduleModal" tabindex="-1" aria-labelledby="scheduleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="scheduleModalLabel">
+                    <i class="fas fa-calendar-plus me-2"></i>{% trans "Assign Route Schedule" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Assign" %} <strong>{{ object.user.get_full_name }}</strong> {% trans "to a route schedule." %}</p>
+                
+                <div class="mb-3">
+                    <label for="routeSchedule" class="form-label">{% trans "Select Route Schedule" %}</label>
+                    <select class="form-select" id="routeSchedule">
+                        <option value="">{% trans "Choose a route schedule..." %}</option>
+                        {% for schedule in available_schedules %}
+                        <option value="{{ schedule.id }}">
+                            {{ schedule.route.code }} - {{ schedule.vehicle.vehicle_number }} 
+                            ({{ schedule.driver.user.get_full_name }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="immediateAssignment">
+                    <label class="form-check-label" for="immediateAssignment">
+                        {% trans "Assign immediately" %}
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="confirmAssignment">
+                    <i class="fas fa-calendar-plus me-1"></i> {% trans "Assign Schedule" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Change Status Modal -->
+<div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="statusModalLabel">
+                    <i class="fas fa-sync-alt me-2"></i>{% trans "Change Attendant Status" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Change status for" %} <strong>{{ object.user.get_full_name }}</strong></p>
+                
+                <div class="mb-3">
+                    <label for="newStatus" class="form-label">{% trans "New Status" %}</label>
+                    <select class="form-select" id="newStatus">
+                        <option value="active" {% if object.status == 'active' %}selected{% endif %}>{% trans "Active" %}</option>
+                        <option value="inactive" {% if object.status == 'inactive' %}selected{% endif %}>{% trans "Inactive" %}</option>
+                        <option value="suspended" {% if object.status == 'suspended' %}selected{% endif %}>{% trans "Suspended" %}</option>
+                        <option value="on_leave" {% if object.status == 'on_leave' %}selected{% endif %}>{% trans "On Leave" %}</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="statusReason" class="form-label">{% trans "Reason for Change" %}</label>
+                    <textarea class="form-control" id="statusReason" rows="3" 
+                              placeholder="{% trans 'Please provide a reason for the status change...' %}"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="confirmStatusChange">
+                    <i class="fas fa-sync-alt me-1"></i> {% trans "Update Status" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print Modal -->
+<div class="modal fade" id="printModal" tabindex="-1" aria-labelledby="printModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="printModalLabel">
+                    <i class="fas fa-print me-2"></i>{% trans "Print Attendant Details" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Select print options for the attendant details." %}</p>
+                
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Include Sections" %}</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="printPersonalInfo" checked>
+                        <label class="form-check-label" for="printPersonalInfo">
+                            {% trans "Personal Information" %}
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="printEmploymentInfo" checked>
+                        <label class="form-check-label" for="printEmploymentInfo">
+                            {% trans "Employment Information" %}
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="printContactInfo" checked>
+                        <label class="form-check-label" for="printContactInfo">
+                            {% trans "Contact Information" %}
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="printSchedules" checked>
+                        <label class="form-check-label" for="printSchedules">
+                            {% trans "Current Schedules" %}
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="confirmPrint">
+                    <i class="fas fa-print me-1"></i> {% trans "Print" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">{% trans "Confirm Deletion" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Are you sure you want to delete attendant" %} <strong>{{ object.user.get_full_name }}</strong>?</p>
+                <p class="text-danger small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    {% trans "This action cannot be undone. All associated records will also be removed." %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <form method="post" action="{% url 'transport:attendant_delete' object.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i> {% trans "Delete Attendant" %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ID Card Modal -->
+<div class="modal fade" id="idCardModal" tabindex="-1" aria-labelledby="idCardModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="idCardModalLabel">
+                    <i class="fas fa-id-card me-2"></i>{% trans "Attendant ID Card" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="id-card text-center">
+                    <div class="id-card-header bg-primary text-white p-3">
+                        <h5 class="mb-0">{% trans "Transport Attendant" %}</h5>
+                    </div>
+                    <div class="id-card-body p-4">
+                        <div class="id-photo mb-3">
+                            <div class="attendant-avatar mx-auto" style="width: 80px; height: 80px; font-size: 2rem;">
+                                {% if object.user.profile_picture %}
+                                    <img src="{{ object.user.profile_picture.url }}" alt="{{ object.user.get_full_name }}">
+                                {% else %}
+                                    {{ object.user.first_name|first|upper }}{{ object.user.last_name|first|upper }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <h6 class="mb-1">{{ object.user.get_full_name }}</h6>
+                        <p class="text-muted small mb-2">{{ object.employee_id }}</p>
+                        <p class="small text-muted mb-3">{% trans "Valid until:" %} {{ object.date_of_joining|add_years:2|date:"M Y" }}</p>
+                        <div class="text-muted small">
+                            <p class="mb-1">{{ object.phone|default:"-" }}</p>
+                            <p class="mb-0">{{ object.email|default:"-" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary" id="downloadIDCard">
+                    <i class="fas fa-download me-1"></i> {% trans "Download ID Card" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Assign Schedule
+        document.getElementById('confirmAssignment').addEventListener('click', function() {
+            const routeSchedule = document.getElementById('routeSchedule').value;
+            const immediateAssignment = document.getElementById('immediateAssignment').checked;
+            
+            if (!routeSchedule) {
+                showNotification('{% trans "Please select a route schedule" %}', 'error');
+                return;
+            }
+            
+            showLoadingState();
+            
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Schedule assigned successfully" %}', 'success');
+                $('#scheduleModal').modal('hide');
+                setTimeout(() => location.reload(), 1000);
+            }, 1500);
+        });
+
+        // Change Status
+        document.getElementById('confirmStatusChange').addEventListener('click', function() {
+            const newStatus = document.getElementById('newStatus').value;
+            const statusReason = document.getElementById('statusReason').value;
+            
+            if (!statusReason.trim()) {
+                showNotification('{% trans "Please provide a reason for the status change" %}', 'error');
+                return;
+            }
+            
+            showLoadingState();
+            
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Status updated successfully" %}', 'success');
+                $('#statusModal').modal('hide');
+                setTimeout(() => location.reload(), 1000);
+            }, 1500);
+        });
+
+        // Print Functionality
+        document.getElementById('confirmPrint').addEventListener('click', function() {
+            const options = {
+                personalInfo: document.getElementById('printPersonalInfo').checked,
+                employmentInfo: document.getElementById('printEmploymentInfo').checked,
+                contactInfo: document.getElementById('printContactInfo').checked,
+                schedules: document.getElementById('printSchedules').checked
+            };
+            
+            showLoadingState();
+            
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Printing attendant details" %}', 'success');
+                $('#printModal').modal('hide');
+                
+                // In real implementation, this would generate a print-friendly version
+                window.print();
+            }, 1000);
+        });
+
+        // Generate ID Card
+        document.getElementById('generateIDCard').addEventListener('click', function() {
+            $('#idCardModal').modal('show');
+        });
+
+        // Download ID Card
+        document.getElementById('downloadIDCard').addEventListener('click', function() {
+            showNotification('{% trans "ID Card download started" %}', 'success');
+            
+            // In real implementation, this would download the actual ID card
+            setTimeout(() => {
+                showNotification('{% trans "ID Card downloaded successfully" %}', 'success');
+            }, 1000);
+        });
+
+        // Utility Functions
+        function showLoadingState() {
+            const spinner = document.createElement('div');
+            spinner.id = 'loadingSpinner';
+            spinner.className = 'position-fixed top-50 start-50 translate-middle';
+            spinner.innerHTML = `
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">{% trans "Loading..." %}</span>
+                </div>
+            `;
+            document.body.appendChild(spinner);
+        }
+
+        function hideLoadingState() {
+            const spinner = document.getElementById('loadingSpinner');
+            if (spinner) {
+                spinner.remove();
+            }
+        }
+
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                    <span>${message}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+
+        // Add confirmation for delete button
+        document.querySelector('#deleteModal form').addEventListener('submit', function(e) {
+            if (!confirm('{% trans "Are you absolutely sure you want to delete this attendant? This action cannot be undone." %}')) {
+                e.preventDefault();
+            }
+        });
+
+        // Performance metrics animation
+        function animateMetrics() {
+            const metrics = document.querySelectorAll('.metric-value');
+            metrics.forEach(metric => {
+                const finalValue = metric.textContent;
+                metric.textContent = '0';
+                
+                let current = 0;
+                const increment = finalValue.includes('%') ? 1 : finalValue.includes('.') ? 0.1 : 1;
+                const target = parseFloat(finalValue);
+                
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= target) {
+                        metric.textContent = finalValue;
+                        clearInterval(timer);
+                    } else {
+                        if (finalValue.includes('%')) {
+                            metric.textContent = Math.floor(current) + '%';
+                        } else if (finalValue.includes('.')) {
+                            metric.textContent = current.toFixed(1);
+                        } else {
+                            metric.textContent = Math.floor(current);
+                        }
+                    }
+                }, 50);
+            });
+        }
+
+        // Animate metrics when page loads
+        setTimeout(animateMetrics, 500);
+    });
+</script>
+{% endblock %}

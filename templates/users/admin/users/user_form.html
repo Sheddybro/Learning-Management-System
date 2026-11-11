@@ -1,0 +1,759 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if user_obj %}
+        {% trans "Edit User" %} - {{ user_obj.display_name }} - {{ block.super }}
+    {% else %}
+        {% trans "Create User" %} - {{ block.super }}
+    {% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if user_obj %}
+        {% trans "Edit User" %}: {{ user_obj.display_name }}
+    {% else %}
+        {% trans "Create New User" %}
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:user_list' %}">{% trans "Users" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if user_obj %}
+        {% trans "Edit" %} {{ user_obj.display_name }}
+    {% else %}
+        {% trans "Create User" %}
+    {% endif %}
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-person-plus me-2"></i>
+                        {% if user_obj %}
+                            {% trans "Edit User" %}
+                        {% else %}
+                            {% trans "Create New User" %}
+                        {% endif %}
+                    </h5>
+                    {% if user_obj %}
+                    <span class="badge bg-{% if user_obj.status == 'active' %}success{% elif user_obj.status == 'inactive' %}secondary{% else %}warning{% endif %}">
+                        {{ user_obj.get_status_display }}
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <!-- Form Errors -->
+                    {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <strong>{% trans "Please correct the errors below:" %}</strong>
+                        <ul class="mb-0 mt-2">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                    <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in form.non_field_errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <form method="post" id="userForm" novalidate enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Basic Information Section -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="bi bi-info-circle me-2"></i>{% trans "Basic Information" %}
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.email.id_for_label }}" class="form-label">
+                                    {% trans "Email Address" %} *
+                                </label>
+                                {{ form.email }}
+                                {% if form.email.help_text %}
+                                <div class="form-text">{{ form.email.help_text }}</div>
+                                {% endif %}
+                                {% if form.email.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.email.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.mobile.id_for_label }}" class="form-label">
+                                    {% trans "Mobile Number" %}
+                                </label>
+                                {{ form.mobile }}
+                                {% if form.mobile.help_text %}
+                                <div class="form-text">{{ form.mobile.help_text }}</div>
+                                {% endif %}
+                                {% if form.mobile.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.mobile.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                    {% trans "First Name" %}
+                                </label>
+                                {{ form.first_name }}
+                                {% if form.first_name.help_text %}
+                                <div class="form-text">{{ form.first_name.help_text }}</div>
+                                {% endif %}
+                                {% if form.first_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.first_name.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                                    {% trans "Last Name" %}
+                                </label>
+                                {{ form.last_name }}
+                                {% if form.last_name.help_text %}
+                                <div class="form-text">{{ form.last_name.help_text }}</div>
+                                {% endif %}
+                                {% if form.last_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.last_name.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Password Section (only for new users or password change) -->
+                        {% if not user_obj or form.password1 %}
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="bi bi-shield-lock me-2"></i>{% trans "Password" %}
+                                </h6>
+                                
+                                {% if user_obj %}
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    {% trans "Leave password fields blank to keep the current password." %}
+                                </div>
+                                {% endif %}
+                                
+                                <div class="row">
+                                    {% if form.password1 %}
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.password1.id_for_label }}" class="form-label">
+                                            {% trans "Password" %}{% if not user_obj %} *{% endif %}
+                                        </label>
+                                        {{ form.password1 }}
+                                        {% if form.password1.help_text %}
+                                        <div class="form-text">{{ form.password1.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.password1.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.password1.errors.0 }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if form.password2 %}
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.password2.id_for_label }}" class="form-label">
+                                            {% trans "Confirm Password" %}{% if not user_obj %} *{% endif %}
+                                        </label>
+                                        {{ form.password2 }}
+                                        {% if form.password2.help_text %}
+                                        <div class="form-text">{{ form.password2.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.password2.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.password2.errors.0 }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Password Strength Meter -->
+                                <div class="password-strength mt-3" style="display: none;">
+                                    <label class="form-label">{% trans "Password Strength" %}</label>
+                                    <div class="progress mb-2" style="height: 8px;">
+                                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <small class="text-muted password-feedback"></small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Preferences Section -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="bi bi-gear me-2"></i>{% trans "Preferences" %}
+                                </h6>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.language.id_for_label }}" class="form-label">
+                                            {% trans "Language" %}
+                                        </label>
+                                        {{ form.language }}
+                                        {% if form.language.help_text %}
+                                        <div class="form-text">{{ form.language.help_text }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.timezone.id_for_label }}" class="form-label">
+                                            {% trans "Timezone" %}
+                                        </label>
+                                        {{ form.timezone }}
+                                        {% if form.timezone.help_text %}
+                                        <div class="form-text">{{ form.timezone.help_text }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Permissions & Status Section -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="bi bi-shield-check me-2"></i>{% trans "Permissions & Status" %}
+                                </h6>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="{{ form.status.id_for_label }}" class="form-label">
+                                                {% trans "User Status" %}
+                                            </label>
+                                            {{ form.status }}
+                                            {% if form.status.help_text %}
+                                            <div class="form-text">{{ form.status.help_text }}</div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="form-check mb-3">
+                                            {{ form.is_active }}
+                                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                                {% trans "Active" %}
+                                            </label>
+                                            {% if form.is_active.help_text %}
+                                            <div class="form-text">{{ form.is_active.help_text }}</div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="form-check mb-3">
+                                            {{ form.is_verified }}
+                                            <label class="form-check-label" for="{{ form.is_verified.id_for_label }}">
+                                                {% trans "Email Verified" %}
+                                            </label>
+                                            {% if form.is_verified.help_text %}
+                                            <div class="form-text">{{ form.is_verified.help_text }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        {% if user.is_superuser %}
+                                        <div class="form-check mb-3">
+                                            {{ form.is_staff }}
+                                            <label class="form-check-label" for="{{ form.is_staff.id_for_label }}">
+                                                {% trans "Staff Member" %}
+                                            </label>
+                                            {% if form.is_staff.help_text %}
+                                            <div class="form-text">{{ form.is_staff.help_text }}</div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="form-check mb-3">
+                                            {{ form.is_superuser }}
+                                            <label class="form-check-label" for="{{ form.is_superuser.id_for_label }}">
+                                                {% trans "Superuser" %}
+                                            </label>
+                                            {% if form.is_superuser.help_text %}
+                                            <div class="form-text">{{ form.is_superuser.help_text }}</div>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <!-- Groups -->
+                                        {% if form.groups %}
+                                        <div class="mb-3">
+                                            <label for="{{ form.groups.id_for_label }}" class="form-label">
+                                                {% trans "Groups" %}
+                                            </label>
+                                            {{ form.groups }}
+                                            {% if form.groups.help_text %}
+                                            <div class="form-text">{{ form.groups.help_text }}</div>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <!-- User Permissions -->
+                                        {% if form.user_permissions %}
+                                        <div class="mb-3">
+                                            <label for="{{ form.user_permissions.id_for_label }}" class="form-label">
+                                                {% trans "User Permissions" %}
+                                            </label>
+                                            {{ form.user_permissions }}
+                                            {% if form.user_permissions.help_text %}
+                                            <div class="form-text">{{ form.user_permissions.help_text }}</div>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between align-items-center border-top pt-4">
+                                    <div>
+                                        <a href="{% if user_obj %}{% url 'users:user_detail' user_obj.id %}{% else %}{% url 'users:user_list' %}{% endif %}" 
+                                           class="btn btn-outline-secondary">
+                                            <i class="bi bi-arrow-left me-1"></i>
+                                            {% if user_obj %}
+                                                {% trans "Back to User Details" %}
+                                            {% else %}
+                                                {% trans "Back to Users" %}
+                                            {% endif %}
+                                        </a>
+                                    </div>
+                                    <div>
+                                        <button type="button" class="btn btn-outline-info me-2" id="previewBtn">
+                                            <i class="bi bi-eye me-1"></i>{% trans "Preview" %}
+                                        </button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-check-lg me-1"></i>
+                                            {% if user_obj %}
+                                                {% trans "Update User" %}
+                                            {% else %}
+                                                {% trans "Create User" %}
+                                            {% endif %}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previewModalLabel">{% trans "User Preview" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" 
+                             style="width: 100px; height: 100px;">
+                            <span class="text-white h4" id="previewInitials">--</span>
+                        </div>
+                        <h5 id="previewName">{% trans "Full Name" %}</h5>
+                        <p class="text-muted mb-2" id="previewEmail">email@example.com</p>
+                        <div id="previewBadges"></div>
+                    </div>
+                    <div class="col-md-8">
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td class="text-muted" style="width: 40%;">{% trans "Mobile:" %}</td>
+                                <td id="previewMobile">-</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">{% trans "Language:" %}</td>
+                                <td id="previewLanguage">-</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">{% trans "Timezone:" %}</td>
+                                <td id="previewTimezone">-</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">{% trans "Status:" %}</td>
+                                <td id="previewStatus">-</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">{% trans "Active:" %}</td>
+                                <td id="previewActive">-</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">{% trans "Verified:" %}</td>
+                                <td id="previewVerified">-</td>
+                            </tr>
+                            {% if user.is_superuser %}
+                            <tr>
+                                <td class="text-muted">{% trans "Staff:" %}</td>
+                                <td id="previewStaff">-</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">{% trans "Superuser:" %}</td>
+                                <td id="previewSuperuser">-</td>
+                            </tr>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        margin-bottom: 2rem;
+    }
+    
+    .password-strength .progress-bar {
+        transition: width 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #65a0f9;
+        box-shadow: 0 0 0 0.2rem rgba(101, 160, 249, 0.25);
+    }
+    
+    .form-check-input:checked {
+        background-color: #65a0f9;
+        border-color: #65a0f9;
+    }
+    
+    .form-check-input:focus {
+        border-color: #65a0f9;
+        box-shadow: 0 0 0 0.2rem rgba(101, 160, 249, 0.25);
+    }
+    
+    /* Style select2 if used */
+    .select2-container--bootstrap5 .select2-selection {
+        border: 1px solid #ced4da;
+        border-radius: 0.375rem;
+    }
+    
+    .select2-container--bootstrap5 .select2-selection:focus {
+        border-color: #65a0f9;
+        box-shadow: 0 0 0 0.2rem rgba(101, 160, 249, 0.25);
+    }
+    
+    /* Badge styles for preview */
+    .preview-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        margin: 0.1rem;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const userForm = document.getElementById('userForm');
+        const previewBtn = document.getElementById('previewBtn');
+        const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+        const password1 = document.getElementById('{{ form.password1.id_for_label }}');
+        const password2 = document.getElementById('{{ form.password2.id_for_label }}');
+        const passwordStrength = document.querySelector('.password-strength');
+        const progressBar = document.querySelector('.password-strength .progress-bar');
+        const passwordFeedback = document.querySelector('.password-feedback');
+        
+        // Preview button handler
+        if (previewBtn) {
+            previewBtn.addEventListener('click', function() {
+                if (validateForm(true)) {
+                    updatePreview();
+                    previewModal.show();
+                }
+            });
+        }
+        
+        // Password strength checker
+        if (password1) {
+            password1.addEventListener('input', function() {
+                checkPasswordStrength(this.value);
+                validatePasswordMatch();
+            });
+        }
+        
+        if (password2) {
+            password2.addEventListener('input', validatePasswordMatch);
+        }
+        
+        // Form submission handler
+        userForm.addEventListener('submit', function(e) {
+            if (!validateForm()) {
+                e.preventDefault();
+                showFormErrors();
+            }
+        });
+        
+        // Email availability check (for new users)
+        const emailField = document.getElementById('{{ form.email.id_for_label }}');
+        if (emailField && !{{ user_obj.id|default:"false" }}) {
+            emailField.addEventListener('blur', function() {
+                checkEmailAvailability(this.value);
+            });
+        }
+        
+        function validateForm(isPreview = false) {
+            let isValid = true;
+            resetValidation();
+            
+            // Required fields validation
+            const requiredFields = userForm.querySelectorAll('[required]');
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    field.classList.add('is-invalid');
+                    isValid = false;
+                }
+            });
+            
+            // Email format validation
+            if (emailField && emailField.value) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(emailField.value)) {
+                    emailField.classList.add('is-invalid');
+                    isValid = false;
+                }
+            }
+            
+            // Password validation
+            if (password1 && password2) {
+                if (password1.value && password2.value && password1.value !== password2.value) {
+                    password2.classList.add('is-invalid');
+                    isValid = false;
+                }
+                
+                // For new users, password is required
+                if (!{{ user_obj.id|default:"false" }} && (!password1.value || !password2.value)) {
+                    if (!password1.value) password1.classList.add('is-invalid');
+                    if (!password2.value) password2.classList.add('is-invalid');
+                    isValid = false;
+                }
+            }
+            
+            if (!isValid && !isPreview) {
+                showToast('{% trans "Validation Error" %}', '{% trans "Please check the form and fix the errors." %}', 'danger');
+            }
+            
+            return isValid;
+        }
+        
+        function resetValidation() {
+            const invalidElements = userForm.querySelectorAll('.is-invalid');
+            invalidElements.forEach(element => {
+                element.classList.remove('is-invalid');
+            });
+        }
+        
+        function showFormErrors() {
+            const firstInvalidField = userForm.querySelector('.is-invalid');
+            if (firstInvalidField) {
+                firstInvalidField.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+                firstInvalidField.focus();
+            }
+        }
+        
+        function checkPasswordStrength(password) {
+            if (!password) {
+                passwordStrength.style.display = 'none';
+                return;
+            }
+            
+            passwordStrength.style.display = 'block';
+            
+            let strength = 0;
+            let feedback = '';
+            
+            // Length check
+            if (password.length >= 8) strength += 25;
+            
+            // Lowercase check
+            if (/[a-z]/.test(password)) strength += 25;
+            
+            // Uppercase check
+            if (/[A-Z]/.test(password)) strength += 25;
+            
+            // Number/Special char check
+            if (/[0-9]/.test(password) || /[^A-Za-z0-9]/.test(password)) strength += 25;
+            
+            // Update progress bar and feedback
+            progressBar.style.width = strength + '%';
+            
+            if (strength < 50) {
+                progressBar.className = 'progress-bar bg-danger';
+                feedback = '{% trans "Weak password" %}';
+            } else if (strength < 75) {
+                progressBar.className = 'progress-bar bg-warning';
+                feedback = '{% trans "Moderate password" %}';
+            } else {
+                progressBar.className = 'progress-bar bg-success';
+                feedback = '{% trans "Strong password" %}';
+            }
+            
+            passwordFeedback.textContent = feedback;
+        }
+        
+        function validatePasswordMatch() {
+            if (password1 && password2 && password1.value && password2.value) {
+                if (password1.value !== password2.value) {
+                    password2.classList.add('is-invalid');
+                } else {
+                    password2.classList.remove('is-invalid');
+                }
+            }
+        }
+        
+        function checkEmailAvailability(email) {
+            if (!email) return;
+            
+            // In a real implementation, this would be an AJAX call to check email availability
+            // For now, we'll just simulate it
+            console.log('Checking email availability:', email);
+        }
+        
+        function updatePreview() {
+            // Update preview with form values
+            const firstName = document.getElementById('{{ form.first_name.id_for_label }}').value || '';
+            const lastName = document.getElementById('{{ form.last_name.id_for_label }}').value || '';
+            const email = document.getElementById('{{ form.email.id_for_label }}').value || '';
+            const mobile = document.getElementById('{{ form.mobile.id_for_label }}').value || '-';
+            const language = document.getElementById('{{ form.language.id_for_label }}');
+            const timezone = document.getElementById('{{ form.timezone.id_for_label }}');
+            const status = document.getElementById('{{ form.status.id_for_label }}');
+            const isActive = document.getElementById('{{ form.is_active.id_for_label }}');
+            const isVerified = document.getElementById('{{ form.is_verified.id_for_label }}');
+            const isStaff = document.getElementById('{{ form.is_staff.id_for_label }}');
+            const isSuperuser = document.getElementById('{{ form.is_superuser.id_for_label }}');
+            
+            // Update name and initials
+            const fullName = `${firstName} ${lastName}`.trim() || '{% trans "Full Name" %}';
+            document.getElementById('previewName').textContent = fullName;
+            document.getElementById('previewEmail').textContent = email || 'email@example.com';
+            
+            // Generate initials
+            const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase() || '--';
+            document.getElementById('previewInitials').textContent = initials;
+            
+            // Update other fields
+            document.getElementById('previewMobile').textContent = mobile;
+            document.getElementById('previewLanguage').textContent = language ? language.options[language.selectedIndex]?.text : '-';
+            document.getElementById('previewTimezone').textContent = timezone ? timezone.options[timezone.selectedIndex]?.text : '-';
+            document.getElementById('previewStatus').textContent = status ? status.options[status.selectedIndex]?.text : '-';
+            document.getElementById('previewActive').textContent = isActive?.checked ? '{% trans "Yes" %}' : '{% trans "No" %}';
+            document.getElementById('previewVerified').textContent = isVerified?.checked ? '{% trans "Yes" %}' : '{% trans "No" %}';
+            
+            if (isStaff) {
+                document.getElementById('previewStaff').textContent = isStaff.checked ? '{% trans "Yes" %}' : '{% trans "No" %}';
+            }
+            
+            if (isSuperuser) {
+                document.getElementById('previewSuperuser').textContent = isSuperuser.checked ? '{% trans "Yes" %}' : '{% trans "No" %}';
+            }
+            
+            // Update badges
+            const badgesContainer = document.getElementById('previewBadges');
+            badgesContainer.innerHTML = '';
+            
+            if (isActive?.checked) {
+                badgesContainer.innerHTML += '<span class="badge bg-success preview-badge">{% trans "Active" %}</span>';
+            }
+            
+            if (isVerified?.checked) {
+                badgesContainer.innerHTML += '<span class="badge bg-info preview-badge">{% trans "Verified" %}</span>';
+            }
+            
+            if (isStaff?.checked) {
+                badgesContainer.innerHTML += '<span class="badge bg-warning preview-badge">{% trans "Staff" %}</span>';
+            }
+            
+            if (isSuperuser?.checked) {
+                badgesContainer.innerHTML += '<span class="badge bg-danger preview-badge">{% trans "Superuser" %}</span>';
+            }
+        }
+        
+        function showToast(title, message, type) {
+            // Implementation for showing toast notifications
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}</strong>: ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            const toastContainer = document.getElementById('toastContainer') || createToastContainer();
+            toastContainer.appendChild(toast);
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+        }
+        
+        function createToastContainer() {
+            const container = document.createElement('div');
+            container.id = 'toastContainer';
+            container.className = 'toast-container position-fixed top-0 end-0 p-3';
+            container.style.zIndex = '9999';
+            document.body.appendChild(container);
+            return container;
+        }
+        
+        // Initialize any third-party components
+        initializeSelect2();
+        
+        function initializeSelect2() {
+            // Initialize Select2 for multiple select fields if available
+            if (typeof $.fn.select2 !== 'undefined') {
+                $('select[multiple]').select2({
+                    theme: 'bootstrap-5',
+                    width: '100%',
+                    placeholder: '{% trans "Select options" %}',
+                    allowClear: true
+                });
+            }
+        }
+    });
+</script>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+    <div id="toastContainer"></div>
+</div>
+{% endblock %}

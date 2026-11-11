@@ -1,0 +1,344 @@
+{% extends 'base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Take Attendance" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">{% trans "Take Attendance" %}</h1>
+                    <p class="text-muted">
+                        {% trans "Class" %}: {{ class_obj.name }} |
+                        {% trans "Date" %}: {{ today|date:"l, F j, Y" }}
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'users:teacher_classes' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> {% trans "Back to Classes" %}
+                    </a>
+                    <a href="{% url 'users:teacher_class_materials' class_obj.id %}" class="btn btn-outline-primary">
+                        <i class="bi bi-file-earmark-text"></i> {% trans "Class Materials" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Status Alert -->
+    {% if attendance_taken %}
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle-fill"></i>
+        {% trans "Attendance has already been taken for today. You can update it if needed." %}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <!-- Attendance Form -->
+    <div class="card shadow">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-check-circle"></i> {% trans "Mark Attendance" %}
+                </h5>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="markAllPresent()">
+                        <i class="bi bi-check-all"></i> {% trans "Mark All Present" %}
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="markAllAbsent()">
+                        <i class="bi bi-x-circle"></i> {% trans "Mark All Absent" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+        <form method="post" id="attendanceForm">
+            {% csrf_token %}
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="attendanceTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>{% trans "Student ID" %}</th>
+                                <th>{% trans "Student Name" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                <th>{% trans "Remarks" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in students %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>
+                                    <strong>{{ student.student_id }}</strong>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if student.user.profile.profile_picture %}
+                                        <img src="{{ student.user.profile.profile_picture.url }}"
+                                             alt="Profile" class="rounded-circle me-2"
+                                             style="width: 32px; height: 32px; object-fit: cover;">
+                                        {% else %}
+                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2"
+                                             style="width: 32px; height: 32px; font-size: 14px;">
+                                            {{ student.user.get_initials }}
+                                        </div>
+                                        {% endif %}
+                                        <div>
+                                            <strong>{{ student.user.get_full_name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ student.user.email }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <select name="status_{{ student.id }}" class="form-select form-select-sm status-select"
+                                            onchange="updateRowColor(this)">
+                                        <option value="present" {% if attendance_data|get_item:student.id.status == 'present' %}selected{% endif %}>
+                                            {% trans "Present" %}
+                                        </option>
+                                        <option value="absent" {% if attendance_data|get_item:student.id.status == 'absent' %}selected{% endif %}>
+                                            {% trans "Absent" %}
+                                        </option>
+                                        <option value="late" {% if attendance_data|get_item:student.id.status == 'late' %}selected{% endif %}>
+                                            {% trans "Late" %}
+                                        </option>
+                                        <option value="half_day" {% if attendance_data|get_item:student.id.status == 'half_day' %}selected{% endif %}>
+                                            {% trans "Half Day" %}
+                                        </option>
+                                        <option value="excused" {% if attendance_data|get_item:student.id.status == 'excused' %}selected{% endif %}>
+                                            {% trans "Excused" %}
+                                        </option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" name="remarks_{{ student.id }}"
+                                           class="form-control form-control-sm"
+                                           placeholder="{% trans 'Optional remarks' %}"
+                                           value="{{ attendance_data|get_item:student.id.remarks|default:'' }}">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="text-muted">
+                        <small>
+                            <i class="bi bi-info-circle"></i>
+                            {% trans "Total students" %}: {{ students|length }}
+                        </small>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
+                            <i class="bi bi-arrow-counterclockwise"></i> {% trans "Reset" %}
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i>
+                            {% if attendance_taken %}{% trans "Update Attendance" %}{% else %}{% trans "Save Attendance" %}{% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Attendance Summary (if already taken) -->
+    {% if attendance_taken %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-bar-chart"></i> {% trans "Today's Attendance Summary" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-2">
+                            <div class="p-3 bg-success text-white rounded">
+                                <h4 id="presentCount">0</h4>
+                                <small>{% trans "Present" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-3 bg-danger text-white rounded">
+                                <h4 id="absentCount">0</h4>
+                                <small>{% trans "Absent" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-3 bg-warning text-white rounded">
+                                <h4 id="lateCount">0</h4>
+                                <small>{% trans "Late" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-3 bg-info text-white rounded">
+                                <h4 id="halfDayCount">0</h4>
+                                <small>{% trans "Half Day" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-3 bg-secondary text-white rounded">
+                                <h4 id="excusedCount">0</h4>
+                                <small>{% trans "Excused" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-3 bg-primary text-white rounded">
+                                <h4>{{ students|length }}</h4>
+                                <small>{% trans "Total" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Update row colors based on attendance status
+function updateRowColor(selectElement) {
+    const row = selectElement.closest('tr');
+    const status = selectElement.value;
+
+    // Remove existing status classes
+    row.classList.remove('table-success', 'table-danger', 'table-warning', 'table-info', 'table-secondary');
+
+    // Add appropriate class based on status
+    switch(status) {
+        case 'present':
+            row.classList.add('table-success');
+            break;
+        case 'absent':
+            row.classList.add('table-danger');
+            break;
+        case 'late':
+            row.classList.add('table-warning');
+            break;
+        case 'half_day':
+            row.classList.add('table-info');
+            break;
+        case 'excused':
+            row.classList.add('table-secondary');
+            break;
+    }
+
+    updateSummary();
+}
+
+// Mark all students as present
+function markAllPresent() {
+    document.querySelectorAll('.status-select').forEach(select => {
+        select.value = 'present';
+        updateRowColor(select);
+    });
+}
+
+// Mark all students as absent
+function markAllAbsent() {
+    document.querySelectorAll('.status-select').forEach(select => {
+        select.value = 'absent';
+        updateRowColor(select);
+    });
+}
+
+// Reset form to default values
+function resetForm() {
+    document.querySelectorAll('.status-select').forEach(select => {
+        select.value = 'present';
+        updateRowColor(select);
+    });
+
+    document.querySelectorAll('input[name*="remarks"]').forEach(input => {
+        input.value = '';
+    });
+}
+
+// Update attendance summary
+function updateSummary() {
+    const counts = {
+        present: 0,
+        absent: 0,
+        late: 0,
+        half_day: 0,
+        excused: 0
+    };
+
+    document.querySelectorAll('.status-select').forEach(select => {
+        counts[select.value]++;
+    });
+
+    document.getElementById('presentCount').textContent = counts.present;
+    document.getElementById('absentCount').textContent = counts.absent;
+    document.getElementById('lateCount').textContent = counts.late;
+    document.getElementById('halfDayCount').textContent = counts.half_day;
+    document.getElementById('excusedCount').textContent = counts.excused;
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Set initial row colors
+    document.querySelectorAll('.status-select').forEach(select => {
+        updateRowColor(select);
+    });
+
+    // Update summary if attendance already taken
+    {% if attendance_taken %}
+    updateSummary();
+    {% endif %}
+});
+
+// Form validation before submit
+document.getElementById('attendanceForm').addEventListener('submit', function(e) {
+    const confirmSubmit = confirm('{% trans "Are you sure you want to save this attendance record?" %}');
+    if (!confirmSubmit) {
+        e.preventDefault();
+    }
+});
+</script>
+
+<style>
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.075);
+}
+
+.table-success {
+    background-color: rgba(25, 135, 84, 0.1) !important;
+}
+
+.table-danger {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+}
+
+.table-warning {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+.table-info {
+    background-color: rgba(13, 202, 240, 0.1) !important;
+}
+
+.table-secondary {
+    background-color: rgba(108, 117, 125, 0.1) !important;
+}
+
+.form-select-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+</style>
+{% endblock %}

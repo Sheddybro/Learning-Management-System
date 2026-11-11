@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Delete Fee Structure - {{ object.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card card-danger">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-trash"></i> Delete Fee Structure
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'finance:feestructure_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Back to List
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <h5><i class="icon fas fa-exclamation-triangle"></i> Warning!</h5>
+                        You are about to delete the fee structure "<strong>{{ object.name }}</strong>".
+                        This action cannot be undone.
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Fee Structure Details:</h5>
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th>Name:</th>
+                                    <td>{{ object.name }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Code:</th>
+                                    <td>{{ object.code }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Type:</th>
+                                    <td>{{ object.get_fee_type_display }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Amount:</th>
+                                    <td>₦{{ object.amount }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Academic Session:</th>
+                                    <td>{{ object.academic_session }}</td>
+                                </tr>
+                                {% if object.applicable_class %}
+                                <tr>
+                                    <th>Applicable Class:</th>
+                                    <td>{{ object.applicable_class }}</td>
+                                </tr>
+                                {% endif %}
+                                <tr>
+                                    <th>Billing Cycle:</th>
+                                    <td>{{ object.get_billing_cycle_display }}</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div class="col-md-6">
+                            <h5>Impact Assessment:</h5>
+                            <div class="alert alert-info">
+                                <p><strong>Before deleting, please consider:</strong></p>
+                                <ul class="mb-0">
+                                    <li>This fee structure may be referenced in existing invoices</li>
+                                    <li>Students may have already paid for this fee</li>
+                                    <li>Historical financial records will be affected</li>
+                                    <li>Consider deactivating instead of deleting if this fee might be needed again</li>
+                                </ul>
+                            </div>
+
+                            {% comment %} Check if fee structure is used in invoices {% endcomment %}
+                            {% with invoices_count=object.invoice_items.count %}
+                            {% if invoices_count > 0 %}
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <strong>Cannot Delete:</strong> This fee structure is used in {{ invoices_count }} invoice(s).
+                                Please remove all references before deleting.
+                            </div>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer">
+                    <form method="post">
+                        {% csrf_token %}
+                        {% comment %} Disable delete button if fee structure is in use {% endcomment %}
+                        {% with invoices_count=object.invoice_items.count %}
+                        <button type="submit"
+                                class="btn btn-danger"
+                                {% if invoices_count > 0 %}disabled{% endif %}>
+                            <i class="fas fa-trash"></i> Yes, Delete Fee Structure
+                        </button>
+                        {% endwith %}
+                        <a href="{% url 'finance:feestructure_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Add confirmation dialog for delete action
+    $('form').on('submit', function(e) {
+        var confirmed = confirm('Are you absolutely sure you want to delete this fee structure? This action cannot be undone.');
+        if (!confirmed) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}

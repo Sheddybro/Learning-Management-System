@@ -1,0 +1,591 @@
+<!-- templates/hostels/beds/bed_form.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if form.instance.pk %}Edit Bed{% else %}Add New Bed{% endif %} - Hostel Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .form-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .form-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+        padding: 1.5rem;
+    }
+    
+    .form-section {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        background: #f8f9fa;
+    }
+    
+    .form-section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #007bff;
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .form-actions {
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        padding: 1.5rem;
+        border-radius: 0 0 12px 12px;
+    }
+    
+    .info-badge {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+    
+    .dynamic-field {
+        transition: all 0.3s ease;
+    }
+    
+    .dynamic-field:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .help-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .preview-card {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .preview-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .preview-item:last-child {
+        border-bottom: none;
+    }
+    
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .status-available {
+        background-color: #28a745;
+    }
+    
+    .status-occupied {
+        background-color: #dc3545;
+    }
+    
+    .maintenance-alert {
+        border-left: 4px solid #ffc107;
+        background: #fff3cd;
+        color: #856404;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}
+{% if form.instance.pk %}
+    <i class="bi bi-pencil-square me-2"></i>Edit Bed
+{% else %}
+    <i class="bi bi-plus-circle me-2"></i>Add New Bed
+{% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:dashboard' %}">Hostel Dashboard</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:bed_list' %}">Beds</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if form.instance.pk %}Edit Bed{% else %}Add New Bed{% endif %}
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card form-card">
+                <div class="form-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-0">
+                                {% if form.instance.pk %}
+                                    <i class="bi bi-pencil-square me-2"></i>Edit Bed Details
+                                {% else %}
+                                    <i class="bi bi-plus-circle me-2"></i>Add New Bed
+                                {% endif %}
+                            </h4>
+                            <p class="mb-0 opacity-75">
+                                {% if form.instance.pk %}
+                                    Update bed information and maintenance details
+                                {% else %}
+                                    Create a new bed in the hostel management system
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <span class="info-badge">
+                                <i class="bi bi-info-circle me-1"></i>
+                                {% if form.instance.pk %}Editing{% else %}Creating{% endif %} Bed
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <form method="post" id="bedForm" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Basic Information Section -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-info-circle me-2"></i>Basic Information
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.room.id_for_label }}" class="form-label required-field">
+                                        <i class="bi bi-door-closed me-1"></i>Room
+                                    </label>
+                                    {{ form.room }}
+                                    {% if form.room.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.room.errors }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="help-text">
+                                        Select the room where this bed is located
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.bed_number.id_for_label }}" class="form-label required-field">
+                                        <i class="bi bi-123 me-1"></i>Bed Number
+                                    </label>
+                                    {{ form.bed_number }}
+                                    {% if form.bed_number.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.bed_number.errors }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="help-text">
+                                        Unique identifier for this bed (e.g., A, B, 1, 2)
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.bed_type.id_for_label }}" class="form-label required-field">
+                                        <i class="bi bi-layout-text-sidebar me-1"></i>Bed Type
+                                    </label>
+                                    {{ form.bed_type }}
+                                    {% if form.bed_type.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.bed_type.errors }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="help-text">
+                                        Type of bed (Single, Bunk, Double, etc.)
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">
+                                        <i class="bi bi-building me-1"></i>Hostel
+                                    </label>
+                                    <div class="form-control bg-light" id="hostelDisplay">
+                                        {% if form.instance.room %}
+                                            {{ form.instance.room.hostel.name }}
+                                        {% else %}
+                                            Select a room to see hostel
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Features & Description Section -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-list-check me-2"></i>Features & Description
+                            </h5>
+                            <div class="mb-3">
+                                <label for="{{ form.features.id_for_label }}" class="form-label">
+                                    <i class="bi bi-tags me-1"></i>Bed Features
+                                </label>
+                                {{ form.features }}
+                                {% if form.features.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.features.errors }}
+                                    </div>
+                                {% endif %}
+                                <div class="help-text">
+                                    List bed features separated by commas (e.g., Study table, Cupboard, Reading light)
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Maintenance Information Section -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-tools me-2"></i>Maintenance Information
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.last_maintenance_date.id_for_label }}" class="form-label">
+                                        <i class="bi bi-calendar-check me-1"></i>Last Maintenance Date
+                                    </label>
+                                    {{ form.last_maintenance_date }}
+                                    {% if form.last_maintenance_date.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.last_maintenance_date.errors }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="help-text">
+                                        Date when this bed was last maintained
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.next_maintenance_date.id_for_label }}" class="form-label">
+                                        <i class="bi bi-calendar-event me-1"></i>Next Maintenance Date
+                                    </label>
+                                    {{ form.next_maintenance_date }}
+                                    {% if form.next_maintenance_date.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.next_maintenance_date.errors }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="help-text">
+                                        Scheduled date for next maintenance
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {% if form.instance.last_maintenance_date and form.instance.next_maintenance_date %}
+                            <div class="maintenance-alert p-3">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>Maintenance Schedule:</strong> 
+                                        Next maintenance due in 
+                                        <span id="daysUntilMaintenance" class="fw-bold"></span> days
+                                    </div>
+                                    <div class="col-md-4 text-end">
+                                        <span class="badge bg-warning" id="maintenanceStatus"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Live Preview Section -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-eye me-2"></i>Live Preview
+                            </h5>
+                            <div class="preview-card">
+                                <div class="preview-item">
+                                    <span>Bed Identifier:</span>
+                                    <span id="previewIdentifier" class="fw-bold">
+                                        {% if form.instance.pk %}
+                                            {{ form.instance.room.hostel.code }}-{{ form.instance.room.room_number }}-{{ form.instance.bed_number }}
+                                        {% else %}
+                                            [Hostel]-[Room]-[Bed]
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="preview-item">
+                                    <span>Bed Type:</span>
+                                    <span id="previewType">
+                                        {% if form.instance.bed_type %}
+                                            {{ form.instance.get_bed_type_display }}
+                                        {% else %}
+                                            Not set
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="preview-item">
+                                    <span>Current Status:</span>
+                                    <span>
+                                        <span class="status-indicator {% if form.instance.is_occupied %}status-occupied{% else %}status-available{% endif %}"></span>
+                                        <span id="previewStatus">
+                                            {% if form.instance.is_occupied %}Occupied{% else %}Available{% endif %}
+                                        </span>
+                                    </span>
+                                </div>
+                                <div class="preview-item">
+                                    <span>Maintenance Required:</span>
+                                    <span id="previewMaintenance">
+                                        {% if form.instance.requires_maintenance %}Yes{% else %}No{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="form-actions">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <a href="{% url 'hostels:bed_list' %}" class="btn btn-outline-secondary">
+                                        <i class="bi bi-arrow-left me-2"></i>
+                                        Back to Beds List
+                                    </a>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <button type="reset" class="btn btn-outline-danger me-2">
+                                        <i class="bi bi-arrow-clockwise me-2"></i>
+                                        Reset
+                                    </button>
+                                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                                        <i class="bi bi-check-circle me-2"></i>
+                                        {% if form.instance.pk %}Update Bed{% else %}Create Bed{% endif %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const bedForm = document.getElementById('bedForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const roomSelect = document.getElementById('{{ form.room.id_for_label }}');
+        const bedNumberInput = document.getElementById('{{ form.bed_number.id_for_label }}');
+        const bedTypeSelect = document.getElementById('{{ form.bed_type.id_for_label }}');
+        const lastMaintenanceInput = document.getElementById('{{ form.last_maintenance_date.id_for_label }}');
+        const nextMaintenanceInput = document.getElementById('{{ form.next_maintenance_date.id_for_label }}');
+        const featuresTextarea = document.getElementById('{{ form.features.id_for_label }}');
+
+        // Update hostel display when room changes
+        function updateHostelDisplay() {
+            const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+            const hostelDisplay = document.getElementById('hostelDisplay');
+            
+            if (selectedOption && selectedOption.text) {
+                // Extract hostel name from room text (format: "Hostel Name - Room Number")
+                const roomText = selectedOption.text;
+                const hostelName = roomText.split(' - ')[0];
+                hostelDisplay.textContent = hostelName || 'Select a room to see hostel';
+            } else {
+                hostelDisplay.textContent = 'Select a room to see hostel';
+            }
+            
+            updatePreview();
+        }
+
+        // Update live preview
+        function updatePreview() {
+            const previewIdentifier = document.getElementById('previewIdentifier');
+            const previewType = document.getElementById('previewType');
+            
+            // Update identifier
+            const selectedRoom = roomSelect.options[roomSelect.selectedIndex];
+            const roomText = selectedRoom ? selectedRoom.text : '[Hostel]-[Room]';
+            const hostelRoom = roomText.split(' - ').join('-');
+            const bedNumber = bedNumberInput.value || '[Bed]';
+            previewIdentifier.textContent = `${hostelRoom}-${bedNumber}`;
+            
+            // Update bed type
+            const selectedBedType = bedTypeSelect.options[bedTypeSelect.selectedIndex];
+            previewType.textContent = selectedBedType ? selectedBedType.text : 'Not set';
+            
+            // Update maintenance status
+            updateMaintenanceStatus();
+        }
+
+        // Update maintenance status and calculations
+        function updateMaintenanceStatus() {
+            const lastMaintenance = lastMaintenanceInput.value;
+            const nextMaintenance = nextMaintenanceInput.value;
+            
+            if (lastMaintenance && nextMaintenance) {
+                const lastDate = new Date(lastMaintenance);
+                const nextDate = new Date(nextMaintenance);
+                const today = new Date();
+                
+                const daysUntil = Math.ceil((nextDate - today) / (1000 * 60 * 60 * 24));
+                const daysSince = Math.ceil((today - lastDate) / (1000 * 60 * 60 * 24));
+                
+                const daysUntilElement = document.getElementById('daysUntilMaintenance');
+                const statusElement = document.getElementById('maintenanceStatus');
+                
+                if (daysUntilElement && statusElement) {
+                    daysUntilElement.textContent = daysUntil;
+                    
+                    if (daysUntil <= 0) {
+                        statusElement.textContent = 'OVERDUE';
+                        statusElement.className = 'badge bg-danger';
+                    } else if (daysUntil <= 7) {
+                        statusElement.textContent = 'SOON';
+                        statusElement.className = 'badge bg-warning';
+                    } else {
+                        statusElement.textContent = 'SCHEDULED';
+                        statusElement.className = 'badge bg-success';
+                    }
+                }
+            }
+        }
+
+        // Validate maintenance dates
+        function validateMaintenanceDates() {
+            const lastMaintenance = lastMaintenanceInput.value;
+            const nextMaintenance = nextMaintenanceInput.value;
+            
+            if (lastMaintenance && nextMaintenance) {
+                const lastDate = new Date(lastMaintenance);
+                const nextDate = new Date(nextMaintenance);
+                
+                if (nextDate <= lastDate) {
+                    alert('Next maintenance date must be after last maintenance date.');
+                    nextMaintenanceInput.focus();
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Check for duplicate bed numbers
+        function checkDuplicateBedNumber() {
+            // This would typically involve an AJAX call to check server-side
+            // For now, we'll just do basic client-side validation
+            const bedNumber = bedNumberInput.value.trim();
+            if (!bedNumber) {
+                return true;
+            }
+            
+            // Basic validation - bed number should be alphanumeric
+            if (!/^[a-zA-Z0-9]+$/.test(bedNumber)) {
+                alert('Bed number should contain only letters and numbers.');
+                bedNumberInput.focus();
+                return false;
+            }
+            
+            return true;
+        }
+
+        // Event listeners
+        roomSelect.addEventListener('change', updateHostelDisplay);
+        bedNumberInput.addEventListener('input', updatePreview);
+        bedTypeSelect.addEventListener('change', updatePreview);
+        lastMaintenanceInput.addEventListener('change', updateMaintenanceStatus);
+        nextMaintenanceInput.addEventListener('change', updateMaintenanceStatus);
+
+        // Form submission handler
+        bedForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Validate form
+            if (!validateMaintenanceDates() || !checkDuplicateBedNumber()) {
+                return;
+            }
+            
+            // Show loading state
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Saving...';
+            submitBtn.disabled = true;
+            
+            // Submit the form
+            this.submit();
+        });
+
+        // Reset form handler
+        bedForm.addEventListener('reset', function() {
+            setTimeout(updatePreview, 100);
+            setTimeout(updateHostelDisplay, 100);
+        });
+
+        // Initialize on page load
+        updateHostelDisplay();
+        updatePreview();
+        updateMaintenanceStatus();
+
+        // Auto-format features input
+        featuresTextarea.addEventListener('blur', function() {
+            const features = this.value.split(',')
+                .map(feature => feature.trim())
+                .filter(feature => feature)
+                .join(', ');
+            this.value = features;
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                submitBtn.click();
+            }
+        });
+
+        // Show character count for features
+        featuresTextarea.addEventListener('input', function() {
+            const maxLength = 500;
+            const currentLength = this.value.length;
+            let helpText = this.parentNode.querySelector('.help-text');
+            
+            if (!helpText.querySelector('.char-count')) {
+                const charCount = document.createElement('span');
+                charCount.className = 'char-count float-end';
+                helpText.appendChild(charCount);
+            }
+            
+            const charCount = helpText.querySelector('.char-count');
+            charCount.textContent = `${currentLength}/${maxLength} characters`;
+            
+            if (currentLength > maxLength * 0.8) {
+                charCount.className = 'char-count float-end text-warning';
+            } else {
+                charCount.className = 'char-count float-end text-muted';
+            }
+        });
+
+        // Trigger input event to show initial character count
+        featuresTextarea.dispatchEvent(new Event('input'));
+    });
+</script>
+{% endblock %}

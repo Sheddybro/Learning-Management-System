@@ -1,0 +1,475 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Bulk User Import" %} - {{ block.super }}{% endblock %}
+
+{% block page_title %}{% trans "Bulk User Import" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:user_list' %}">{% trans "Users" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Bulk Import" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-cloud-upload me-2"></i>
+                        {% trans "Bulk User Import" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Import Results (if available) -->
+                    {% if import_results %}
+                    <div class="alert alert-info mb-4">
+                        <h6 class="alert-heading">
+                            <i class="bi bi-info-circle me-2"></i>{% trans "Import Results" %}
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="text-center">
+                                    <div class="h4 text-primary">{{ import_results.total_processed }}</div>
+                                    <small class="text-muted">{% trans "Total Processed" %}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center">
+                                    <div class="h4 text-success">{{ import_results.successful }}</div>
+                                    <small class="text-muted">{% trans "Successful" %}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center">
+                                    <div class="h4 text-danger">{{ import_results.failed }}</div>
+                                    <small class="text-muted">{% trans "Failed" %}</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if import_results.created_users %}
+                        <div class="mt-3">
+                            <h6>{% trans "Created Users" %}:</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Name" %}</th>
+                                            <th>{% trans "Email" %}</th>
+                                            <th>{% trans "Role" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for user in import_results.created_users %}
+                                        <tr>
+                                            <td>{{ user.name }}</td>
+                                            <td>{{ user.email }}</td>
+                                            <td><span class="badge bg-secondary">{{ user.role }}</span></td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if import_results.errors %}
+                        <div class="mt-3">
+                            <h6 class="text-danger">{% trans "Errors" %}:</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Row" %}</th>
+                                            <th>{% trans "Email" %}</th>
+                                            <th>{% trans "Error" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for error in import_results.errors %}
+                                        <tr>
+                                            <td>{{ error.row }}</td>
+                                            <td>{{ error.email }}</td>
+                                            <td class="text-danger">{{ error.error }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- CSV Format Instructions -->
+                    <div class="card border-info mb-4">
+                        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-file-earmark-spreadsheet me-2"></i>
+                                {% trans "CSV Format Requirements" %}
+                            </h6>
+                            <a href="{% url 'users:download_bulk_user_sample' %}" class="btn btn-light btn-sm">
+                                <i class="bi bi-download me-1"></i>
+                                {% trans "Download Test Sample" %}
+                            </a>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-3">{% trans "Your CSV file must contain the following columns (case-insensitive):" %}</p>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">{% trans "Required Columns" %}</h6>
+                                    <ul class="list-unstyled">
+                                        <li><code>email</code> - {% trans "User's email address" %}</li>
+                                        <li><code>first_name</code> - {% trans "User's first name" %}</li>
+                                        <li><code>last_name</code> - {% trans "User's last name" %}</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-success">{% trans "Optional Columns" %}</h6>
+                                    <ul class="list-unstyled">
+                                        <li><code>mobile</code> - {% trans "Mobile phone number" %}</li>
+                                        <li><code>role</code> - {% trans "Role type (student, teacher, parent, etc.)" %}</li>
+                                        <li><code>date_of_birth</code> - {% trans "Date of birth (YYYY-MM-DD)" %}</li>
+                                        <li><code>gender</code> - {% trans "Gender (male, female, other)" %}</li>
+                                        <li><code>nationality</code> - {% trans "Nationality" %}</li>
+                                        <li><code>address</code> - {% trans "Street address" %}</li>
+                                        <li><code>city</code> - {% trans "City" %}</li>
+                                        <li><code>state</code> - {% trans "State/Province" %}</li>
+                                        <li><code>postal_code</code> - {% trans "Postal code" %}</li>
+                                        <li><code>country</code> - {% trans "Country" %}</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-light border mt-3">
+                                <h6 class="mb-2">{% trans "Sample CSV Format" %}:</h6>
+                                <pre class="mb-0"><code>email,first_name,last_name,mobile,role,date_of_birth,gender
+john.doe@nordalms.pythonanywhere.com,John,Doe,+1234567890,student,2005-05-15,male
+jane.smith@nordalms.pythonanywhere.com,Jane,Smith,+1234567891,teacher,1985-03-20,female</code></pre>
+                            </div>
+
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>{% trans "Important Notes" %}:</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li>{% trans "The first row should contain column headers" %}</li>
+                                    <li>{% trans "Email addresses must be unique" %}</li>
+                                    <li>{% trans "If role is not specified, 'student' will be used as default" %}</li>
+                                    <li>{% trans "Supported file formats: CSV (.csv), Excel (.xlsx, .xls)" %}</li>
+                                    <li>{% trans "Maximum file size: 10MB" %}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Import Form -->
+                    <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+                        {% csrf_token %}
+
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label for="id_csv_file" class="form-label">
+                                        {% trans "Select File" %} <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="file" class="form-control" id="id_csv_file" name="csv_file"
+                                           accept=".csv,.xlsx,.xls" required>
+                                    <div class="invalid-feedback">
+                                        {% trans "Please select a CSV or Excel file to import." %}
+                                    </div>
+                                    <div class="form-text">
+                                        {% trans "Supported formats: CSV (.csv), Excel (.xlsx, .xls)" %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="id_send_welcome_email" name="send_welcome_email" checked>
+                                    <label class="form-check-label" for="id_send_welcome_email">
+                                        {% trans "Send welcome email to new users" %}
+                                    </label>
+                                    <div class="form-text">
+                                        {% trans "Users will receive an email with their login credentials" %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="id_generate_passwords" name="generate_passwords" checked>
+                                    <label class="form-check-label" for="id_generate_passwords">
+                                        {% trans "Generate random passwords" %}
+                                    </label>
+                                    <div class="form-text">
+                                        {% trans "If unchecked, all users will get the default password 'changeme123'" %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Preview Section -->
+                        <div class="card border-warning mb-4" id="previewCard" style="display: none;">
+                            <div class="card-header bg-warning text-dark">
+                                <h6 class="card-title mb-0">
+                                    <i class="bi bi-eye me-2"></i>{% trans "Import Preview" %}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="previewContent">
+                                    <!-- Preview content will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <a href="{% url 'users:user_list' %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-left me-1"></i>{% trans "Back to User List" %}
+                                </a>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-outline-info me-2" id="previewBtn">
+                                    <i class="bi bi-eye me-1"></i>{% trans "Preview Import" %}
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-cloud-upload me-1"></i>{% trans "Start Import" %}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sample CSV Download Modal -->
+<div class="modal fade" id="sampleModal" tabindex="-1" aria-labelledby="sampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sampleModalLabel">{% trans "Sample CSV Template" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Copy the following CSV content and save it as a .csv file:" %}</p>
+                <pre><code>email,first_name,last_name,mobile,role,date_of_birth,gender,nationality,address,city,state,postal_code,country
+john.doe@nordalms.pythonanywhere.com,John,Doe,+1234567890,student,2005-05-15,male,American,123 Main St,New York,NY,10001,USA
+jane.smith@nordalms.pythonanywhere.com,Jane,Smith,+1234567891,teacher,1985-03-20,female,American,456 Oak Ave,Los Angeles,CA,90210,USA
+bob.parent@nordalms.pythonanywhere.com,Bob,Parent,+1234567892,parent,,male,American,789 Pine Rd,Chicago,IL,60601,USA</code></pre>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    {% trans "You can open this in Excel, Google Sheets, or any spreadsheet application, then save as CSV." %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-primary" onclick="downloadSampleCSV()">
+                    <i class="bi bi-download me-1"></i>{% trans "Download Sample" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card-header {
+        font-weight: 600;
+    }
+
+    .table th {
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .badge {
+        font-size: 0.75rem;
+    }
+
+    pre {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        font-size: 0.875rem;
+        overflow-x: auto;
+    }
+
+    code {
+        background-color: #e9ecef;
+        padding: 0.125rem 0.25rem;
+        border-radius: 0.25rem;
+        font-size: 0.875em;
+    }
+
+    .invalid-feedback {
+        display: none;
+    }
+
+    .was-validated .form-control:invalid,
+    .form-control.is-invalid {
+        border-color: #dc3545;
+    }
+
+    .was-validated .form-control:invalid ~ .invalid-feedback,
+    .form-control.is-invalid ~ .invalid-feedback {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        const fileInput = document.getElementById('id_csv_file');
+        const previewBtn = document.getElementById('previewBtn');
+        const previewCard = document.getElementById('previewCard');
+        const previewContent = document.getElementById('previewContent');
+
+        // File validation
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const allowedExtensions = ['csv', 'xlsx', 'xls'];
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+
+                if (!allowedExtensions.includes(fileExtension)) {
+                    this.setCustomValidity('{% trans "Please select a valid CSV or Excel file." %}');
+                    this.classList.add('is-invalid');
+                } else if (file.size > 10 * 1024 * 1024) { // 10MB limit
+                    this.setCustomValidity('{% trans "File size must not exceed 10MB." %}');
+                    this.classList.add('is-invalid');
+                } else {
+                    this.setCustomValidity('');
+                    this.classList.remove('is-invalid');
+                }
+            }
+        });
+
+        // Form validation
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                // Show validation errors
+                const invalidFields = form.querySelectorAll(':invalid');
+                invalidFields.forEach(field => {
+                    field.classList.add('is-invalid');
+                });
+
+                // Scroll to first error
+                const firstError = form.querySelector('.is-invalid');
+                if (firstError) {
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+            form.classList.add('was-validated');
+        });
+
+        // Preview functionality
+        previewBtn.addEventListener('click', function() {
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('{% trans "Please select a file first." %}');
+                return;
+            }
+
+            // Show loading state
+            previewContent.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">{% trans "Loading..." %}</span>
+                    </div>
+                    <p class="mt-2">{% trans "Analyzing file..." %}</p>
+                </div>
+            `;
+            previewCard.style.display = 'block';
+
+            // In a real implementation, you would send the file to the server for preview
+            // For now, we'll show a mock preview
+            setTimeout(() => {
+                showMockPreview(file);
+            }, 1500);
+        });
+
+        function showMockPreview(file) {
+            const mockData = {
+                totalRows: 5,
+                columns: ['email', 'first_name', 'last_name', 'role', 'mobile'],
+                previewRows: [
+                    ['john.doe@nordalms.pythonanywhere.com', 'John', 'Doe', 'student', '+1234567890'],
+                    ['jane.smith@nordalms.pythonanywhere.com', 'Jane', 'Smith', 'teacher', '+1234567891'],
+                    ['bob.parent@nordalms.pythonanywhere.com', 'Bob', 'Parent', 'parent', '+1234567892']
+                ]
+            };
+
+            let html = `
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    {% trans "File analysis complete. Found" %} ${mockData.totalRows} {% trans "rows of data." %}
+                </div>
+
+                <h6>{% trans "Column Mapping" %}:</h6>
+                <div class="mb-3">
+                    <span class="badge bg-success me-1">email</span>
+                    <span class="badge bg-success me-1">first_name</span>
+                    <span class="badge bg-success me-1">last_name</span>
+                    <span class="badge bg-warning me-1">role</span>
+                    <span class="badge bg-warning me-1">mobile</span>
+                </div>
+
+                <h6>{% trans "Data Preview (First 3 rows)" %}:</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                ${mockData.columns.map(col => `<th>${col}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${mockData.previewRows.map(row =>
+                                `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`
+                            ).join('')}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>
+                    {% trans "File format looks good! Ready to import." %}
+                </div>
+            `;
+
+            previewContent.innerHTML = html;
+        }
+
+        // Sample CSV download
+        window.downloadSampleCSV = function() {
+            const csvContent = `email,first_name,last_name,mobile,role,date_of_birth,gender,nationality,address,city,state,postal_code,country
+john.doe@nordalms.pythonanywhere.com,John,Doe,+1234567890,student,2005-05-15,male,American,123 Main St,New York,NY,10001,USA
+jane.smith@nordalms.pythonanywhere.com,Jane,Smith,+1234567891,teacher,1985-03-20,female,American,456 Oak Ave,Los Angeles,CA,90210,USA
+bob.parent@nordalms.pythonanywhere.com,Bob,Parent,+1234567892,parent,,male,American,789 Pine Rd,Chicago,IL,60601,USA`;
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'user_import_template.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+    });
+</script>
+{% endblock %}

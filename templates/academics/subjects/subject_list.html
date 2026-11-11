@@ -1,0 +1,424 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Subjects" %}{% endblock %}
+
+{% block body_class %}academics-subjects{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'academics:subject_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>{% trans "New Subject" %}
+        </a>
+        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterModal">
+            <i class="bi bi-funnel me-2"></i>{% trans "Filter" %}
+        </button>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download me-2"></i>{% trans "Export" %}
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-pdf me-2"></i>PDF</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-excel me-2"></i>Excel</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-file-text me-2"></i>CSV</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/academics/lists.css' %}">
+<style>
+    .subject-type-core { border-left: 4px solid var(--bs-primary); }
+    .subject-type-elective { border-left: 4px solid var(--bs-success); }
+    .prerequisite-badge { font-size: 0.7rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="subjects-list-container">
+    <!-- Search and Filter Bar -->
+    <div class="search-filter-bar mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" class="form-control" placeholder="{% trans 'Search subjects...' %}" id="searchInput">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" id="departmentFilter">
+                    <option value="">{% trans "All Departments" %}</option>
+                    {% for department in departments %}
+                    <option value="{{ department.id }}">{{ department.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" id="typeFilter">
+                    <option value="">{% trans "All Types" %}</option>
+                    <option value="core">{% trans "Core Subjects" %}</option>
+                    <option value="elective">{% trans "Elective Subjects" %}</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ total_subjects }}</h4>
+                            <p class="card-text mb-0">{% trans "Total Subjects" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-journals fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ core_subjects }}</h4>
+                            <p class="card-text mb-0">{% trans "Core Subjects" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-book fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ elective_subjects }}</h4>
+                            <p class="card-text mb-0">{% trans "Elective Subjects" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-journal-plus fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white summary-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ active_subjects }}</h4>
+                            <p class="card-text mb-0">{% trans "Active Subjects" %}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-check-circle fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subjects Grid View -->
+    <div class="subjects-grid">
+        <div class="row">
+            {% for subject in subjects %}
+            <div class="col-xl-4 col-lg-6 mb-4 subject-card-col" data-department="{{ subject.department.id }}" data-type="{{ subject.subject_type }}">
+                <div class="card subject-card h-100 {% if subject.subject_type == 'core' %}subject-type-core{% else %}subject-type-elective{% endif %}">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h5 class="card-title mb-1">{{ subject.name }}</h5>
+                                <p class="text-muted mb-0 small">{{ subject.code }}</p>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge {% if subject.subject_type == 'core' %}bg-primary{% else %}bg-success{% endif %}">
+                                    {{ subject.get_subject_type_display }}
+                                </span>
+                                <span class="badge {% if subject.is_active %}bg-success{% else %}bg-secondary{% endif %} d-block mt-1">
+                                    {{ subject.is_active|yesno:_("Active,Inactive") }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text text-muted mb-3">{{ subject.description|truncatewords:15 }}</p>
+                        
+                        <div class="subject-meta mb-3">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="meta-item">
+                                        <h6 class="text-primary mb-1">{{ subject.credits }}</h6>
+                                        <small class="text-muted">{% trans "Credits" %}</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="meta-item">
+                                        <h6 class="text-success mb-1">{{ subject.class_count }}</h6>
+                                        <small class="text-muted">{% trans "Classes" %}</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="meta-item">
+                                        <h6 class="text-info mb-1">{{ subject.teacher_count }}</h6>
+                                        <small class="text-muted">{% trans "Teachers" %}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Department -->
+                        <div class="department-info mb-3">
+                            <small class="text-muted d-block">{% trans "Department" %}</small>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-building text-secondary me-2"></i>
+                                <span class="fw-semibold">{{ subject.department.name }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Prerequisites -->
+                        {% if subject.prerequisites.exists %}
+                        <div class="prerequisites mb-3">
+                            <small class="text-muted d-block mb-1">{% trans "Prerequisites" %}</small>
+                            <div class="prerequisite-list">
+                                {% for prereq in subject.prerequisites.all %}
+                                <span class="badge bg-light text-dark prerequisite-badge me-1 mb-1">
+                                    {{ prereq.code }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <div class="btn-group w-100" role="group">
+                            <a href="{% url 'academics:subject_detail' subject.pk %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye me-1"></i>{% trans "View" %}
+                            </a>
+                            <a href="{% url 'academics:subject_update' subject.pk %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-pencil me-1"></i>{% trans "Edit" %}
+                            </a>
+                            <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-people me-2"></i>{% trans "Assign Teachers" %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-journal-check me-2"></i>{% trans "View Materials" %}
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item text-warning" href="#">
+                                        <i class="bi bi-arrow-repeat me-2"></i>{% trans "Toggle Status" %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item text-danger" href="#">
+                                        <i class="bi bi-trash me-2"></i>{% trans "Delete" %}
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="bi bi-journal-x text-muted fs-1"></i>
+                    <h4 class="text-muted mt-3">{% trans "No Subjects Found" %}</h4>
+                    <p class="text-muted mb-4">{% trans "Get started by creating your first subject." %}</p>
+                    <a href="{% url 'academics:subject_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>{% trans "Create First Subject" %}
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="{% trans 'Subject pagination' %}" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">{% trans "First" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">{% trans "Last" %}</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterModalLabel">{% trans "Filter Subjects" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="get" id="filterForm">
+                    <div class="mb-3">
+                        <label for="statusFilter" class="form-label">{% trans "Status" %}</label>
+                        <select class="form-select" id="statusFilter" name="status">
+                            <option value="">{% trans "All Statuses" %}</option>
+                            <option value="active">{% trans "Active" %}</option>
+                            <option value="inactive">{% trans "Inactive" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalDepartmentFilter" class="form-label">{% trans "Department" %}</label>
+                        <select class="form-select" id="modalDepartmentFilter" name="department">
+                            <option value="">{% trans "All Departments" %}</option>
+                            {% for department in departments %}
+                            <option value="{{ department.id }}">{{ department.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalTypeFilter" class="form-label">{% trans "Subject Type" %}</label>
+                        <select class="form-select" id="modalTypeFilter" name="subject_type">
+                            <option value="">{% trans "All Types" %}</option>
+                            <option value="core">{% trans "Core" %}</option>
+                            <option value="elective">{% trans "Elective" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="creditsFilter" class="form-label">{% trans "Credits" %}</label>
+                        <select class="form-select" id="creditsFilter" name="credits">
+                            <option value="">{% trans "Any Credits" %}</option>
+                            <option value="1">1 {% trans "Credit" %}</option>
+                            <option value="2">2 {% trans "Credits" %}</option>
+                            <option value="3">3 {% trans "Credits" %}</option>
+                            <option value="4">4 {% trans "Credits" %}</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('filterForm').reset()">
+                    {% trans "Reset" %}
+                </button>
+                <button type="submit" form="filterForm" class="btn btn-primary">{% trans "Apply Filters" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const departmentFilter = document.getElementById('departmentFilter');
+        const typeFilter = document.getElementById('typeFilter');
+        const subjectCards = document.querySelectorAll('.subject-card-col');
+        
+        function filterSubjects() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const departmentValue = departmentFilter.value;
+            const typeValue = typeFilter.value;
+            
+            subjectCards.forEach(card => {
+                const subjectName = card.querySelector('.card-title').textContent.toLowerCase();
+                const subjectCode = card.querySelector('.card-header p').textContent.toLowerCase();
+                const subjectDesc = card.querySelector('.card-text').textContent.toLowerCase();
+                const subjectDepartment = card.getAttribute('data-department');
+                const subjectType = card.getAttribute('data-type');
+                
+                const matchesSearch = subjectName.includes(searchTerm) || 
+                                   subjectCode.includes(searchTerm) || 
+                                   subjectDesc.includes(searchTerm);
+                const matchesDepartment = !departmentValue || subjectDepartment === departmentValue;
+                const matchesType = !typeValue || subjectType === typeValue;
+                
+                if (matchesSearch && matchesDepartment && matchesType) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+        
+        searchInput.addEventListener('input', filterSubjects);
+        departmentFilter.addEventListener('change', filterSubjects);
+        typeFilter.addEventListener('change', filterSubjects);
+
+        // Subject card hover effects
+        const subjectCardsElements = document.querySelectorAll('.subject-card');
+        subjectCardsElements.forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-5px)';
+                this.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+                this.style.boxShadow = '';
+            });
+        });
+
+        // Quick status toggle
+        const statusBadges = document.querySelectorAll('.badge.bg-success, .badge.bg-secondary');
+        statusBadges.forEach(badge => {
+            if (badge.textContent.includes('Active') || badge.textContent.includes('Inactive')) {
+                badge.style.cursor = 'pointer';
+                badge.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const subjectId = this.closest('.subject-card-col').getAttribute('data-subject-id');
+                    // Implement status toggle logic here
+                    console.log('Toggle status for subject:', subjectId);
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,824 @@
+<!-- templates/attendance/session_form.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}{% if form.instance.pk %}Edit Attendance Session{% else %}Create Attendance Session{% endif %} - School Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+.session-form-card {
+    border-left: 4px solid #007bff;
+    background: linear-gradient(to right, #f8fbff, #ffffff);
+}
+.form-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+.form-section:last-of-type {
+    border-bottom: none;
+}
+.session-type-card {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: white;
+}
+.session-type-card:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,123,255,0.1);
+}
+.session-type-card.active {
+    border-color: #007bff;
+    background-color: #e7f3ff;
+    box-shadow: 0 4px 12px rgba(0,123,255,0.15);
+}
+.session-type-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: #6c757d;
+}
+.session-type-card.active .session-type-icon {
+    color: #007bff;
+}
+.time-input-group {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+}
+.time-display {
+    font-size: 1.5rem;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.duration-badge {
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+}
+.session-preview {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1.5rem;
+    background-color: #f8f9fa;
+}
+.preview-header {
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+.session-status-badge {
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+}
+.help-text {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+.required-field::after {
+    content: " *";
+    color: #dc3545;
+}
+.time-validation-alert {
+    display: none;
+}
+.form-actions {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 1.5rem 0;
+    border-top: 1px solid #e9ecef;
+    margin-top: 2rem;
+}
+.session-example {
+    background-color: #f8f9fa;
+    border-left: 4px solid #28a745;
+    padding: 1rem;
+    border-radius: 0 8px 8px 0;
+    margin-top: 1rem;
+}
+.example-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #dee2e6;
+}
+.example-item:last-child {
+    border-bottom: none;
+}
+@media (max-width: 768px) {
+    .time-input-group {
+        padding: 1rem;
+    }
+    .time-display {
+        font-size: 1.25rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Page Header -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h1 class="h3 mb-2 text-gray-800">
+                                <i class="fas fa-{% if form.instance.pk %}edit{% else %}plus-circle{% endif %} me-2"></i>
+                                {% if form.instance.pk %}
+                                Edit Attendance Session
+                                {% else %}
+                                Create Attendance Session
+                                {% endif %}
+                            </h1>
+                            <nav aria-label="breadcrumb">
+                                <ol class="breadcrumb">
+                                    <li class="breadcrumb-item"><a href="{% url 'attendance:dashboard' %}">Dashboard</a></li>
+                                    <li class="breadcrumb-item"><a href="{% url 'attendance:session_list' %}">Attendance Sessions</a></li>
+                                    <li class="breadcrumb-item active">
+                                        {% if form.instance.pk %}Edit{% else %}Create{% endif %}
+                                    </li>
+                                </ol>
+                            </nav>
+                        </div>
+                        <div class="btn-group">
+                            <a href="{% url 'attendance:session_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Back to List
+                            </a>
+                            <button type="button" class="btn btn-outline-info" onclick="resetForm()">
+                                <i class="fas fa-redo me-1"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Session Form -->
+                <div class="col-lg-8">
+                    <div class="card session-form-card shadow">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">
+                                <i class="fas fa-cog me-2"></i>
+                                {% if form.instance.pk %}
+                                Edit Session Configuration
+                                {% else %}
+                                New Session Configuration
+                                {% endif %}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" id="sessionForm" novalidate>
+                                {% csrf_token %}
+                                
+                                <!-- Basic Information -->
+                                <div class="form-section">
+                                    <h6 class="border-bottom pb-2 mb-3">
+                                        <i class="fas fa-info-circle me-2"></i>Basic Information
+                                    </h6>
+                                    
+                                    <!-- Session Name -->
+                                    <div class="mb-3">
+                                        <label for="{{ form.name.id_for_label }}" class="form-label fw-bold required-field">
+                                            <i class="fas fa-tag me-2"></i>Session Name
+                                        </label>
+                                        <input type="text" 
+                                               class="form-control {% if form.name.errors %}is-invalid{% endif %}" 
+                                               id="{{ form.name.id_for_label }}" 
+                                               name="{{ form.name.name }}" 
+                                               value="{{ form.name.value|default:'' }}" 
+                                               placeholder="e.g., Morning Session, Afternoon Classes, Period 1"
+                                               required>
+                                        {% if form.name.errors %}
+                                            <div class="invalid-feedback">
+                                                {{ form.name.errors.0 }}
+                                            </div>
+                                        {% endif %}
+                                        <div class="help-text">
+                                            Enter a descriptive name for this attendance session
+                                        </div>
+                                    </div>
+
+                                    <!-- Academic Session -->
+                                    <div class="mb-3">
+                                        <label for="{{ form.academic_session.id_for_label }}" class="form-label fw-bold required-field">
+                                            <i class="fas fa-calendar-alt me-2"></i>Academic Session
+                                        </label>
+                                        <select class="form-select {% if form.academic_session.errors %}is-invalid{% endif %}" 
+                                                id="{{ form.academic_session.id_for_label }}" 
+                                                name="{{ form.academic_session.name }}" 
+                                                required>
+                                            <option value="">Select Academic Session</option>
+                                            {% for choice in form.academic_session.field.queryset %}
+                                                <option value="{{ choice.pk }}" 
+                                                        {% if form.academic_session.value == choice.pk %}selected{% endif %}>
+                                                    {{ choice.name }}
+                                                    {% if choice.is_current %}(Current){% endif %}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        {% if form.academic_session.errors %}
+                                            <div class="invalid-feedback">
+                                                {{ form.academic_session.errors.0 }}
+                                            </div>
+                                        {% endif %}
+                                        <div class="help-text">
+                                            Select the academic session this attendance session belongs to
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Session Type -->
+                                <div class="form-section">
+                                    <h6 class="border-bottom pb-2 mb-3">
+                                        <i class="fas fa-layer-group me-2"></i>Session Type
+                                    </h6>
+                                    
+                                    <div class="row g-3 mb-3">
+                                        {% for choice in form.session_type.field.choices %}
+                                            {% if choice.0 %}
+                                            <div class="col-md-6">
+                                                <div class="session-type-card" 
+                                                     data-session-type="{{ choice.0 }}"
+                                                     onclick="selectSessionType('{{ choice.0 }}')">
+                                                    <div class="text-center">
+                                                        <div class="session-type-icon">
+                                                            {% if choice.0 == 'morning' %}
+                                                            <i class="fas fa-sun"></i>
+                                                            {% elif choice.0 == 'afternoon' %}
+                                                            <i class="fas fa-cloud-sun"></i>
+                                                            {% elif choice.0 == 'full_day' %}
+                                                            <i class="fas fa-calendar-day"></i>
+                                                            {% elif choice.0 == 'period' %}
+                                                            <i class="fas fa-clock"></i>
+                                                            {% endif %}
+                                                        </div>
+                                                        <h6 class="mb-1">{{ choice.1 }}</h6>
+                                                        <small class="text-muted">
+                                                            {% if choice.0 == 'morning' %}
+                                                            Morning classes and activities
+                                                            {% elif choice.0 == 'afternoon' %}
+                                                            Afternoon classes and activities
+                                                            {% elif choice.0 == 'full_day' %}
+                                                            Complete school day coverage
+                                                            {% elif choice.0 == 'period' %}
+                                                            Individual class periods
+                                                            {% endif %}
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+
+                                    <!-- Hidden session type field -->
+                                    <input type="hidden" 
+                                           id="{{ form.session_type.id_for_label }}" 
+                                           name="{{ form.session_type.name }}" 
+                                           value="{{ form.session_type.value|default:'' }}"
+                                           required>
+                                    {% if form.session_type.errors %}
+                                        <div class="alert alert-danger">
+                                            {{ form.session_type.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Session Timing -->
+                                <div class="form-section">
+                                    <h6 class="border-bottom pb-2 mb-3">
+                                        <i class="fas fa-clock me-2"></i>Session Timing
+                                    </h6>
+                                    
+                                    <div class="time-input-group mb-4">
+                                        <div class="row align-items-center">
+                                            <div class="col-md-5">
+                                                <label for="{{ form.start_time.id_for_label }}" class="form-label fw-bold text-white">
+                                                    Start Time
+                                                </label>
+                                                <input type="time" 
+                                                       class="form-control form-control-lg" 
+                                                       id="{{ form.start_time.id_for_label }}" 
+                                                       name="{{ form.start_time.name }}" 
+                                                       value="{{ form.start_time.value|default:'08:00' }}"
+                                                       required>
+                                            </div>
+                                            <div class="col-md-2 text-center">
+                                                <div class="time-display">→</div>
+                                            </div>
+                                            <div class="col-md-5">
+                                                <label for="{{ form.end_time.id_for_label }}" class="form-label fw-bold text-white">
+                                                    End Time
+                                                </label>
+                                                <input type="time" 
+                                                       class="form-control form-control-lg" 
+                                                       id="{{ form.end_time.id_for_label }}" 
+                                                       name="{{ form.end_time.name }}" 
+                                                       value="{{ form.end_time.value|default:'14:00' }}"
+                                                       required>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Duration Display -->
+                                        <div class="row mt-3">
+                                            <div class="col-12 text-center">
+                                                <span class="duration-badge bg-white text-dark">
+                                                    <i class="fas fa-hourglass-half me-1"></i>
+                                                    Duration: <span id="durationDisplay">0 hours 0 minutes</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Time Validation Alert -->
+                                    <div class="alert alert-warning time-validation-alert" id="timeValidationAlert">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        <span id="timeValidationMessage"></span>
+                                    </div>
+
+                                    {% if form.start_time.errors or form.end_time.errors %}
+                                        <div class="alert alert-danger">
+                                            {% if form.start_time.errors %}{{ form.start_time.errors.0 }}{% endif %}
+                                            {% if form.end_time.errors %}{{ form.end_time.errors.0 }}{% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Session Status -->
+                                <div class="form-section">
+                                    <h6 class="border-bottom pb-2 mb-3">
+                                        <i class="fas fa-toggle-on me-2"></i>Session Status
+                                    </h6>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-check form-switch mb-3">
+                                                <input class="form-check-input" 
+                                                       type="checkbox" 
+                                                       id="{{ form.is_active.id_for_label }}" 
+                                                       name="{{ form.is_active.name }}" 
+                                                       {% if form.is_active.value %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="{{ form.is_active.id_for_label }}">
+                                                    <i class="fas fa-power-off me-2"></i>Active Session
+                                                </label>
+                                            </div>
+                                            <div class="help-text">
+                                                Active sessions can be used for attendance marking
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check form-switch mb-3">
+                                                <input class="form-check-input" 
+                                                       type="checkbox" 
+                                                       id="status" 
+                                                       name="status" 
+                                                       {% if form.instance.status == 'active' %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="status">
+                                                    <i class="fas fa-check-circle me-2"></i>Published
+                                                </label>
+                                            </div>
+                                            <div class="help-text">
+                                                Published sessions are visible to all users
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Session Preview -->
+                                <div class="form-section">
+                                    <h6 class="border-bottom pb-2 mb-3">
+                                        <i class="fas fa-eye me-2"></i>Session Preview
+                                    </h6>
+                                    
+                                    <div class="session-preview">
+                                        <div class="preview-header">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <h5 id="previewName" class="mb-0">Session Name</h5>
+                                                <span class="session-status-badge badge bg-secondary" id="previewStatus">
+                                                    Inactive
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <p class="mb-1"><strong>Type:</strong> <span id="previewType">Full Day</span></p>
+                                                <p class="mb-1"><strong>Timing:</strong> <span id="previewTiming">08:00 - 14:00</span></p>
+                                                <p class="mb-0"><strong>Duration:</strong> <span id="previewDuration">6 hours</span></p>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <p class="mb-1"><strong>Academic Session:</strong> <span id="previewAcademicSession">2024-2025</span></p>
+                                                <p class="mb-0"><strong>Session ID:</strong> <span id="previewId">{% if form.instance.pk %}{{ form.instance.pk }}{% else %}New{% endif %}</span></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Session Examples -->
+                                <div class="form-section">
+                                    <h6 class="border-bottom pb-2 mb-3">
+                                        <i class="fas fa-lightbulb me-2"></i>Session Examples
+                                    </h6>
+                                    
+                                    <div class="session-example">
+                                        <div class="example-item">
+                                            <strong>Morning Session:</strong> 08:00 - 12:00 (4 hours) - Covers morning classes and assembly
+                                        </div>
+                                        <div class="example-item">
+                                            <strong>Afternoon Session:</strong> 12:30 - 16:00 (3.5 hours) - Covers afternoon classes and activities
+                                        </div>
+                                        <div class="example-item">
+                                            <strong>Full Day:</strong> 08:00 - 15:00 (7 hours) - Complete school day coverage
+                                        </div>
+                                        <div class="example-item">
+                                            <strong>Period Session:</strong> 09:00 - 09:45 (45 min) - Individual subject periods
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Form Actions -->
+                                <div class="form-actions">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <a href="{% url 'attendance:session_list' %}" class="btn btn-outline-secondary btn-lg">
+                                            <i class="fas fa-times me-1"></i> Cancel
+                                        </a>
+                                        <div class="btn-group">
+                                            <button type="submit" name="save_draft" value="true" class="btn btn-outline-primary btn-lg">
+                                                <i class="fas fa-save me-1"></i> Save Draft
+                                            </button>
+                                            <button type="submit" name="submit" value="true" class="btn btn-success btn-lg">
+                                                <i class="fas fa-check me-1"></i> 
+                                                {% if form.instance.pk %}Update Session{% else %}Create Session{% endif %}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar Information -->
+                <div class="col-lg-4">
+                    <!-- Quick Tips -->
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">
+                                <i class="fas fa-tips me-2"></i>Quick Tips
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="small">
+                                <ul class="list-unstyled mb-0">
+                                    <li class="mb-3">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <strong>Use descriptive names</strong> that clearly identify the session purpose
+                                    </li>
+                                    <li class="mb-3">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <strong>Set appropriate timing</strong> based on your school's schedule
+                                    </li>
+                                    <li class="mb-3">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <strong>Consider session overlap</strong> when scheduling multiple sessions
+                                    </li>
+                                    <li class="mb-3">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <strong>Test session timing</strong> before making it active
+                                    </li>
+                                    <li>
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <strong>Review session conflicts</strong> with existing schedules
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Current Academic Session -->
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">
+                                <i class="fas fa-info-circle me-2"></i>Current Academic Session
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if current_session %}
+                            <div class="text-center">
+                                <div class="h4 text-primary mb-1">{{ current_session.name }}</div>
+                                <div class="small text-muted mb-2">
+                                    {{ current_session.start_date|date:"M d, Y" }} - {{ current_session.end_date|date:"M d, Y" }}
+                                </div>
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check me-1"></i>Active
+                                </span>
+                            </div>
+                            {% else %}
+                            <div class="text-center text-muted">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                No active academic session found
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Session Statistics -->
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">
+                                <i class="fas fa-chart-bar me-2"></i>Session Statistics
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="text-center">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="h5 text-primary" id="activeSessionsCount">0</div>
+                                        <small class="text-muted">Active Sessions</small>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="h5 text-success" id="totalSessionsCount">0</div>
+                                        <small class="text-muted">Total Sessions</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="card shadow">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">
+                                <i class="fas fa-bolt me-2"></i>Quick Actions
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'attendance:session_list' %}" class="btn btn-outline-primary">
+                                    <i class="fas fa-list me-1"></i> View All Sessions
+                                </a>
+                                <button type="button" class="btn btn-outline-info" onclick="duplicateSession()">
+                                    <i class="fas fa-copy me-1"></i> Duplicate Session
+                                </button>
+                                <button type="button" class="btn btn-outline-warning" onclick="validateSession()">
+                                    <i class="fas fa-check-double me-1"></i> Validate Session
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize form elements
+    initializeSessionType();
+    initializeTimeCalculations();
+    updatePreview();
+    loadSessionStatistics();
+
+    // Add event listeners
+    document.getElementById('{{ form.name.id_for_label }}').addEventListener('input', updatePreview);
+    document.getElementById('{{ form.academic_session.id_for_label }}').addEventListener('change', updatePreview);
+    document.getElementById('{{ form.start_time.id_for_label }}').addEventListener('change', updateTimeCalculations);
+    document.getElementById('{{ form.end_time.id_for_label }}').addEventListener('change', updateTimeCalculations);
+    document.getElementById('{{ form.is_active.id_for_label }}').addEventListener('change', updatePreview);
+    document.getElementById('status').addEventListener('change', updatePreview);
+});
+
+function initializeSessionType() {
+    const currentType = document.getElementById('{{ form.session_type.id_for_label }}').value;
+    if (currentType) {
+        selectSessionType(currentType);
+    }
+}
+
+function selectSessionType(type) {
+    // Update hidden field
+    document.getElementById('{{ form.session_type.id_for_label }}').value = type;
+    
+    // Update UI
+    document.querySelectorAll('.session-type-card').forEach(card => {
+        card.classList.remove('active');
+    });
+    
+    const selectedCard = document.querySelector(`[data-session-type="${type}"]`);
+    if (selectedCard) {
+        selectedCard.classList.add('active');
+    }
+    
+    updatePreview();
+}
+
+function initializeTimeCalculations() {
+    updateTimeCalculations();
+}
+
+function updateTimeCalculations() {
+    const startTime = document.getElementById('{{ form.start_time.id_for_label }}').value;
+    const endTime = document.getElementById('{{ form.end_time.id_for_label }}').value;
+    
+    if (startTime && endTime) {
+        const start = new Date(`2000-01-01T${startTime}`);
+        const end = new Date(`2000-01-01T${endTime}`);
+        
+        if (end <= start) {
+            showTimeValidation('End time must be after start time', true);
+            return;
+        }
+        
+        const durationMs = end - start;
+        const hours = Math.floor(durationMs / (1000 * 60 * 60));
+        const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        document.getElementById('durationDisplay').textContent = `${hours} hours ${minutes} minutes`;
+        
+        // Validate session duration
+        if (hours === 0 && minutes < 15) {
+            showTimeValidation('Session duration should be at least 15 minutes', true);
+        } else if (hours > 12) {
+            showTimeValidation('Session duration exceeds 12 hours', true);
+        } else {
+            hideTimeValidation();
+        }
+        
+        updatePreview();
+    }
+}
+
+function showTimeValidation(message, isError = true) {
+    const alert = document.getElementById('timeValidationAlert');
+    const messageSpan = document.getElementById('timeValidationMessage');
+    
+    messageSpan.textContent = message;
+    alert.className = `alert ${isError ? 'alert-danger' : 'alert-warning'} time-validation-alert`;
+    alert.style.display = 'block';
+}
+
+function hideTimeValidation() {
+    document.getElementById('timeValidationAlert').style.display = 'none';
+}
+
+function updatePreview() {
+    // Update name
+    const name = document.getElementById('{{ form.name.id_for_label }}').value || 'Session Name';
+    document.getElementById('previewName').textContent = name;
+    
+    // Update type
+    const type = document.getElementById('{{ form.session_type.id_for_label }}').value || 'full_day';
+    const typeDisplay = {
+        'morning': 'Morning Session',
+        'afternoon': 'Afternoon Session',
+        'full_day': 'Full Day',
+        'period': 'Period Session'
+    }[type] || 'Full Day';
+    document.getElementById('previewType').textContent = typeDisplay;
+    
+    // Update timing
+    const startTime = document.getElementById('{{ form.start_time.id_for_label }}').value || '08:00';
+    const endTime = document.getElementById('{{ form.end_time.id_for_label }}').value || '14:00';
+    document.getElementById('previewTiming').textContent = `${startTime} - ${endTime}`;
+    
+    // Update duration
+    document.getElementById('previewDuration').textContent = document.getElementById('durationDisplay').textContent;
+    
+    // Update academic session
+    const academicSessionSelect = document.getElementById('{{ form.academic_session.id_for_label }}');
+    const academicSessionText = academicSessionSelect.options[academicSessionSelect.selectedIndex]?.text || 'Not selected';
+    document.getElementById('previewAcademicSession').textContent = academicSessionText;
+    
+    // Update status
+    const isActive = document.getElementById('{{ form.is_active.id_for_label }}').checked;
+    const isPublished = document.getElementById('status').checked;
+    
+    let statusText = 'Inactive';
+    let statusClass = 'bg-secondary';
+    
+    if (isActive && isPublished) {
+        statusText = 'Active & Published';
+        statusClass = 'bg-success';
+    } else if (isActive) {
+        statusText = 'Active (Draft)';
+        statusClass = 'bg-warning';
+    } else if (isPublished) {
+        statusText = 'Published (Inactive)';
+        statusClass = 'bg-info';
+    }
+    
+    document.getElementById('previewStatus').textContent = statusText;
+    document.getElementById('previewStatus').className = `session-status-badge badge ${statusClass}`;
+}
+
+function loadSessionStatistics() {
+    // This would typically be an AJAX call to get real statistics
+    // For now, we'll simulate it
+    document.getElementById('activeSessionsCount').textContent = '{{ active_sessions_count|default:"0" }}';
+    document.getElementById('totalSessionsCount').textContent = '{{ total_sessions_count|default:"0" }}';
+}
+
+function resetForm() {
+    if (confirm('Are you sure you want to reset the form? All entered data will be lost.')) {
+        document.getElementById('sessionForm').reset();
+        document.querySelectorAll('.session-type-card').forEach(card => {
+            card.classList.remove('active');
+        });
+        document.getElementById('{{ form.session_type.id_for_label }}').value = '';
+        updateTimeCalculations();
+        updatePreview();
+    }
+}
+
+function duplicateSession() {
+    if (confirm('Duplicate this session with a new name?')) {
+        const originalName = document.getElementById('{{ form.name.id_for_label }}').value;
+        if (originalName) {
+            document.getElementById('{{ form.name.id_for_label }}').value = `${originalName} - Copy`;
+            updatePreview();
+        }
+    }
+}
+
+function validateSession() {
+    const form = document.getElementById('sessionForm');
+    let isValid = true;
+    let message = '';
+    
+    // Check required fields
+    const requiredFields = form.querySelectorAll('[required]');
+    requiredFields.forEach(field => {
+        if (!field.value.trim()) {
+            isValid = false;
+            field.classList.add('is-invalid');
+        } else {
+            field.classList.remove('is-invalid');
+        }
+    });
+    
+    // Check session type
+    const sessionType = document.getElementById('{{ form.session_type.id_for_label }}').value;
+    if (!sessionType) {
+        isValid = false;
+        message += '• Please select a session type\n';
+    }
+    
+    // Check timing
+    const startTime = document.getElementById('{{ form.start_time.id_for_label }}').value;
+    const endTime = document.getElementById('{{ form.end_time.id_for_label }}').value;
+    if (startTime && endTime) {
+        const start = new Date(`2000-01-01T${startTime}`);
+        const end = new Date(`2000-01-01T${endTime}`);
+        if (end <= start) {
+            isValid = false;
+            message += '• End time must be after start time\n';
+        }
+    }
+    
+    if (isValid) {
+        alert('✅ Session validation passed! All required fields are correctly filled.');
+    } else {
+        alert('❌ Please fix the following issues:\n' + message);
+    }
+    
+    return isValid;
+}
+
+// Form submission validation
+document.getElementById('sessionForm').addEventListener('submit', function(e) {
+    if (!validateSession()) {
+        e.preventDefault();
+        // Scroll to first error
+        const firstError = document.querySelector('.is-invalid');
+        if (firstError) {
+            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            firstError.focus();
+        }
+    }
+});
+
+// Add keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl + S to save
+    if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        document.querySelector('button[type="submit"]').click();
+    }
+    
+    // Escape to go back
+    if (e.key === 'Escape') {
+        window.location.href = "{% url 'attendance:session_list' %}";
+    }
+});
+</script>
+{% endblock %}

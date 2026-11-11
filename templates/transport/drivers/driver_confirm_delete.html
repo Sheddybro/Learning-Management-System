@@ -1,0 +1,359 @@
+<!-- templates/transport/drivers/driver_confirm_delete.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Delete Driver" %}{% endblock %}
+
+{% block page_title %}{% trans "Delete Driver" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:driver_list' %}">{% trans "Drivers" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Delete Driver" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-confirmation {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .warning-card {
+        border-left: 4px solid #dc3545;
+        background-color: #f8f9fa;
+    }
+    
+    .driver-summary {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .driver-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2rem;
+        font-weight: 600;
+        margin: 0 auto 1rem;
+    }
+    
+    .impact-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .impact-list li {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .impact-list li:last-child {
+        border-bottom: none;
+    }
+    
+    .impact-icon {
+        width: 20px;
+        margin-right: 0.5rem;
+        color: #dc3545;
+    }
+    
+    .btn-delete {
+        background-color: #dc3545;
+        border-color: #dc3545;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background-color: #bb2d3b;
+        border-color: #b02a37;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="delete-confirmation">
+    <div class="card border-danger">
+        <div class="card-header bg-danger text-white">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                {% trans "Confirm Driver Deletion" %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <!-- Driver Summary -->
+            <div class="driver-summary mb-4">
+                <div class="text-center mb-4">
+                    <div class="driver-avatar">
+                        {{ driver.user.get_full_name|make_list|first|upper }}
+                    </div>
+                    <h4>{{ driver.user.get_full_name }}</h4>
+                    <p class="text-muted mb-2">{{ driver.employee_id }}</p>
+                    <span class="badge bg-{% if driver.status == 'active' %}success{% elif driver.status == 'inactive' %}secondary{% elif driver.status == 'suspended' %}danger{% else %}warning{% endif %}">
+                        {{ driver.get_status_display }}
+                    </span>
+                </div>
+                
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <h6 class="text-muted mb-1">{% trans "License Number" %}</h6>
+                            <p class="mb-0">{{ driver.license_number }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <h6 class="text-muted mb-1">{% trans "License Type" %}</h6>
+                            <p class="mb-0">{{ driver.get_license_type_display }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <h6 class="text-muted mb-1">{% trans "Phone" %}</h6>
+                            <p class="mb-0">{{ driver.phone|default:"-" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warning Message -->
+            <div class="alert alert-danger" role="alert">
+                <h6 class="alert-heading">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    {% trans "Warning: This action cannot be undone!" %}
+                </h6>
+                <p class="mb-0">
+                    {% trans "You are about to permanently delete this driver and all associated data. This action is irreversible." %}
+                </p>
+            </div>
+
+            <!-- Impact Assessment -->
+            <div class="card warning-card mb-4">
+                <div class="card-body">
+                    <h6 class="card-title text-danger mb-3">
+                        <i class="fas fa-list me-2"></i>
+                        {% trans "What will be deleted:" %}
+                    </h6>
+                    <ul class="impact-list">
+                        <li>
+                            <i class="fas fa-user impact-icon"></i>
+                            <strong>{% trans "Driver Profile:" %}</strong> 
+                            {% trans "All personal and professional information" %}
+                        </li>
+                        <li>
+                            <i class="fas fa-calendar impact-icon"></i>
+                            <strong>{% trans "Route Schedules:" %}</strong> 
+                            {{ driver.route_schedules.count }} 
+                            {% trans "assigned route schedules will be affected" %}
+                        </li>
+                        <li>
+                            <i class="fas fa-exclamation-triangle impact-icon"></i>
+                            <strong>{% trans "Incident Reports:" %}</strong> 
+                            {{ driver.route_schedules.incident_reports.count }} 
+                            {% trans "related incident reports" %}
+                        </li>
+                        <li>
+                            <i class="fas fa-history impact-icon"></i>
+                            <strong>{% trans "Historical Data:" %}</strong> 
+                            {% trans "All driver performance and assignment history" %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Current Assignments Warning -->
+            {% if driver.route_schedules.exists %}
+            <div class="alert alert-warning" role="alert">
+                <h6 class="alert-heading">
+                    <i class="fas fa-calendar-times me-2"></i>
+                    {% trans "Active Assignments Found" %}
+                </h6>
+                <p class="mb-2">
+                    {% trans "This driver is currently assigned to the following route schedules:" %}
+                </p>
+                <ul class="mb-2">
+                    {% for schedule in driver.route_schedules.all %}
+                    <li>
+                        <strong>{{ schedule.route.name }}</strong> 
+                        ({{ schedule.vehicle.vehicle_number }}) -
+                        {{ schedule.get_status_display }}
+                    </li>
+                    {% endfor %}
+                </ul>
+                <p class="mb-0 small">
+                    <i class="fas fa-info-circle me-1"></i>
+                    {% trans "These assignments will need to be reassigned to other drivers." %}
+                </p>
+            </div>
+            {% endif %}
+
+            <!-- License Status Warning -->
+            {% if driver.license_expiry %}
+            <div class="alert alert-info" role="alert">
+                <h6 class="alert-heading">
+                    <i class="fas fa-id-card me-2"></i>
+                    {% trans "License Information" %}
+                </h6>
+                <p class="mb-0">
+                    {% trans "License expires on" %} 
+                    <strong>{{ driver.license_expiry|date:"F d, Y" }}</strong>
+                    {% if driver.is_license_expired %}
+                    <span class="badge bg-danger ms-2">{% trans "EXPIRED" %}</span>
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
+
+            <!-- Deletion Form -->
+            <form method="post">
+                {% csrf_token %}
+                
+                <!-- Safety Confirmation -->
+                <div class="form-check mb-4">
+                    <input class="form-check-input" type="checkbox" id="confirmDelete" required>
+                    <label class="form-check-label text-danger" for="confirmDelete">
+                        <strong>{% trans "I understand that this action cannot be undone and I accept full responsibility for this deletion." %}</strong>
+                    </label>
+                </div>
+
+                <!-- Reason for Deletion (Optional) -->
+                <div class="mb-4">
+                    <label for="deletionReason" class="form-label">
+                        {% trans "Reason for deletion (optional):" %}
+                    </label>
+                    <textarea class="form-control" id="deletionReason" name="deletion_reason" 
+                              rows="3" placeholder="{% trans 'Please provide a reason for deleting this driver...' %}"></textarea>
+                    <div class="form-text">
+                        {% trans "This information will be stored in the deletion audit log." %}
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="{% url 'transport:driver_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>
+                        {% trans "Back to Driver List" %}
+                    </a>
+                    
+                    <div class="btn-group">
+                        <a href="{% url 'transport:driver_detail' driver.pk %}" class="btn btn-outline-primary">
+                            <i class="fas fa-eye me-1"></i>
+                            {% trans "View Driver" %}
+                        </a>
+                        <button type="submit" class="btn btn-danger" id="deleteButton" disabled>
+                            <i class="fas fa-trash me-1"></i>
+                            {% trans "Permanently Delete Driver" %}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Alternative Actions -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h6 class="card-title mb-0">
+                <i class="fas fa-lightbulb me-2"></i>
+                {% trans "Alternative Actions" %}
+            </h6>
+        </div>
+        <div class="card-body">
+            <p class="card-text">
+                {% trans "Instead of deleting, consider these alternative actions:" %}
+            </p>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="d-grid">
+                        <a href="{% url 'transport:driver_update' driver.pk %}" class="btn btn-outline-primary mb-2">
+                            <i class="fas fa-edit me-1"></i>
+                            {% trans "Edit Driver Information" %}
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-grid">
+                        {% if driver.status == 'active' %}
+                        <a href="{% url 'transport:driver_update' driver.pk %}" class="btn btn-outline-warning mb-2">
+                            <i class="fas fa-pause me-1"></i>
+                            {% trans "Deactivate Driver" %}
+                        </a>
+                        {% else %}
+                        <a href="{% url 'transport:driver_update' driver.pk %}" class="btn btn-outline-success mb-2">
+                            <i class="fas fa-play me-1"></i>
+                            {% trans "Activate Driver" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const confirmCheckbox = document.getElementById('confirmDelete');
+        const deleteButton = document.getElementById('deleteButton');
+        const deletionForm = document.querySelector('form');
+        
+        // Enable/disable delete button based on confirmation
+        confirmCheckbox.addEventListener('change', function() {
+            deleteButton.disabled = !this.checked;
+        });
+        
+        // Confirm before submission
+        deletionForm.addEventListener('submit', function(e) {
+            if (!confirm('{% trans "Are you absolutely sure you want to permanently delete this driver? This action cannot be undone." %}')) {
+                e.preventDefault();
+                return false;
+            }
+            
+            // Show loading state
+            deleteButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> {% trans "Deleting..." %}';
+            deleteButton.disabled = true;
+        });
+        
+        // Add confirmation dialog for navigation away
+        let formModified = false;
+        const formInputs = document.querySelectorAll('input, textarea');
+        
+        formInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                formModified = true;
+            });
+        });
+        
+        window.addEventListener('beforeunload', function(e) {
+            if (formModified) {
+                e.preventDefault();
+                e.returnValue = '{% trans "You have unsaved changes. Are you sure you want to leave?" %}';
+                return '{% trans "You have unsaved changes. Are you sure you want to leave?" %}';
+            }
+        });
+        
+        // Safe navigation for cancel buttons
+        document.querySelectorAll('a.btn-secondary, a.btn-outline-primary').forEach(link => {
+            link.addEventListener('click', function(e) {
+                if (formModified) {
+                    if (!confirm('{% trans "You have unsaved changes. Are you sure you want to leave?" %}')) {
+                        e.preventDefault();
+                        return false;
+                    }
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

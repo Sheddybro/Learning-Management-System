@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        {% translate "Edit Payment" %}
+    {% else %}
+        {% translate "Record New Payment" %}
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">
+        {% if form.instance.pk %}
+            {% translate "Edit Payment" %}
+        {% else %}
+            {% translate "Record New Payment" %}
+        {% endif %}
+    </h1>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                {% if form.instance.pk %}
+                    {% translate "Update Payment Details" %}
+                {% else %}
+                    {% translate "Enter Payment Details" %}
+                {% endif %}
+            </h6>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class="form-group">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}
+                            <small class="form-text text-muted">{{ field.help_text }}</small>
+                        {% endif %}
+                        {% for error in field.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <button type="submit" class="btn btn-primary">
+                    {% if form.instance.pk %}
+                        {% translate "Update Payment" %}
+                    {% else %}
+                        {% translate "Record Payment" %}
+                    {% endif %}
+                </button>
+                <a href="{% url 'finance:payment_list' %}" class="btn btn-secondary">{% translate "Cancel" %}</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Placeholder for any specific JavaScript for payment forms
+        // e.g., pre-filling invoice/student based on URL params
+        const invoiceSelect = document.getElementById('id_invoice');
+        const studentSelect = document.getElementById('id_student');
+        const urlParams = new URLSearchParams(window.location.search);
+        const invoicePk = urlParams.get('invoice_pk');
+
+        if (invoicePk && invoiceSelect) {
+            // Attempt to select the invoice if provided in URL
+            for (let i = 0; i < invoiceSelect.options.length; i++) {
+                if (invoiceSelect.options[i].value === invoicePk) {
+                    invoiceSelect.value = invoicePk;
+                    invoiceSelect.disabled = true; // Prevent changing invoice for this payment
+                    break;
+                }
+            }
+            
+            // Fetch invoice details to pre-fill student and amount
+            fetch(`{% url "finance:api_invoice_details" pk="00000000-0000-0000-0000-000000000000" %}`.replace('00000000-0000-0000-0000-000000000000', invoicePk))
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (studentSelect) {
+                            studentSelect.value = data.student_id;
+                            studentSelect.disabled = true; // Prevent changing student for this payment
+                        }
+                        const amountField = document.getElementById('id_amount');
+                        if (amountField) {
+                            amountField.value = parseFloat(data.balance_due).toFixed(2);
+                        }
+                    } else {
+                        console.error('Error fetching invoice details:', data.message);
+                    }
+                })
+                .catch(error => console.error('Error fetching invoice details:', error));
+        }
+    });
+</script>
+{% endblock %}

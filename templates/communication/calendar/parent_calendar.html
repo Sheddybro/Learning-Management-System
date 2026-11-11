@@ -1,0 +1,565 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load permission_filters %}
+
+{% block title %}School Calendar - Communications{% endblock %}
+
+{% block extra_css %}
+<style>
+.calendar-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.calendar-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+}
+
+@media (max-width: 1200px) {
+    .calendar-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Events Section */
+.events-section {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border: 1px solid #e9ecef;
+}
+
+.events-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.events-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.event-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    background: #f8f9fa;
+    border-left: 4px solid #3498db;
+    transition: all 0.3s ease;
+}
+
+.event-item:hover {
+    background: #e9ecef;
+    transform: translateX(5px);
+}
+
+.event-item.holiday {
+    border-left-color: #28a745;
+    background: linear-gradient(135deg, #d4edda 0%, #f8f9fa 100%);
+}
+
+.event-item.urgent {
+    border-left-color: #dc3545;
+    background: linear-gradient(135deg, #f8d7da 0%, #f8f9fa 100%);
+}
+
+.event-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.event-icon.event { background: #3498db; }
+.event-icon.holiday { background: #28a745; }
+.event-icon.urgent { background: #dc3545; }
+
+.event-content {
+    flex: 1;
+}
+
+.event-title {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.25rem;
+}
+
+.event-description {
+    color: #6c757d;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.event-meta {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.event-date {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.event-date i {
+    color: #3498db;
+}
+
+/* Sidebar */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Holidays List */
+.holidays-section {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border: 1px solid #e9ecef;
+}
+
+.holidays-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.holidays-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.holiday-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 6px;
+    background: #f8f9fa;
+    border-left: 3px solid #28a745;
+}
+
+.holiday-name {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.holiday-date {
+    color: #6c757d;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Urgent Alerts */
+.alerts-section {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border: 1px solid #e9ecef;
+}
+
+.alerts-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.alerts-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.alert-item {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #ffe6e6 0%, #ffffff 100%);
+    border-left: 4px solid #dc3545;
+    border: 1px solid #f5c6cb;
+}
+
+.alert-title {
+    font-weight: 600;
+    color: #721c24;
+    margin-bottom: 0.5rem;
+}
+
+.alert-content {
+    color: #721c24;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.alert-time {
+    color: #721c24;
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
+/* Quick Stats */
+.stats-section {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border: 1px solid #e9ecef;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #2c3e50;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    color: #6c757d;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Empty States */
+.empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #6c757d;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+/* Loading States */
+.loading-skeleton {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-item {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    height: 80px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .calendar-header {
+        padding: 1.5rem;
+    }
+
+    .event-item {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .event-meta {
+        flex-wrap: wrap;
+    }
+
+    .holiday-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Animations */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* Dark mode support */
+[data-bs-theme="dark"] {
+    .events-section,
+    .holidays-section,
+    .alerts-section,
+    .stats-section {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+
+    .event-item,
+    .holiday-item {
+        background: #4a5568;
+    }
+
+    .alert-item {
+        background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+        border-color: #4a5568;
+    }
+
+    .stat-item {
+        background: #4a5568;
+    }
+
+    .events-title,
+    .holidays-title,
+    .alerts-title,
+    .event-title,
+    .holiday-name,
+    .alert-title {
+        color: #e2e8f0;
+    }
+
+    .event-description,
+    .event-meta,
+    .holiday-date,
+    .alert-content,
+    .alert-time,
+    .stat-label {
+        color: #a0aec0;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid calendar-container">
+    <!-- Page Header -->
+    <div class="calendar-header">
+        <h1 class="mb-2">
+            <i class="bi bi-calendar-event me-2"></i>
+            School Calendar & Events
+        </h1>
+        <p class="mb-0 opacity-90">
+            Stay updated with school events, holidays, and important dates
+        </p>
+    </div>
+
+    <div class="calendar-grid">
+        <!-- Main Events Section -->
+        <div class="events-section">
+            <div class="events-header">
+                <h2 class="events-title">
+                    <i class="bi bi-calendar-check me-2"></i>
+                    Upcoming Events & Announcements
+                </h2>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'communication:announcement_list' %}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-list me-1"></i>
+                        All Announcements
+                    </a>
+                </div>
+            </div>
+
+            <div class="events-list">
+                {% if events %}
+                    {% for event in events %}
+                    <div class="event-item {% if event.announcement_type == 'holiday' %}holiday{% endif %} {% if event.priority == 'urgent' %}urgent{% endif %}">
+                        <div class="event-icon {% if event.announcement_type == 'holiday' %}holiday{% elif event.priority == 'urgent' %}urgent{% else %}event{% endif %}">
+                            {% if event.announcement_type == 'holiday' %}
+                                <i class="bi bi-tree"></i>
+                            {% elif event.priority == 'urgent' %}
+                                <i class="bi bi-exclamation-triangle"></i>
+                            {% else %}
+                                <i class="bi bi-calendar-event"></i>
+                            {% endif %}
+                        </div>
+                        <div class="event-content">
+                            <div class="event-title">{{ event.title }}</div>
+                            <div class="event-description">{{ event.content|striptags|truncatewords:20 }}</div>
+                            <div class="event-meta">
+                                <div class="event-date">
+                                    <i class="bi bi-calendar"></i>
+                                    {% if event.published_at %}
+                                        {{ event.published_at|date:"M d, Y" }}
+                                    {% else %}
+                                        {{ event.created_at|date:"M d, Y" }}
+                                    {% endif %}
+                                </div>
+                                <span class="badge bg-secondary">{{ event.get_announcement_type_display }}</span>
+                                {% if event.priority == 'urgent' %}
+                                <span class="badge bg-danger">Urgent</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="bi bi-calendar-x"></i>
+                        </div>
+                        <h3>No Upcoming Events</h3>
+                        <p>There are no upcoming events or announcements at this time.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- Quick Stats -->
+            <div class="stats-section">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-number">{{ events|length }}</span>
+                        <span class="stat-label">Upcoming Events</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">{{ holidays|length }}</span>
+                        <span class="stat-label">School Holidays</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Holidays List -->
+            <div class="holidays-section">
+                <div class="holidays-header">
+                    <h3 class="holidays-title">
+                        <i class="bi bi-tree me-2"></i>
+                        School Holidays
+                    </h3>
+                    {% if current_session %}
+                    <small class="text-muted">{{ current_session.name }}</small>
+                    {% endif %}
+                </div>
+
+                {% if holidays %}
+                    {% for holiday in holidays %}
+                    <div class="holiday-item">
+                        <div class="holiday-name">{{ holiday.name }}</div>
+                        <div class="holiday-date">{{ holiday.date|date:"M d, Y" }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-3">
+                        <i class="bi bi-tree text-muted"></i>
+                        <p class="text-muted small mt-2">No holidays scheduled</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Urgent Alerts -->
+            <div class="alerts-section">
+                <div class="alerts-header">
+                    <h3 class="alerts-title">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Emergency Alerts
+                    </h3>
+                </div>
+
+                {% if urgent_alerts %}
+                    {% for alert in urgent_alerts %}
+                    <div class="alert-item">
+                        <div class="alert-title">{{ alert.title }}</div>
+                        <div class="alert-content">{{ alert.content|striptags|truncatewords:15 }}</div>
+                        <div class="alert-time">
+                            {{ alert.published_at|timesince }} ago
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-3">
+                        <i class="bi bi-shield-check text-success"></i>
+                        <p class="text-success small mt-2">No emergency alerts</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh calendar data every 5 minutes
+    setInterval(function() {
+        // This could be enhanced to fetch updated data via AJAX
+        console.log('Calendar auto-refresh check');
+    }, 300000);
+
+    // Add smooth scrolling for event items
+    const eventItems = document.querySelectorAll('.event-item');
+    eventItems.forEach(item => {
+        item.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateX(5px)';
+        });
+
+        item.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateX(0)';
+        });
+    });
+
+    // Highlight today's events
+    const today = new Date().toISOString().split('T')[0];
+    const eventDates = document.querySelectorAll('.event-date');
+    eventDates.forEach(dateElement => {
+        const dateText = dateElement.textContent.trim();
+        // This is a simplified check - in production, you'd parse the date properly
+        if (dateText.includes('today') || dateText.includes(new Date().getDate().toString())) {
+            dateElement.closest('.event-item').classList.add('today-highlight');
+        }
+    });
+});
+</script>
+{% endblock %}

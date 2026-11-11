@@ -1,0 +1,336 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Enrollment Reports Dashboard" %} - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-chart-line mr-2"></i>
+                        {% trans "Enrollment Reports Dashboard" %}
+                    </h3>
+                    <div class="card-tools">
+                        <select id="session-selector" class="form-control form-control-sm">
+                            {% for session in sessions %}
+                            <option value="{{ session.id }}" {% if session == current_session %}selected{% endif %}>
+                                {{ session.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Summary Cards -->
+                    <div class="row mb-4">
+                        <div class="col-lg-3 col-6">
+                            <div class="small-box bg-info">
+                                <div class="inner">
+                                    <h3>{{ total_students }}</h3>
+                                    <p>{% trans "Total Students" %}</p>
+                                </div>
+                                <div class="icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-6">
+                            <div class="small-box bg-success">
+                                <div class="inner">
+                                    <h3>{{ total_enrollments }}</h3>
+                                    <p>{% trans "Active Enrollments" %}</p>
+                                </div>
+                                <div class="icon">
+                                    <i class="fas fa-graduation-cap"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-6">
+                            <div class="small-box bg-warning">
+                                <div class="inner">
+                                    <h3>{{ transfer_stats.transfers_in|default:0 }}</h3>
+                                    <p>{% trans "Transfers In" %}</p>
+                                </div>
+                                <div class="icon">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-6">
+                            <div class="small-box bg-danger">
+                                <div class="inner">
+                                    <h3>{{ withdrawal_stats.total_exits|default:0 }}</h3>
+                                    <p>{% trans "Withdrawals/Suspensions" %}</p>
+                                </div>
+                                <div class="icon">
+                                    <i class="fas fa-user-times"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="row mb-4">
+                        <!-- Enrollment by Grade Level -->
+                        <div class="col-lg-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">{% trans "Enrollment by Grade Level" %}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="gradeChart" width="400" height="300"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Student Type Distribution -->
+                        <div class="col-lg-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">{% trans "Student Type Distribution" %}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="typeChart" width="400" height="300"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Enrollment Trends -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">{% trans "Enrollment Trends (Last 5 Sessions)" %}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="trendChart" width="400" height="200"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Class Capacity Utilization -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">{% trans "Class Capacity Utilization" %}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>{% trans "Class Name" %}</th>
+                                                    <th>{% trans "Capacity" %}</th>
+                                                    <th>{% trans "Enrolled" %}</th>
+                                                    <th>{% trans "Available" %}</th>
+                                                    <th>{% trans "Utilization" %}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for class_info in class_utilization %}
+                                                <tr>
+                                                    <td>{{ class_info.class_name }}</td>
+                                                    <td>{{ class_info.capacity }}</td>
+                                                    <td>{{ class_info.enrolled }}</td>
+                                                    <td>{{ class_info.available }}</td>
+                                                    <td>
+                                                        <div class="progress" style="width: 100px;">
+                                                            <div class="progress-bar {% if class_info.utilization > 90 %}bg-danger{% elif class_info.utilization > 75 %}bg-warning{% else %}bg-success{% endif %}"
+                                                                 style="width: {{ class_info.utilization }}%">
+                                                                {{ class_info.utilization }}%
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {% empty %}
+                                                <tr>
+                                                    <td colspan="5" class="text-center">{% trans "No class data available" %}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Transfer and Withdrawal Statistics -->
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">{% trans "Transfer Statistics" %}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="text-center">
+                                                <h4 class="text-success">{{ transfer_stats.transfers_in|default:0 }}</h4>
+                                                <p class="text-muted">{% trans "Transfers In" %}</p>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="text-center">
+                                                <h4 class="text-warning">{{ transfer_stats.transfers_out|default:0 }}</h4>
+                                                <p class="text-muted">{% trans "Transfers Out" %}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <div class="text-center">
+                                        <h5 class="{% if transfer_stats.net_transfers >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            {{ transfer_stats.net_transfers|default:0 }}
+                                        </h5>
+                                        <p class="text-muted">{% trans "Net Transfers" %}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">{% trans "Withdrawal Statistics" %}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="text-center">
+                                                <h4 class="text-danger">{{ withdrawal_stats.withdrawals|default:0 }}</h4>
+                                                <p class="text-muted">{% trans "Withdrawals" %}</p>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="text-center">
+                                                <h4 class="text-warning">{{ withdrawal_stats.suspensions|default:0 }}</h4>
+                                                <p class="text-muted">{% trans "Suspensions" %}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <div class="text-center">
+                                        <h5 class="text-danger">{{ withdrawal_stats.total_exits|default:0 }}</h5>
+                                        <p class="text-muted">{% trans "Total Exits" %}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Grade Level Chart
+    const gradeCtx = document.getElementById('gradeChart').getContext('2d');
+    const gradeData = {{ grade_enrollments|safe }};
+    const gradeLabels = gradeData.map(item => item.class_enrolled__grade_level__name);
+    const gradeCounts = gradeData.map(item => item.count);
+
+    new Chart(gradeCtx, {
+        type: 'bar',
+        data: {
+            labels: gradeLabels,
+            datasets: [{
+                label: 'Number of Students',
+                data: gradeCounts,
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Student Type Chart
+    const typeCtx = document.getElementById('typeChart').getContext('2d');
+    const typeData = {{ student_types|safe }};
+    const typeLabels = typeData.map(item => item.type);
+    const typeCounts = typeData.map(item => item.count);
+
+    new Chart(typeCtx, {
+        type: 'pie',
+        data: {
+            labels: typeLabels,
+            datasets: [{
+                data: typeCounts,
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.5)',
+                    'rgba(54, 162, 235, 0.5)',
+                    'rgba(255, 205, 86, 0.5)',
+                    'rgba(75, 192, 192, 0.5)',
+                    'rgba(153, 102, 255, 0.5)'
+                ],
+                borderColor: [
+                    'rgba(255, 99, 132, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(255, 205, 86, 1)',
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(153, 102, 255, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true
+        }
+    });
+
+    // Enrollment Trends Chart
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    const trendData = {{ enrollment_trends|safe }};
+    const trendLabels = trendData.map(item => item.session);
+    const trendCounts = trendData.map(item => item.count);
+
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: trendLabels,
+            datasets: [{
+                label: 'Total Enrollments',
+                data: trendCounts,
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 2,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Session selector change handler
+    document.getElementById('session-selector').addEventListener('change', function() {
+        const sessionId = this.value;
+        window.location.href = `?session=${sessionId}`;
+    });
+});
+</script>
+{% endblock %}

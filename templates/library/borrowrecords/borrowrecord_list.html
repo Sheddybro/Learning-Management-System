@@ -1,0 +1,998 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Borrow Records" %}{% endblock %}
+
+{% block page_title %}{% trans "Borrowing Records" %}{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'library:borrowrecord_create' %}" class="btn btn-primary">
+            <i class="bi bi-journal-plus me-2"></i> {% trans "Issue Book" %}
+        </a>
+        <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'library:export_borrow_records' %}">
+                <i class="bi bi-download me-2"></i> {% trans "Export Records" %}
+            </a></li>
+            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#bulkReturnModal">
+                <i class="bi bi-journal-check me-2"></i> {% trans "Bulk Return" %}
+            </a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Borrow Records" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Borrow Records Specific Styles */
+    .record-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .record-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .status-borrowed { border-left-color: #65a0f9; }
+    .status-overdue { border-left-color: #dc3545; }
+    .status-returned { border-left-color: #28a745; }
+    .status-reserved { border-left-color: #ffc107; }
+    
+    .record-status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .member-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    
+    .member-avatar-placeholder {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #65a0f9 0%, #8bb8ff 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+    
+    .book-cover-small {
+        width: 40px;
+        height: 50px;
+        object-fit: cover;
+        border-radius: 4px;
+    }
+    
+    .book-cover-placeholder-small {
+        width: 40px;
+        height: 50px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        color: #6c757d;
+    }
+    
+    .due-date-indicator {
+        font-size: 0.875rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
+    
+    .due-soon {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    
+    .overdue {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .fine-amount {
+        font-weight: 600;
+    }
+    
+    .fine-unpaid {
+        color: #dc3545;
+    }
+    
+    .fine-paid {
+        color: #28a745;
+    }
+    
+    .action-buttons .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .filter-sidebar {
+        position: sticky;
+        top: 20px;
+    }
+    
+    .stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stats-card-1 { border-left-color: #65a0f9; }
+    .stats-card-2 { border-left-color: #28a745; }
+    .stats-card-3 { border-left-color: #ffc107; }
+    .stats-card-4 { border-left-color: #dc3545; }
+    
+    .view-toggle .btn {
+        padding: 0.375rem 0.75rem;
+    }
+    
+    .search-box {
+        position: relative;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    .search-input {
+        padding-left: 40px;
+    }
+    
+    .results-count {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    
+    /* Grid view specific */
+    .records-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    /* List view specific */
+    .record-list-item {
+        transition: all 0.2s ease;
+        border-left: 3px solid transparent;
+    }
+    
+    .record-list-item:hover {
+        border-left-color: #65a0f9;
+        background-color: rgba(101, 160, 249, 0.05);
+    }
+    
+    @media (max-width: 768px) {
+        .records-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .filter-sidebar {
+            position: static;
+            margin-bottom: 1.5rem;
+        }
+        
+        .view-toggle {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Statistics Overview -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-1 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="h4 text-primary mb-0">{{ total_borrowed }}</div>
+                            <div class="text-muted">{% trans "Currently Borrowed" %}</div>
+                        </div>
+                        <div class="text-primary opacity-75">
+                            <i class="bi bi-journal-arrow-up" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-2 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="h4 text-success mb-0">{{ total_returned }}</div>
+                            <div class="text-muted">{% trans "Returned Today" %}</div>
+                        </div>
+                        <div class="text-success opacity-75">
+                            <i class="bi bi-journal-check" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-3 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="h4 text-warning mb-0">{{ total_overdue }}</div>
+                            <div class="text-muted">{% trans "Overdue Books" %}</div>
+                        </div>
+                        <div class="text-warning opacity-75">
+                            <i class="bi bi-exclamation-triangle" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="h4 text-danger mb-0">${{ total_fines }}</div>
+                            <div class="text-muted">{% trans "Outstanding Fines" %}</div>
+                        </div>
+                        <div class="text-danger opacity-75">
+                            <i class="bi bi-cash-coin" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filter Bar -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="search-box">
+                        <i class="bi bi-search search-icon"></i>
+                        <input type="text" class="form-control search-input" id="searchInput" 
+                               placeholder="{% trans 'Search by member, book title, barcode...' %}" 
+                               value="{{ request.GET.search|default:'' }}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex justify-content-end align-items-center gap-3">
+                        <div class="results-count">
+                            {% if borrow_records.paginator.count %}
+                            {{ borrow_records.paginator.count }} {% trans "records found" %}
+                            {% endif %}
+                        </div>
+                        <div class="view-toggle btn-group" role="group">
+                            <input type="radio" class="btn-check" name="viewMode" id="gridView" autocomplete="off" checked>
+                            <label class="btn btn-outline-secondary" for="gridView" title="{% trans 'Grid View' %}">
+                                <i class="bi bi-grid-3x3-gap"></i>
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="viewMode" id="listView" autocomplete="off">
+                            <label class="btn btn-outline-secondary" for="listView" title="{% trans 'List View' %}">
+                                <i class="bi bi-list-ul"></i>
+                            </label>
+                        </div>
+                        <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse">
+                            <i class="bi bi-funnel me-2"></i> {% trans "Filters" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Advanced Filters -->
+            <div class="collapse mt-3" id="filterCollapse">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="statusFilter" class="form-label">{% trans "Status" %}</label>
+                        <select class="form-select" id="statusFilter">
+                            <option value="">{% trans "All Status" %}</option>
+                            {% for status_value, status_label in status_choices %}
+                            <option value="{{ status_value }}" 
+                                    {% if request.GET.status == status_value %}selected{% endif %}>
+                                {{ status_label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="overdueFilter" class="form-label">{% trans "Overdue Status" %}</label>
+                        <select class="form-select" id="overdueFilter">
+                            <option value="">{% trans "All Records" %}</option>
+                            <option value="overdue" {% if request.GET.overdue == 'true' %}selected{% endif %}>
+                                {% trans "Overdue Only" %}
+                            </option>
+                            <option value="due_soon" {% if request.GET.due_soon == 'true' %}selected{% endif %}>
+                                {% trans "Due Soon" %}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="dateFromFilter" class="form-label">{% trans "From Date" %}</label>
+                        <input type="date" class="form-control" id="dateFromFilter" 
+                               value="{{ request.GET.borrow_date_from|default:'' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="dateToFilter" class="form-label">{% trans "To Date" %}</label>
+                        <input type="date" class="form-control" id="dateToFilter" 
+                               value="{{ request.GET.borrow_date_to|default:'' }}">
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="unpaidFinesOnly" 
+                                   {% if request.GET.unpaid_fines %}checked{% endif %}>
+                            <label class="form-check-label" for="unpaidFinesOnly">
+                                {% trans "Show records with unpaid fines only" %}
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-primary" id="applyFilters">
+                                <i class="bi bi-filter me-2"></i> {% trans "Apply Filters" %}
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="resetFilters">
+                                <i class="bi bi-arrow-clockwise me-2"></i> {% trans "Reset" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-12">
+            <!-- Grid View -->
+            <div id="gridViewContent" class="view-content">
+                {% if borrow_records %}
+                <div class="records-grid">
+                    {% for record in borrow_records %}
+                    <div class="card record-card status-{{ record.status }}">
+                        <div class="card-body">
+                            <!-- Member Information -->
+                            <div class="d-flex align-items-center mb-3">
+                                {% if record.member.user.profile.avatar %}
+                                <img src="{{ record.member.user.profile.avatar.url }}" class="member-avatar me-3" alt="{{ record.member.user.get_full_name }}">
+                                {% else %}
+                                <div class="member-avatar-placeholder me-3">
+                                    {{ record.member.user.get_full_name|default:record.member.user.username|first|upper }}
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <h6 class="card-title mb-0">{{ record.member.user.get_full_name|default:record.member.user.username }}</h6>
+                                    <p class="card-text small text-muted mb-0">
+                                        {{ record.member.member_id }} • {{ record.member.get_member_type_display }}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <!-- Book Information -->
+                            <div class="d-flex align-items-start mb-3">
+                                {% if record.book_copy.book.cover_image %}
+                                <img src="{{ record.book_copy.book.cover_image.url }}" class="book-cover-small me-3" alt="{{ record.book_copy.book.title }}">
+                                {% else %}
+                                <div class="book-cover-placeholder-small me-3">
+                                    <i class="bi bi-book"></i>
+                                </div>
+                                {% endif %}
+                                <div class="flex-grow-1">
+                                    <h6 class="card-title mb-1">{{ record.book_copy.book.title }}</h6>
+                                    <p class="card-text small text-muted mb-1">
+                                        {{ record.book_copy.book.author_names }}
+                                    </p>
+                                    <p class="card-text small text-muted mb-0">
+                                        {% trans "Copy" %} #{{ record.book_copy.copy_number }} • {{ record.book_copy.barcode }}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <!-- Dates and Status -->
+                            <div class="row g-2 mb-3">
+                                <div class="col-6">
+                                    <small class="text-muted">{% trans "Borrowed" %}:</small>
+                                    <div class="small fw-semibold">{{ record.borrow_date|date:"M d, Y" }}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">{% trans "Due" %}:</small>
+                                    <div class="small fw-semibold {% if record.is_overdue %}text-danger{% endif %}">
+                                        {{ record.due_date|date:"M d, Y" }}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Status and Fine Information -->
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    {% if record.status == 'borrowed' %}
+                                        {% if record.is_overdue %}
+                                        <span class="badge bg-danger record-status-badge">
+                                            <i class="bi bi-exclamation-triangle me-1"></i> {% trans "Overdue" %}
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-primary record-status-badge">
+                                            <i class="bi bi-journal-arrow-up me-1"></i> {% trans "Borrowed" %}
+                                        </span>
+                                        {% endif %}
+                                    {% elif record.status == 'returned' %}
+                                    <span class="badge bg-success record-status-badge">
+                                        <i class="bi bi-journal-check me-1"></i> {% trans "Returned" %}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-secondary record-status-badge">{{ record.get_status_display }}</span>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if record.fine_amount > 0 %}
+                                <div class="fine-amount {% if not record.fine_paid %}fine-unpaid{% else %}fine-paid{% endif %}">
+                                    ${{ record.fine_amount }}
+                                    {% if record.fine_paid %}
+                                    <span class="badge bg-success ms-1">{% trans "Paid" %}</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Due Date Indicator -->
+                            {% if record.status == 'borrowed' and not record.is_overdue %}
+                                {% if record.days_until_due <= 3 %}
+                                <div class="due-date-indicator due-soon text-center">
+                                    <i class="bi bi-clock me-1"></i>
+                                    {% trans "Due in" %} {{ record.days_until_due }} {% trans "days" %}
+                                </div>
+                                {% endif %}
+                            {% elif record.is_overdue %}
+                            <div class="due-date-indicator overdue text-center">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                {% trans "Overdue by" %} {{ record.days_overdue }} {% trans "days" %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <div class="d-flex gap-2 action-buttons">
+                                {% if record.status == 'borrowed' %}
+                                <button class="btn btn-outline-success btn-sm flex-fill" 
+                                        onclick="returnBook('{{ record.id }}')">
+                                    <i class="bi bi-journal-check me-1"></i> {% trans "Return" %}
+                                </button>
+                                {% if record.can_renew %}
+                                <button class="btn btn-outline-primary btn-sm" 
+                                        onclick="renewBook('{{ record.id }}')"
+                                        title="{% trans 'Renew Book' %}">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                                {% endif %}
+                                {% endif %}
+                                
+                                <a href="{% url 'library:borrowrecord_update' record.id %}" 
+                                   class="btn btn-outline-secondary btn-sm"
+                                   title="{% trans 'Edit Record' %}">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                
+                                {% if record.fine_amount > 0 and not record.fine_paid %}
+                                <button class="btn btn-outline-warning btn-sm" 
+                                        onclick="recordFinePayment('{{ record.id }}')"
+                                        title="{% trans 'Record Fine Payment' %}">
+                                    <i class="bi bi-cash-coin"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-journals display-1 text-muted mb-3"></i>
+                    <h4>{% trans "No borrow records found" %}</h4>
+                    <p class="text-muted mb-4">{% trans "Try adjusting your search criteria or filters." %}</p>
+                    <a href="{% url 'library:borrowrecord_create' %}" class="btn btn-primary me-2">
+                        <i class="bi bi-journal-plus me-2"></i> {% trans "Issue First Book" %}
+                    </a>
+                    <a href="{% url 'library:borrowrecord_list' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-clockwise me-2"></i> {% trans "Reset Search" %}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- List View -->
+            <div id="listViewContent" class="view-content" style="display: none;">
+                {% if borrow_records %}
+                <div class="card">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="60">{% trans "Member" %}</th>
+                                    <th>{% trans "Book" %}</th>
+                                    <th>{% trans "Borrow Date" %}</th>
+                                    <th>{% trans "Due Date" %}</th>
+                                    <th>{% trans "Return Date" %}</th>
+                                    <th class="text-center">{% trans "Status" %}</th>
+                                    <th class="text-center">{% trans "Fine" %}</th>
+                                    <th width="150">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in borrow_records %}
+                                <tr class="record-list-item">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if record.member.user.profile.avatar %}
+                                            <img src="{{ record.member.user.profile.avatar.url }}" class="member-avatar me-2" alt="{{ record.member.user.get_full_name }}">
+                                            {% else %}
+                                            <div class="member-avatar-placeholder me-2">
+                                                {{ record.member.user.get_full_name|default:record.member.user.username|first|upper }}
+                                            </div>
+                                            {% endif %}
+                                            <div>
+                                                <div class="fw-semibold">{{ record.member.user.get_full_name|default:record.member.user.username }}</div>
+                                                <small class="text-muted">{{ record.member.member_id }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if record.book_copy.book.cover_image %}
+                                            <img src="{{ record.book_copy.book.cover_image.url }}" class="book-cover-small me-2" alt="{{ record.book_copy.book.title }}">
+                                            {% else %}
+                                            <div class="book-cover-placeholder-small me-2">
+                                                <i class="bi bi-book"></i>
+                                            </div>
+                                            {% endif %}
+                                            <div>
+                                                <div class="fw-semibold">{{ record.book_copy.book.title|truncatewords:4 }}</div>
+                                                <small class="text-muted">{{ record.book_copy.book.author_names|truncatewords:2 }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ record.borrow_date|date:"M d, Y" }}</td>
+                                    <td>
+                                        <span class="{% if record.is_overdue %}text-danger{% endif %}">
+                                            {{ record.due_date|date:"M d, Y" }}
+                                        </span>
+                                        {% if record.is_overdue %}
+                                        <div class="small text-danger">
+                                            {% trans "Overdue by" %} {{ record.days_overdue }}d
+                                        </div>
+                                        {% elif record.days_until_due <= 3 %}
+                                        <div class="small text-warning">
+                                            {% trans "Due in" %} {{ record.days_until_due }}d
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if record.return_date %}
+                                        {{ record.return_date|date:"M d, Y" }}
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if record.status == 'borrowed' %}
+                                            {% if record.is_overdue %}
+                                            <span class="badge bg-danger record-status-badge">{% trans "Overdue" %}</span>
+                                            {% else %}
+                                            <span class="badge bg-primary record-status-badge">{% trans "Borrowed" %}</span>
+                                            {% endif %}
+                                        {% elif record.status == 'returned' %}
+                                        <span class="badge bg-success record-status-badge">{% trans "Returned" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary record-status-badge">{{ record.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if record.fine_amount > 0 %}
+                                        <span class="fine-amount {% if not record.fine_paid %}fine-unpaid{% else %}fine-paid{% endif %}">
+                                            ${{ record.fine_amount }}
+                                        </span>
+                                        {% if record.fine_paid %}
+                                        <div class="small text-success">{% trans "Paid" %}</div>
+                                        {% endif %}
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex gap-1 action-buttons">
+                                            {% if record.status == 'borrowed' %}
+                                            <button class="btn btn-outline-success btn-sm" 
+                                                    onclick="returnBook('{{ record.id }}')"
+                                                    title="{% trans 'Return Book' %}">
+                                                <i class="bi bi-journal-check"></i>
+                                            </button>
+                                            {% if record.can_renew %}
+                                            <button class="btn btn-outline-primary btn-sm" 
+                                                    onclick="renewBook('{{ record.id }}')"
+                                                    title="{% trans 'Renew Book' %}">
+                                                <i class="bi bi-arrow-clockwise"></i>
+                                            </button>
+                                            {% endif %}
+                                            {% endif %}
+                                            
+                                            <a href="{% url 'library:borrowrecord_update' record.id %}" 
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="{% trans 'Edit Record' %}">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            
+                                            {% if record.fine_amount > 0 and not record.fine_paid %}
+                                            <button class="btn btn-outline-warning btn-sm" 
+                                                    onclick="recordFinePayment('{{ record.id }}')"
+                                                    title="{% trans 'Record Fine Payment' %}">
+                                                <i class="bi bi-cash-coin"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-journals display-1 text-muted mb-3"></i>
+                    <h4>{% trans "No borrow records found" %}</h4>
+                    <p class="text-muted mb-4">{% trans "Try adjusting your search criteria or filters." %}</p>
+                    <a href="{% url 'library:borrowrecord_create' %}" class="btn btn-primary me-2">
+                        <i class="bi bi-journal-plus me-2"></i> {% trans "Issue First Book" %}
+                    </a>
+                    <a href="{% url 'library:borrowrecord_list' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-clockwise me-2"></i> {% trans "Reset Search" %}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Pagination -->
+            {% if borrow_records.has_other_pages %}
+            <nav aria-label="{% trans 'Borrow records pagination' %}" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if borrow_records.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ borrow_records.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            {% trans "Previous" %}
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">{% trans "Previous" %}</span>
+                    </li>
+                    {% endif %}
+
+                    {% for i in borrow_records.paginator.page_range %}
+                        {% if borrow_records.number == i %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ i }}</span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ i }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ i }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if borrow_records.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ borrow_records.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            {% trans "Next" %}
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">{% trans "Next" %}</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Return Modal -->
+<div class="modal fade" id="bulkReturnModal" tabindex="-1" aria-labelledby="bulkReturnModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkReturnModalLabel">{% trans "Bulk Book Return" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    {% trans "Scan or enter multiple book barcodes to process returns in bulk." %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="bulkBarcodeInput" class="form-label">{% trans "Enter Barcodes" %}</label>
+                    <textarea class="form-control" id="bulkBarcodeInput" rows="5" 
+                              placeholder="{% trans 'Enter one barcode per line or scan multiple barcodes...' %}"></textarea>
+                    <div class="form-text">
+                        {% trans "You can scan barcodes or enter them manually, one per line." %}
+                    </div>
+                </div>
+                
+                <div id="bulkReturnResults" class="mt-3" style="display: none;">
+                    <h6>{% trans "Books to Return" %}</h6>
+                    <div id="bulkReturnList" class="mb-3"></div>
+                    <div class="alert alert-warning" id="bulkReturnWarnings"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="processBulkReturn" disabled>
+                    <i class="bi bi-journal-check me-2"></i> {% trans "Process Returns" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Mode Toggle
+        const gridViewRadio = document.getElementById('gridView');
+        const listViewRadio = document.getElementById('listView');
+        const gridViewContent = document.getElementById('gridViewContent');
+        const listViewContent = document.getElementById('listViewContent');
+        
+        // Check saved view preference
+        const savedView = localStorage.getItem('borrowRecordsViewMode') || 'grid';
+        if (savedView === 'list') {
+            listViewRadio.checked = true;
+            gridViewContent.style.display = 'none';
+            listViewContent.style.display = 'block';
+        }
+        
+        gridViewRadio.addEventListener('change', function() {
+            if (this.checked) {
+                gridViewContent.style.display = 'block';
+                listViewContent.style.display = 'none';
+                localStorage.setItem('borrowRecordsViewMode', 'grid');
+            }
+        });
+        
+        listViewRadio.addEventListener('change', function() {
+            if (this.checked) {
+                gridViewContent.style.display = 'none';
+                listViewContent.style.display = 'block';
+                localStorage.setItem('borrowRecordsViewMode', 'list');
+            }
+        });
+        
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        let searchTimeout;
+        
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                applyFilters();
+            }, 500);
+        });
+        
+        // Filter functionality
+        document.getElementById('applyFilters').addEventListener('click', applyFilters);
+        document.getElementById('resetFilters').addEventListener('click', resetFilters);
+        
+        // Enter key in search
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                applyFilters();
+            }
+        });
+        
+        // Bulk return functionality
+        setupBulkReturn();
+    });
+    
+    function applyFilters() {
+        const params = new URLSearchParams();
+        
+        // Search
+        const searchValue = searchInput.value.trim();
+        if (searchValue) {
+            params.append('search', searchValue);
+        }
+        
+        // Filters
+        const status = document.getElementById('statusFilter').value;
+        if (status) params.append('status', status);
+        
+        const overdue = document.getElementById('overdueFilter').value;
+        if (overdue === 'overdue') params.append('overdue', 'true');
+        if (overdue === 'due_soon') params.append('due_soon', 'true');
+        
+        const dateFrom = document.getElementById('dateFromFilter').value;
+        if (dateFrom) params.append('borrow_date_from', dateFrom);
+        
+        const dateTo = document.getElementById('dateToFilter').value;
+        if (dateTo) params.append('borrow_date_to', dateTo);
+        
+        const unpaidFinesOnly = document.getElementById('unpaidFinesOnly').checked;
+        if (unpaidFinesOnly) params.append('unpaid_fines', 'true');
+        
+        // Redirect with filters
+        window.location.href = '{% url "library:borrowrecord_list" %}' + (params.toString() ? '?' + params.toString() : '');
+    }
+    
+    function resetFilters() {
+        window.location.href = '{% url "library:borrowrecord_list" %}';
+    }
+    
+    // Book Actions
+    function returnBook(recordId) {
+        if (confirm('{% trans "Are you sure you want to return this book?" %}')) {
+            window.location.href = window.location.origin + "/library/borrows/" + recordId + "/return/";
+        }
+    }
+    
+    function renewBook(recordId) {
+        if (confirm('{% trans "Are you sure you want to renew this book?" %}')) {
+            window.location.href = window.location.origin + "/library/borrows/" + recordId + "/renew/";
+        }
+    }
+    
+    function recordFinePayment(recordId) {
+        // In a real app, this would open a fine payment modal
+        window.location.href = `{% url 'library:finepayment_create' %}?borrow_record=${recordId}`;
+    }
+    
+    // Bulk Return Functions
+    function setupBulkReturn() {
+        const bulkBarcodeInput = document.getElementById('bulkBarcodeInput');
+        const bulkReturnResults = document.getElementById('bulkReturnResults');
+        const bulkReturnList = document.getElementById('bulkReturnList');
+        const processBulkReturn = document.getElementById('processBulkReturn');
+        
+        if (bulkBarcodeInput) {
+            let processTimeout;
+            
+            bulkBarcodeInput.addEventListener('input', function() {
+                clearTimeout(processTimeout);
+                processTimeout = setTimeout(() => {
+                    processBulkBarcodes(this.value);
+                }, 1000);
+            });
+        }
+        
+        processBulkReturn.addEventListener('click', function() {
+            processBulkReturns();
+        });
+    }
+    
+    function processBulkBarcodes(barcodesText) {
+        const barcodes = barcodesText.split('\n')
+            .map(b => b.trim())
+            .filter(b => b.length > 0);
+        
+        if (barcodes.length === 0) {
+            document.getElementById('bulkReturnResults').style.display = 'none';
+            document.getElementById('processBulkReturn').disabled = true;
+            return;
+        }
+        
+        // Simulate API call to validate barcodes
+        // In a real app, this would be an AJAX call to the server
+        setTimeout(() => {
+            const results = barcodes.map(barcode => ({
+                barcode: barcode,
+                valid: Math.random() > 0.2, // Simulate some invalid barcodes
+                bookTitle: `Sample Book for ${barcode}`,
+                member: `Member ${barcode.slice(-4)}`,
+                fine: Math.random() > 0.7 ? (Math.random() * 20).toFixed(2) : 0
+            }));
+            
+            displayBulkReturnResults(results);
+        }, 500);
+    }
+    
+    function displayBulkReturnResults(results) {
+        const bulkReturnList = document.getElementById('bulkReturnList');
+        const bulkReturnWarnings = document.getElementById('bulkReturnWarnings');
+        const processBulkReturn = document.getElementById('processBulkReturn');
+        
+        let html = '';
+        let warnings = [];
+        let validCount = 0;
+        
+        results.forEach(result => {
+            if (result.valid) {
+                validCount++;
+                html += `
+                    <div class="alert alert-success py-2 mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${result.bookTitle}</strong><br>
+                                <small class="text-muted">Barcode: ${result.barcode} • Member: ${result.member}</small>
+                                ${result.fine > 0 ? `<br><small class="text-warning">Fine: $${result.fine}</small>` : ''}
+                            </div>
+                            <i class="bi bi-check-circle text-success"></i>
+                        </div>
+                    </div>
+                `;
+            } else {
+                warnings.push(`Invalid barcode: ${result.barcode}`);
+                html += `
+                    <div class="alert alert-danger py-2 mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Invalid Barcode</strong><br>
+                                <small class="text-muted">${result.barcode} is not associated with any borrowed book</small>
+                            </div>
+                            <i class="bi bi-x-circle text-danger"></i>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+        
+        bulkReturnList.innerHTML = html;
+        bulkReturnWarnings.innerHTML = warnings.length > 0 ? 
+            `<i class="bi bi-exclamation-triangle me-2"></i> ${warnings.join('<br>')}` : '';
+        
+        document.getElementById('bulkReturnResults').style.display = 'block';
+        processBulkReturn.disabled = validCount === 0;
+    }
+    
+    function processBulkReturns() {
+        // Simulate bulk return processing
+        alert('{% trans "Bulk return processing completed successfully!" %}');
+        $('#bulkReturnModal').modal('hide');
+        
+        // Refresh the page to show updated records
+        setTimeout(() => {
+            location.reload();
+        }, 1000);
+    }
+    
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+</script>
+{% endblock %}

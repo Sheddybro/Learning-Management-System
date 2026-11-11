@@ -1,0 +1,1099 @@
+<!-- templates/transport/attendants/attendant_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Attendant Management" %}{% endblock %}
+
+{% block page_title %}{% trans "Attendant Management" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Attendants" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'transport:attendant_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> {% trans "Add Attendant" %}
+        </a>
+        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+            <span class="visually-hidden">{% trans "Toggle Dropdown" %}</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#importModal">
+                    <i class="fas fa-file-import me-2"></i> {% trans "Import Attendants" %}
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="#" id="exportAttendants">
+                    <i class="fas fa-file-export me-2"></i> {% trans "Export to Excel" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#reportsModal">
+                    <i class="fas fa-chart-bar me-2"></i> {% trans "Generate Reports" %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .attendant-management {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .stats-card {
+        text-align: center;
+        padding: 1.5rem;
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stats-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stats-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+    
+    .attendant-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .attendant-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .attendant-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #20c997 0%, #198754 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2rem;
+        font-weight: 600;
+        margin: 0 auto 1rem;
+    }
+    
+    .attendant-avatar img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    
+    .employee-badge {
+        background: #e7f1ff;
+        color: #0d6efd;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .status-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-active {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-inactive {
+        background-color: #f3f4f6;
+        color: #6b7280;
+    }
+    
+    .status-suspended {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .status-on_leave {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    
+    .availability-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .available {
+        background: #10b981;
+    }
+    
+    .unavailable {
+        background: #ef4444;
+    }
+    
+    .on-break {
+        background: #f59e0b;
+    }
+    
+    .filter-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        border: none;
+    }
+    
+    .search-box {
+        position: relative;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    .search-input {
+        padding-left: 40px;
+    }
+    
+    .view-toggle {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .view-toggle .btn {
+        border: none;
+        border-radius: 0;
+        padding: 0.5rem 1rem;
+    }
+    
+    .view-toggle .btn.active {
+        background: #0d6efd;
+        color: white;
+    }
+    
+    .action-buttons .btn {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .table-actions {
+        white-space: nowrap;
+    }
+    
+    .responsibilities-preview {
+        font-size: 0.875rem;
+        color: #6c757d;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    /* Grid/List view transitions */
+    .view-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .view-list {
+        display: none;
+    }
+    
+    .view-grid .attendant-item {
+        display: block;
+    }
+    
+    .view-list .attendant-item {
+        display: none;
+    }
+    
+    .info-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .info-icon {
+        width: 16px;
+        margin-right: 0.5rem;
+        color: #9ca3af;
+        text-align: center;
+    }
+    
+    .schedule-badge {
+        background: #f0f9ff;
+        color: #0369a1;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .attendant-avatar {
+            width: 60px;
+            height: 60px;
+            font-size: 1.5rem;
+        }
+        
+        .view-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .action-buttons .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="attendant-management">
+    <!-- Filters and Controls -->
+    <div class="card filter-card mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-4">
+                    <div class="search-box">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" class="form-control search-input" id="attendantSearch" 
+                               placeholder="{% trans 'Search attendants...' %}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="statusFilter">
+                        <option value="">{% trans "All Status" %}</option>
+                        <option value="active">{% trans "Active" %}</option>
+                        <option value="inactive">{% trans "Inactive" %}</option>
+                        <option value="suspended">{% trans "Suspended" %}</option>
+                        <option value="on_leave">{% trans "On Leave" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="availabilityFilter">
+                        <option value="">{% trans "All Availability" %}</option>
+                        <option value="available">{% trans "Available" %}</option>
+                        <option value="unavailable">{% trans "Unavailable" %}</option>
+                        <option value="on_break">{% trans "On Break" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <div class="view-toggle btn-group" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" data-view="grid">
+                            <i class="fas fa-th"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" data-view="list">
+                            <i class="fas fa-list"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Advanced Filters -->
+            <div class="mt-3">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters">
+                    <i class="fas fa-sliders-h me-1"></i> {% trans "Advanced Filters" %}
+                </button>
+                
+                <div class="collapse mt-2" id="advancedFilters">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label small">{% trans "Service Duration" %}</label>
+                            <select class="form-select form-select-sm" id="serviceFilter">
+                                <option value="">{% trans "Any Duration" %}</option>
+                                <option value="0-1">0-1 {% trans "years" %}</option>
+                                <option value="1-3">1-3 {% trans "years" %}</option>
+                                <option value="3-5">3-5 {% trans "years" %}</option>
+                                <option value="5+">5+ {% trans "years" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">{% trans "Salary Range" %}</label>
+                            <select class="form-select form-select-sm" id="salaryFilter">
+                                <option value="">{% trans "Any Salary" %}</option>
+                                <option value="0-1000">$0 - $1,000</option>
+                                <option value="1001-2000">$1,001 - $2,000</option>
+                                <option value="2001-3000">$2,001 - $3,000</option>
+                                <option value="3000+">$3,000+</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">{% trans "Assigned Routes" %}</label>
+                            <select class="form-select form-select-sm" id="routeFilter">
+                                <option value="">{% trans "Any Route Assignment" %}</option>
+                                <option value="assigned">{% trans "Assigned to Routes" %}</option>
+                                <option value="unassigned">{% trans "Not Assigned" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">&nbsp;</label>
+                            <div>
+                                <button class="btn btn-sm btn-primary w-100" id="applyFilters">
+                                    <i class="fas fa-filter me-1"></i> {% trans "Apply" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="row mb-4">
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <div class="stats-value text-primary">{{ total_attendants }}</div>
+                    <div class="stats-label">{% trans "Total Attendants" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <div class="stats-value text-success">{{ active_attendants }}</div>
+                    <div class="stats-label">{% trans "Active Attendants" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <div class="stats-value text-warning">{{ on_leave_attendants }}</div>
+                    <div class="stats-label">{% trans "On Leave" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <div class="stats-value text-info">{{ assigned_attendants }}</div>
+                    <div class="stats-label">{% trans "Assigned to Routes" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <div class="stats-value text-danger">{{ suspended_attendants }}</div>
+                    <div class="stats-label">{% trans "Suspended" %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <div class="stats-value text-secondary">{% trans "98%" %}</div>
+                    <div class="stats-label">{% trans "Availability Rate" %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendants Grid View -->
+    <div class="view-grid" id="attendantsView">
+        {% for attendant in attendants %}
+        <div class="attendant-item" data-attendant-id="{{ attendant.id }}">
+            <div class="card attendant-card">
+                <div class="card-body text-center">
+                    <!-- Attendant Avatar and Status -->
+                    <div class="attendant-avatar">
+                        {% if attendant.user.profile_picture %}
+                            <img src="{{ attendant.user.profile_picture.url }}" alt="{{ attendant.user.get_full_name }}">
+                        {% else %}
+                            {{ attendant.user.first_name|first|upper }}{{ attendant.user.last_name|first|upper }}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="position-absolute top-0 end-0 m-3">
+                        <span class="status-badge status-{{ attendant.status }}">
+                            {{ attendant.get_status_display }}
+                        </span>
+                    </div>
+                    
+                    <!-- Attendant Information -->
+                    <h5 class="card-title mb-2">{{ attendant.user.get_full_name }}</h5>
+                    <p class="card-text text-muted small mb-3">
+                        {{ attendant.employee_id }}
+                    </p>
+                    
+                    <div class="mb-3">
+                        <span class="employee-badge">
+                            <i class="fas fa-id-card me-1"></i>
+                            {% trans "Attendant" %}
+                        </span>
+                    </div>
+                    
+                    <!-- Attendant Details -->
+                    <div class="text-start mb-3">
+                        <div class="info-item">
+                            <i class="fas fa-phone info-icon"></i>
+                            <span>{{ attendant.phone|default:"-" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-envelope info-icon"></i>
+                            <span>{{ attendant.email|default:"-" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-birthday-cake info-icon"></i>
+                            <span>{{ attendant.age }} {% trans "years old" %}</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-calendar-alt info-icon"></i>
+                            <span>{% trans "Service:" %} {{ attendant.date_of_joining|timesince }}</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-clock info-icon"></i>
+                            <span>
+                                <span class="availability-indicator available"></span>
+                                {% trans "Available" %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- Current Assignments -->
+                    {% with schedules=attendant.route_schedules.all %}
+                    {% if schedules %}
+                    <div class="mb-3">
+                        <h6 class="small text-muted mb-2">{% trans "Current Assignments" %}</h6>
+                        {% for schedule in schedules|slice:":2" %}
+                        <span class="schedule-badge d-block mb-1">
+                            <i class="fas fa-route me-1"></i>
+                            {{ schedule.route.code }}
+                        </span>
+                        {% endfor %}
+                        {% if schedules.count > 2 %}
+                        <small class="text-muted">+{{ schedules.count|add:"-2" }} {% trans "more" %}</small>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <span class="badge bg-light text-dark">{% trans "Not Assigned" %}</span>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    
+                    <!-- Responsibilities Preview -->
+                    {% if attendant.responsibilities %}
+                    <div class="responsibilities-preview mb-3">
+                        {{ attendant.responsibilities|truncatewords:15 }}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Salary Information -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <small class="text-muted">{% trans "Monthly Salary" %}</small>
+                        <strong class="text-success">
+                            {% if attendant.salary %}
+                                ${{ attendant.salary }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </strong>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="action-buttons d-flex gap-2">
+                        <a href="{% url 'transport:attendant_detail' attendant.pk %}" class="btn btn-outline-primary btn-sm flex-fill">
+                            <i class="fas fa-eye me-1"></i> {% trans "View" %}
+                        </a>
+                        <a href="{% url 'transport:attendant_update' attendant.pk %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button class="btn btn-outline-danger btn-sm" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#deleteModal"
+                                data-attendant-id="{{ attendant.pk }}"
+                                data-attendant-name="{{ attendant.user.get_full_name }}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-user-shield text-muted fa-3x mb-3"></i>
+                    <h5 class="text-muted">{% trans "No attendants found" %}</h5>
+                    <p class="text-muted">{% trans "Get started by adding your first attendant to the system." %}</p>
+                    <a href="{% url 'transport:attendant_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i> {% trans "Add Attendant" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Attendants Table View (Hidden by default) -->
+    <div class="view-list" id="tableView">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="attendantsTable">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Attendant" %}</th>
+                                <th>{% trans "Employee ID" %}</th>
+                                <th>{% trans "Phone" %}</th>
+                                <th>{% trans "Email" %}</th>
+                                <th>{% trans "Age" %}</th>
+                                <th>{% trans "Service" %}</th>
+                                <th>{% trans "Salary" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                <th>{% trans "Availability" %}</th>
+                                <th>{% trans "Assignments" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for attendant in attendants %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="position-relative me-3">
+                                            {% if attendant.user.profile_picture %}
+                                            <img src="{{ attendant.user.profile_picture.url }}" 
+                                                 alt="{{ attendant.user.get_full_name }}"
+                                                 class="rounded-circle"
+                                                 style="width: 40px; height: 40px; object-fit: cover;">
+                                            {% else %}
+                                            <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center"
+                                                 style="width: 40px; height: 40px;">
+                                                <span class="text-primary fw-bold">
+                                                    {{ attendant.user.first_name|first|upper }}{{ attendant.user.last_name|first|upper }}
+                                                </span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <strong>{{ attendant.user.get_full_name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ attendant.employee_id }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ attendant.employee_id }}</td>
+                                <td>{{ attendant.phone|default:"-" }}</td>
+                                <td>{{ attendant.email|default:"-" }}</td>
+                                <td>{{ attendant.age }}</td>
+                                <td>
+                                    <small>{{ attendant.date_of_joining|timesince }}</small>
+                                </td>
+                                <td>
+                                    {% if attendant.salary %}
+                                        <strong>${{ attendant.salary }}</strong>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ attendant.status }}">
+                                        {{ attendant.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="availability-indicator available"></span>
+                                    {% trans "Available" %}
+                                </td>
+                                <td>
+                                    {% with count=attendant.route_schedules.count %}
+                                    {% if count > 0 %}
+                                    <span class="badge bg-primary">{{ count }} {% trans "routes" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{% trans "Not assigned" %}</span>
+                                    {% endif %}
+                                    {% endwith %}
+                                </td>
+                                <td class="table-actions">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'transport:attendant_detail' attendant.pk %}" class="btn btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'transport:attendant_update' attendant.pk %}" class="btn btn-outline-secondary">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button class="btn btn-outline-danger" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#deleteModal"
+                                                data-attendant-id="{{ attendant.pk }}"
+                                                data-attendant-name="{{ attendant.user.get_full_name }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="{% trans 'Attendant pagination' %}" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">{% trans "First" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>
+            </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">{% trans "Last" %}</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">{% trans "Confirm Deletion" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Are you sure you want to delete attendant" %} <strong id="attendantName"></strong>?</p>
+                <p class="text-danger small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    {% trans "This action cannot be undone. All associated records will also be removed." %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">{% trans "Delete Attendant" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importModalLabel">{% trans "Import Attendants" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Upload a CSV or Excel file containing attendant data." %}</p>
+                <div class="mb-3">
+                    <label for="importFile" class="form-label">{% trans "Select File" %}</label>
+                    <input class="form-control" type="file" id="importFile" accept=".csv,.xlsx,.xls">
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="updateExisting">
+                    <label class="form-check-label" for="updateExisting">
+                        {% trans "Update existing attendants" %}
+                    </label>
+                </div>
+                <div class="mt-3">
+                    <a href="#" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-download me-1"></i> {% trans "Download Template" %}
+                    </a>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="startImport">{% trans "Import Attendants" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reports Modal -->
+<div class="modal fade" id="reportsModal" tabindex="-1" aria-labelledby="reportsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reportsModalLabel">
+                    <i class="fas fa-chart-bar me-2"></i>{% trans "Attendant Reports" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-users text-primary fa-2x mb-3"></i>
+                                <h6>{% trans "Staff Overview" %}</h6>
+                                <p class="small text-muted">{% trans "Complete attendant roster and details" %}</p>
+                                <button class="btn btn-outline-primary btn-sm" id="generateStaffReport">
+                                    {% trans "Generate Report" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-money-bill-wave text-success fa-2x mb-3"></i>
+                                <h6>{% trans "Salary Report" %}</h6>
+                                <p class="small text-muted">{% trans "Salary distribution and payroll analysis" %}</p>
+                                <button class="btn btn-outline-success btn-sm" id="generateSalaryReport">
+                                    {% trans "Generate Report" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-route text-info fa-2x mb-3"></i>
+                                <h6>{% trans "Assignment Report" %}</h6>
+                                <p class="small text-muted">{% trans "Route assignments and coverage analysis" %}</p>
+                                <button class="btn btn-outline-info btn-sm" id="generateAssignmentReport">
+                                    {% trans "Generate Report" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-chart-line text-warning fa-2x mb-3"></i>
+                                <h6>{% trans "Performance Report" %}</h6>
+                                <p class="small text-muted">{% trans "Attendance and performance metrics" %}</p>
+                                <button class="btn btn-outline-warning btn-sm" id="generatePerformanceReport">
+                                    {% trans "Generate Report" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View Toggle
+        const viewToggleButtons = document.querySelectorAll('[data-view]');
+        const gridView = document.getElementById('attendantsView');
+        const listView = document.getElementById('tableView');
+        
+        viewToggleButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const viewType = this.getAttribute('data-view');
+                
+                // Update active button
+                viewToggleButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide views
+                if (viewType === 'grid') {
+                    gridView.style.display = 'grid';
+                    listView.style.display = 'none';
+                } else {
+                    gridView.style.display = 'none';
+                    listView.style.display = 'block';
+                }
+            });
+        });
+
+        // Search Functionality
+        const searchInput = document.getElementById('attendantSearch');
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const attendantItems = document.querySelectorAll('.attendant-item');
+            
+            attendantItems.forEach(item => {
+                const attendantText = item.textContent.toLowerCase();
+                if (attendantText.includes(searchTerm)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+
+        // Filter Functionality
+        const statusFilter = document.getElementById('statusFilter');
+        const availabilityFilter = document.getElementById('availabilityFilter');
+        const serviceFilter = document.getElementById('serviceFilter');
+        const salaryFilter = document.getElementById('salaryFilter');
+        const routeFilter = document.getElementById('routeFilter');
+        const applyFiltersBtn = document.getElementById('applyFilters');
+        
+        function applyFilters() {
+            const status = statusFilter.value;
+            const availability = availabilityFilter.value;
+            const service = serviceFilter.value;
+            const salary = salaryFilter.value;
+            const route = routeFilter.value;
+            
+            // In a real implementation, this would make an AJAX request to filter attendants
+            console.log('Applying filters:', { status, availability, service, salary, route });
+            
+            // Show loading state
+            showLoadingState();
+            
+            // Simulate API call
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Filters applied successfully" %}', 'success');
+            }, 1000);
+        }
+        
+        applyFiltersBtn.addEventListener('click', applyFilters);
+        
+        // Reset filters when dropdown is changed (for instant filtering)
+        [statusFilter, availabilityFilter].forEach(filter => {
+            filter.addEventListener('change', applyFilters);
+        });
+
+        // Delete Modal Handler
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteForm = document.getElementById('deleteForm');
+        
+        deleteModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const attendantId = button.getAttribute('data-attendant-id');
+            const attendantName = button.getAttribute('data-attendant-name');
+
+            document.getElementById('attendantName').textContent = attendantName;
+            deleteForm.action = "/transport/attendants/" + attendantId + "/delete/";
+        });
+
+        // Import Functionality
+        document.getElementById('startImport').addEventListener('click', function() {
+            const fileInput = document.getElementById('importFile');
+            const updateExisting = document.getElementById('updateExisting').checked;
+            
+            if (!fileInput.files.length) {
+                showNotification('{% trans "Please select a file to import" %}', 'error');
+                return;
+            }
+            
+            showLoadingState();
+            
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Attendants imported successfully" %}', 'success');
+                $('#importModal').modal('hide');
+            }, 2000);
+        });
+
+        // Export Functionality
+        document.getElementById('exportAttendants').addEventListener('click', function() {
+            showLoadingState();
+            
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification('{% trans "Attendants exported to Excel successfully" %}', 'success');
+                
+                // Simulate file download
+                const link = document.createElement('a');
+                link.href = '#'; // In real app, this would be the file URL
+                link.download = 'attendants_export.xlsx';
+                link.click();
+            }, 1500);
+        });
+
+        // Report Generation
+        document.getElementById('generateStaffReport').addEventListener('click', function() {
+            generateReport('staff_overview');
+        });
+        
+        document.getElementById('generateSalaryReport').addEventListener('click', function() {
+            generateReport('salary');
+        });
+        
+        document.getElementById('generateAssignmentReport').addEventListener('click', function() {
+            generateReport('assignment');
+        });
+        
+        document.getElementById('generatePerformanceReport').addEventListener('click', function() {
+            generateReport('performance');
+        });
+        
+        function generateReport(type) {
+            showLoadingState();
+            
+            setTimeout(() => {
+                hideLoadingState();
+                showNotification(`{% trans "Report generated successfully" %}`, 'success');
+                
+                // Simulate file download
+                const link = document.createElement('a');
+                link.href = '#'; // In real app, this would be the file URL
+                link.download = `${type}_report.pdf`;
+                link.click();
+                
+                $('#reportsModal').modal('hide');
+            }, 2000);
+        }
+
+        // Utility Functions
+        function showLoadingState() {
+            const spinner = document.createElement('div');
+            spinner.id = 'loadingSpinner';
+            spinner.className = 'position-fixed top-50 start-50 translate-middle';
+            spinner.innerHTML = `
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">{% trans "Loading..." %}</span>
+                </div>
+            `;
+            document.body.appendChild(spinner);
+        }
+
+        function hideLoadingState() {
+            const spinner = document.getElementById('loadingSpinner');
+            if (spinner) {
+                spinner.remove();
+            }
+        }
+
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                    <span>${message}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+
+        // Initialize DataTable for table view
+        if ($.fn.DataTable) {
+            $('#attendantsTable').DataTable({
+                pageLength: 25,
+                responsive: true,
+                language: {
+                    search: "{% trans 'Search attendants:' %}",
+                    lengthMenu: "{% trans 'Show _MENU_ entries' %}",
+                    info: "{% trans 'Showing _START_ to _END_ of _TOTAL_ attendants' %}",
+                    paginate: {
+                        previous: "{% trans 'Previous' %}",
+                        next: "{% trans 'Next' %}"
+                    }
+                }
+            });
+        }
+
+        // Availability status simulation
+        function updateAvailabilityStatus() {
+            const availabilityIndicators = document.querySelectorAll('.availability-indicator');
+            
+            availabilityIndicators.forEach(indicator => {
+                // Simulate random availability status changes
+                const statuses = ['available', 'unavailable', 'on-break'];
+                const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+                
+                indicator.className = 'availability-indicator ' + randomStatus;
+                
+                // Update text if available
+                const parentText = indicator.parentElement;
+                if (parentText) {
+                    const statusText = {
+                        'available': '{% trans "Available" %}',
+                        'unavailable': '{% trans "Unavailable" %}',
+                        'on-break': '{% trans "On Break" %}'
+                    }[randomStatus];
+                    
+                    const textNode = parentText.childNodes[1];
+                    if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+                        textNode.textContent = ' ' + statusText;
+                    }
+                }
+            });
+        }
+
+        // Simulate availability changes every 30 seconds
+        setInterval(updateAvailabilityStatus, 30000);
+    });
+</script>
+{% endblock %}

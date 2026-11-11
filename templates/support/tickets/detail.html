@@ -1,0 +1,164 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Ticket" %}: {{ submission.subject }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="card-title mb-0">{{ submission.subject }}</h3>
+                        <small class="text-muted">
+                            {% trans "Submitted by" %} {{ submission.name }} ({{ submission.email }}) {% trans "on" %} {{ submission.created_at|date:"M d, Y H:i" }}
+                        </small>
+                    </div>
+                    <div>
+                        {% if submission.is_resolved %}
+                            <span class="badge bg-success fs-6">{% trans "Resolved" %}</span>
+                            {% if submission.resolved_at %}
+                                <br><small class="text-muted">{% trans "Resolved on" %} {{ submission.resolved_at|date:"M d, Y H:i" }}</small>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge bg-warning fs-6">{% trans "Open" %}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Ticket Details -->
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">{% trans "Message" %}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-0">{{ submission.message|linebreaks }}</p>
+                                </div>
+                            </div>
+
+                            <!-- Resolution Section -->
+                            {% if submission.is_resolved and submission.resolution_notes %}
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">{% trans "Resolution Notes" %}</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="mb-0">{{ submission.resolution_notes|linebreaks }}</p>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Sidebar -->
+                        <div class="col-md-4">
+                            <!-- Ticket Information -->
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">{% trans "Ticket Information" %}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <dl class="row mb-0">
+                                        <dt class="col-sm-5">{% trans "Status" %}</dt>
+                                        <dd class="col-sm-7">
+                                            {% if submission.is_resolved %}
+                                                <span class="badge bg-success">{% trans "Resolved" %}</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">{% trans "Open" %}</span>
+                                            {% endif %}
+                                        </dd>
+
+                                        <dt class="col-sm-5">{% trans "Submitted" %}</dt>
+                                        <dd class="col-sm-7">{{ submission.created_at|date:"M d, Y H:i" }}</dd>
+
+                                        {% if submission.resolved_at %}
+                                            <dt class="col-sm-5">{% trans "Resolved" %}</dt>
+                                            <dd class="col-sm-7">{{ submission.resolved_at|date:"M d, Y H:i" }}</dd>
+                                        {% endif %}
+
+                                        <dt class="col-sm-5">{% trans "Contact" %}</dt>
+                                        <dd class="col-sm-7">
+                                            {{ submission.name }}<br>
+                                            <a href="mailto:{{ submission.email }}">{{ submission.email }}</a>
+                                            {% if submission.phone %}
+                                                <br><a href="tel:{{ submission.phone }}">{{ submission.phone }}</a>
+                                            {% endif %}
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">{% trans "Actions" %}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-grid gap-2">
+                                        <a href="{% url 'support:ticket_list' %}" class="btn btn-secondary">
+                                            <i class="fas fa-arrow-left"></i> {% trans "Back to Tickets" %}
+                                        </a>
+
+                                        {% if not submission.is_resolved %}
+                                            <form method="post" action="{% url 'support:ticket_update' submission.pk %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="is_resolved" value="True">
+                                                <div class="mb-3">
+                                                    <label for="resolution_notes" class="form-label">{% trans "Resolution Notes" %}</label>
+                                                    <textarea class="form-control" id="resolution_notes" name="resolution_notes"
+                                                              rows="3" placeholder="{% trans 'Explain how this ticket was resolved...' %}"></textarea>
+                                                </div>
+                                                <button type="submit" class="btn btn-success w-100">
+                                                    <i class="fas fa-check"></i> {% trans "Mark as Resolved" %}
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <form method="post" action="{% url 'support:ticket_update' submission.pk %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="is_resolved" value="False">
+                                                <button type="submit" class="btn btn-warning w-100">
+                                                    <i class="fas fa-undo"></i> {% trans "Reopen Ticket" %}
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-resize resolution notes textarea
+    const resolutionTextarea = document.getElementById('resolution_notes');
+    if (resolutionTextarea) {
+        resolutionTextarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = this.scrollHeight + 'px';
+        });
+    }
+
+    // Form validation for resolution
+    const resolutionForm = document.querySelector('form');
+    if (resolutionForm && resolutionForm.querySelector('input[name="is_resolved"][value="True"]')) {
+        resolutionForm.addEventListener('submit', function(e) {
+            const resolutionNotes = document.getElementById('resolution_notes');
+            if (resolutionNotes && !resolutionNotes.value.trim()) {
+                if (!confirm('{% trans "Are you sure you want to resolve this ticket without adding resolution notes?" %}')) {
+                    e.preventDefault();
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

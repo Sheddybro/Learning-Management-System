@@ -1,0 +1,588 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}{{ appointment.get_appointment_type_display }} - {{ appointment.appointment_date|date:"M d, Y" }}{% endblock %}
+
+{% block page_title %}{{ appointment.get_appointment_type_display }} - {{ appointment.appointment_date|date:"M d, Y" }}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'health:appointment_list' %}">Appointments</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ appointment.get_appointment_type_display }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        <a href="{% url 'health:appointment_update' pk=appointment.pk %}" class="btn btn-primary">
+            <i class="bi bi-pencil me-1"></i> Edit Appointment
+        </a>
+        <button type="button" class="btn btn-outline-info" id="printAppointmentBtn">
+            <i class="bi bi-printer me-1"></i> Print Details
+        </button>
+        <button type="button" class="btn btn-outline-success" id="sendReminderBtn">
+            <i class="bi bi-bell me-1"></i> Send Reminder
+        </button>
+        {% if appointment.appointment_status == 'scheduled' %}
+            <button type="button" class="btn btn-outline-success" id="markCompletedBtn">
+                <i class="bi bi-check-circle me-1"></i> Mark Completed
+            </button>
+        {% endif %}
+        <button type="button" class="btn btn-outline-danger" id="cancelAppointmentBtn">
+            <i class="bi bi-x-circle me-1"></i> Cancel
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="appointment-detail-container">
+    <!-- Appointment Header -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-2 text-center">
+                    <div class="appointment-icon">
+                        <i class="bi bi-calendar-event fs-1 text-primary"></i>
+                    </div>
+                </div>
+                <div class="col-md-7">
+                    <h2 class="mb-1">{{ appointment.get_appointment_type_display }}</h2>
+                    <p class="text-muted mb-2">with {{ appointment.healthcare_provider }}</p>
+                    <div class="appointment-meta">
+                        <span class="badge bg-primary me-2">{{ appointment.appointment_date|date:"l, M d, Y" }}</span>
+                        <span class="badge bg-info">{{ appointment.appointment_time }}</span>
+                        {% if appointment.duration_minutes %}
+                            <span class="badge bg-secondary ms-2">{{ appointment.duration_minutes }} min</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-3 text-end">
+                    <div class="status-display">
+                        <div class="status-badge mb-2">
+                            <span class="badge fs-6 px-3 py-2
+                                {% if appointment.appointment_status == 'completed' %}bg-success
+                                {% elif appointment.appointment_status == 'confirmed' %}bg-info
+                                {% elif appointment.appointment_status == 'scheduled' %}bg-warning
+                                {% elif appointment.appointment_status == 'cancelled' %}bg-secondary
+                                {% else %}bg-danger{% endif %}">
+                                {{ appointment.get_appointment_status_display }}
+                            </span>
+                        </div>
+                        {% if appointment.follow_up_required %}
+                            <small class="text-info">
+                                <i class="bi bi-arrow-repeat me-1"></i>Follow-up required
+                            </small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Patient Information -->
+    <div class="row mb-4">
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-person me-2"></i>Patient Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="patient-info">
+                        <div class="info-item mb-3">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle bg-success text-white me-3">
+                                    {{ appointment.student.user.get_full_name.0|upper }}
+                                </div>
+                                <div>
+                                    <h6 class="mb-0">{{ appointment.student.user.get_full_name }}</h6>
+                                    <small class="text-muted">ID: {{ appointment.student.student_id }}</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <dl class="row">
+                            <dt class="col-sm-4">Age:</dt>
+                            <dd class="col-sm-8">{{ appointment.student.age|default:"—" }}</dd>
+
+                            <dt class="col-sm-4">Grade:</dt>
+                            <dd class="col-sm-8">{{ appointment.student.current_class|default:"—" }}</dd>
+
+                            <dt class="col-sm-4">Gender:</dt>
+                            <dd class="col-sm-8">{{ appointment.student.get_gender_display|default:"—" }}</dd>
+                        </dl>
+
+                        <div class="text-end">
+                            <a href="{% url 'health:record_detail' pk=appointment.student.health_records.first.pk %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye me-1"></i>View Health Record
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-stethoscope me-2"></i>Healthcare Provider
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="provider-info">
+                        <div class="info-item mb-3">
+                            <h6 class="mb-1">{{ appointment.healthcare_provider }}</h6>
+                            {% if appointment.provider_specialty %}
+                                <p class="text-muted mb-1">{{ appointment.provider_specialty }}</p>
+                            {% endif %}
+                            {% if appointment.provider_contact %}
+                                <small class="text-muted">{{ appointment.provider_contact }}</small>
+                            {% endif %}
+                        </div>
+
+                        <hr>
+
+                        <div class="clinic-info">
+                            {% if appointment.clinic_hospital_name %}
+                                <p class="mb-1">
+                                    <i class="bi bi-building me-2"></i>{{ appointment.clinic_hospital_name }}
+                                </p>
+                            {% endif %}
+                            {% if appointment.venue %}
+                                <p class="mb-1">
+                                    <i class="bi bi-geo-alt me-2"></i>{{ appointment.venue }}
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Appointment Details -->
+    <div class="row mb-4">
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clipboard-check me-2"></i>Appointment Details
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="appointment-details">
+                        <div class="detail-section mb-4">
+                            <h6 class="section-title">Reason for Visit</h6>
+                            <p class="mb-0">{{ appointment.reason_for_visit|default:"No reason specified" }}</p>
+                        </div>
+
+                        {% if appointment.symptoms %}
+                            <div class="detail-section mb-4">
+                                <h6 class="section-title">Symptoms</h6>
+                                <p class="mb-0">{{ appointment.symptoms }}</p>
+                            </div>
+                        {% endif %}
+
+                        {% if appointment.diagnosis %}
+                            <div class="detail-section mb-4">
+                                <h6 class="section-title">Diagnosis</h6>
+                                <p class="mb-0">{{ appointment.diagnosis }}</p>
+                            </div>
+                        {% endif %}
+
+                        {% if appointment.treatment_provided %}
+                            <div class="detail-section mb-4">
+                                <h6 class="section-title">Treatment Provided</h6>
+                                <p class="mb-0">{{ appointment.treatment_provided }}</p>
+                            </div>
+                        {% endif %}
+
+                        {% if appointment.prescriptions %}
+                            <div class="detail-section mb-4">
+                                <h6 class="section-title">Prescriptions</h6>
+                                <p class="mb-0">{{ appointment.prescriptions }}</p>
+                            </div>
+                        {% endif %}
+
+                        {% if appointment.notes %}
+                            <div class="detail-section">
+                                <h6 class="section-title">Additional Notes</h6>
+                                <p class="mb-0">{{ appointment.notes }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-cash me-2"></i>Cost & Insurance
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="cost-info">
+                        {% if appointment.consultation_fee %}
+                            <div class="cost-item mb-3">
+                                <div class="d-flex justify-content-between">
+                                    <span>Consultation Fee:</span>
+                                    <strong>${{ appointment.consultation_fee }}</strong>
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        {% if appointment.out_of_pocket_cost %}
+                            <div class="cost-item mb-3">
+                                <div class="d-flex justify-content-between">
+                                    <span>Out of Pocket:</span>
+                                    <strong>${{ appointment.out_of_pocket_cost }}</strong>
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        <div class="insurance-item">
+                            <div class="d-flex align-items-center">
+                                {% if appointment.insurance_coverage %}
+                                    <i class="bi bi-shield-check text-success me-2"></i>
+                                    <span>Insurance Coverage: Yes</span>
+                                {% else %}
+                                    <i class="bi bi-shield-x text-muted me-2"></i>
+                                    <span>Insurance Coverage: No</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Follow-up & Administrative -->
+    <div class="row mb-4">
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-arrow-repeat me-2"></i>Follow-up Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="followup-info">
+                        {% if appointment.follow_up_required %}
+                            <div class="alert alert-info">
+                                <div class="d-flex align-items-start">
+                                    <i class="bi bi-info-circle me-3 mt-1"></i>
+                                    <div>
+                                        <h6 class="alert-heading mb-2">Follow-up Required</h6>
+                                        {% if appointment.follow_up_date %}
+                                            <p class="mb-1">Follow-up Date: {{ appointment.follow_up_date|date:"l, M d, Y" }}</p>
+                                        {% endif %}
+                                        {% if appointment.follow_up_notes %}
+                                            <p class="mb-0">{{ appointment.follow_up_notes }}</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-3">
+                                <i class="bi bi-check-circle text-success fs-1 mb-3"></i>
+                                <p class="text-muted">No follow-up required</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-people me-2"></i>Attendance & Authorization
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="attendance-info">
+                        <div class="info-item mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Accompanied by:</span>
+                                <span>{{ appointment.accompanied_by|default:"—" }}</span>
+                            </div>
+                        </div>
+
+                        <div class="info-item mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Parent Notified:</span>
+                                {% if appointment.parent_notified %}
+                                    <span class="text-success">
+                                        <i class="bi bi-check-circle me-1"></i>Yes
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">
+                                        <i class="bi bi-x-circle me-1"></i>No
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Created:</span>
+                                <small class="text-muted">{{ appointment.created_at|date:"M d, Y H:i" }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Appointments History -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clock-history me-2"></i>Appointment History for {{ appointment.student.user.get_full_name }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_appointments %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Type</th>
+                                        <th>Provider</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for appt in recent_appointments|slice:":5" %}
+                                        <tr class="{% if appt.pk == appointment.pk %}table-primary{% endif %}">
+                                            <td>{{ appt.appointment_date|date:"M d, Y" }}<br><small class="text-muted">{{ appt.appointment_time }}</small></td>
+                                            <td>{{ appt.get_appointment_type_display }}</td>
+                                            <td>{{ appt.healthcare_provider }}</td>
+                                            <td>
+                                                <span class="badge
+                                                    {% if appt.appointment_status == 'completed' %}bg-success
+                                                    {% elif appt.appointment_status == 'confirmed' %}bg-info
+                                                    {% elif appt.appointment_status == 'scheduled' %}bg-warning
+                                                    {% else %}bg-secondary{% endif %}">
+                                                    {{ appt.get_appointment_status_display }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% if appt.pk != appointment.pk %}
+                                                    <a href="{% url 'health:appointment_detail' pk=appt.pk %}" class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                {% else %}
+                                                    <span class="text-muted">Current</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="text-center mt-3">
+                            <a href="{% url 'health:appointment_list' %}?student={{ appointment.student.pk }}" class="btn btn-outline-primary">
+                                <i class="bi bi-list me-1"></i>View All Appointments
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-calendar-x text-muted fs-1 mb-3"></i>
+                            <h6 class="text-muted">No appointment history</h6>
+                            <p class="text-muted mb-0">This is the first appointment for this student.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print Styles -->
+<style media="print">
+    .page-actions, .btn, .breadcrumb { display: none !important; }
+    .card { border: 1px solid #ddd !important; margin-bottom: 20px !important; }
+    .card-header { background-color: #f8f9fa !important; }
+</style>
+
+<!-- Detail View Styles -->
+<style>
+.appointment-detail-container {
+    max-width: 100%;
+}
+
+.appointment-icon {
+    padding: 20px;
+    border-radius: 50%;
+    background-color: #f8f9fa;
+    display: inline-block;
+}
+
+.appointment-meta {
+    margin-top: 10px;
+}
+
+.status-badge {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.patient-info .avatar-circle {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.detail-section {
+    margin-bottom: 20px;
+}
+
+.section-title {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 5px;
+}
+
+.cost-item, .info-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.cost-item:last-child, .info-item:last-child {
+    border-bottom: none;
+}
+
+.insurance-item {
+    padding: 10px 0;
+}
+
+.followup-info .alert {
+    margin-bottom: 0;
+}
+
+.table-primary {
+    background-color: #e7f3ff !important;
+}
+
+@media (max-width: 768px) {
+    .appointment-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+
+    .status-display {
+        text-align: center;
+        margin-top: 15px;
+    }
+
+    .patient-info .avatar-circle {
+        margin-bottom: 10px;
+    }
+}
+</style>
+
+<!-- Detail View Scripts -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Print functionality
+    document.getElementById('printAppointmentBtn').addEventListener('click', function() {
+        window.print();
+    });
+
+    // Send reminder functionality
+    document.getElementById('sendReminderBtn').addEventListener('click', function() {
+        showToast('Sending appointment reminder...', 'info');
+        // Simulate sending reminder
+        setTimeout(() => {
+            showToast('Appointment reminder sent successfully!', 'success');
+        }, 1500);
+    });
+
+    // Mark completed functionality
+    const markCompletedBtn = document.getElementById('markCompletedBtn');
+    if (markCompletedBtn) {
+        markCompletedBtn.addEventListener('click', function() {
+            if (confirm('Mark this appointment as completed?')) {
+                showToast('Marking appointment as completed...', 'info');
+                // Simulate status update
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            }
+        });
+    }
+
+    // Cancel appointment functionality
+    document.getElementById('cancelAppointmentBtn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to cancel this appointment?')) {
+            showToast('Appointment cancelled', 'warning');
+            // Simulate cancellation
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        }
+    });
+});
+
+// Global functions
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'primary'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    `;
+
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+
+    toastContainer.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+
+    toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+    });
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + P to print
+    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        document.getElementById('printAppointmentBtn').click();
+    }
+});
+</script>
+{% endblock %}

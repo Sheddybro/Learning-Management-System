@@ -1,0 +1,768 @@
+<!-- apps/assessment/templates/assessment/results/result_detail.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Result - {{ result.student.user.get_full_name }}{% endblock %}
+
+{% block page_title %}Result Details{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'assessment:dashboard' %}">Assessment</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'assessment:result_list' %}">Results</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ result.student.user.get_full_name }}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <div class="btn-group" role="group">
+        {% if user.teacher_profile %}
+        <a href="{% url 'assessment:generate_report_card' result.pk %}" class="btn btn-primary">
+            <i class="bi bi-file-text me-1"></i> Generate Report Card
+        </a>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-download me-1"></i> Export
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="exportResult('pdf')"><i class="bi bi-file-pdf me-2"></i>PDF</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportResult('excel')"><i class="bi bi-file-spreadsheet me-2"></i>Excel</a></li>
+                <li><a class="dropdown-item" href="#" onclick="printResult()"><i class="bi bi-printer me-2"></i>Print</a></li>
+            </ul>
+        </div>
+        <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#editResultModal">
+            <i class="bi bi-pencil me-1"></i> Edit
+        </button>
+        {% endif %}
+        
+        {% if user.student_profile %}
+        <button type="button" class="btn btn-outline-primary" onclick="printResult()">
+            <i class="bi bi-printer me-1"></i> Print
+        </button>
+        <a href="{% url 'assessment:student_marks' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-award me-1"></i> View All Marks
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="result-detail-container">
+    <!-- Student Information Header -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-lg me-3">
+                            {% if result.student.user.profile_picture %}
+                            <img src="{{ result.student.user.profile_picture.url }}" 
+                                 alt="{{ result.student.user.get_full_name }}" 
+                                 class="rounded-circle" width="80" height="80">
+                            {% else %}
+                            <div class="avatar-placeholder rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" 
+                                 style="width: 80px; height: 80px; font-size: 2rem;">
+                                {{ result.student.user.get_full_name|make_list|first|upper }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h3 class="mb-1">{{ result.student.user.get_full_name }}</h3>
+                            <p class="text-muted mb-1">
+                                <i class="bi bi-person-badge me-1"></i>
+                                Roll Number: {{ result.student.roll_number }}
+                            </p>
+                            <p class="text-muted mb-0">
+                                <i class="bi bi-building me-1"></i>
+                                {{ result.academic_class.name }} • {{ result.exam_type.name }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <div class="result-summary">
+                        <div class="overall-percentage display-4 fw-bold 
+                            {% if result.percentage >= 75 %}text-success
+                            {% elif result.percentage >= 50 %}text-warning
+                            {% else %}text-danger{% endif %}">
+                            {{ result.percentage|floatformat:1 }}%
+                        </div>
+                        {% if result.grade %}
+                        <div class="overall-grade">
+                            <span class="grade-badge grade-{{ result.grade.grade|lower }} fs-5">
+                                {{ result.grade.grade }} - {{ result.grade.remark }}
+                            </span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Result Information -->
+        <div class="col-lg-8">
+            <!-- Subject-wise Performance -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-book me-2"></i>Subject-wise Performance
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if subject_marks %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th>Marks Obtained</th>
+                                    <th>Max Marks</th>
+                                    <th>Percentage</th>
+                                    <th>Grade</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for subject_mark in subject_marks %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ subject_mark.subject.name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ subject_mark.subject.code }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold">{{ subject_mark.marks_obtained|floatformat:1 }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="text-muted">{{ subject_mark.max_marks|floatformat:1 }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="{% if subject_mark.percentage >= 75 %}text-success{% elif subject_mark.percentage >= 50 %}text-warning{% else %}text-danger{% endif %} fw-bold">
+                                            {{ subject_mark.percentage|floatformat:1 }}%
+                                        </span>
+                                        <div class="progress mt-1" style="height: 6px;">
+                                            <div class="progress-bar {% if subject_mark.percentage >= 75 %}bg-success{% elif subject_mark.percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                                 style="width: {{ subject_mark.percentage }}%">
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if subject_mark.grade %}
+                                        <span class="badge grade-badge grade-{{ subject_mark.grade.grade|lower }}">
+                                            {{ subject_mark.grade.grade }}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if subject_mark.percentage >= 33 %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle me-1"></i>Pass
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-x-circle me-1"></i>Fail
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-light">
+                                    <td><strong>Total</strong></td>
+                                    <td><strong>{{ result.marks_obtained|floatformat:1 }}</strong></td>
+                                    <td><strong>{{ result.total_marks|floatformat:1 }}</strong></td>
+                                    <td><strong>{{ result.percentage|floatformat:1 }}%</strong></td>
+                                    <td>
+                                        {% if result.grade %}
+                                        <strong>{{ result.grade.grade }}</strong>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if result.is_promoted %}
+                                        <span class="badge bg-success">Promoted</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Not Promoted</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-book display-4 text-muted mb-3"></i>
+                        <h5>No Subject Marks Available</h5>
+                        <p class="text-muted">Subject-wise marks have not been entered for this result.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Performance Analysis -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-graph-up me-2"></i>Performance Analysis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3 mb-3">
+                            <div class="performance-metric">
+                                <div class="metric-value text-primary">{{ result.rank|default:"-" }}</div>
+                                <div class="metric-label">Class Rank</div>
+                                <small class="text-muted">out of {{ result.total_students }} students</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="performance-metric">
+                                <div class="metric-value text-success">{{ result.attendance_percentage|floatformat:1 }}%</div>
+                                <div class="metric-label">Attendance</div>
+                                <small class="text-muted">for the term</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="performance-metric">
+                                <div class="metric-value 
+                                    {% if result.percentage >= 75 %}text-success
+                                    {% elif result.percentage >= 50 %}text-warning
+                                    {% else %}text-danger{% endif %}">
+                                    {{ passed_subjects }}/{{ subject_marks.count }}
+                                </div>
+                                <div class="metric-label">Subjects Passed</div>
+                                <small class="text-muted">minimum 33% required</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="performance-metric">
+                                <div class="metric-value 
+                                    {% if result.is_promoted %}text-success{% else %}text-danger{% endif %}">
+                                    {% if result.is_promoted %}Yes{% else %}No{% endif %}
+                                </div>
+                                <div class="metric-label">Promotion Status</div>
+                                {% if result.promoted_to_class %}
+                                <small class="text-muted">to {{ result.promoted_to_class.name }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Remarks -->
+                    {% if result.remarks %}
+                    <div class="mt-4">
+                        <h6 class="text-muted mb-2">Remarks</h6>
+                        <div class="remarks-box p-3 bg-light rounded">
+                            {{ result.remarks|linebreaks }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Information -->
+        <div class="col-lg-4">
+            <!-- Result Summary -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Result Summary
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="info-list">
+                        <div class="info-item d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-muted">Exam Type:</span>
+                            <span class="fw-semibold">{{ result.exam_type.name }}</span>
+                        </div>
+                        <div class="info-item d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-muted">Academic Class:</span>
+                            <span class="fw-semibold">{{ result.academic_class.name }}</span>
+                        </div>
+                        <div class="info-item d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-muted">Total Marks:</span>
+                            <span class="fw-semibold">{{ result.marks_obtained|floatformat:1 }}/{{ result.total_marks|floatformat:1 }}</span>
+                        </div>
+                        <div class="info-item d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-muted">Percentage:</span>
+                            <span class="fw-semibold {% if result.percentage >= 75 %}text-success{% elif result.percentage >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                                {{ result.percentage|floatformat:1 }}%
+                            </span>
+                        </div>
+                        <div class="info-item d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-muted">Grade:</span>
+                            <span class="fw-semibold">
+                                {% if result.grade %}
+                                {{ result.grade.grade }} ({{ result.grade.remark }})
+                                {% else %}
+                                <span class="text-muted">Not Assigned</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-item d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-muted">Class Rank:</span>
+                            <span class="fw-semibold">
+                                {% if result.rank %}
+                                #{{ result.rank }} of {{ result.total_students }}
+                                {% else %}
+                                <span class="text-muted">Not Ranked</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-item d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-muted">Attendance:</span>
+                            <span class="fw-semibold {% if result.attendance_percentage >= 75 %}text-success{% elif result.attendance_percentage >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                                {{ result.attendance_percentage|floatformat:1 }}%
+                            </span>
+                        </div>
+                        <div class="info-item d-flex justify-content-between py-2">
+                            <span class="text-muted">Promotion:</span>
+                            <span class="fw-semibold {% if result.is_promoted %}text-success{% else %}text-danger{% endif %}">
+                                {% if result.is_promoted %}
+                                <i class="bi bi-check-circle me-1"></i>Promoted
+                                {% else %}
+                                <i class="bi bi-x-circle me-1"></i>Not Promoted
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparison with Class Average -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bar-chart me-2"></i>Class Comparison
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="comparison-chart">
+                        <div class="comparison-item mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Student</span>
+                                <span class="fw-semibold">{{ result.percentage|floatformat:1 }}%</span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-primary" style="width: {{ result.percentage }}%"></div>
+                            </div>
+                        </div>
+                        <div class="comparison-item">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Class Average</span>
+                                <span class="fw-semibold">{{ class_average|default:"0"|floatformat:1 }}%</span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-secondary" style="width: {{ class_average|default:"0" }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-center">
+                        <small class="text-muted">
+                            {% if result.percentage > class_average %}
+                            <i class="bi bi-arrow-up-circle text-success me-1"></i>
+                            {{ performance_difference|floatformat:1 }}% above class average
+                            {% elif result.percentage < class_average %}
+                            <i class="bi bi-arrow-down-circle text-danger me-1"></i>
+                            {{ performance_difference|floatformat:1 }}% below class average
+                            {% else %}
+                            <i class="bi bi-dash-circle text-warning me-1"></i>
+                            At class average
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning me-2"></i>Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        {% if user.teacher_profile %}
+                        <a href="{% url 'assessment:generate_report_card' result.pk %}" class="btn btn-success">
+                            <i class="bi bi-file-text me-2"></i>Generate Report Card
+                        </a>
+                        <a href="{% url 'assessment:enter_marks' result.exam.pk %}" class="btn btn-outline-primary">
+                            <i class="bi bi-pencil me-2"></i>Edit Marks
+                        </a>
+                        <a href="{% url 'assessment:result_list' %}?academic_class={{ result.academic_class.pk }}&exam_type={{ result.exam_type.pk }}" 
+                           class="btn btn-outline-info">
+                            <i class="bi bi-list-ul me-2"></i>View Class Results
+                        </a>
+                        {% endif %}
+                        
+                        {% if user.student_profile %}
+                        <a href="{% url 'assessment:student_marks' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-award me-2"></i>View All My Marks
+                        </a>
+                        <a href="{% url 'assessment:reportcard_list' %}" class="btn btn-outline-success">
+                            <i class="bi bi-file-text me-2"></i>My Report Cards
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Result Modal (for teachers) -->
+{% if user.teacher_profile %}
+<div class="modal fade" id="editResultModal" tabindex="-1" aria-labelledby="editResultModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editResultModalLabel">Edit Result</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'admin:assessment_result_change' result.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p class="text-muted">You are about to edit the result for <strong>{{ result.student.user.get_full_name }}</strong>. This action will update the student's academic record.</p>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="marksObtained" class="form-label">Marks Obtained</label>
+                            <input type="number" class="form-control" id="marksObtained" name="marks_obtained" 
+                                   value="{{ result.marks_obtained|floatformat:0 }}" step="0.01" min="0" max="{{ result.total_marks }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="attendancePercentage" class="form-label">Attendance Percentage</label>
+                            <input type="number" class="form-control" id="attendancePercentage" name="attendance_percentage" 
+                                   value="{{ result.attendance_percentage|floatformat:0 }}" step="0.01" min="0" max="100">
+                        </div>
+                        <div class="col-12">
+                            <label for="remarks" class="form-label">Remarks</label>
+                            <textarea class="form-control" id="remarks" name="remarks" rows="3">{{ result.remarks }}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="isPromoted" name="is_promoted" {% if result.is_promoted %}checked{% endif %}>
+                                <label class="form-check-label" for="isPromoted">
+                                    Mark as Promoted
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.result-detail-container {
+    max-width: 100%;
+}
+
+/* Avatar Styles */
+.avatar-lg {
+    flex-shrink: 0;
+}
+
+.avatar-placeholder {
+    font-weight: 600;
+}
+
+/* Result Summary */
+.result-summary {
+    text-align: center;
+}
+
+.overall-percentage {
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+/* Grade Badges */
+.grade-badge {
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    display: inline-block;
+}
+
+.grade-a, .grade-a-plus { background-color: #198754; color: white; }
+.grade-b, .grade-b-plus { background-color: #20c997; color: white; }
+.grade-c, .grade-c-plus { background-color: #ffc107; color: #000; }
+.grade-d, .grade-f { background-color: #dc3545; color: white; }
+
+/* Table Styles */
+.table th {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-top: none;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* Progress Bars */
+.progress {
+    background-color: #e9ecef;
+    border-radius: 0.375rem;
+}
+
+.progress-bar {
+    transition: width 0.3s ease;
+    border-radius: 0.375rem;
+}
+
+/* Performance Metrics */
+.performance-metric {
+    padding: 1rem;
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.metric-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.25rem;
+}
+
+/* Info List */
+.info-list .info-item:last-child {
+    border-bottom: none !important;
+}
+
+/* Comparison Chart */
+.comparison-chart .progress {
+    background-color: #f8f9fa;
+}
+
+/* Remarks Box */
+.remarks-box {
+    border-left: 4px solid #0d6efd;
+    background-color: #f8f9fa !important;
+}
+
+/* Card Enhancements */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .avatar-lg {
+        width: 60px;
+        height: 60px;
+        margin-right: 1rem;
+    }
+    
+    .avatar-lg .avatar-placeholder {
+        font-size: 1.5rem;
+    }
+    
+    .overall-percentage {
+        font-size: 2.5rem;
+    }
+    
+    .metric-value {
+        font-size: 1.5rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .page-actions .btn-group {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .page-actions, .btn-group, .modal, .quick-actions-card {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+    }
+    
+    .progress-bar {
+        border: 1px solid #000;
+    }
+    
+    a {
+        text-decoration: none !important;
+        color: #000 !important;
+    }
+}
+
+/* Animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+    animation: fadeIn 0.5s ease-in-out;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize result detail functionality
+    initializeResultDetail();
+    
+    function initializeResultDetail() {
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Add print functionality
+        initializePrintFunctionality();
+        
+        // Add export functionality
+        initializeExportFunctionality();
+    }
+    
+    function initializePrintFunctionality() {
+        // Print button functionality is handled by the global printResult function
+    }
+    
+    function initializeExportFunctionality() {
+        // Export functionality is handled by global functions
+    }
+    
+    // Auto-calculate performance metrics
+    calculatePerformanceMetrics();
+});
+
+// Calculate additional performance metrics
+function calculatePerformanceMetrics() {
+    const subjectRows = document.querySelectorAll('#subjectMarksTable tbody tr');
+    let totalSubjects = subjectRows.length;
+    let passedSubjects = 0;
+    let totalPercentage = 0;
+    
+    subjectRows.forEach(row => {
+        const percentageCell = row.querySelector('td:nth-child(4)');
+        const statusCell = row.querySelector('td:nth-child(6)');
+        
+        if (percentageCell && statusCell) {
+            const percentage = parseFloat(percentageCell.textContent);
+            totalPercentage += percentage;
+            
+            if (statusCell.textContent.includes('Pass')) {
+                passedSubjects++;
+            }
+        }
+    });
+    
+    // Update the passed subjects count if available
+    const passedSubjectsElement = document.querySelector('.passed-subjects-count');
+    if (passedSubjectsElement) {
+        passedSubjectsElement.textContent = `${passedSubjects}/${totalSubjects}`;
+    }
+}
+
+// Print result
+function printResult() {
+    window.print();
+}
+
+// Export result in different formats
+function exportResult(format) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('export', format);
+    
+    switch(format) {
+        case 'pdf':
+            // For PDF export, we might want to open in new tab or download
+            window.open(url.toString(), '_blank');
+            break;
+        case 'excel':
+            // Trigger download for Excel
+            window.location.href = url.toString();
+            break;
+        default:
+            window.location.href = url.toString();
+    }
+    
+    showNotification(`Exporting result as ${format.toUpperCase()}...`, 'success');
+}
+
+// Show notification
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Utility function to format numbers
+function formatNumber(number, decimals = 1) {
+    return parseFloat(number).toFixed(decimals);
+}
+
+// Utility function to calculate grade based on percentage
+function calculateGrade(percentage) {
+    if (percentage >= 90) return 'A+';
+    if (percentage >= 80) return 'A';
+    if (percentage >= 70) return 'B+';
+    if (percentage >= 60) return 'B';
+    if (percentage >= 50) return 'C+';
+    if (percentage >= 40) return 'C';
+    if (percentage >= 33) return 'D';
+    return 'F';
+}
+</script>
+{% endblock %}

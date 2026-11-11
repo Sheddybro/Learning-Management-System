@@ -1,0 +1,754 @@
+<!-- templates/transport/reports/reports.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Transport Reports" %}{% endblock %}
+
+{% block page_title %}{% trans "Transport Reports & Analytics" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Reports" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Reports Specific Styles */
+    .reports-container {
+        margin-top: 1rem;
+    }
+    
+    .report-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .report-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .report-header {
+        border-bottom: 2px solid #e9ecef;
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .report-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0;
+    }
+    
+    .report-subtitle {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .quick-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .chart-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #2c3e50;
+    }
+    
+    .report-table {
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .table-responsive {
+        border-radius: 8px;
+    }
+    
+    .metric-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 15px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .metric-positive {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    
+    .metric-negative {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .metric-neutral {
+        background-color: #f3f4f6;
+        color: #374151;
+    }
+    
+    .report-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+        margin-top: 1rem;
+    }
+    
+    .tab-content {
+        background: white;
+        border-radius: 0 0 8px 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .insight-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .insight-title {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+    
+    .insight-content {
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+    
+    .comparison-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .comparison-item {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .comparison-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    
+    .comparison-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .trend-indicator {
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+    }
+    
+    .trend-up {
+        color: #10b981;
+    }
+    
+    .trend-down {
+        color: #ef4444;
+    }
+    
+    .trend-neutral {
+        color: #6b7280;
+    }
+    
+    .loading-spinner {
+        text-align: center;
+        padding: 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        color: #dee2e6;
+        margin-bottom: 1rem;
+    }
+    
+    /* Print styles */
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        
+        .report-card {
+            box-shadow: none;
+            border: 1px solid #dee2e6;
+        }
+        
+        .btn {
+            display: none;
+        }
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .quick-stats {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .report-actions {
+            flex-direction: column;
+        }
+        
+        .comparison-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reports-container">
+    <!-- Report Header -->
+    <div class="report-card">
+        <div class="report-header">
+            <h1 class="report-title">{% trans "Transport Management Reports" %}</h1>
+            <p class="report-subtitle">
+                {% trans "Comprehensive analytics and insights for your transport operations" %}
+                <span class="text-muted">• {% trans "Generated on" %} {% now "F d, Y H:i" %}</span>
+            </p>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="quick-stats">
+            <div class="stat-card">
+                <div class="stat-value text-primary">{{ summary_data.vehicle_count }}</div>
+                <div class="stat-label">{% trans "Total Vehicles" %}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value text-success">{{ summary_data.active_vehicles }}</div>
+                <div class="stat-label">{% trans "Active Vehicles" %}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value text-warning">₹{{ summary_data.total_fuel_cost|floatformat:0 }}</div>
+                <div class="stat-label">{% trans "Fuel Cost" %}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value text-info">{{ summary_data.total_allocations }}</div>
+                <div class="stat-label">{% trans "Student Allocations" %}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value text-danger">₹{{ summary_data.total_maintenance_cost|floatformat:0 }}</div>
+                <div class="stat-label">{% trans "Maintenance Cost" %}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #8b5cf6;">{{ summary_data.incident_count }}</div>
+                <div class="stat-label">{% trans "Incidents Reported" %}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Filters -->
+    <div class="filter-section">
+        <h5 class="mb-3">{% trans "Report Filters" %}</h5>
+        <form id="reportFilters" class="row g-3">
+            <div class="col-md-3">
+                <label for="reportType" class="form-label">{% trans "Report Type" %}</label>
+                <select class="form-select" id="reportType" name="report_type">
+                    <option value="summary" {% if report_type == 'summary' %}selected{% endif %}>{% trans "Summary Report" %}</option>
+                    <option value="fuel" {% if report_type == 'fuel' %}selected{% endif %}>{% trans "Fuel Analysis" %}</option>
+                    <option value="maintenance" {% if report_type == 'maintenance' %}selected{% endif %}>{% trans "Maintenance Report" %}</option>
+                    <option value="incidents" {% if report_type == 'incidents' %}selected{% endif %}>{% trans "Incident Analysis" %}</option>
+                    <option value="vehicle_utilization" {% if report_type == 'vehicle_utilization' %}selected{% endif %}>{% trans "Vehicle Utilization" %}</option>
+                    <option value="route_efficiency" {% if report_type == 'route_efficiency' %}selected{% endif %}>{% trans "Route Efficiency" %}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="dateFrom" class="form-label">{% trans "From Date" %}</label>
+                <input type="date" class="form-control" id="dateFrom" name="date_from" value="{{ date_from }}">
+            </div>
+            <div class="col-md-2">
+                <label for="dateTo" class="form-label">{% trans "To Date" %}</label>
+                <input type="date" class="form-control" id="dateTo" name="date_to" value="{{ date_to }}">
+            </div>
+            <div class="col-md-3">
+                <label for="vehicleFilter" class="form-label">{% trans "Vehicle" %}</label>
+                <select class="form-select" id="vehicleFilter" name="vehicle">
+                    <option value="">{% trans "All Vehicles" %}</option>
+                    {% for vehicle in vehicles %}
+                    <option value="{{ vehicle.id }}" {% if selected_vehicle == vehicle.id %}selected{% endif %}>
+                        {{ vehicle.vehicle_number }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label d-block">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-1"></i> {% trans "Apply" %}
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Report Actions -->
+    <div class="report-actions no-print">
+        <button class="btn btn-outline-secondary" onclick="window.print()">
+            <i class="fas fa-print me-1"></i> {% trans "Print Report" %}
+        </button>
+        <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="fas fa-download me-1"></i> {% trans "Export" %}
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="exportReport('pdf')">PDF</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportReport('excel')">Excel</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportReport('csv')">CSV</a></li>
+            </ul>
+        </div>
+        <button class="btn btn-outline-info" onclick="refreshReport()">
+            <i class="fas fa-sync-alt me-1"></i> {% trans "Refresh" %}
+        </button>
+    </div>
+
+    <!-- Report Content -->
+    <div class="report-card">
+        {% if report_type == 'summary' %}
+            <!-- Summary Report -->
+            {% include 'transport/reports/partials/summary_report.html' %}
+            
+        {% elif report_type == 'fuel' %}
+            <!-- Fuel Analysis Report -->
+            {% include 'transport/reports/partials/fuel_report.html' %}
+            
+        {% elif report_type == 'maintenance' %}
+            <!-- Maintenance Report -->
+            {% include 'transport/reports/partials/maintenance_report.html' %}
+            
+        {% elif report_type == 'incidents' %}
+            <!-- Incident Analysis Report -->
+            {% include 'transport/reports/partials/incident_report.html' %}
+            
+        {% elif report_type == 'vehicle_utilization' %}
+            <!-- Vehicle Utilization Report -->
+            {% include 'transport/reports/partials/vehicle_utilization_report.html' %}
+            
+        {% elif report_type == 'route_efficiency' %}
+            <!-- Route Efficiency Report -->
+            {% include 'transport/reports/partials/route_efficiency_report.html' %}
+            
+        {% else %}
+            <!-- Default Summary Report -->
+            {% include 'transport/reports/partials/summary_report.html' %}
+        {% endif %}
+    </div>
+
+    <!-- Key Insights -->
+    <div class="report-card">
+        <h5 class="mb-3">{% trans "Key Insights & Recommendations" %}</h5>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="insight-card">
+                    <div class="insight-title">
+                        <i class="fas fa-gas-pump text-warning me-2"></i>
+                        {% trans "Fuel Efficiency" %}
+                    </div>
+                    <div class="insight-content">
+                        {% if summary_data.total_fuel_quantity > 0 %}
+                            Total fuel consumed: <strong>{{ summary_data.total_fuel_quantity|floatformat:0 }}L</strong>
+                        {% else %}
+                            {% trans "Insufficient fuel data for analysis" %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="insight-card">
+                    <div class="insight-title">
+                        <i class="fas fa-tools text-info me-2"></i>
+                        {% trans "Maintenance Cost" %}
+                    </div>
+                    <div class="insight-content">
+                        Total maintenance cost: <strong>₹{{ summary_data.total_maintenance_cost|floatformat:0 }}</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="insight-card">
+                    <div class="insight-title">
+                        <i class="fas fa-route text-success me-2"></i>
+                        {% trans "Route Utilization" %}
+                    </div>
+                    <div class="insight-content">
+                        {% trans "Most utilized route:" %} <strong>{% if routes_utilization %}{{ routes_utilization.0.name }}{% else %}{% trans "N/A" %}{% endif %}</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="insight-card">
+                    <div class="insight-title">
+                        <i class="fas fa-exclamation-triangle text-danger me-2"></i>
+                        {% trans "Safety Performance" %}
+                    </div>
+                    <div class="insight-content">
+                        {% trans "Incident rate:" %} <strong>{{ summary_data.incident_count }} {% trans "incidents reported" %}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Comparison -->
+    <div class="report-card">
+        <h5 class="mb-3">{% trans "Performance Comparison" %}</h5>
+        <div class="comparison-grid">
+            <div class="comparison-item">
+                <div class="comparison-value text-primary">
+                    {{ summary_data.active_vehicles }}/{{ summary_data.vehicle_count }}
+                </div>
+                <div class="comparison-label">{% trans "Vehicle Availability" %}</div>
+                <div class="metric-badge metric-positive">
+                    {% widthratio summary_data.active_vehicles summary_data.vehicle_count 100 %}%
+                </div>
+            </div>
+            <div class="comparison-item">
+                <div class="comparison-value text-success">
+                    {{ completed_maintenance }}/{{ total_maintenance }}
+                </div>
+                <div class="comparison-label">{% trans "Maintenance Completion" %}</div>
+                <div class="metric-badge metric-positive">
+                    {% widthratio completed_maintenance total_maintenance 100 %}%
+                </div>
+            </div>
+            <div class="comparison-item">
+                <div class="comparison-value text-warning">
+                    ₹{{ avg_fuel_cost_per_km|floatformat:2 }}
+                </div>
+                <div class="comparison-label">{% trans "Avg Fuel Cost/km" %}</div>
+                <div class="metric-badge metric-neutral">
+                    {% trans "Standard" %}
+                </div>
+            </div>
+            <div class="comparison-item">
+                <div class="comparison-value text-info">
+                    {{ on_time_performance }}%
+                </div>
+                <div class="comparison-label">{% trans "On-time Performance" %}</div>
+                <div class="metric-badge metric-positive">
+                    {% trans "Good" %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Spinner Template -->
+<div id="loadingSpinner" class="loading-spinner" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">{% trans "Loading..." %}</span>
+    </div>
+    <p class="mt-2">{% trans "Generating report..." %}</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize date pickers with default values
+        initializeDatePickers();
+        
+        // Load charts when the page is ready
+        setTimeout(initializeCharts, 500);
+        
+        // Form submission handler
+        document.getElementById('reportFilters').addEventListener('submit', function(e) {
+            e.preventDefault();
+            applyFilters();
+        });
+        
+        // Report type change handler
+        document.getElementById('reportType').addEventListener('change', function() {
+            applyFilters();
+        });
+    });
+    
+    function initializeDatePickers() {
+        // Set default date range if not set
+        const dateFrom = document.getElementById('dateFrom');
+        const dateTo = document.getElementById('dateTo');
+        
+        if (!dateFrom.value) {
+            const oneMonthAgo = new Date();
+            oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+            dateFrom.value = oneMonthAgo.toISOString().split('T')[0];
+        }
+        
+        if (!dateTo.value) {
+            dateTo.value = new Date().toISOString().split('T')[0];
+        }
+    }
+    
+    function applyFilters() {
+        showLoading();
+        
+        const formData = new FormData(document.getElementById('reportFilters'));
+        const params = new URLSearchParams(formData);
+        
+        // Simulate API call/redirect
+        setTimeout(() => {
+            window.location.href = `{% url 'transport:reports' %}?${params.toString()}`;
+        }, 1000);
+    }
+    
+    function refreshReport() {
+        showLoading();
+        
+        // Reload the page with current filters
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    }
+    
+    function exportReport(format) {
+        showLoading();
+        
+        const formData = new FormData(document.getElementById('reportFilters'));
+        formData.append('format', format);
+        
+        // Simulate export process
+        setTimeout(() => {
+            showNotification(`{% trans "Report exported successfully as" %} ${format.toUpperCase()}`, 'success');
+            hideLoading();
+            
+            // In real implementation, this would trigger file download
+            console.log(`Exporting report as ${format} with data:`, Object.fromEntries(formData));
+        }, 2000);
+    }
+    
+    function initializeCharts() {
+        // Initialize summary chart
+        initializeSummaryChart();
+        
+        // Initialize fuel efficiency chart
+        initializeFuelChart();
+        
+        // Initialize maintenance cost chart
+        initializeMaintenanceChart();
+    }
+    
+    function initializeSummaryChart() {
+        const ctx = document.getElementById('summaryChart')?.getContext('2d');
+        if (ctx) {
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['{% trans "Vehicles" %}', '{% trans "Fuel Cost" %}', '{% trans "Maintenance" %}', '{% trans "Allocations" %}', '{% trans "Incidents" %}'],
+                    datasets: [{
+                        label: '{% trans "Current Period" %}',
+                        data: [
+                            {{ summary_data.vehicle_count }},
+                            {{ summary_data.total_fuel_cost }},
+                            {{ summary_data.total_maintenance_cost }},
+                            {{ summary_data.total_allocations }},
+                            {{ summary_data.incident_count }}
+                        ],
+                        backgroundColor: [
+                            '#0d6efd', '#198754', '#ffc107', '#0dcaf0', '#dc3545'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: '{% trans "Transport Overview" %}'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    function initializeFuelChart() {
+        const ctx = document.getElementById('fuelChart')?.getContext('2d');
+        if (ctx && window.fuelData) {
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: window.fuelData.labels || [],
+                    datasets: [{
+                        label: '{% trans "Fuel Cost" %}',
+                        data: window.fuelData.cost || [],
+                        borderColor: '#ffc107',
+                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '{% trans "Fuel Cost Trend" %}'
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    function initializeMaintenanceChart() {
+        const ctx = document.getElementById('maintenanceChart')?.getContext('2d');
+        if (ctx) {
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [
+                        '{% trans "Routine" %}',
+                        '{% trans "Repair" %}',
+                        '{% trans "Breakdown" %}',
+                        '{% trans "Accident" %}',
+                        '{% trans "Upgrade" %}'
+                    ],
+                    datasets: [{
+                        data: [45, 25, 15, 10, 5], // Sample data
+                        backgroundColor: [
+                            '#28a745',
+                            '#fd7e14',
+                            '#dc3545',
+                            '#6f42c1',
+                            '#20c997'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '{% trans "Maintenance Type Distribution" %}'
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    function showLoading() {
+        document.getElementById('loadingSpinner').style.display = 'block';
+    }
+    
+    function hideLoading() {
+        document.getElementById('loadingSpinner').style.display = 'none';
+    }
+    
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 3000);
+    }
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl + P for print
+        if (e.ctrlKey && e.key === 'p') {
+            e.preventDefault();
+            window.print();
+        }
+        
+        // Ctrl + R for refresh
+        if (e.ctrlKey && e.key === 'r') {
+            e.preventDefault();
+            refreshReport();
+        }
+    });
+</script>
+
+<!-- Sample data for charts -->
+<script>
+    // Sample fuel data - in real implementation, this would come from the server
+    window.fuelData = {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        cost: [12500, 11800, 13200, 14100, 12800, 13500],
+        quantity: [1250, 1180, 1320, 1410, 1280, 1350]
+    };
+</script>
+{% endblock %}

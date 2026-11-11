@@ -1,0 +1,678 @@
+<!-- templates/transport/allocations/transportallocation_confirm_delete.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Delete Transport Allocation" %}{% endblock %}
+
+{% block page_title %}{% trans "Delete Transport Allocation" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:transportallocation_list' %}">{% trans "Allocations" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:transportallocation_detail' object.pk %}">{% trans "Allocation Details" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Delete Allocation" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-confirmation {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .warning-card {
+        border-left: 4px solid #dc3545;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .allocation-summary {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+        border: 1px solid #e9ecef;
+    }
+    
+    .student-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2rem;
+        font-weight: 600;
+        margin: 0 auto 1rem;
+    }
+    
+    .impact-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .impact-list li {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        align-items: flex-start;
+    }
+    
+    .impact-list li:last-child {
+        border-bottom: none;
+    }
+    
+    .impact-icon {
+        width: 24px;
+        margin-right: 1rem;
+        color: #dc3545;
+        flex-shrink: 0;
+        margin-top: 0.25rem;
+    }
+    
+    .impact-content {
+        flex: 1;
+    }
+    
+    .btn-delete {
+        background-color: #dc3545;
+        border-color: #dc3545;
+        color: white;
+        font-weight: 600;
+    }
+    
+    .btn-delete:hover {
+        background-color: #bb2d3b;
+        border-color: #b02a37;
+    }
+    
+    .route-badge {
+        background: #e7f1ff;
+        color: #0d6efd;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        display: inline-block;
+        margin-bottom: 0.5rem;
+    }
+    
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .status-active {
+        background-color: #d1fae5;
+        color: #065f46;
+        border: 2px solid #10b981;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-left: 2rem;
+        margin-bottom: 1rem;
+    }
+    
+    .timeline-item:before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0.5rem;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #0d6efd;
+    }
+    
+    .timeline-item.pickup:before {
+        background: #28a745;
+    }
+    
+    .timeline-item.drop:before {
+        background: #dc3545;
+    }
+    
+    .alternative-actions {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+    
+    .confirmation-check {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1.5rem 0;
+    }
+    
+    .fee-highlight {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+        margin: 1rem 0;
+    }
+    
+    .fee-amount {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .allocation-summary {
+            padding: 1.5rem;
+        }
+        
+        .student-avatar {
+            width: 60px;
+            height: 60px;
+            font-size: 1.5rem;
+        }
+        
+        .impact-list li {
+            flex-direction: column;
+        }
+        
+        .impact-icon {
+            margin-bottom: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="delete-confirmation">
+    <div class="card border-danger">
+        <div class="card-header bg-danger text-white">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                {% trans "Confirm Transport Allocation Deletion" %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <!-- Allocation Summary -->
+            <div class="allocation-summary">
+                <div class="text-center mb-4">
+                    <div class="student-avatar">
+                        {{ object.student.first_name|first|upper }}{{ object.student.last_name|first|upper }}
+                    </div>
+                    <h4>{{ object.student.get_full_name }}</h4>
+                    <p class="text-muted mb-2">{{ object.student.student_id }} • {{ object.student.grade_level }} • {{ object.student.section }}</p>
+                    
+                    <div class="route-badge">
+                        <i class="fas fa-route me-1"></i>
+                        {{ object.route_schedule.route.code }} - {{ object.route_schedule.route.name }}
+                    </div>
+                    
+                    <span class="status-badge status-{{ object.status }}">
+                        {{ object.get_status_display }}
+                    </span>
+                </div>
+                
+                <div class="row text-center mb-4">
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <h6 class="text-muted mb-1">{% trans "Allocation Type" %}</h6>
+                            <p class="mb-0">
+                                <span class="badge bg-{% if object.allocation_type == 'morning' %}warning{% elif object.allocation_type == 'evening' %}info{% else %}success{% endif %}">
+                                    {{ object.get_allocation_type_display }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <h6 class="text-muted mb-1">{% trans "Start Date" %}</h6>
+                            <p class="mb-0">{{ object.start_date|date:"M d, Y" }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <h6 class="text-muted mb-1">{% trans "End Date" %}</h6>
+                            <p class="mb-0">
+                                {% if object.end_date %}
+                                    {{ object.end_date|date:"M d, Y" }}
+                                {% else %}
+                                    <span class="text-muted">{% trans "Indefinite" %}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stop Information -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="timeline-item pickup">
+                            <strong>{% trans "Pickup Stop" %}</strong>
+                            <div class="small">{{ object.pickup_stop.name }}</div>
+                            <div class="small text-muted">
+                                <i class="fas fa-clock me-1"></i>
+                                {{ object.pickup_stop.pickup_time|default:"Not set" }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="timeline-item drop">
+                            <strong>{% trans "Drop Stop" %}</strong>
+                            <div class="small">{{ object.drop_stop.name }}</div>
+                            <div class="small text-muted">
+                                <i class="fas fa-clock me-1"></i>
+                                {{ object.drop_stop.drop_time|default:"Not set" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fee Information -->
+                <div class="fee-highlight">
+                    <div class="fee-amount">${{ object.monthly_fee }}</div>
+                    <p class="mb-0">{% trans "Monthly Transport Fee" %}</p>
+                </div>
+            </div>
+
+            <!-- Warning Message -->
+            <div class="alert alert-danger" role="alert">
+                <h6 class="alert-heading">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    {% trans "Warning: This action cannot be undone!" %}
+                </h6>
+                <p class="mb-0">
+                    {% trans "You are about to permanently delete this transport allocation and all associated data. This action is irreversible." %}
+                </p>
+            </div>
+
+            <!-- Impact Assessment -->
+            <div class="card warning-card">
+                <div class="card-body">
+                    <h6 class="card-title text-danger mb-3">
+                        <i class="fas fa-list me-2"></i>
+                        {% trans "What will be affected:" %}
+                    </h6>
+                    <ul class="impact-list">
+                        <li>
+                            <i class="fas fa-user-graduate impact-icon"></i>
+                            <div class="impact-content">
+                                <strong>{% trans "Student Transportation:" %}</strong> 
+                                {{ object.student.get_full_name }} {% trans "will be removed from this transport route immediately" %}
+                            </div>
+                        </li>
+                        <li>
+                            <i class="fas fa-route impact-icon"></i>
+                            <div class="impact-content">
+                                <strong>{% trans "Route Schedule:" %}</strong> 
+                                {% trans "This allocation will be removed from" %} {{ object.route_schedule.route.code }}
+                                {% trans "and the vehicle capacity will be updated" %}
+                            </div>
+                        </li>
+                        <li>
+                            <i class="fas fa-chart-line impact-icon"></i>
+                            <div class="impact-content">
+                                <strong>{% trans "Transportation History:" %}</strong> 
+                                {% trans "All historical data for this allocation will be permanently deleted" %}
+                            </div>
+                        </li>
+                        <li>
+                            <i class="fas fa-money-bill-wave impact-icon"></i>
+                            <div class="impact-content">
+                                <strong>{% trans "Financial Records:" %}</strong> 
+                                {% trans "Any pending fee payments for this allocation will be marked as cancelled" %}
+                            </div>
+                        </li>
+                        <li>
+                            <i class="fas fa-database impact-icon"></i>
+                            <div class="impact-content">
+                                <strong>{% trans "System Data:" %}</strong> 
+                                {% trans "All allocation records, usage statistics, and related data will be permanently removed from the system" %}
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Active Allocation Warning -->
+            {% if object.is_active_allocation %}
+            <div class="alert alert-warning mt-4" role="alert">
+                <h6 class="alert-heading">
+                    <i class="fas fa-calendar-times me-2"></i>
+                    {% trans "Active Allocation Warning" %}
+                </h6>
+                <p class="mb-2">
+                    {% trans "This allocation is currently active. Deleting it will immediately remove the student from the transport route." %}
+                </p>
+                <p class="mb-0 small">
+                    <i class="fas fa-info-circle me-1"></i>
+                    {% trans "Consider deactivating the allocation instead if you want to preserve historical data." %}
+                </p>
+            </div>
+            {% endif %}
+
+            <!-- Current Vehicle Capacity -->
+            <div class="alert alert-info mt-4" role="alert">
+                <h6 class="alert-heading">
+                    <i class="fas fa-bus me-2"></i>
+                    {% trans "Vehicle Capacity Impact" %}
+                </h6>
+                <p class="mb-0">
+                    {% trans "Vehicle" %} <strong>{{ object.route_schedule.vehicle.vehicle_number }}</strong> 
+                    {% trans "will have" %} <strong>+1</strong> {% trans "available seat after this deletion." %}
+                    {% trans "Current capacity:" %} 
+                    <strong>{{ object.route_schedule.vehicle.available_seats }}/{{ object.route_schedule.vehicle.seating_capacity }}</strong>
+                </p>
+            </div>
+
+            <!-- Safety Confirmation -->
+            <div class="confirmation-check">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirmDelete" required>
+                    <label class="form-check-label text-danger" for="confirmDelete">
+                        <strong>
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            {% trans "I understand that this action cannot be undone and I accept full responsibility for this deletion." %}
+                        </strong>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Reason for Deletion -->
+            <div class="mb-4">
+                <label for="deletionReason" class="form-label">
+                    <strong>{% trans "Reason for deletion (required):" %}</strong>
+                </label>
+                <textarea class="form-control" id="deletionReason" name="deletion_reason" 
+                          rows="3" placeholder="{% trans 'Please provide a detailed reason for deleting this transport allocation...' %}" 
+                          required></textarea>
+                <div class="form-text">
+                    <i class="fas fa-info-circle me-1"></i>
+                    {% trans "This information will be stored in the deletion audit log for compliance purposes." %}
+                </div>
+            </div>
+
+            <!-- Deletion Form -->
+            <form method="post" id="deleteForm">
+                {% csrf_token %}
+                <input type="hidden" name="deletion_reason" id="hiddenDeletionReason">
+                
+                <!-- Action Buttons -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="{% url 'transport:transportallocation_detail' object.pk %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>
+                        {% trans "Back to Allocation Details" %}
+                    </a>
+                    
+                    <div class="btn-group">
+                        <a href="{% url 'transport:transportallocation_update' object.pk %}" class="btn btn-outline-primary">
+                            <i class="fas fa-edit me-1"></i>
+                            {% trans "Edit Instead" %}
+                        </a>
+                        <button type="submit" class="btn btn-danger" id="deleteButton" disabled>
+                            <i class="fas fa-trash me-1"></i>
+                            {% trans "Permanently Delete Allocation" %}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Alternative Actions -->
+    <div class="alternative-actions">
+        <h6 class="mb-3">
+            <i class="fas fa-lightbulb me-2"></i>
+            {% trans "Alternative Actions" %}
+        </h6>
+        <p class="mb-3">
+            {% trans "Instead of deleting, consider these alternative actions that preserve data:" %}
+        </p>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <i class="fas fa-pause text-warning me-2"></i>
+                            {% trans "Deactivate Allocation" %}
+                        </h6>
+                        <p class="card-text small">
+                            {% trans "Temporarily suspend the allocation while preserving all data and history." %}
+                        </p>
+                        <a href="{% url 'transport:transportallocation_update' object.pk %}" class="btn btn-outline-warning btn-sm">
+                            <i class="fas fa-pause me-1"></i> {% trans "Deactivate" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <i class="fas fa-exchange-alt text-info me-2"></i>
+                            {% trans "Transfer to Another Route" %}
+                        </h6>
+                        <p class="card-text small">
+                            {% trans "Move the student to a different route schedule while maintaining allocation history." %}
+                        </p>
+                        <a href="{% url 'transport:transportallocation_update' object.pk %}" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-exchange-alt me-1"></i> {% trans "Transfer" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <i class="fas fa-calendar-times text-secondary me-2"></i>
+                            {% trans "Set End Date" %}
+                        </h6>
+                        <p class="card-text small">
+                            {% trans "Schedule the allocation to end automatically on a future date." %}
+                        </p>
+                        <a href="{% url 'transport:transportallocation_update' object.pk %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-calendar me-1"></i> {% trans "Set End Date" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <i class="fas fa-archive text-muted me-2"></i>
+                            {% trans "Archive Allocation" %}
+                        </h6>
+                        <p class="card-text small">
+                            {% trans "Move the allocation to archives while keeping it accessible for reporting." %}
+                        </p>
+                        <button class="btn btn-outline-dark btn-sm" disabled>
+                            <i class="fas fa-archive me-1"></i> {% trans "Archive" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Warnings -->
+    <div class="alert alert-warning mt-4" role="alert">
+        <h6 class="alert-heading">
+            <i class="fas fa-shield-alt me-2"></i>
+            {% trans "Compliance Notice" %}
+        </h6>
+        <p class="mb-2">
+            {% trans "This deletion will be logged with the following information:" %}
+        </p>
+        <ul class="mb-2 small">
+            <li>{% trans "User performing deletion:" %} <strong>{{ user.get_full_name }}</strong></li>
+            <li>{% trans "Timestamp:" %} <strong>{% now "F j, Y, g:i a" %}</strong></li>
+            <li>{% trans "Allocation ID:" %} <strong>{{ object.id }}</strong></li>
+            <li>{% trans "Student:" %} <strong>{{ object.student.get_full_name }}</strong></li>
+            <li>{% trans "Route:" %} <strong>{{ object.route_schedule.route.code }}</strong></li>
+        </ul>
+        <p class="mb-0 small">
+            <i class="fas fa-database me-1"></i>
+            {% trans "This action complies with data retention policies and will be recorded in the system audit trail." %}
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const confirmCheckbox = document.getElementById('confirmDelete');
+        const deleteButton = document.getElementById('deleteButton');
+        const deletionReason = document.getElementById('deletionReason');
+        const hiddenDeletionReason = document.getElementById('hiddenDeletionReason');
+        const deleteForm = document.getElementById('deleteForm');
+        
+        // Enable/disable delete button based on confirmation and reason
+        function updateDeleteButton() {
+            const isConfirmed = confirmCheckbox.checked;
+            const hasReason = deletionReason.value.trim().length > 10; // Require at least 10 characters
+            
+            deleteButton.disabled = !(isConfirmed && hasReason);
+            
+            if (!hasReason && deletionReason.value.length > 0) {
+                deletionReason.classList.add('is-invalid');
+            } else {
+                deletionReason.classList.remove('is-invalid');
+            }
+        }
+        
+        confirmCheckbox.addEventListener('change', updateDeleteButton);
+        deletionReason.addEventListener('input', updateDeleteButton);
+        
+        // Form submission handler
+        deleteForm.addEventListener('submit', function(e) {
+            if (!confirmCheckbox.checked) {
+                e.preventDefault();
+                showNotification('{% trans "Please confirm that you understand this action cannot be undone." %}', 'error');
+                return false;
+            }
+            
+            if (deletionReason.value.trim().length < 10) {
+                e.preventDefault();
+                showNotification('{% trans "Please provide a detailed reason for deletion (at least 10 characters)." %}', 'error');
+                deletionReason.focus();
+                return false;
+            }
+            
+            // Final confirmation
+            if (!confirm('{% trans "Are you absolutely sure you want to permanently delete this transport allocation? This action cannot be undone and will immediately remove the student from the transport route." %}')) {
+                e.preventDefault();
+                return false;
+            }
+            
+            // Set the hidden deletion reason field
+            hiddenDeletionReason.value = deletionReason.value.trim();
+            
+            // Show loading state
+            deleteButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> {% trans "Deleting..." %}';
+            deleteButton.disabled = true;
+            
+            // Add a small delay to show the loading state
+            setTimeout(() => {
+                // Form will submit normally
+            }, 500);
+        });
+        
+        // Add validation styling
+        deletionReason.addEventListener('blur', function() {
+            if (this.value.trim().length > 0 && this.value.trim().length < 10) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+        
+        // Add character count
+        const charCount = document.createElement('div');
+        charCount.className = 'form-text text-end';
+        charCount.innerHTML = '<span id="charCount">0</span> / 10 {% trans "minimum characters" %}';
+        deletionReason.parentNode.appendChild(charCount);
+        
+        deletionReason.addEventListener('input', function() {
+            const count = this.value.length;
+            document.getElementById('charCount').textContent = count;
+            
+            if (count < 10) {
+                charCount.className = 'form-text text-end text-danger';
+            } else {
+                charCount.className = 'form-text text-end text-success';
+            }
+        });
+        
+        // Prevent navigation away without confirmation
+        let formModified = false;
+        
+        deletionReason.addEventListener('input', function() {
+            formModified = true;
+        });
+        
+        confirmCheckbox.addEventListener('change', function() {
+            formModified = true;
+        });
+        
+        window.addEventListener('beforeunload', function(e) {
+            if (formModified) {
+                e.preventDefault();
+                e.returnValue = '{% trans "You have unsaved changes. Are you sure you want to leave?" %}';
+                return '{% trans "You have unsaved changes. Are you sure you want to leave?" %}';
+            }
+        });
+        
+        // Safe navigation for cancel buttons
+        document.querySelectorAll('a.btn-secondary, a.btn-outline-primary').forEach(link => {
+            link.addEventListener('click', function(e) {
+                if (formModified) {
+                    if (!confirm('{% trans "You have unsaved changes. Are you sure you want to leave?" %}')) {
+                        e.preventDefault();
+                        return false;
+                    }
+                }
+            });
+        });
+        
+        // Utility function for notifications
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                    <span>${message}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+        
+        // Initialize button state
+        updateDeleteButton();
+    });
+</script>
+{% endblock %}

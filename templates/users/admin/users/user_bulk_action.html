@@ -1,0 +1,799 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Bulk User Actions" %} - {{ block.super }}{% endblock %}
+
+{% block page_title %}{% trans "Bulk User Actions" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:user_list' %}">{% trans "Users" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Bulk Actions" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-people-fill me-2"></i>
+                        {% trans "Bulk User Actions" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Action Progress -->
+                    <div id="actionProgress" class="alert alert-info d-none">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-3" role="status">
+                                <span class="visually-hidden">{% trans "Processing..." %}</span>
+                            </div>
+                            <div>
+                                <strong id="progressText">{% trans "Processing bulk action..." %}</strong>
+                                <div class="progress mt-2" style="height: 6px;">
+                                    <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Summary -->
+                    <div id="resultsSummary" class="alert d-none">
+                        <h6 class="alert-heading">{% trans "Action Results" %}</h6>
+                        <div id="resultsContent"></div>
+                    </div>
+
+                    <form id="bulkActionForm" method="post" action="{% url 'users:user_bulk_action' %}">
+                        {% csrf_token %}
+                        
+                        <!-- Selected Users Section -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="bi bi-person-check me-2"></i>{% trans "Selected Users" %}
+                                    <span id="selectedCount" class="badge bg-secondary ms-2">0</span>
+                                </h6>
+                                
+                                <div class="selected-users-container border rounded p-3 bg-light">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <span class="text-muted">{% trans "Users selected for bulk action" %}</span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSelection">
+                                            <i class="bi bi-x-circle me-1"></i>{% trans "Clear All" %}
+                                        </button>
+                                    </div>
+                                    
+                                    <div id="selectedUsersList" class="selected-users-list">
+                                        <p class="text-muted text-center mb-0" id="noUsersSelected">
+                                            {% trans "No users selected. Please go back and select users first." %}
+                                        </p>
+                                    </div>
+                                    
+                                    <input type="hidden" name="users" id="selectedUsersInput">
+                                </div>
+                                
+                                <div class="mt-2">
+                                    <a href="{% url 'users:user_list' %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-arrow-left me-1"></i>{% trans "Back to User List" %}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Selection Section -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="bi bi-lightning me-2"></i>{% trans "Choose Action" %}
+                                </h6>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="actionType" class="form-label">{% trans "Action to Perform" %} *</label>
+                                        <select class="form-select" id="actionType" name="action" required>
+                                            <option value="">{% trans "Select an action" %}</option>
+                                            <option value="activate">{% trans "Activate selected users" %}</option>
+                                            <option value="deactivate">{% trans "Deactivate selected users" %}</option>
+                                            <option value="assign_role">{% trans "Assign role to selected users" %}</option>
+                                            <option value="remove_role">{% trans "Remove role from selected users" %}</option>
+                                            <option value="send_email">{% trans "Send email to selected users" %}</option>
+                                            <option value="export_data">{% trans "Export user data" %}</option>
+                                        </select>
+                                        <div class="invalid-feedback">{% trans "Please select an action to perform." %}</div>
+                                    </div>
+                                    
+                                    <!-- Role Selection (for assign/remove role actions) -->
+                                    <div class="col-md-6 mb-3" id="roleSelection" style="display: none;">
+                                        <label for="role" class="form-label">{% trans "Select Role" %} *</label>
+                                        <select class="form-select" id="role" name="role">
+                                            <option value="">{% trans "Select a role" %}</option>
+                                            {% for role in roles %}
+                                                <option value="{{ role.id }}">{{ role.name }} ({{ role.get_role_type_display }})</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="invalid-feedback">{% trans "Please select a role for this action." %}</div>
+                                    </div>
+                                    
+                                    <!-- Email Fields (for send email action) -->
+                                    <div id="emailFields" style="display: none;">
+                                        <div class="col-12 mb-3">
+                                            <label for="emailSubject" class="form-label">{% trans "Email Subject" %} *</label>
+                                            <input type="text" class="form-control" id="emailSubject" name="email_subject" 
+                                                   placeholder="{% trans 'Enter email subject' %}">
+                                            <div class="invalid-feedback">{% trans "Please enter an email subject." %}</div>
+                                        </div>
+                                        
+                                        <div class="col-12 mb-3">
+                                            <label for="emailMessage" class="form-label">{% trans "Email Message" %} *</label>
+                                            <textarea class="form-control" id="emailMessage" name="email_message" 
+                                                      rows="6" placeholder="{% trans 'Enter your message here...' %}"></textarea>
+                                            <div class="invalid-feedback">{% trans "Please enter an email message." %}</div>
+                                            <div class="form-text">
+                                                {% trans "You can use the following placeholders:" %}
+                                                <code>{first_name}</code>, <code>{last_name}</code>, <code>{email}</code>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-12 mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="includeAttachment" name="include_attachment">
+                                                <label class="form-check-label" for="includeAttachment">
+                                                    {% trans "Include attachment" %}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Export Options (for export action) -->
+                                    <div id="exportFields" style="display: none;">
+                                        <div class="col-12 mb-3">
+                                            <label class="form-label">{% trans "Export Format" %}</label>
+                                            <div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="radio" name="export_format" id="format_csv" value="csv" checked>
+                                                    <label class="form-check-label" for="format_csv">CSV</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="radio" name="export_format" id="format_excel" value="excel">
+                                                    <label class="form-check-label" for="format_excel">Excel</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="radio" name="export_format" id="format_json" value="json">
+                                                    <label class="form-check-label" for="format_json">JSON</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-12 mb-3">
+                                            <label class="form-label">{% trans "Fields to Include" %}</label>
+                                            <div class="border rounded p-3 bg-light">
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <div class="form-check mb-2">
+                                                            <input class="form-check-input field-checkbox" type="checkbox" id="field_email" value="email" checked>
+                                                            <label class="form-check-label" for="field_email">{% trans "Email" %}</label>
+                                                        </div>
+                                                        <div class="form-check mb-2">
+                                                            <input class="form-check-input field-checkbox" type="checkbox" id="field_first_name" value="first_name" checked>
+                                                            <label class="form-check-label" for="field_first_name">{% trans "First Name" %}</label>
+                                                        </div>
+                                                        <div class="form-check mb-2">
+                                                            <input class="form-check-input field-checkbox" type="checkbox" id="field_last_name" value="last_name" checked>
+                                                            <label class="form-check-label" for="field_last_name">{% trans "Last Name" %}</label>
+                                                        </div>
+                                                        <div class="form-check mb-2">
+                                                            <input class="form-check-input field-checkbox" type="checkbox" id="field_mobile" value="mobile">
+                                                            <label class="form-check-label" for="field_mobile">{% trans "Mobile" %}</label>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-check mb-2">
+                                                            <input class="form-check-input field-checkbox" type="checkbox" id="field_status" value="status">
+                                                            <label class="form-check-label" for="field_status">{% trans "Status" %}</label>
+                                                        </div>
+                                                        <div class="form-check mb-2">
+                                                            <input class="form-check-input field-checkbox" type="checkbox" id="field_is_active" value="is_active">
+                                                            <label class="form-check-label" for="field_is_active">{% trans "Active Status" %}</label>
+                                                        </div>
+                                                        <div class="form-check mb-2">
+                                                            <input class="form-check-input field-checkbox" type="checkbox" id="field_last_login" value="last_login">
+                                                            <label class="form-check-label" for="field_last_login">{% trans "Last Login" %}</label>
+                                                        </div>
+                                                        <div class="form-check mb-2">
+                                                            <input class="form-check-input field-checkbox" type="checkbox" id="field_created_at" value="created_at">
+                                                            <label class="form-check-label" for="field_created_at">{% trans "Created Date" %}</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="mt-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllFields">
+                                                        <i class="bi bi-check-all me-1"></i>{% trans "Select All" %}
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllFields">
+                                                        <i class="bi bi-x-circle me-1"></i>{% trans "Deselect All" %}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <input type="hidden" name="fields_to_export" id="fieldsToExport">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Action Preview -->
+                                <div class="mt-3" id="actionPreview" style="display: none;">
+                                    <div class="alert alert-warning">
+                                        <h6 class="alert-heading">
+                                            <i class="bi bi-eye me-2"></i>{% trans "Action Preview" %}
+                                        </h6>
+                                        <p id="previewText" class="mb-0"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Confirmation Section -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="border-top pt-4">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <a href="{% url 'users:user_list' %}" class="btn btn-outline-secondary">
+                                                <i class="bi bi-arrow-left me-1"></i>{% trans "Cancel" %}
+                                            </a>
+                                        </div>
+                                        <div>
+                                            <button type="button" class="btn btn-outline-info me-2" id="previewAction">
+                                                <i class="bi bi-eye me-1"></i>{% trans "Preview Action" %}
+                                            </button>
+                                            <button type="submit" class="btn btn-primary" id="executeAction">
+                                                <i class="bi bi-play-circle me-1"></i>{% trans "Execute Action" %}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmationModalLabel">{% trans "Confirm Bulk Action" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmationText"></p>
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>{% trans "Warning:" %}</strong> {% trans "This action will affect" %} <span id="affectedUsersCount" class="fw-bold">0</span> {% trans "users and cannot be undone." %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="confirmAction">{% trans "Confirm & Execute" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .selected-users-container {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .selected-users-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 0.5rem;
+    }
+    
+    .user-chip {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 20px;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        justify-content: between;
+    }
+    
+    .user-chip .user-info {
+        flex: 1;
+        margin-right: 0.5rem;
+    }
+    
+    .user-chip .user-email {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+    
+    .user-chip .remove-user {
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        padding: 0;
+        width: 16px;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .user-chip .remove-user:hover {
+        color: #dc3545;
+    }
+    
+    .action-dependent-field {
+        transition: all 0.3s ease;
+    }
+    
+    .progress-bar {
+        transition: width 0.3s ease;
+    }
+    
+    /* Status badges */
+    .status-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const bulkActionForm = document.getElementById('bulkActionForm');
+        const actionTypeSelect = document.getElementById('actionType');
+        const roleSelection = document.getElementById('roleSelection');
+        const emailFields = document.getElementById('emailFields');
+        const exportFields = document.getElementById('exportFields');
+        const selectedUsersList = document.getElementById('selectedUsersList');
+        const selectedUsersInput = document.getElementById('selectedUsersInput');
+        const selectedCount = document.getElementById('selectedCount');
+        const noUsersSelected = document.getElementById('noUsersSelected');
+        const clearSelectionBtn = document.getElementById('clearSelection');
+        const previewActionBtn = document.getElementById('previewAction');
+        const executeActionBtn = document.getElementById('executeAction');
+        const actionPreview = document.getElementById('actionPreview');
+        const previewText = document.getElementById('previewText');
+        const confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+        const confirmActionBtn = document.getElementById('confirmAction');
+        const confirmationText = document.getElementById('confirmationText');
+        const affectedUsersCount = document.getElementById('affectedUsersCount');
+        const actionProgress = document.getElementById('actionProgress');
+        const progressText = document.getElementById('progressText');
+        const progressBar = document.getElementById('progressBar');
+        const resultsSummary = document.getElementById('resultsSummary');
+        const resultsContent = document.getElementById('resultsContent');
+        
+        let selectedUsers = [];
+        
+        // Initialize from URL parameters or session storage
+        initializeSelectedUsers();
+        
+        // Action type change handler
+        actionTypeSelect.addEventListener('change', function() {
+            toggleActionFields(this.value);
+            updateActionPreview();
+        });
+        
+        // Role selection change handler
+        document.getElementById('role')?.addEventListener('change', updateActionPreview);
+        
+        // Email fields change handlers
+        document.getElementById('emailSubject')?.addEventListener('input', updateActionPreview);
+        document.getElementById('emailMessage')?.addEventListener('input', updateActionPreview);
+        
+        // Clear selection handler
+        clearSelectionBtn.addEventListener('click', clearAllSelections);
+        
+        // Preview action handler
+        previewActionBtn.addEventListener('click', showActionPreview);
+        
+        // Form submission handler
+        bulkActionForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            showConfirmationModal();
+        });
+        
+        // Confirm action handler
+        confirmActionBtn.addEventListener('click', executeBulkAction);
+        
+        // Field selection handlers for export
+        document.getElementById('selectAllFields')?.addEventListener('click', selectAllExportFields);
+        document.getElementById('deselectAllFields')?.addEventListener('click', deselectAllExportFields);
+        document.querySelectorAll('.field-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', updateExportFields);
+        });
+        
+        // Initialize export fields
+        updateExportFields();
+        
+        function initializeSelectedUsers() {
+            // Try to get selected users from URL parameters or session storage
+            const urlParams = new URLSearchParams(window.location.search);
+            const usersParam = urlParams.get('users');
+            
+            if (usersParam) {
+                selectedUsers = JSON.parse(decodeURIComponent(usersParam));
+            } else {
+                // Fallback to session storage
+                const storedUsers = sessionStorage.getItem('bulkActionSelectedUsers');
+                if (storedUsers) {
+                    selectedUsers = JSON.parse(storedUsers);
+                }
+            }
+            
+            updateSelectedUsersDisplay();
+        }
+        
+        function updateSelectedUsersDisplay() {
+            selectedUsersList.innerHTML = '';
+            selectedUsersInput.value = selectedUsers.map(user => user.id).join(',');
+            selectedCount.textContent = selectedUsers.length;
+            
+            if (selectedUsers.length === 0) {
+                noUsersSelected.style.display = 'block';
+                clearSelectionBtn.disabled = true;
+                actionTypeSelect.disabled = true;
+                previewActionBtn.disabled = true;
+                executeActionBtn.disabled = true;
+            } else {
+                noUsersSelected.style.display = 'none';
+                clearSelectionBtn.disabled = false;
+                actionTypeSelect.disabled = false;
+                previewActionBtn.disabled = false;
+                executeActionBtn.disabled = false;
+                
+                selectedUsers.forEach(user => {
+                    const userChip = createUserChip(user);
+                    selectedUsersList.appendChild(userChip);
+                });
+            }
+            
+            updateActionPreview();
+        }
+        
+        function createUserChip(user) {
+            const chip = document.createElement('div');
+            chip.className = 'user-chip';
+            chip.innerHTML = `
+                <div class="user-info">
+                    <div class="fw-medium">${escapeHtml(user.first_name)} ${escapeHtml(user.last_name)}</div>
+                    <div class="user-email">${escapeHtml(user.email)}</div>
+                </div>
+                <button type="button" class="remove-user" data-user-id="${user.id}">
+                    <i class="bi bi-x"></i>
+                </button>
+            `;
+            
+            chip.querySelector('.remove-user').addEventListener('click', function() {
+                removeUserFromSelection(user.id);
+            });
+            
+            return chip;
+        }
+        
+        function removeUserFromSelection(userId) {
+            selectedUsers = selectedUsers.filter(user => user.id !== userId);
+            updateSelectedUsersDisplay();
+            saveSelectedUsersToStorage();
+        }
+        
+        function clearAllSelections() {
+            if (confirm('{% trans "Are you sure you want to clear all selected users?" %}')) {
+                selectedUsers = [];
+                updateSelectedUsersDisplay();
+                saveSelectedUsersToStorage();
+            }
+        }
+        
+        function saveSelectedUsersToStorage() {
+            sessionStorage.setItem('bulkActionSelectedUsers', JSON.stringify(selectedUsers));
+        }
+        
+        function toggleActionFields(actionType) {
+            // Hide all dependent fields first
+            roleSelection.style.display = 'none';
+            emailFields.style.display = 'none';
+            exportFields.style.display = 'none';
+            
+            // Show relevant fields based on action type
+            switch (actionType) {
+                case 'assign_role':
+                case 'remove_role':
+                    roleSelection.style.display = 'block';
+                    break;
+                case 'send_email':
+                    emailFields.style.display = 'block';
+                    break;
+                case 'export_data':
+                    exportFields.style.display = 'block';
+                    break;
+            }
+            
+            // Reset validation
+            resetValidation();
+        }
+        
+        function updateActionPreview() {
+            const actionType = actionTypeSelect.value;
+            const userCount = selectedUsers.length;
+            
+            if (!actionType || userCount === 0) {
+                actionPreview.style.display = 'none';
+                return;
+            }
+            
+            let preview = '';
+            
+            switch (actionType) {
+                case 'activate':
+                    preview = `{% trans "This will activate" %} <strong>${userCount}</strong> {% trans "user(s). Activated users will be able to log in to the system." %}`;
+                    break;
+                case 'deactivate':
+                    preview = `{% trans "This will deactivate" %} <strong>${userCount}</strong> {% trans "user(s). Deactivated users will not be able to log in." %}`;
+                    break;
+                case 'assign_role':
+                    const roleSelect = document.getElementById('role');
+                    const roleName = roleSelect.options[roleSelect.selectedIndex]?.text || '{% trans "selected role" %}';
+                    preview = `{% trans "This will assign the role" %} <strong>"${escapeHtml(roleName)}"</strong> {% trans "to" %} <strong>${userCount}</strong> {% trans "user(s)." %}`;
+                    break;
+                case 'remove_role':
+                    const removeRoleSelect = document.getElementById('role');
+                    const removeRoleName = removeRoleSelect.options[removeRoleSelect.selectedIndex]?.text || '{% trans "selected role" %}';
+                    preview = `{% trans "This will remove the role" %} <strong>"${escapeHtml(removeRoleName)}"</strong> {% trans "from" %} <strong>${userCount}</strong> {% trans "user(s)." %}`;
+                    break;
+                case 'send_email':
+                    const subject = document.getElementById('emailSubject').value || '{% trans "your email" %}';
+                    preview = `{% trans "This will send an email with subject" %} <strong>"${escapeHtml(subject)}"</strong> {% trans "to" %} <strong>${userCount}</strong> {% trans "user(s)." %}`;
+                    break;
+                case 'export_data':
+                    preview = `{% trans "This will export data for" %} <strong>${userCount}</strong> {% trans "user(s) in the selected format." %}`;
+                    break;
+            }
+            
+            previewText.innerHTML = preview;
+            actionPreview.style.display = 'block';
+        }
+        
+        function showActionPreview() {
+            if (!validateForm(true)) {
+                return;
+            }
+            updateActionPreview();
+        }
+        
+        function showConfirmationModal() {
+            if (!validateForm()) {
+                return;
+            }
+            
+            const actionType = actionTypeSelect.value;
+            let confirmationMessage = '';
+            
+            switch (actionType) {
+                case 'activate':
+                    confirmationMessage = '{% trans "Are you sure you want to activate the selected users?" %}';
+                    break;
+                case 'deactivate':
+                    confirmationMessage = '{% trans "Are you sure you want to deactivate the selected users?" %}';
+                    break;
+                case 'assign_role':
+                    const roleName = document.getElementById('role').options[document.getElementById('role').selectedIndex]?.text;
+                    confirmationMessage = `{% trans "Are you sure you want to assign the role" %} "${escapeHtml(roleName)}" {% trans "to the selected users?" %}`;
+                    break;
+                case 'remove_role':
+                    const removeRoleName = document.getElementById('role').options[document.getElementById('role').selectedIndex]?.text;
+                    confirmationMessage = `{% trans "Are you sure you want to remove the role" %} "${escapeHtml(removeRoleName)}" {% trans "from the selected users?" %}`;
+                    break;
+                case 'send_email':
+                    confirmationMessage = '{% trans "Are you sure you want to send this email to the selected users?" %}';
+                    break;
+                case 'export_data':
+                    confirmationMessage = '{% trans "Are you sure you want to export data for the selected users?" %}';
+                    break;
+            }
+            
+            confirmationText.textContent = confirmationMessage;
+            affectedUsersCount.textContent = selectedUsers.length;
+            confirmationModal.show();
+        }
+        
+        function executeBulkAction() {
+            confirmationModal.hide();
+            
+            // Show progress
+            actionProgress.classList.remove('d-none');
+            progressBar.style.width = '0%';
+            progressText.textContent = '{% trans "Preparing action..." %}';
+            
+            // Simulate progress (in real implementation, this would be actual API calls)
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += 10;
+                progressBar.style.width = `${progress}%`;
+                
+                if (progress <= 30) {
+                    progressText.textContent = '{% trans "Validating users..." %}';
+                } else if (progress <= 60) {
+                    progressText.textContent = '{% trans "Processing action..." %}';
+                } else if (progress <= 90) {
+                    progressText.textContent = '{% trans "Finalizing..." %}';
+                } else {
+                    progressText.textContent = '{% trans "Action completed!" %}';
+                }
+                
+                if (progress >= 100) {
+                    clearInterval(progressInterval);
+                    setTimeout(showResults, 500);
+                }
+            }, 200);
+            
+            // In a real implementation, you would submit the form here
+            // bulkActionForm.submit();
+        }
+        
+        function showResults() {
+            actionProgress.classList.add('d-none');
+            
+            const actionType = actionTypeSelect.value;
+            const successCount = selectedUsers.length;
+            const failedCount = 0;
+            
+            resultsSummary.classList.remove('d-none');
+            resultsSummary.className = failedCount > 0 ? 'alert alert-warning' : 'alert alert-success';
+            
+            let resultsHtml = `
+                <p><strong>{% trans "Action completed successfully!" %}</strong></p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        <strong>${successCount}</strong> {% trans "users processed successfully" %}
+                    </div>
+            `;
+            
+            if (failedCount > 0) {
+                resultsHtml += `
+                    <div class="col-md-6">
+                        <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                        <strong>${failedCount}</strong> {% trans "users failed" %}
+                    </div>
+                `;
+            }
+            
+            resultsHtml += `</div>`;
+            
+            resultsContent.innerHTML = resultsHtml;
+            
+            // Scroll to results
+            resultsSummary.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function validateForm(isPreview = false) {
+            let isValid = true;
+            resetValidation();
+            
+            const actionType = actionTypeSelect.value;
+            
+            if (!actionType) {
+                actionTypeSelect.classList.add('is-invalid');
+                isValid = false;
+            }
+            
+            if (selectedUsers.length === 0) {
+                showToast('{% trans "Error" %}', '{% trans "Please select at least one user." %}', 'danger');
+                isValid = false;
+            }
+            
+            // Action-specific validation
+            switch (actionType) {
+                case 'assign_role':
+                case 'remove_role':
+                    const roleSelect = document.getElementById('role');
+                    if (!roleSelect.value) {
+                        roleSelect.classList.add('is-invalid');
+                        isValid = false;
+                    }
+                    break;
+                case 'send_email':
+                    const emailSubject = document.getElementById('emailSubject');
+                    const emailMessage = document.getElementById('emailMessage');
+                    
+                    if (!emailSubject.value.trim()) {
+                        emailSubject.classList.add('is-invalid');
+                        isValid = false;
+                    }
+                    if (!emailMessage.value.trim()) {
+                        emailMessage.classList.add('is-invalid');
+                        isValid = false;
+                    }
+                    break;
+            }
+            
+            if (!isValid && !isPreview) {
+                showToast('{% trans "Validation Error" %}', '{% trans "Please check the form and fix the errors." %}', 'danger');
+            }
+            
+            return isValid;
+        }
+        
+        function resetValidation() {
+            const invalidElements = bulkActionForm.querySelectorAll('.is-invalid');
+            invalidElements.forEach(element => {
+                element.classList.remove('is-invalid');
+            });
+        }
+        
+        function selectAllExportFields() {
+            document.querySelectorAll('.field-checkbox').forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            updateExportFields();
+        }
+        
+        function deselectAllExportFields() {
+            document.querySelectorAll('.field-checkbox').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            updateExportFields();
+        }
+        
+        function updateExportFields() {
+            const selectedFields = Array.from(document.querySelectorAll('.field-checkbox:checked'))
+                .map(checkbox => checkbox.value);
+            document.getElementById('fieldsToExport').value = selectedFields.join(',');
+        }
+        
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+        
+        function showToast(title, message, type) {
+            // Implementation for showing toast notifications
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}</strong>: ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            const toastContainer = document.getElementById('toastContainer') || createToastContainer();
+            toastContainer.appendChild(toast);
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+        }
+        
+        function createToastContainer() {
+            const container = document.createElement('div');
+            container.id = 'toastContainer';
+            container.className = 'toast-container position-fixed top-0 end-0 p-3';
+            container.style.zIndex = '9999';
+            document.body.appendChild(container);
+            return container;
+        }
+    });
+</script>
+{% endblock %}

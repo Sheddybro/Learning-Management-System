@@ -1,0 +1,739 @@
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Publisher" %} - {{ form.instance.name }}
+    {% else %}
+        {% trans "Add New Publisher" %}
+    {% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Publisher" %}
+    {% else %}
+        {% trans "Add New Publisher" %}
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:publisher_list' %}">{% trans "Publishers" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">
+    {% if form.instance.pk %}
+        {% trans "Edit" %} {{ form.instance.name }}
+    {% else %}
+        {% trans "Add New Publisher" %}
+    {% endif %}
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Publisher Form Specific Styles */
+    .form-section {
+        background: #fff;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+    
+    .form-section-header {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    
+    .form-section-body {
+        padding: 1.5rem;
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .form-help-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .form-actions {
+        background: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .publisher-logo-upload {
+        border: 2px dashed #dee2e6;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        margin-bottom: 1rem;
+    }
+    
+    .publisher-logo-upload:hover {
+        border-color: #ff6b6b;
+        background-color: rgba(255, 107, 107, 0.05);
+    }
+    
+    .publisher-logo-upload i {
+        font-size: 3rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    
+    .publisher-logo-preview {
+        width: 120px;
+        height: 120px;
+        border-radius: 0.5rem;
+        object-fit: cover;
+        border: 3px solid #e9ecef;
+        display: none;
+    }
+    
+    .contact-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-preview-card {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .preview-field {
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .preview-field:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    
+    .preview-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.25rem;
+    }
+    
+    .preview-value {
+        color: #6c757d;
+    }
+    
+    .validation-feedback {
+        display: none;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    .website-preview {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: #e7f1ff;
+        border-radius: 0.375rem;
+        margin-top: 0.5rem;
+    }
+    
+    .character-count {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-align: right;
+        margin-top: 0.25rem;
+    }
+    
+    .character-count.warning {
+        color: #ffc107;
+    }
+    
+    .character-count.danger {
+        color: #dc3545;
+    }
+    
+    @media (max-width: 768px) {
+        .form-section-body {
+            padding: 1rem;
+        }
+        
+        .form-actions {
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .form-actions .btn {
+            width: 100%;
+        }
+        
+        .contact-info-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-xl-8">
+            <form method="post" id="publisherForm" novalidate>
+                {% csrf_token %}
+                
+                <!-- Basic Information Section -->
+                <div class="form-section">
+                    <h3 class="form-section-header">
+                        <i class="bi bi-building me-2"></i>{% trans "Basic Information" %}
+                    </h3>
+                    <div class="form-section-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label for="{{ form.name.id_for_label }}" class="form-label required-field">{% trans "Publisher Name" %}</label>
+                                    {{ form.name }}
+                                    {% if form.name.help_text %}
+                                    <div class="form-help-text">{{ form.name.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.name.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="{{ form.status.id_for_label }}" class="form-label">{% trans "Status" %}</label>
+                                    {{ form.status }}
+                                    {% if form.status.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.status.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Logo Upload Placeholder -->
+                        <div class="mb-4">
+                            <label class="form-label">{% trans "Publisher Logo" %}</label>
+                            <div class="publisher-logo-upload" id="logoUploadArea">
+                                <i class="bi bi-cloud-arrow-up"></i>
+                                <p class="mb-2">{% trans "Click to upload publisher logo" %}</p>
+                                <small class="text-muted">{% trans "Recommended: 120x120px PNG or JPG" %}</small>
+                                <input type="file" id="logoFileInput" accept="image/*" style="display: none;">
+                            </div>
+                            <img id="logoPreview" class="publisher-logo-preview" src="" alt="{% trans 'Logo preview' %}">
+                            <div class="d-flex gap-2 mt-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('logoFileInput').click()">
+                                    <i class="bi bi-upload me-1"></i>{% trans "Upload" %}
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="removeLogoBtn" style="display: none;">
+                                    <i class="bi bi-trash me-1"></i>{% trans "Remove" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Contact Information Section -->
+                <div class="form-section">
+                    <h3 class="form-section-header">
+                        <i class="bi bi-telephone me-2"></i>{% trans "Contact Information" %}
+                    </h3>
+                    <div class="form-section-body">
+                        <div class="contact-info-grid">
+                            <div>
+                                <div class="mb-3">
+                                    <label for="{{ form.contact_person.id_for_label }}" class="form-label">{% trans "Contact Person" %}</label>
+                                    {{ form.contact_person }}
+                                    {% if form.contact_person.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.contact_person.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div>
+                                <div class="mb-3">
+                                    <label for="{{ form.email.id_for_label }}" class="form-label">{% trans "Email Address" %}</label>
+                                    {{ form.email }}
+                                    <div class="validation-feedback text-danger" id="emailValidation">
+                                        <i class="bi bi-exclamation-circle me-1"></i>{% trans "Please enter a valid email address" %}
+                                    </div>
+                                    {% if form.email.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.email.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div>
+                                <div class="mb-3">
+                                    <label for="{{ form.phone.id_for_label }}" class="form-label">{% trans "Phone Number" %}</label>
+                                    {{ form.phone }}
+                                    <div class="validation-feedback text-danger" id="phoneValidation">
+                                        <i class="bi bi-exclamation-circle me-1"></i>{% trans "Please enter a valid phone number" %}
+                                    </div>
+                                    {% if form.phone.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.phone.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.website.id_for_label }}" class="form-label">{% trans "Website" %}</label>
+                            {{ form.website }}
+                            <div class="validation-feedback text-danger" id="websiteValidation">
+                                <i class="bi bi-exclamation-circle me-1"></i>{% trans "Please enter a valid website URL" %}
+                            </div>
+                            <div class="website-preview" id="websitePreview" style="display: none;">
+                                <i class="bi bi-box-arrow-up-right text-primary"></i>
+                                <a href="#" id="websiteLink" target="_blank" class="text-decoration-none">{% trans "Visit Website" %}</a>
+                            </div>
+                            {% if form.website.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.website.errors %}
+                                {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Additional Information Section -->
+                <div class="form-section">
+                    <h3 class="form-section-header">
+                        <i class="bi bi-info-square me-2"></i>{% trans "Additional Information" %}
+                    </h3>
+                    <div class="form-section-body">
+                        <div class="mb-3">
+                            <label for="description" class="form-label">{% trans "Description" %}</label>
+                            <textarea class="form-control" id="description" name="description" rows="4" 
+                                      placeholder="{% trans 'Enter publisher description, specialties, or additional notes...' %}"
+                                      maxlength="500">{% if form.description.value %}{{ form.description.value }}{% endif %}</textarea>
+                            <div class="character-count" id="descriptionCount">
+                                0/500 {% trans "characters" %}
+                            </div>
+                            {% if form.description.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.description.errors %}
+                                {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Additional Fields Placeholder -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="founded_year" class="form-label">{% trans "Founded Year" %}</label>
+                                    <input type="number" class="form-control" id="founded_year" name="founded_year" 
+                                           min="1500" max="{% now 'Y' %}" 
+                                           value="{% if form.founded_year.value %}{{ form.founded_year.value }}{% endif %}"
+                                           placeholder="{% trans 'e.g., 1990' %}">
+                                    <div class="validation-feedback text-danger" id="foundedYearValidation">
+                                        <i class="bi bi-exclamation-circle me-1"></i>{% trans "Please enter a valid year" %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="country" class="form-label">{% trans "Country" %}</label>
+                                    <input type="text" class="form-control" id="country" name="country" 
+                                           value="{% if form.country.value %}{{ form.country.value }}{% endif %}"
+                                           placeholder="{% trans 'e.g., United States' %}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Form Preview Section -->
+                <div class="form-section">
+                    <h3 class="form-section-header">
+                        <i class="bi bi-eye me-2"></i>{% trans "Publisher Preview" %}
+                    </h3>
+                    <div class="form-section-body">
+                        <div class="form-preview-card">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="preview-field">
+                                        <div class="preview-label">{% trans "Publisher Name" %}</div>
+                                        <div class="preview-value" id="previewName">-</div>
+                                    </div>
+                                    <div class="preview-field">
+                                        <div class="preview-label">{% trans "Contact Person" %}</div>
+                                        <div class="preview-value" id="previewContactPerson">-</div>
+                                    </div>
+                                    <div class="preview-field">
+                                        <div class="preview-label">{% trans "Email" %}</div>
+                                        <div class="preview-value" id="previewEmail">-</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="preview-field">
+                                        <div class="preview-label">{% trans "Phone" %}</div>
+                                        <div class="preview-value" id="previewPhone">-</div>
+                                    </div>
+                                    <div class="preview-field">
+                                        <div class="preview-label">{% trans "Website" %}</div>
+                                        <div class="preview-value" id="previewWebsite">-</div>
+                                    </div>
+                                    <div class="preview-field">
+                                        <div class="preview-label">{% trans "Status" %}</div>
+                                        <div class="preview-value" id="previewStatus">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="preview-field">
+                                <div class="preview-label">{% trans "Description" %}</div>
+                                <div class="preview-value" id="previewDescription">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <div>
+                        <a href="{% url 'library:publisher_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>{% trans "Back to List" %}
+                        </a>
+                    </div>
+                    <div class="d-flex gap-2">
+                        {% if form.instance.pk %}
+                        <a href="{% url 'library:publisher_detail' form.instance.pk %}" class="btn btn-outline-info">
+                            <i class="bi bi-eye me-2"></i>{% trans "View Details" %}
+                        </a>
+                        {% endif %}
+                        <button type="button" class="btn btn-outline-warning" id="resetFormBtn">
+                            <i class="bi bi-arrow-clockwise me-2"></i>{% trans "Reset" %}
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-2"></i>
+                            {% if form.instance.pk %}
+                                {% trans "Update Publisher" %}
+                            {% else %}
+                                {% trans "Create Publisher" %}
+                            {% endif %}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('publisherForm');
+        const logoUploadArea = document.getElementById('logoUploadArea');
+        const logoFileInput = document.getElementById('logoFileInput');
+        const logoPreview = document.getElementById('logoPreview');
+        const removeLogoBtn = document.getElementById('removeLogoBtn');
+        const resetFormBtn = document.getElementById('resetFormBtn');
+        
+        // Logo Upload Functionality
+        logoUploadArea.addEventListener('click', function() {
+            logoFileInput.click();
+        });
+        
+        logoFileInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        logoPreview.src = e.target.result;
+                        logoPreview.style.display = 'block';
+                        removeLogoBtn.style.display = 'inline-block';
+                        logoUploadArea.style.display = 'none';
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    alert('{% trans "Please select a valid image file (PNG, JPG, JPEG)" %}');
+                }
+            }
+        });
+        
+        removeLogoBtn.addEventListener('click', function() {
+            logoPreview.style.display = 'none';
+            removeLogoBtn.style.display = 'none';
+            logoUploadArea.style.display = 'block';
+            logoFileInput.value = '';
+        });
+        
+        // Form Validation
+        function validateEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+        
+        function validatePhone(phone) {
+            const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+            return phone === '' || phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''));
+        }
+        
+        function validateWebsite(website) {
+            if (website === '') return true;
+            const websiteRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+            return websiteRegex.test(website);
+        }
+        
+        function validateFoundedYear(year) {
+            if (year === '') return true;
+            const currentYear = new Date().getFullYear();
+            return year >= 1500 && year <= currentYear;
+        }
+        
+        // Real-time Validation
+        const emailField = document.getElementById('{{ form.email.id_for_label }}');
+        const phoneField = document.getElementById('{{ form.phone.id_for_label }}');
+        const websiteField = document.getElementById('{{ form.website.id_for_label }}');
+        const foundedYearField = document.getElementById('founded_year');
+        
+        emailField.addEventListener('blur', function() {
+            const emailValidation = document.getElementById('emailValidation');
+            if (this.value && !validateEmail(this.value)) {
+                emailValidation.style.display = 'block';
+                this.classList.add('is-invalid');
+            } else {
+                emailValidation.style.display = 'none';
+                this.classList.remove('is-invalid');
+            }
+            updatePreview();
+        });
+        
+        phoneField.addEventListener('blur', function() {
+            const phoneValidation = document.getElementById('phoneValidation');
+            if (this.value && !validatePhone(this.value)) {
+                phoneValidation.style.display = 'block';
+                this.classList.add('is-invalid');
+            } else {
+                phoneValidation.style.display = 'none';
+                this.classList.remove('is-invalid');
+            }
+            updatePreview();
+        });
+        
+        websiteField.addEventListener('blur', function() {
+            const websiteValidation = document.getElementById('websiteValidation');
+            const websitePreview = document.getElementById('websitePreview');
+            const websiteLink = document.getElementById('websiteLink');
+            
+            if (this.value && !validateWebsite(this.value)) {
+                websiteValidation.style.display = 'block';
+                this.classList.add('is-invalid');
+                websitePreview.style.display = 'none';
+            } else {
+                websiteValidation.style.display = 'none';
+                this.classList.remove('is-invalid');
+                
+                if (this.value) {
+                    let url = this.value;
+                    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                        url = 'https://' + url;
+                    }
+                    websiteLink.href = url;
+                    websitePreview.style.display = 'inline-flex';
+                } else {
+                    websitePreview.style.display = 'none';
+                }
+            }
+            updatePreview();
+        });
+        
+        foundedYearField.addEventListener('blur', function() {
+            const foundedYearValidation = document.getElementById('foundedYearValidation');
+            if (this.value && !validateFoundedYear(parseInt(this.value))) {
+                foundedYearValidation.style.display = 'block';
+                this.classList.add('is-invalid');
+            } else {
+                foundedYearValidation.style.display = 'none';
+                this.classList.remove('is-invalid');
+            }
+        });
+        
+        // Character Count for Description
+        const descriptionField = document.getElementById('description');
+        const descriptionCount = document.getElementById('descriptionCount');
+        
+        descriptionField.addEventListener('input', function() {
+            const count = this.value.length;
+            const maxLength = 500;
+            descriptionCount.textContent = `${count}/${maxLength} {% trans "characters" %}`;
+            
+            if (count > maxLength * 0.9) {
+                descriptionCount.classList.add('warning');
+                descriptionCount.classList.remove('danger');
+            } else if (count > maxLength) {
+                descriptionCount.classList.remove('warning');
+                descriptionCount.classList.add('danger');
+            } else {
+                descriptionCount.classList.remove('warning', 'danger');
+            }
+            
+            updatePreview();
+        });
+        
+        // Update Form Preview
+        function updatePreview() {
+            // Name
+            const nameField = document.getElementById('{{ form.name.id_for_label }}');
+            document.getElementById('previewName').textContent = nameField.value || '-';
+            
+            // Contact Person
+            const contactPersonField = document.getElementById('{{ form.contact_person.id_for_label }}');
+            document.getElementById('previewContactPerson').textContent = contactPersonField.value || '-';
+            
+            // Email
+            document.getElementById('previewEmail').textContent = emailField.value || '-';
+            
+            // Phone
+            document.getElementById('previewPhone').textContent = phoneField.value || '-';
+            
+            // Website
+            document.getElementById('previewWebsite').textContent = websiteField.value || '-';
+            
+            // Status
+            const statusField = document.getElementById('{{ form.status.id_for_label }}');
+            const statusText = statusField.options[statusField.selectedIndex]?.text || '-';
+            document.getElementById('previewStatus').textContent = statusText;
+            
+            // Description
+            const descriptionText = descriptionField.value || '-';
+            document.getElementById('previewDescription').textContent = 
+                descriptionText.length > 100 ? descriptionText.substring(0, 100) + '...' : descriptionText;
+        }
+        
+        // Add event listeners to form fields for real-time preview
+        const previewFields = [
+            '{{ form.name.id_for_label }}',
+            '{{ form.contact_person.id_for_label }}',
+            '{{ form.status.id_for_label }}'
+        ];
+        
+        previewFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.addEventListener('input', updatePreview);
+                field.addEventListener('change', updatePreview);
+            }
+        });
+        
+        // Reset Form
+        resetFormBtn.addEventListener('click', function() {
+            if (confirm('{% trans "Are you sure you want to reset the form? All changes will be lost." %}')) {
+                form.reset();
+                logoPreview.style.display = 'none';
+                removeLogoBtn.style.display = 'none';
+                logoUploadArea.style.display = 'block';
+                logoFileInput.value = '';
+                
+                // Reset validation states
+                document.querySelectorAll('.validation-feedback').forEach(el => {
+                    el.style.display = 'none';
+                });
+                document.querySelectorAll('.is-invalid').forEach(el => {
+                    el.classList.remove('is-invalid');
+                });
+                
+                updatePreview();
+            }
+        });
+        
+        // Form Submission
+        form.addEventListener('submit', function(event) {
+            let isValid = true;
+            
+            // Validate required fields
+            const nameField = document.getElementById('{{ form.name.id_for_label }}');
+            if (!nameField.value.trim()) {
+                isValid = false;
+                nameField.classList.add('is-invalid');
+            }
+            
+            // Validate email if provided
+            if (emailField.value && !validateEmail(emailField.value)) {
+                isValid = false;
+                emailField.classList.add('is-invalid');
+                document.getElementById('emailValidation').style.display = 'block';
+            }
+            
+            // Validate phone if provided
+            if (phoneField.value && !validatePhone(phoneField.value)) {
+                isValid = false;
+                phoneField.classList.add('is-invalid');
+                document.getElementById('phoneValidation').style.display = 'block';
+            }
+            
+            // Validate website if provided
+            if (websiteField.value && !validateWebsite(websiteField.value)) {
+                isValid = false;
+                websiteField.classList.add('is-invalid');
+                document.getElementById('websiteValidation').style.display = 'block';
+            }
+            
+            if (!isValid) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                // Scroll to first error
+                const firstError = form.querySelector('.is-invalid');
+                if (firstError) {
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        });
+        
+        // Initialize preview on page load
+        updatePreview();
+        
+        // Initialize character count
+        if (descriptionField.value) {
+            descriptionField.dispatchEvent(new Event('input'));
+        }
+        
+        // Initialize website preview if value exists
+        if (websiteField.value) {
+            websiteField.dispatchEvent(new Event('blur'));
+        }
+    });
+</script>
+{% endblock %}

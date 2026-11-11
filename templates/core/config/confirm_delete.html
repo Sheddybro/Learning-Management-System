@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Delete Configuration{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card card-danger">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-exclamation-triangle"></i> Confirm Deletion
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'core:config_detail' object.pk %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Cancel
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <h5><i class="icon fas fa-exclamation-triangle"></i> Warning!</h5>
+                        You are about to delete the following system configuration. This action cannot be undone.
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <dl class="row">
+                                <dt class="col-sm-4">Key:</dt>
+                                <dd class="col-sm-8">
+                                    <code class="text-danger">{{ object.key }}</code>
+                                </dd>
+
+                                <dt class="col-sm-4">Type:</dt>
+                                <dd class="col-sm-8">
+                                    <span class="badge badge-info">{{ object.get_config_type_display }}</span>
+                                </dd>
+
+                                <dt class="col-sm-4">Description:</dt>
+                                <dd class="col-sm-8">
+                                    {{ object.description|default:"No description" }}
+                                </dd>
+
+                                <dt class="col-sm-4">Current Value:</dt>
+                                <dd class="col-sm-8">
+                                    <div class="bg-light p-2 rounded small">
+                                        <code>{{ object.value|truncatechars:100 }}</code>
+                                    </div>
+                                </dd>
+
+                                <dt class="col-sm-4">Status:</dt>
+                                <dd class="col-sm-8">
+                                    {% if object.status == 'active' %}
+                                        <span class="badge badge-success">Active</span>
+                                    {% else %}
+                                        <span class="badge badge-secondary">{{ object.get_status_display }}</span>
+                                    {% endif %}
+                                </dd>
+
+                                <dt class="col-sm-4">Created:</dt>
+                                <dd class="col-sm-8">{{ object.created_at|date:"M d, Y H:i" }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <h6><i class="icon fas fa-info-circle"></i> Impact Assessment:</h6>
+                                <ul class="mb-0">
+                                    <li>Any application code relying on this configuration key may break</li>
+                                    <li>System functionality dependent on this setting will use default values</li>
+                                    <li>Audit logs will record this deletion for compliance purposes</li>
+                                    <li>The configuration key cannot be reused for 30 days (soft delete)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <form method="post" id="deleteForm">
+                        {% csrf_token %}
+                        <button type="button" class="btn btn-danger" id="confirmDelete">
+                            <i class="fas fa-trash"></i> Yes, Delete Configuration
+                        </button>
+                        <a href="{% url 'core:config_detail' object.pk %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-danger">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle"></i> Final Confirmation
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Please type <strong>DELETE</strong> to confirm the deletion of configuration <code>{{ object.key }}</code>:</p>
+                <input type="text" class="form-control" id="deleteConfirmation" placeholder="Type DELETE to confirm">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="finalDelete" disabled>
+                    <i class="fas fa-trash"></i> Delete Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    var deleteForm = $('#deleteForm');
+
+    // Confirm delete button click
+    $('#confirmDelete').on('click', function() {
+        $('#confirmModal').modal('show');
+    });
+
+    // Delete confirmation input
+    $('#deleteConfirmation').on('input', function() {
+        var inputValue = $(this).val().toUpperCase();
+        var isValid = inputValue === 'DELETE';
+        $('#finalDelete').prop('disabled', !isValid);
+
+        if (isValid) {
+            $(this).removeClass('is-invalid').addClass('is-valid');
+        } else {
+            $(this).removeClass('is-valid').addClass('is-invalid');
+        }
+    });
+
+    // Final delete button
+    $('#finalDelete').on('click', function() {
+        if (!$('#finalDelete').prop('disabled')) {
+            deleteForm.submit();
+        }
+    });
+
+    // Enter key in confirmation input
+    $('#deleteConfirmation').on('keypress', function(e) {
+        if (e.which === 13 && !$('#finalDelete').prop('disabled')) { // Enter key
+            deleteForm.submit();
+        }
+    });
+});
+</script>
+{% endblock %}

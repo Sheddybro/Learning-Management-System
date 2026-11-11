@@ -1,0 +1,974 @@
+<!-- templates/hostels/inventory/inventory_list.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+
+{% block title %}Inventory Management - Hostel Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .list-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .list-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stats-card {
+        color: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        font-weight: 500;
+    }
+    
+    .stat-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+    }
+    
+    .inventory-card {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .inventory-card:hover {
+        border-color: #007bff;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    .condition-badge {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+    
+    .condition-excellent { background: linear-gradient(135deg, #28a745, #20c997); color: white; }
+    .condition-good { background: linear-gradient(135deg, #17a2b8, #6f42c1); color: white; }
+    .condition-fair { background: linear-gradient(135deg, #ffc107, #fd7e14); color: white; }
+    .condition-poor { background: linear-gradient(135deg, #dc3545, #e83e8c); color: white; }
+    .condition-damaged { background: linear-gradient(135deg, #6c757d, #495057); color: white; }
+    
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .status-available { background-color: #28a745; }
+    .status-in_use { background-color: #007bff; }
+    .status-under_maintenance { background-color: #ffc107; }
+    .status-discarded { background-color: #dc3545; }
+    
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .search-box {
+        position: relative;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    .search-input {
+        padding-left: 40px;
+    }
+    
+    .pagination-container {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .table-responsive {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .table th {
+        border-top: none;
+        font-weight: 600;
+        color: #495057;
+        background: #f8f9fa;
+    }
+    
+    .quick-actions {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .item-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 1.2rem;
+    }
+    
+    .bulk-actions {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .value-badge {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .warranty-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 10px;
+    }
+    
+    .category-tag {
+        background: #e9ecef;
+        color: #495057;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}
+<i class="bi bi-box-seam me-2"></i>Inventory Management
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'hostels:dashboard' %}">Hostel Dashboard</a></li>
+<li class="breadcrumb-item active" aria-current="page">Inventory</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">{{ total_items }}</div>
+                        <div class="stat-label">Total Items</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-box-seam stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">{{ total_value }}</div>
+                        <div class="stat-label">Total Value</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-currency-rupee stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">{{ maintenance_count }}</div>
+                        <div class="stat-label">Under Maintenance</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-tools stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <div class="stat-number">{{ warranty_valid_count }}</div>
+                        <div class="stat-label">Warranty Valid</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="bi bi-shield-check stat-icon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Actions -->
+    <div class="bulk-actions">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h6 class="text-white mb-2">Bulk Inventory Actions</h6>
+                <p class="text-white-50 mb-0">Manage multiple inventory items efficiently</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-light btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="bi bi-lightning me-2"></i>Quick Actions
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="exportInventory()"><i class="bi bi-download me-2"></i>Export Inventory</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="generateReport()"><i class="bi bi-file-earmark-text me-2"></i>Generate Report</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="bulkUpdateStatus()"><i class="bi bi-arrow-repeat me-2"></i>Bulk Status Update</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="scheduleMaintenance()"><i class="bi bi-calendar-check me-2"></i>Schedule Maintenance</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Filters and Quick Actions -->
+        <div class="col-lg-3 mb-4">
+            <!-- Quick Actions -->
+            <div class="quick-actions mb-4">
+                <h6 class="text-white mb-3">Quick Actions</h6>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'hostels:inventory_create' %}" class="btn btn-light btn-sm">
+                        <i class="bi bi-plus-circle me-2"></i>Add New Item
+                    </a>
+                    <a href="{% url 'hostels:maintenance_create' %}" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-tools me-2"></i>Maintenance Request
+                    </a>
+                    <button class="btn btn-outline-light btn-sm" onclick="quickScan()">
+                        <i class="bi bi-upc-scan me-2"></i>Quick Scan
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card list-card">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">Filters</h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" id="filterForm">
+                        <!-- Hostel Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Hostel</label>
+                            <select name="hostel" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Hostels</option>
+                                {% for hostel in hostels %}
+                                <option value="{{ hostel.id }}" {% if request.GET.hostel == hostel.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ hostel.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Category Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Category</label>
+                            <select name="category" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Categories</option>
+                                {% for category in categories %}
+                                <option value="{{ category }}" {% if request.GET.category == category %}selected{% endif %}>
+                                    {{ category }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Condition Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Condition</label>
+                            <select name="condition" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Conditions</option>
+                                {% for condition in conditions %}
+                                <option value="{{ condition.0 }}" {% if request.GET.condition == condition.0 %}selected{% endif %}>
+                                    {{ condition.1 }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Status Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Status</option>
+                                {% for status in status_choices %}
+                                <option value="{{ status.0 }}" {% if request.GET.status == status.0 %}selected{% endif %}>
+                                    {{ status.1 }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Warranty Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Warranty Status</label>
+                            <select name="warranty" class="form-select" onchange="this.form.submit()">
+                                <option value="">All</option>
+                                <option value="valid" {% if request.GET.warranty == 'valid' %}selected{% endif %}>Warranty Valid</option>
+                                <option value="expired" {% if request.GET.warranty == 'expired' %}selected{% endif %}>Warranty Expired</option>
+                                <option value="none" {% if request.GET.warranty == 'none' %}selected{% endif %}>No Warranty</option>
+                            </select>
+                        </div>
+
+                        <!-- Reset Filters -->
+                        <div class="d-grid">
+                            <a href="{% url 'hostels:inventory_list' %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Reset Filters
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="card list-card mt-4">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">Inventory Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="small text-muted mb-2">Items by Condition</div>
+                    {% for condition in condition_summary %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small">{{ condition.condition__label }}:</span>
+                        <span class="fw-semibold">{{ condition.count }}</span>
+                    </div>
+                    <div class="progress mb-3" style="height: 4px;">
+                        <div class="progress-bar bg-{{ condition.condition__color }}" 
+                             style="width: {{ condition.percentage }}%">
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    <hr>
+                    
+                    <div class="small text-muted mb-2">Top Categories</div>
+                    {% for category in top_categories %}
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="small">{{ category.category }}:</span>
+                        <span class="fw-semibold">{{ category.count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <!-- Search and Actions Bar -->
+            <div class="card list-card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <div class="search-box">
+                                <i class="bi bi-search search-icon"></i>
+                                <input type="text" class="form-control search-input" placeholder="Search by item name, serial number, category..." id="searchInput">
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <div class="btn-group">
+                                <button class="btn btn-outline-primary btn-sm" onclick="exportInventory()">
+                                    <i class="bi bi-download me-2"></i>Export
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="bi bi-printer me-2"></i>Print
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" onclick="printLabels()">Print Labels</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="printReport()">Print Report</a></li>
+                                </ul>
+                                <div class="btn-group ms-2" role="group">
+                                    <input type="radio" class="btn-check" name="viewMode" id="tableView" autocomplete="off" checked>
+                                    <label class="btn btn-outline-primary btn-sm" for="tableView" onclick="setViewMode('table')">
+                                        <i class="bi bi-table"></i>
+                                    </label>
+                                    <input type="radio" class="btn-check" name="viewMode" id="gridView" autocomplete="off">
+                                    <label class="btn btn-outline-primary btn-sm" for="gridView" onclick="setViewMode('grid')">
+                                        <i class="bi bi-grid-3x3-gap"></i>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Table/Grid -->
+            <div class="card list-card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        Inventory Items 
+                        <span class="badge bg-primary ms-2">{{ items.paginator.count }}</span>
+                    </h5>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAll">
+                        <label class="form-check-label small text-muted" for="selectAll">
+                            Select All
+                        </label>
+                    </div>
+                </div>
+
+                <div class="card-body p-0">
+                    <!-- Table View -->
+                    <div id="tableViewContent">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0" id="inventoryTable">
+                                <thead>
+                                    <tr>
+                                        <th width="30">
+                                            <input type="checkbox" class="form-check-input" id="headerCheckbox">
+                                        </th>
+                                        <th>Item Details</th>
+                                        <th>Location</th>
+                                        <th>Category & Serial</th>
+                                        <th>Condition & Status</th>
+                                        <th>Purchase Details</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in items %}
+                                    <tr class="inventory-row" data-item-id="{{ item.id }}">
+                                        <td>
+                                            <input type="checkbox" class="form-check-input item-checkbox" value="{{ item.id }}">
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="item-avatar me-3">
+                                                    {{ item.name|slice:":2"|upper }}
+                                                </div>
+                                                <div>
+                                                    <div class="fw-semibold">
+                                                        {{ item.name }}
+                                                        {% if item.quantity > 1 %}
+                                                        <span class="badge bg-secondary ms-1">x{{ item.quantity }}</span>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="text-muted small">
+                                                        Added: {{ item.created_at|date:"M d, Y" }}
+                                                    </div>
+                                                    {% if item.purchase_cost %}
+                                                    <div class="value-badge">
+                                                        ₹{{ item.purchase_cost }}
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold">{{ item.hostel.name }}</div>
+                                            <div class="text-muted small">
+                                                {% if item.room %}
+                                                    Room {{ item.room.room_number }}
+                                                {% else %}
+                                                    Common Area
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="category-tag">{{ item.category }}</span>
+                                            {% if item.serial_number %}
+                                            <div class="text-muted small mt-1">
+                                                <i class="bi bi-upc me-1"></i>{{ item.serial_number|truncatechars:15 }}
+                                            </div>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="condition-badge condition-{{ item.condition }}">
+                                                {{ item.get_condition_display }}
+                                            </span>
+                                            <div class="mt-1">
+                                                <span class="status-indicator status-{{ item.status }}"></span>
+                                                <span class="small">{{ item.get_status_display }}</span>
+                                            </div>
+                                            {% if item.is_warranty_valid %}
+                                            <span class="warranty-badge bg-success text-white mt-1">
+                                                <i class="bi bi-shield-check me-1"></i>Warranty
+                                            </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if item.purchase_date %}
+                                            <div class="small">
+                                                {{ item.purchase_date|date:"M Y" }}
+                                            </div>
+                                            {% endif %}
+                                            {% if item.warranty_expiry %}
+                                            <div class="small text-muted">
+                                                Warranty: {{ item.warranty_expiry|date:"M Y" }}
+                                            </div>
+                                            {% endif %}
+                                            {% if item.age_years %}
+                                            <div class="small text-info">
+                                                Age: {{ item.age_years }} years
+                                            </div>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{% url 'hostels:inventory_update' pk=item.pk %}" class="btn btn-outline-primary" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                                <button class="btn btn-outline-info" title="View Details" onclick="viewItemDetails('{{ item.id }}')">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                                {% if item.status == 'under_maintenance' %}
+                                                <a href="{% url 'hostels:maintenance_list' %}?item={{ item.id }}" class="btn btn-outline-warning" title="Maintenance">
+                                                    <i class="bi bi-tools"></i>
+                                                </a>
+                                                {% endif %}
+                                                <button class="btn btn-outline-secondary" title="Quick Actions" data-bs-toggle="dropdown">
+                                                    <i class="bi bi-three-dots"></i>
+                                                </button>
+                                                <ul class="dropdown-menu">
+                                                    <li><a class="dropdown-item" href="#" onclick="moveItem('{{ item.id }}')"><i class="bi bi-arrow-right-circle me-2"></i>Move Item</a></li>
+                                                    <li><a class="dropdown-item" href="#" onclick="requestMaintenance('{{ item.id }}')"><i class="bi bi-tools me-2"></i>Request Maintenance</a></li>
+                                                    <li><a class="dropdown-item" href="#" onclick="updateStatus('{{ item.id }}')"><i class="bi bi-arrow-repeat me-2"></i>Update Status</a></li>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li><a class="dropdown-item text-danger" href="#" onclick="deleteItem('{{ item.id }}')"><i class="bi bi-trash me-2"></i>Delete Item</a></li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="7">
+                                            <div class="empty-state">
+                                                <i class="bi bi-box-seam empty-state-icon"></i>
+                                                <h5>No Inventory Items Found</h5>
+                                                <p class="text-muted">No items match your current filters.</p>
+                                                <a href="{% url 'hostels:inventory_create' %}" class="btn btn-primary">
+                                                    <i class="bi bi-plus-circle me-2"></i>Add Your First Item
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Grid View (Hidden by default) -->
+                    <div id="gridViewContent" style="display: none;">
+                        <div class="row g-3 p-3" id="inventoryGrid">
+                            {% for item in items %}
+                            <div class="col-xl-4 col-lg-6 col-md-6">
+                                <div class="inventory-card">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <div class="item-avatar">
+                                                {{ item.name|slice:":2"|upper }}
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="condition-badge condition-{{ item.condition }}">
+                                                    {{ item.get_condition_display }}
+                                                </span>
+                                                {% if item.is_warranty_valid %}
+                                                <span class="warranty-badge bg-success text-white mt-1 d-block">
+                                                    <i class="bi bi-shield-check me-1"></i>Warranty
+                                                </span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        
+                                        <h6 class="card-title mb-2">{{ item.name }}</h6>
+                                        <span class="category-tag">{{ item.category }}</span>
+                                        
+                                        {% if item.quantity > 1 %}
+                                        <div class="badge bg-secondary ms-1">x{{ item.quantity }}</div>
+                                        {% endif %}
+                                        
+                                        <div class="mt-3">
+                                            <div class="small text-muted">Location</div>
+                                            <div class="fw-semibold">{{ item.hostel.name }}</div>
+                                            <div class="text-muted small">
+                                                {% if item.room %}
+                                                    Room {{ item.room.room_number }}
+                                                {% else %}
+                                                    Common Area
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mt-3">
+                                            <div class="small text-muted">Status</div>
+                                            <div>
+                                                <span class="status-indicator status-{{ item.status }}"></span>
+                                                {{ item.get_status_display }}
+                                            </div>
+                                        </div>
+                                        
+                                        {% if item.purchase_cost %}
+                                        <div class="value-badge mt-2">
+                                            ₹{{ item.purchase_cost }}
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <div class="action-buttons mt-3">
+                                            <a href="{% url 'hostels:inventory_update' pk=item.pk %}" class="btn btn-outline-primary btn-sm">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <button class="btn btn-outline-info btn-sm" onclick="viewItemDetails('{{ item.id }}')">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            {% if item.status == 'under_maintenance' %}
+                                            <a href="{% url 'hostels:maintenance_list' %}?item={{ item.id }}" class="btn btn-outline-warning btn-sm">
+                                                <i class="bi bi-tools"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if items.has_other_pages %}
+                    <div class="pagination-container">
+                        <nav aria-label="Inventory pagination">
+                            <ul class="pagination justify-content-center mb-0">
+                                {% if items.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ items.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </a>
+                                </li>
+                                {% endif %}
+
+                                {% for num in items.paginator.page_range %}
+                                    {% if items.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                    {% elif num > items.number|add:'-3' and num < items.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if items.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ items.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const inventoryTable = document.getElementById('inventoryTable');
+        const inventoryGrid = document.getElementById('inventoryGrid');
+        const headerCheckbox = document.getElementById('headerCheckbox');
+        const itemCheckboxes = document.querySelectorAll('.item-checkbox');
+        let currentViewMode = 'table';
+
+        // Search functionality
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            
+            if (currentViewMode === 'table') {
+                // Table view search
+                const rows = inventoryTable.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+                
+                for (let row of rows) {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(searchTerm) ? '' : 'none';
+                }
+            } else {
+                // Grid view search
+                const cards = inventoryGrid.getElementsByClassName('col-xl-4');
+                
+                for (let card of cards) {
+                    const text = card.textContent.toLowerCase();
+                    card.style.display = text.includes(searchTerm) ? '' : 'none';
+                }
+            }
+        });
+
+        // View mode switching
+        window.setViewMode = function(mode) {
+            currentViewMode = mode;
+            const tableView = document.getElementById('tableViewContent');
+            const gridView = document.getElementById('gridViewContent');
+            
+            if (mode === 'table') {
+                tableView.style.display = 'block';
+                gridView.style.display = 'none';
+                document.getElementById('tableView').checked = true;
+            } else {
+                tableView.style.display = 'none';
+                gridView.style.display = 'block';
+                document.getElementById('gridView').checked = true;
+            }
+            
+            // Save preference to localStorage
+            localStorage.setItem('inventoryViewMode', mode);
+        };
+
+        // Select all functionality
+        headerCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            itemCheckboxes.forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+        });
+
+        // Individual checkbox logic
+        itemCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateHeaderCheckbox();
+            });
+        });
+
+        function updateHeaderCheckbox() {
+            const allChecked = Array.from(itemCheckboxes).every(checkbox => checkbox.checked);
+            const someChecked = Array.from(itemCheckboxes).some(checkbox => checkbox.checked);
+            
+            headerCheckbox.checked = allChecked;
+            headerCheckbox.indeterminate = someChecked && !allChecked;
+        }
+
+        // Bulk actions
+        window.exportInventory = function() {
+            const selectedItems = getSelectedItems();
+            const exportAll = selectedItems.length === 0;
+            
+            if (exportAll) {
+                if (!confirm('Export all inventory items?')) return;
+            } else {
+                if (!confirm(`Export ${selectedItems.length} selected items?`)) return;
+            }
+
+            // In real implementation, this would be an API call
+            console.log('Exporting items:', exportAll ? 'ALL' : selectedItems);
+            showNotification(`${exportAll ? 'All' : selectedItems.length} items exported successfully.`, 'success');
+        };
+
+        window.bulkUpdateStatus = function() {
+            const selectedItems = getSelectedItems();
+            if (selectedItems.length === 0) {
+                alert('Please select at least one item to update.');
+                return;
+            }
+            
+            // In real implementation, this would open a status update modal
+            alert(`Bulk status update for ${selectedItems.length} items. This would open a status selection modal.`);
+        };
+
+        window.scheduleMaintenance = function() {
+            const selectedItems = getSelectedItems();
+            if (selectedItems.length === 0) {
+                alert('Please select at least one item for maintenance scheduling.');
+                return;
+            }
+            
+            // In real implementation, this would open a maintenance scheduling form
+            alert(`Schedule maintenance for ${selectedItems.length} items. This would open a maintenance scheduling form.`);
+        };
+
+        // Individual item actions
+        window.viewItemDetails = function(itemId) {
+            // In real implementation, this would open a modal with item details
+            alert(`Viewing details for item ${itemId}. This would open a modal with complete item information.`);
+        };
+
+        window.moveItem = function(itemId) {
+            // In real implementation, this would open a move item modal
+            alert(`Move item ${itemId} to different location. This would open a location selection modal.`);
+        };
+
+        window.requestMaintenance = function(itemId) {
+            // In real implementation, this would redirect to maintenance request form
+            window.location.href = `{% url 'hostels:maintenance_create' %}?item=${itemId}`;
+        };
+
+        window.updateStatus = function(itemId) {
+            // In real implementation, this would open a status update modal
+            alert(`Update status for item ${itemId}. This would open a status selection modal.`);
+        };
+
+        window.deleteItem = function(itemId) {
+            if (confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+                // In real implementation, this would be an AJAX call
+                console.log('Deleting item:', itemId);
+                showNotification('Item deleted successfully.', 'success');
+                // Reload or remove the item from view
+                setTimeout(() => location.reload(), 1000);
+            }
+        };
+
+        // Quick actions
+        window.quickScan = function() {
+            alert('Quick scan feature would open a barcode scanner interface for quick inventory updates.');
+        };
+
+        window.printLabels = function() {
+            const selectedItems = getSelectedItems();
+            const printAll = selectedItems.length === 0;
+            
+            if (printAll) {
+                if (!confirm('Print labels for all inventory items?')) return;
+            } else {
+                if (!confirm(`Print labels for ${selectedItems.length} selected items?`)) return;
+            }
+            
+            alert(`Printing ${printAll ? 'all' : selectedItems.length} item labels. This would generate printable labels.`);
+        };
+
+        window.printReport = function() {
+            alert('Print inventory report. This would generate a comprehensive inventory report.');
+        };
+
+        window.generateReport = function() {
+            alert('Generate inventory report. This would create a detailed inventory analysis report.');
+        };
+
+        // Utility functions
+        function getSelectedItems() {
+            const selectedItems = [];
+            itemCheckboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    selectedItems.push(checkbox.value);
+                }
+            });
+            return selectedItems;
+        }
+
+        function showNotification(message, type) {
+            // Simple notification - in real app, use a proper notification library
+            const alertClass = type === 'success' ? 'alert-success' : 'alert-info';
+            const notification = document.createElement('div');
+            notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        // Load saved view mode preference
+        const savedViewMode = localStorage.getItem('inventoryViewMode');
+        if (savedViewMode) {
+            setViewMode(savedViewMode);
+        }
+
+        // Initialize header checkbox state
+        updateHeaderCheckbox();
+
+        // Auto-refresh data every 60 seconds
+        function refreshInventoryData() {
+            // In real implementation, this would fetch updated data via AJAX
+            console.log('Refreshing inventory data...');
+        }
+
+        // Uncomment to enable auto-refresh
+        // setInterval(refreshInventoryData, 60000);
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 'n':
+                        e.preventDefault();
+                        window.location.href = "{% url 'hostels:inventory_create' %}";
+                        break;
+                    case 'f':
+                        e.preventDefault();
+                        searchInput.focus();
+                        break;
+                    case 'e':
+                        e.preventDefault();
+                        exportInventory();
+                        break;
+                    case 'a':
+                        e.preventDefault();
+                        headerCheckbox.click();
+                        break;
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

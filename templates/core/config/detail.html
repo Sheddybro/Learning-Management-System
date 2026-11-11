@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Configuration: {{ config.key }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-eye"></i> Configuration Details
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'core:config_update' config.pk %}" class="btn btn-warning btn-sm">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <a href="{% url 'core:config_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Back to List
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Key:</dt>
+                        <dd class="col-sm-9">
+                            <code>{{ config.key }}</code>
+                        </dd>
+
+                        <dt class="col-sm-3">Type:</dt>
+                        <dd class="col-sm-9">
+                            <span class="badge badge-info">{{ config.get_config_type_display }}</span>
+                        </dd>
+
+                        <dt class="col-sm-3">Description:</dt>
+                        <dd class="col-sm-9">
+                            {{ config.description|default:"No description provided" }}
+                        </dd>
+
+                        <dt class="col-sm-3">Value:</dt>
+                        <dd class="col-sm-9">
+                            <div class="bg-light p-3 rounded">
+                                <pre class="mb-0"><code id="configValue">{{ config.value|safe }}</code></pre>
+                            </div>
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="copyValue">
+                                    <i class="fas fa-copy"></i> Copy Value
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-info" id="formatValue">
+                                    <i class="fas fa-magic"></i> Format JSON
+                                </button>
+                            </div>
+                        </dd>
+
+                        <dt class="col-sm-3">Status:</dt>
+                        <dd class="col-sm-9">
+                            {% if config.status == 'active' %}
+                                <span class="badge badge-success">Active</span>
+                            {% elif config.status == 'inactive' %}
+                                <span class="badge badge-warning">Inactive</span>
+                            {% else %}
+                                <span class="badge badge-secondary">{{ config.get_status_display }}</span>
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-3">Visibility:</dt>
+                        <dd class="col-sm-9">
+                            {% if config.is_public %}
+                                <i class="fas fa-globe text-success"></i> Public
+                            {% else %}
+                                <i class="fas fa-lock text-warning"></i> Private
+                            {% endif %}
+                            {% if config.is_encrypted %}
+                                <br><i class="fas fa-shield-alt text-danger"></i> Encrypted
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-3">Created:</dt>
+                        <dd class="col-sm-9">{{ config.created_at|date:"M d, Y H:i:s" }}</dd>
+
+                        <dt class="col-sm-3">Last Updated:</dt>
+                        <dd class="col-sm-9">{{ config.updated_at|date:"M d, Y H:i:s" }}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Audit Trail -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-history"></i> Recent Changes
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div id="auditTrail">
+                        <p class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin"></i> Loading audit trail...
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-bolt"></i> Quick Actions
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'core:config_update' config.pk %}" class="btn btn-warning">
+                            <i class="fas fa-edit"></i> Edit Configuration
+                        </a>
+                        <a href="{% url 'core:get_config_value' config.key %}" class="btn btn-info" target="_blank">
+                            <i class="fas fa-external-link-alt"></i> API Endpoint
+                        </a>
+                        <button type="button" class="btn btn-secondary" onclick="window.print()">
+                            <i class="fas fa-print"></i> Print Details
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Related Configurations -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-link"></i> Related Configurations
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">Other configurations of the same type:</p>
+                    <div id="relatedConfigs">
+                        <p class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Usage Statistics -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-chart-bar"></i> Usage Statistics
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="text-center">
+                        <div class="mb-3">
+                            <span class="h4 text-primary">{{ config.updated_at|timesince }}</span>
+                            <br><small class="text-muted">Since last update</small>
+                        </div>
+                        <div class="mb-3">
+                            <span class="h4 text-info">{{ config.created_at|timesince }}</span>
+                            <br><small class="text-muted">Age</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+#configValue {
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Copy value to clipboard
+    $('#copyValue').on('click', function() {
+        var value = $('#configValue').text();
+        navigator.clipboard.writeText(value).then(function() {
+            // Show success message
+            var btn = $('#copyValue');
+            var originalHtml = btn.html();
+            btn.html('<i class="fas fa-check"></i> Copied!');
+            btn.removeClass('btn-outline-secondary').addClass('btn-success');
+
+            setTimeout(function() {
+                btn.html(originalHtml);
+                btn.removeClass('btn-success').addClass('btn-outline-secondary');
+            }, 2000);
+        });
+    });
+
+    // Format JSON value
+    $('#formatValue').on('click', function() {
+        try {
+            var value = $('#configValue').text();
+            var parsed = JSON.parse(value);
+            var formatted = JSON.stringify(parsed, null, 2);
+            $('#configValue').text(formatted);
+            $(this).prop('disabled', true).html('<i class="fas fa-check"></i> Formatted');
+        } catch (e) {
+            alert('Value is not valid JSON or is already formatted.');
+        }
+    });
+
+    // Load audit trail (simulated - in real implementation, this would be an API call)
+    loadAuditTrail();
+
+    // Load related configurations
+    loadRelatedConfigs();
+
+    function loadAuditTrail() {
+        // This would typically make an AJAX call to get audit logs for this configuration
+        $('#auditTrail').html(`
+            <div class="timeline timeline-inverse">
+                <div class="time-label">
+                    <span class="bg-success">Recent Activity</span>
+                </div>
+                <div>
+                    <i class="fas fa-edit bg-blue"></i>
+                    <div class="timeline-item">
+                        <span class="time"><i class="fas fa-clock"></i> {{ config.updated_at|timesince }}</span>
+                        <h3 class="timeline-header">Configuration updated</h3>
+                        <div class="timeline-body">
+                            Last modification to this configuration.
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <i class="fas fa-plus bg-green"></i>
+                    <div class="timeline-item">
+                        <span class="time"><i class="fas fa-clock"></i> {{ config.created_at|timesince }}</span>
+                        <h3 class="timeline-header">Configuration created</h3>
+                        <div class="timeline-body">
+                            Initial creation of this configuration.
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <i class="fas fa-clock bg-gray"></i>
+                </div>
+            </div>
+        `);
+    }
+
+    function loadRelatedConfigs() {
+        // This would typically make an AJAX call to get related configurations
+        $.ajax({
+            url: '{% url "core:config_list" %}',
+            data: {
+                config_type: '{{ config.config_type }}',
+                format: 'json'
+            },
+            success: function(data) {
+                var html = '<ul class="list-group list-group-flush">';
+                // This is a simplified version - in practice you'd parse the returned data
+                html += '<li class="list-group-item text-muted small">Related configurations would be listed here.</li>';
+                html += '</ul>';
+                $('#relatedConfigs').html(html);
+            },
+            error: function() {
+                $('#relatedConfigs').html('<p class="text-muted small">Unable to load related configurations.</p>');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

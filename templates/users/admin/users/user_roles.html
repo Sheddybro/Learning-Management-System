@@ -1,0 +1,828 @@
+{% extends 'base/base.html' %} 
+{% load static i18n %} 
+
+{% block title %}{% trans "Manage User Roles" %} - {{ target_user.display_name }} - {{ block.super }}{% endblock %} 
+
+{% block page_title %}{% trans "Manage User Roles" %}: {{ target_user.display_name }}{% endblock %} 
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item">
+  <a href="{% url 'users:user_list' %}">{% trans "Users" %}</a>
+</li>
+<li class="breadcrumb-item">
+  <a href="{% url 'users:user_detail' target_user.id %}">{{ target_user.display_name }}</a>
+</li>
+<li class="breadcrumb-item active" aria-current="page">
+  {% trans "Manage Roles" %}
+</li>
+{% endblock %} 
+
+{% block content %}
+<div class="container-fluid">
+  {% if not can_manage_users %}
+  <div class="alert alert-danger" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <strong>{% trans "Access Denied" %}</strong>
+    {% trans "You don't have permission to manage user roles." %}
+  </div>
+  {% else %}
+  <div class="row">
+    <!-- Current Roles Column -->
+    <div class="col-lg-8">
+      <div class="card mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">
+            <i class="bi bi-person-gear me-2"></i>
+            {% trans "Current Role Assignments" %}
+          </h5>
+          <span class="badge bg-light text-dark">{{ user_roles.count }} {% trans "roles" %}</span>
+        </div>
+        <div class="card-body">
+          {% if user_roles %}
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead class="table-light">
+                <tr>
+                  <th>{% trans "Role" %}</th>
+                  <th>{% trans "Type" %}</th>
+                  <th>{% trans "Context" %}</th>
+                  <th>{% trans "Primary" %}</th>
+                  <th>{% trans "Status" %}</th>
+                  <th>{% trans "Assigned" %}</th>
+                  <th width="120">{% trans "Actions" %}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for user_role in user_roles %}
+                <tr class="{% if not user_role.is_active %}table-secondary{% endif %}">
+                  <td>
+                    <div class="d-flex align-items-center">
+                      <div class="flex-shrink-0 me-3">
+                        <i class="bi bi-person-badge text-primary fs-5"></i>
+                      </div>
+                      <div class="flex-grow-1">
+                        <h6 class="mb-1">{{ user_role.role.name }}</h6>
+                        <small class="text-muted">{{ user_role.role.description|default:"No description" }}</small>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="badge bg-info">{{ user_role.role.get_role_type_display }}</span>
+                  </td>
+                  <td>
+                    <div class="d-flex flex-column">
+                      {% if user_role.academic_session %}
+                      <span class="badge bg-secondary mb-1">
+                        {{ user_role.academic_session.name }}
+                      </span>
+                      {% endif %} 
+                      {% if user_role.context_id %}
+                      <small class="text-muted">{{ user_role.context_id }}</small>
+                      {% else %}
+                      <span class="text-muted">-</span>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td>
+                    {% if user_role.is_primary %}
+                    <span class="badge bg-success">
+                      <i class="bi bi-star-fill me-1"></i>{% trans "Primary" %}
+                    </span>
+                    {% else %}
+                    <span class="badge bg-outline-secondary">{% trans "Secondary" %}</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span class="badge bg-{% if user_role.status == 'active' %}success{% elif user_role.status == 'inactive' %}danger{% else %}warning{% endif %}">
+                      {{ user_role.get_status_display }}
+                    </span>
+                  </td>
+                  <td>
+                    <small class="text-muted" title="{{ user_role.created_at|date:'DATETIME_FORMAT' }}">
+                      {{ user_role.created_at|timesince }} {% trans "ago" %}
+                    </small>
+                  </td>
+                  <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                      {% if user_role.is_primary %}
+                      <button type="button" class="btn btn-outline-warning" onclick="setAsSecondary('{{ user_role.id }}')" title="{% trans 'Set as Secondary' %}">
+                        <i class="bi bi-star"></i>
+                      </button>
+                      {% else %}
+                      <button type="button" class="btn btn-outline-success" onclick="setAsPrimary('{{ user_role.id }}')" title="{% trans 'Set as Primary' %}">
+                        <i class="bi bi-star-fill"></i>
+                      </button>
+                      {% endif %}
+
+                      <button type="button" class="btn btn-outline-danger" onclick="removeRole('{{ user_role.id }}', '{{ user_role.role.name }}')" title="{% trans 'Remove Role' %}">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center py-4">
+            <i class="bi bi-person-x display-4 text-muted d-block mb-3"></i>
+            <h5 class="text-muted">{% trans "No Roles Assigned" %}</h5>
+            <p class="text-muted">
+              {% trans "This user doesn't have any roles assigned yet." %}
+            </p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Role Capabilities Overview -->
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="bi bi-shield-check me-2"></i>
+            {% trans "Effective Permissions" %}
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <h6 class="text-muted mb-3">{% trans "User Management" %}</h6>
+              <div class="d-flex flex-wrap gap-2 mb-3">
+                {% if 'view_users' in effective_permissions %}
+                <span class="badge bg-success">{% trans "View Users" %}</span>
+                {% endif %} 
+                {% if 'add_users' in effective_permissions %}
+                <span class="badge bg-success">{% trans "Add Users" %}</span>
+                {% endif %} 
+                {% if 'edit_users' in effective_permissions %}
+                <span class="badge bg-success">{% trans "Edit Users" %}</span>
+                {% endif %} 
+                {% if 'delete_users' in effective_permissions %}
+                <span class="badge bg-success">{% trans "Delete Users" %}</span>
+                {% endif %}
+              </div>
+
+              <h6 class="text-muted mb-3">{% trans "Academic Management" %}</h6>
+              <div class="d-flex flex-wrap gap-2 mb-3">
+                {% if 'view_classes' in effective_permissions %}
+                <span class="badge bg-success">{% trans "View Classes" %}</span>
+                {% endif %} 
+                {% if 'manage_classes' in effective_permissions %}
+                <span class="badge bg-success">{% trans "Manage Classes" %}</span>
+                {% endif %} 
+                {% if 'view_subjects' in effective_permissions %}
+                <span class="badge bg-success">{% trans "View Subjects" %}</span>
+                {% endif %} 
+                {% if 'manage_subjects' in effective_permissions %}
+                <span class="badge bg-success">{% trans "Manage Subjects" %}</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <h6 class="text-muted mb-3">{% trans "Assessment & Grading" %}</h6>
+              <div class="d-flex flex-wrap gap-2 mb-3">
+                {% if 'view_grades' in effective_permissions %}
+                <span class="badge bg-success">{% trans "View Grades" %}</span>
+                {% endif %} 
+                {% if 'enter_grades' in effective_permissions %}
+                <span class="badge bg-success">{% trans "Enter Grades" %}</span>
+                {% endif %} 
+                {% if 'manage_exams' in effective_permissions %}
+                <span class="badge bg-success">{% trans "Manage Exams" %}</span>
+                {% endif %} 
+                {% if 'generate_reports' in effective_permissions %}
+                <span class="badge bg-success">{% trans "Generate Reports" %}</span>
+                {% endif %}
+              </div>
+
+              <h6 class="text-muted mb-3">{% trans "Financial Management" %}</h6>
+              <div class="d-flex flex-wrap gap-2">
+                {% if 'view_finances' in effective_permissions %}
+                <span class="badge bg-success">{% trans "View Finances" %}</span>
+                {% endif %} 
+                {% if 'manage_fees' in effective_permissions %}
+                <span class="badge bg-success">{% trans "Manage Fees" %}</span>
+                {% endif %} 
+                {% if 'process_payments' in effective_permissions %}
+                <span class="badge bg-success">{% trans "Process Payments" %}</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          {% if not effective_permissions %}
+          <div class="text-center text-muted py-3">
+            <i class="bi bi-shield-slash display-6 d-block mb-2"></i>
+            <p class="mb-0">
+              {% trans "No specific permissions granted through roles." %}
+            </p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Assign New Role Column -->
+    <div class="col-lg-4">
+      <!-- User Summary Card -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="bi bi-person-circle me-2"></i>
+            {% trans "User Summary" %}
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="text-center mb-3">
+            {% if target_user.profile.profile_picture %}
+            <img src="{{ target_user.profile.profile_picture.url }}" alt="{{ target_user.display_name }}" class="rounded-circle img-thumbnail mb-3" style="width: 80px; height: 80px; object-fit: cover" />
+            {% else %}
+            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 80px; height: 80px">
+              <span class="text-white h5">{{ target_user.get_initials }}</span>
+            </div>
+            {% endif %}
+            <h6 class="mb-1">{{ target_user.display_name }}</h6>
+            <p class="text-muted mb-2">{{ target_user.email }}</p>
+
+            <div class="d-flex justify-content-center flex-wrap gap-1">
+              {% for user_role in user_roles %} 
+              {% if user_role.is_primary %}
+              <span class="badge bg-primary">
+                {{ user_role.role.name }}
+                <i class="bi bi-star-fill ms-1"></i>
+              </span>
+              {% endif %} 
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="d-grid gap-2">
+            <a href="{% url 'users:user_detail' target_user.id %}" class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-eye me-1"></i>{% trans "View Profile" %}
+            </a>
+            <a href="{% url 'users:user_update' target_user.id %}" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-pencil me-1"></i>{% trans "Edit User" %}
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Assign New Role Card -->
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="bi bi-person-plus me-2"></i>
+            {% trans "Assign New Role" %}
+          </h5>
+        </div>
+        <div class="card-body">
+          <form method="post" id="assignRoleForm">
+            {% csrf_token %}
+
+            <div class="mb-3">
+              <label for="{{ form.role.id_for_label }}" class="form-label">
+                {% trans "Role" %} *
+              </label>
+              {{ form.role }} 
+              {% if form.role.help_text %}
+              <div class="form-text">{{ form.role.help_text }}</div>
+              {% endif %} 
+              {% if form.role.errors %}
+              <div class="invalid-feedback d-block">
+                {{ form.role.errors.0 }}
+              </div>
+              {% endif %}
+            </div>
+
+            {% if form.institution %}
+            <div class="mb-3">
+              <label for="{{ form.institution.id_for_label }}" class="form-label">
+                {% trans "Institution" %} 
+                {% if not form.institution.required %}* {% endif %}
+              </label>
+              {{ form.institution }} 
+              {% if form.institution.help_text %}
+              <div class="form-text">{{ form.institution.help_text }}</div>
+              {% endif %} 
+              {% if form.institution.errors %}
+              <div class="invalid-feedback d-block">
+                {{ form.institution.errors.0 }}
+              </div>
+              {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="mb-3">
+              <label for="{{ form.academic_session.id_for_label }}" class="form-label">
+                {% trans "Academic Session" %}
+              </label>
+              {{ form.academic_session }} 
+              {% if form.academic_session.help_text %}
+              <div class="form-text">{{ form.academic_session.help_text }}</div>
+              {% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label for="{{ form.context_id.id_for_label }}" class="form-label">
+                {% trans "Context ID" %}
+              </label>
+              {{ form.context_id }} 
+              {% if form.context_id.help_text %}
+              <div class="form-text">{{ form.context_id.help_text }}</div>
+              {% endif %}
+            </div>
+
+            <div class="mb-3">
+              <div class="form-check">
+                {{ form.is_primary }}
+                <label class="form-check-label" for="{{ form.is_primary.id_for_label }}">
+                  {% trans "Set as Primary Role" %}
+                </label>
+                {% if form.is_primary.help_text %}
+                <div class="form-text">{{ form.is_primary.help_text }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="d-grid">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i>{% trans "Assign Role" %}
+              </button>
+            </div>
+          </form>
+
+          <!-- Quick Role Assignment -->
+          <div class="mt-4">
+            <h6 class="text-muted mb-3">{% trans "Quick Assign" %}</h6>
+            <div class="d-grid gap-2">
+              {% for role in quick_roles %}
+              <button type="button" class="btn btn-outline-primary btn-sm text-start" onclick="quickAssignRole('{{ role.id }}', '{{ role.name }}')">
+                <i class="bi bi-person-badge me-2"></i>
+                {{ role.name }}
+              </button>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Role Statistics -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="bi bi-graph-up me-2"></i>
+            {% trans "Role Statistics" %}
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row text-center">
+            <div class="col-6 mb-3">
+              <div class="border rounded p-3">
+                <i class="bi bi-person-badge text-primary display-6 d-block mb-2"></i>
+                <h6 class="mb-1">{% trans "Total Roles" %}</h6>
+                <h4 class="mb-0">{{ user_roles.count }}</h4>
+              </div>
+            </div>
+            <div class="col-6 mb-3">
+              <div class="border rounded p-3">
+                <i class="bi bi-star-fill text-warning display-6 d-block mb-2"></i>
+                <h6 class="mb-1">{% trans "Primary" %}</h6>
+                <h4 class="mb-0">{{ primary_roles_count }}</h4>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="border rounded p-3">
+                <i class="bi bi-check-circle text-success display-6 d-block mb-2"></i>
+                <h6 class="mb-1">{% trans "Active" %}</h6>
+                <h4 class="mb-0">{{ active_roles_count }}</h4>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="border rounded p-3">
+                <i class="bi bi-clock text-muted display-6 d-block mb-2"></i>
+                <h6 class="mb-1">{% trans "Inactive" %}</h6>
+                <h4 class="mb-0">{{ inactive_roles_count }}</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Remove Role Confirmation Modal -->
+<div class="modal fade" id="removeRoleModal" tabindex="-1" aria-labelledby="removeRoleModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="removeRoleModalLabel">
+          {% trans "Remove Role Assignment" %}
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>
+          {% trans "Are you sure you want to remove the role" %}
+          <strong id="roleNameToRemove">[Role Name]</strong> {% trans "from this user?" %}
+        </p>
+        <div class="alert alert-warning">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          <strong>{% trans "Warning:" %}</strong> {% trans "This action cannot be undone. The user will lose all permissions associated with this role." %}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          {% trans "Cancel" %}
+        </button>
+        <button type="button" class="btn btn-danger" onclick="confirmRemoveRole()">
+          {% trans "Remove Role" %}
+        </button>
+        <input type="hidden" name="user_role_id" id="userRoleIdToRemove" />
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Set Primary Role Modal -->
+<div class="modal fade" id="setPrimaryModal" tabindex="-1" aria-labelledby="setPrimaryModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="setPrimaryModalLabel">
+          {% trans "Set Primary Role" %}
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>
+          {% trans "Are you sure you want to set" %}
+          <strong id="roleNameToSetPrimary">[Role Name]</strong> {% trans "as the primary role for this user?" %}
+        </p>
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle me-2"></i>
+          {% trans "Setting this role as primary will automatically demote any other primary role in the same context." %}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          {% trans "Cancel" %}
+        </button>
+        <form method="post" action="{% url 'users:user_role_set_primary' target_user.id %}" id="setPrimaryForm" style="display: inline">
+          {% csrf_token %}
+          <input type="hidden" name="user_role_id" id="userRoleIdToSetPrimary" />
+          <button type="submit" class="btn btn-primary">
+            {% trans "Set as Primary" %}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .role-card {
+    transition: transform 0.2s ease;
+  }
+
+  .role-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .permission-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+  }
+
+  .stats-card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+
+  .quick-role-btn {
+    transition: all 0.2s ease;
+  }
+
+  .quick-role-btn:hover {
+    background-color: #65a0f9 !important;
+    color: white !important;
+    transform: translateX(5px);
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const assignRoleForm = document.getElementById("assignRoleForm");
+    const removeRoleModal = new bootstrap.Modal(document.getElementById("removeRoleModal"));
+    const setPrimaryModal = new bootstrap.Modal(document.getElementById("setPrimaryModal"));
+    const roleSelect = document.getElementById("{{ form.role.id_for_label }}");
+    const isPrimaryCheckbox = document.getElementById("{{ form.is_primary.id_for_label }}");
+
+    // Form validation
+    assignRoleForm.addEventListener("submit", function (e) {
+      if (!validateAssignRoleForm()) {
+        e.preventDefault();
+        showFormErrors();
+      }
+    });
+
+    // Role selection change handler
+    if (roleSelect) {
+      roleSelect.addEventListener("change", function () {
+        updatePrimaryRoleWarning();
+      });
+    }
+
+    // Primary checkbox change handler
+    if (isPrimaryCheckbox) {
+      isPrimaryCheckbox.addEventListener("change", function () {
+        updatePrimaryRoleWarning();
+      });
+    }
+
+    function validateAssignRoleForm() {
+      let isValid = true;
+      resetValidation();
+
+      // Role is required
+      if (!roleSelect.value) {
+        roleSelect.classList.add("is-invalid");
+        isValid = false;
+      }
+
+      return isValid;
+    }
+
+    function resetValidation() {
+      const invalidElements = assignRoleForm.querySelectorAll(".is-invalid");
+      invalidElements.forEach((element) => {
+        element.classList.remove("is-invalid");
+      });
+    }
+
+    function showFormErrors() {
+      const firstInvalidField = assignRoleForm.querySelector(".is-invalid");
+      if (firstInvalidField) {
+        firstInvalidField.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        firstInvalidField.focus();
+      }
+    }
+
+    function updatePrimaryRoleWarning() {
+      // In a real implementation, you might want to check if the user already has a primary role
+      // and show a warning if they're about to assign another primary role
+    }
+
+    function quickAssignRole(roleId, roleName) {
+      if (roleSelect) {
+        roleSelect.value = roleId;
+
+        // Show confirmation toast
+        showToast(
+          '{% trans "Role Selected" %}',
+          `{% trans "Role" %} "${roleName}" {% trans "has been selected. Fill in the context details and click 'Assign Role'." %}`,
+          "info"
+        );
+
+        // Scroll to form
+        assignRoleForm.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  });
+
+  function removeRole(userRoleId, roleName) {
+    document.getElementById("roleNameToRemove").textContent = roleName;
+    document.getElementById("userRoleIdToRemove").value = userRoleId;
+
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById("removeRoleModal"));
+    modal.show();
+  }
+
+  function confirmRemoveRole() {
+    const userRoleId = document.getElementById("userRoleIdToRemove").value;
+    const roleName = document.getElementById("roleNameToRemove").textContent;
+
+    // Close the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById("removeRoleModal"));
+    modal.hide();
+
+    // Show loading state
+    showToast("Processing...", "", "info");
+
+    // Make AJAX request
+    fetch(`{% url 'users:user_role_remove' target_user.id %}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-CSRFToken": "{{ csrf_token }}",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      body: `user_role_id=${userRoleId}`,
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          // Success
+          showToast("Success", data.message, "success");
+
+          // Remove the row from table
+          const row = document.querySelector(`[onclick*="removeRole('${userRoleId}')"]`).closest("tr");
+          if (row) {
+            row.remove();
+          }
+
+          // Update statistics
+          updateStatistics(data.statistics);
+          updatePermissions(data.permissions);
+
+          // Update user summary if primary role was removed
+          updateUserSummary();
+        } else {
+          // Error
+          showToast("Error", data.message, "danger");
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        showToast("Error", "An unexpected error occurred.", "danger");
+      });
+  }
+
+  function updateStatistics(statistics) {
+    // Update total roles count
+    const totalBadge = document.querySelector(".badge.bg-light.text-dark");
+    if (totalBadge) {
+      totalBadge.textContent = `${statistics.total} roles`;
+    }
+
+    // Update primary roles count
+    const primaryCard = document.querySelector(".text-center .h4");
+    if (primaryCard && primaryCard.previousElementSibling.textContent.includes("Primary")) {
+      primaryCard.textContent = statistics.primary;
+    }
+
+    // Update active roles count
+    const activeCards = document.querySelectorAll(".text-center .h4");
+    activeCards.forEach((card) => {
+      const title = card.previousElementSibling.textContent;
+      if (title.includes("Active")) {
+        card.textContent = statistics.active;
+      } else if (title.includes("Inactive")) {
+        card.textContent = statistics.inactive;
+      }
+    });
+
+    // Update "No Roles Assigned" message if needed
+    const table = document.querySelector(".table");
+    const noRolesMessage = document.querySelector(".text-center.py-4");
+    if (statistics.total === 0 && noRolesMessage) {
+      if (table) table.style.display = "none";
+      if (noRolesMessage) noRolesMessage.style.display = "block";
+    }
+  }
+
+  function updatePermissions(permissions) {
+    const permissionContainer = document.querySelector(".d-flex.flex-wrap.gap-2.mb-3");
+    if (!permissionContainer) return;
+
+    // Clear existing permissions
+    permissionContainer.innerHTML = "";
+
+    // Check each permission category
+    const permissionCategories = [
+      ["Users", ["view_users", "add_users", "edit_users", "delete_users"]],
+      ["Academics", ["view_classes", "manage_classes", "view_subjects", "manage_subjects"]],
+      ["Assessment", ["view_grades", "enter_grades", "manage_exams", "generate_reports"]],
+      ["Finance", ["view_finances", "manage_fees", "process_payments"]],
+    ];
+
+    permissionCategories.forEach(([category, perms]) => {
+      const categoryContainer = permissionContainer.closest(".col-md-6").querySelector("h6");
+      if (categoryContainer && categoryContainer.textContent.includes(category)) {
+        const targetContainer = categoryContainer.nextElementSibling;
+        if (targetContainer && targetContainer.classList.contains("d-flex", "flex-wrap", "gap-2")) {
+          targetContainer.innerHTML = "";
+
+          perms.forEach((perm) => {
+            if (permissions.includes(perm)) {
+              const badge = document.createElement("span");
+              badge.className = "badge bg-success";
+
+              // Format permission name
+              const displayName = perm.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+              badge.textContent = displayName;
+
+              targetContainer.appendChild(badge);
+            }
+          });
+        }
+      }
+    });
+
+    // Handle no permissions message
+    const noPermMessage = document.querySelector(".text-center.text-muted.py-3");
+    if (permissions.length === 0 && noPermMessage) {
+      noPermMessage.style.display = "block";
+    } else if (noPermMessage) {
+      noPermMessage.style.display = "none";
+    }
+  }
+
+  function updateUserSummary() {
+    // Update primary role badges in user summary
+    const primaryBadges = document.querySelector(".d-flex.justify-content-center.flex-wrap.gap-1");
+    if (primaryBadges) {
+      primaryBadges.innerHTML = "";
+      // This would need more complex logic to determine primary roles
+      // For now, just clear and let the template handle it on next load
+    }
+  }
+
+  function setAsPrimary(userRoleId) {
+    // Get role name from the table row
+    const row = document.querySelector(`[onclick*="setAsPrimary('${userRoleId}')"]`).closest("tr");
+    const roleName = row.querySelector("h6").textContent;
+
+    document.getElementById("roleNameToSetPrimary").textContent = roleName;
+    document.getElementById("userRoleIdToSetPrimary").value = userRoleId;
+
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById("setPrimaryModal"));
+    modal.show();
+  }
+
+  function setAsSecondary(userRoleId) {
+    if (confirm('{% trans "Are you sure you want to set this role as secondary?" %}')) {
+      // Submit the form to set as secondary
+      const form = document.createElement("form");
+      form.method = "post";
+      form.action = `{% url 'users:user_role_set_secondary' target_user.id %}`;
+
+      const csrfInput = document.createElement("input");
+      csrfInput.type = "hidden";
+      csrfInput.name = "csrfmiddlewaretoken";
+      csrfInput.value = "{{ csrf_token }}";
+      form.appendChild(csrfInput);
+
+      const roleInput = document.createElement("input");
+      roleInput.type = "hidden";
+      roleInput.name = "user_role_id";
+      roleInput.value = userRoleId;
+      form.appendChild(roleInput);
+
+      document.body.appendChild(form);
+      form.submit();
+    }
+  }
+
+  function showToast(title, message, type) {
+    const toast = document.createElement("div");
+    toast.className = `toast align-items-center text-white bg-${type} border-0`;
+    toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <strong>${title}</strong>: ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+
+    const toastContainer = document.getElementById("toastContainer") || createToastContainer();
+    toastContainer.appendChild(toast);
+
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+  }
+
+  function createToastContainer() {
+    const container = document.createElement("div");
+    container.id = "toastContainer";
+    container.className = "toast-container position-fixed top-0 end-0 p-3";
+    container.style.zIndex = "9999";
+    document.body.appendChild(container);
+    return container;
+  }
+</script>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+  <div id="toastContainer"></div>
+</div>
+{% endblock %}

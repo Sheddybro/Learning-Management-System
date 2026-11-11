@@ -1,0 +1,768 @@
+<!-- templates/transport/routestops/routestop_confirm_delete.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Delete Stop" %} - {{ routestop.name }}{% endblock %}
+
+{% block page_title %}{% trans "Delete Stop" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:route_list' %}">{% trans "Routes" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:route_detail' routestop.route.pk %}">{{ routestop.route.code }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Delete Stop" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-confirmation-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #dc3545;
+        max-width: 700px;
+        margin: 0 auto;
+    }
+    
+    .warning-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background-color: #f8d7da;
+        color: #dc3545;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        margin: 0 auto 1.5rem;
+    }
+    
+    .stop-preview {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border: 1px solid #e9ecef;
+    }
+    
+    .preview-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .sequence-badge {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: #0d6efd;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.5rem;
+        margin-right: 1rem;
+    }
+    
+    .preview-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .preview-item:last-child {
+        border-bottom: none;
+    }
+    
+    .preview-label {
+        font-weight: 600;
+        color: #6c757d;
+        min-width: 140px;
+    }
+    
+    .preview-value {
+        font-weight: 500;
+        text-align: right;
+    }
+    
+    .impact-warning {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 1.5rem;
+        border-radius: 0 8px 8px 0;
+        margin: 1.5rem 0;
+    }
+    
+    .impact-item {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .impact-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .impact-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+    
+    .students-icon {
+        background-color: #e8f5e8;
+        color: #198754;
+    }
+    
+    .sequence-icon {
+        background-color: #e7f1ff;
+        color: #0d6efd;
+    }
+    
+    .route-icon {
+        background-color: #fef7e6;
+        color: #fd7e14;
+    }
+    
+    .btn-delete {
+        background-color: #dc3545;
+        border-color: #dc3545;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        border-radius: 8px;
+        min-width: 150px;
+    }
+    
+    .btn-delete:hover {
+        background-color: #bb2d3b;
+        border-color: #b02a37;
+    }
+    
+    .btn-delete:disabled {
+        background-color: #6c757d;
+        border-color: #6c757d;
+        cursor: not-allowed;
+    }
+    
+    .btn-cancel {
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        border-radius: 8px;
+        min-width: 150px;
+    }
+    
+    .critical-warning {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        text-align: center;
+    }
+    
+    .affected-items {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .affected-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+        background-color: white;
+        border-left: 4px solid #dc3545;
+    }
+    
+    .affected-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .item-count {
+        background-color: #dc3545;
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.875rem;
+        margin-right: 1rem;
+    }
+    
+    .confirmation-check {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border: 2px dashed #dee2e6;
+    }
+    
+    .pulse-warning {
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    .route-info {
+        background-color: #e7f1ff;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .student-allocation {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        background: white;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+        border: 1px solid #e9ecef;
+    }
+    
+    .student-allocation:last-child {
+        margin-bottom: 0;
+    }
+    
+    .student-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #0d6efd;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        margin-right: 1rem;
+        flex-shrink: 0;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .preview-item {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .preview-label {
+            min-width: auto;
+        }
+        
+        .preview-value {
+            text-align: left;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="route-stop-delete-confirmation">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card delete-confirmation-card">
+                <div class="card-body py-4">
+                    <!-- Warning Icon -->
+                    <div class="warning-icon pulse-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    
+                    <!-- Confirmation Title -->
+                    <div class="text-center mb-4">
+                        <h3 class="card-title text-danger mb-3">{% trans "Delete Stop Confirmation" %}</h3>
+                        <p class="card-text text-muted lead">
+                            {% trans "You are about to permanently delete this route stop from the system." %}
+                        </p>
+                    </div>
+                    
+                    <!-- Route Information -->
+                    <div class="route-info">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ routestop.route.code }} - {{ routestop.route.name }}</h6>
+                                <p class="text-muted mb-0 small">
+                                    {{ routestop.route.start_point }} → {{ routestop.route.end_point }}
+                                </p>
+                            </div>
+                            <span class="badge bg-primary">{{ routestop.route.stops.count }} stops</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Stop Preview -->
+                    <div class="stop-preview">
+                        <div class="preview-header">
+                            <div class="d-flex align-items-center">
+                                <div class="sequence-badge">
+                                    {{ routestop.sequence }}
+                                </div>
+                                <div>
+                                    <h5 class="mb-1">{{ routestop.name }}</h5>
+                                    <p class="text-muted mb-0">{{ routestop.address|truncatewords:10 }}</p>
+                                </div>
+                            </div>
+                            <span class="badge {% if routestop.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ routestop.get_status_display }}
+                            </span>
+                        </div>
+                        
+                        <div class="preview-item">
+                            <span class="preview-label">{% trans "Address:" %}</span>
+                            <span class="preview-value">{{ routestop.address }}</span>
+                        </div>
+                        
+                        {% if routestop.latitude and routestop.longitude %}
+                        <div class="preview-item">
+                            <span class="preview-label">{% trans "Coordinates:" %}</span>
+                            <span class="preview-value">{{ routestop.latitude }}, {{ routestop.longitude }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="preview-item">
+                            <span class="preview-label">{% trans "Estimated Arrival:" %}</span>
+                            <span class="preview-value">{{ routestop.estimated_arrival_time|time:"H:i" }}</span>
+                        </div>
+                        
+                        {% if routestop.pickup_time %}
+                        <div class="preview-item">
+                            <span class="preview-label">{% trans "Pickup Time:" %}</span>
+                            <span class="preview-value">{{ routestop.pickup_time|time:"H:i" }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if routestop.drop_time %}
+                        <div class="preview-item">
+                            <span class="preview-label">{% trans "Drop Time:" %}</span>
+                            <span class="preview-value">{{ routestop.drop_time|time:"H:i" }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Critical Warning -->
+                    <div class="critical-warning">
+                        <div class="d-flex align-items-center justify-content-center">
+                            <i class="fas fa-radiation-alt fa-2x me-3"></i>
+                            <div>
+                                <h4 class="mb-1">{% trans "CRITICAL ACTION" %}</h4>
+                                <p class="mb-0">{% trans "Deleting this stop will affect route sequencing and student allocations" %}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Impact Assessment -->
+                    <div class="impact-warning">
+                        <h5 class="text-warning mb-4">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            {% trans "This action will affect:" %}
+                        </h5>
+                        
+                        <div class="impact-item">
+                            <div class="impact-icon students-icon">
+                                <i class="fas fa-user-graduate"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-2">{% trans "Student Allocations" %}</h6>
+                                <p class="mb-2 text-muted">
+                                    {% trans "Students using this stop for pickup or drop-off will need to be reassigned." %}
+                                </p>
+                                {% if affected_allocations %}
+                                <small class="text-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    <strong>{{ affected_allocations.count }}</strong> {% trans "student allocations will be affected" %}
+                                </small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="impact-item">
+                            <div class="impact-icon sequence-icon">
+                                <i class="fas fa-sort-numeric-down"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-2">{% trans "Route Sequence" %}</h6>
+                                <p class="mb-2 text-muted">
+                                    {% trans "The sequence of all subsequent stops will need to be adjusted." %}
+                                </p>
+                                <small class="text-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    {% trans "Route timing calculations will be impacted" %}
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="impact-item">
+                            <div class="impact-icon route-icon">
+                                <i class="fas fa-route"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-2">{% trans "Route Efficiency" %}</h6>
+                                <p class="mb-2 text-muted">
+                                    {% trans "Removing this stop may affect the overall route efficiency and timing." %}
+                                </p>
+                                <small class="text-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    {% trans "Route optimization may be required" %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Affected Student Allocations -->
+                    {% if affected_allocations %}
+                    <div class="affected-items">
+                        <h6 class="mb-3">{% trans "Affected Student Allocations:" %}</h6>
+                        
+                        {% for allocation in affected_allocations|slice:":5" %}
+                        <div class="student-allocation">
+                            <div class="student-avatar">
+                                {{ allocation.student.first_name|first }}{{ allocation.student.last_name|first }}
+                            </div>
+                            <div class="flex-grow-1">
+                                <strong class="d-block">{{ allocation.student.get_full_name }}</strong>
+                                <small class="text-muted">
+                                    {{ allocation.student.grade_level.name }} •
+                                    {% if allocation.pickup_stop == routestop %}
+                                    <span class="text-primary">{% trans "Pickup Stop" %}</span>
+                                    {% elif allocation.drop_stop == routestop %}
+                                    <span class="text-success">{% trans "Drop Stop" %}</span>
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        {% if affected_allocations.count > 5 %}
+                        <div class="text-center mt-2">
+                            <small class="text-muted">
+                                {% trans "and" %} {{ affected_allocations.count|add:"-5" }} {% trans "more students..." %}
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Sequence Impact -->
+                    <div class="affected-items">
+                        <h6 class="mb-3">{% trans "Sequence Impact:" %}</h6>
+                        
+                        <div class="affected-item">
+                            <div class="item-count">{{ routestop.sequence }}</div>
+                            <div class="flex-grow-1">
+                                <strong>{% trans "Current Stop Position" %}</strong>
+                                <p class="small text-muted mb-0">
+                                    {% trans "This stop will be removed from sequence position" %} {{ routestop.sequence }}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="affected-item">
+                            <div class="item-count">{{ subsequent_stops.count }}</div>
+                            <div class="flex-grow-1">
+                                <strong>{% trans "Subsequent Stops" %}</strong>
+                                <p class="small text-muted mb-0">
+                                    {% trans "The following stops will need sequence adjustment:" %}
+                                    {% for stop in subsequent_stops|slice:":3" %}
+                                    {{ stop.sequence }}{% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                    {% if subsequent_stops.count > 3 %}...{% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Final Confirmation -->
+                    <div class="confirmation-check">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="confirmDelete" required>
+                            <label class="form-check-label" for="confirmDelete">
+                                <strong>{% trans "I understand that this action is permanent and cannot be undone" %}</strong>
+                            </label>
+                        </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="confirmReassignment" {% if not affected_allocations %}disabled{% endif %}>
+                            <label class="form-check-label" for="confirmReassignment">
+                                <strong>{% trans "I will reassign affected students to alternative stops" %}</strong>
+                            </label>
+                        </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="confirmSequence" required>
+                            <label class="form-check-label" for="confirmSequence">
+                                <strong>{% trans "I understand that route sequence will need to be updated" %}</strong>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-center gap-3 mt-4">
+                            <a href="{% url 'transport:route_detail' routestop.route.pk %}" class="btn btn-outline-secondary btn-cancel">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                {% trans "Back to Route" %}
+                            </a>
+                            <button type="submit" class="btn btn-delete" id="deleteButton" disabled>
+                                <i class="fas fa-trash me-2"></i>
+                                {% trans "Delete Stop" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Alternative Actions -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title text-center mb-3">{% trans "Alternative Actions" %}</h5>
+                    <p class="card-text text-muted text-center mb-4">
+                        {% trans "Consider these alternatives before deleting the stop:" %}
+                    </p>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <a href="{% url 'transport:routestop_update' routestop.pk %}" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-edit me-2"></i>
+                                {% trans "Edit Stop" %}
+                            </a>
+                            <small class="text-muted d-block mt-1 text-center">{% trans "Modify stop details instead" %}</small>
+                        </div>
+                        <div class="col-md-4">
+                            {% if routestop.status == 'active' %}
+                            <button class="btn btn-outline-warning w-100" id="deactivateStop">
+                                <i class="fas fa-pause me-2"></i>
+                                {% trans "Deactivate" %}
+                            </button>
+                            <small class="text-muted d-block mt-1 text-center">{% trans "Temporarily disable the stop" %}</small>
+                            {% else %}
+                            <button class="btn btn-outline-success w-100" id="activateStop">
+                                <i class="fas fa-play me-2"></i>
+                                {% trans "Activate" %}
+                            </button>
+                            <small class="text-muted d-block mt-1 text-center">{% trans "Re-enable the stop" %}</small>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-outline-info w-100" id="mergeStop">
+                                <i class="fas fa-compress-alt me-2"></i>
+                                {% trans "Merge Stop" %}
+                            </button>
+                            <small class="text-muted d-block mt-1 text-center">{% trans "Combine with nearby stop" %}</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Reassignment -->
+                    {% if affected_allocations %}
+                    <div class="mt-4 p-3 bg-light rounded">
+                        <h6 class="mb-2">{% trans "Quick Reassignment" %}</h6>
+                        <p class="small text-muted mb-3">
+                            {% trans "Reassign affected students before deleting this stop:" %}
+                        </p>
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'transport:transportallocation_list' %}?stop={{ routestop.pk }}" class="btn btn-outline-success btn-sm">
+                                <i class="fas fa-user-friends me-1"></i>{% trans "Manage Allocations" %}
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Enable delete button only when all required confirmation checkboxes are checked
+        const confirmDelete = document.getElementById('confirmDelete');
+        const confirmReassignment = document.getElementById('confirmReassignment');
+        const confirmSequence = document.getElementById('confirmSequence');
+        const deleteButton = document.getElementById('deleteButton');
+        
+        function updateDeleteButton() {
+            const requiredChecked = confirmDelete.checked && confirmSequence.checked;
+            // Reassignment confirmation is optional but recommended if there are affected allocations
+            const recommendedChecked = {% if affected_allocations %} confirmReassignment.checked {% else %} true {% endif %};
+            
+            deleteButton.disabled = !(requiredChecked && recommendedChecked);
+            
+            if (!deleteButton.disabled) {
+                deleteButton.classList.remove('btn-secondary');
+                deleteButton.classList.add('btn-danger');
+            } else {
+                deleteButton.classList.remove('btn-danger');
+                deleteButton.classList.add('btn-secondary');
+            }
+        }
+        
+        confirmDelete.addEventListener('change', updateDeleteButton);
+        confirmReassignment.addEventListener('change', updateDeleteButton);
+        confirmSequence.addEventListener('change', updateDeleteButton);
+        
+        // Add safety confirmation for delete button
+        deleteButton.addEventListener('click', function(e) {
+            if (!confirm('{% trans "FINAL WARNING: This will permanently delete the stop and affect student allocations. Are you absolutely sure?" %}')) {
+                e.preventDefault();
+            } else {
+                // Add loading state
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> {% trans "Deleting..." %}';
+                this.disabled = true;
+                
+                // Show processing message
+                const processingAlert = document.createElement('div');
+                processingAlert.className = 'alert alert-info mt-3';
+                processingAlert.innerHTML = `
+                    <i class="fas fa-sync-alt fa-spin me-2"></i>
+                    <strong>{% trans "Processing deletion..." %}</strong>
+                    <p class="mb-0 small">{% trans "Updating route sequence and student allocations. This may take a moment." %}</p>
+                `;
+                this.closest('.card-body').appendChild(processingAlert);
+            }
+        });
+        
+        // Alternative actions
+        document.getElementById('deactivateStop')?.addEventListener('click', function() {
+            if (confirm('{% trans "Deactivate this stop instead of deleting? This will preserve the stop but make it unavailable for allocations." %}')) {
+                // In a real implementation, this would make an API call to deactivate
+                window.location.href = '{% url "transport:routestop_update" routestop.pk %}';
+            }
+        });
+        
+        document.getElementById('activateStop')?.addEventListener('click', function() {
+            // In a real implementation, this would make an API call to activate
+            window.location.href = '{% url "transport:routestop_update" routestop.pk %}';
+        });
+        
+        document.getElementById('mergeStop')?.addEventListener('click', function() {
+            alert('{% trans "Merge functionality would allow combining this stop with a nearby stop, preserving student allocations." %}');
+        });
+        
+        // Add safety delay for delete button even when enabled
+        let safetyTimer;
+        
+        function enableDeleteWithDelay() {
+            const requiredChecked = confirmDelete.checked && confirmSequence.checked;
+            const recommendedChecked = {% if affected_allocations %} confirmReassignment.checked {% else %} true {% endif %};
+            
+            if (requiredChecked && recommendedChecked) {
+                safetyTimer = setTimeout(() => {
+                    deleteButton.disabled = false;
+                    deleteButton.classList.remove('btn-secondary');
+                    deleteButton.classList.add('btn-danger');
+                }, 3000); // 3 second safety delay
+            } else {
+                clearTimeout(safetyTimer);
+                deleteButton.disabled = true;
+                deleteButton.classList.remove('btn-danger');
+                deleteButton.classList.add('btn-secondary');
+            }
+        }
+        
+        // Update the event listeners to use the delayed version
+        confirmDelete.addEventListener('change', enableDeleteWithDelay);
+        confirmReassignment.addEventListener('change', enableDeleteWithDelay);
+        confirmSequence.addEventListener('change', enableDeleteWithDelay);
+        
+        // Add visual effects
+        const warningIcon = document.querySelector('.warning-icon');
+        let pulseInterval;
+        
+        function startPulseAnimation() {
+            pulseInterval = setInterval(() => {
+                warningIcon.classList.toggle('pulse-warning');
+            }, 4000);
+        }
+        
+        function stopPulseAnimation() {
+            clearInterval(pulseInterval);
+            warningIcon.classList.add('pulse-warning');
+        }
+        
+        startPulseAnimation();
+        
+        // Stop animation when user starts interacting with form
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('focus', stopPulseAnimation);
+        });
+        
+        // Add critical warning flash
+        const criticalWarning = document.querySelector('.critical-warning');
+        setInterval(() => {
+            criticalWarning.style.boxShadow = criticalWarning.style.boxShadow ? 
+                '' : '0 0 20px rgba(220, 53, 69, 0.5)';
+        }, 1000);
+        
+        // Show affected allocations count
+        const affectedCount = {{ affected_allocations.count|default:0 }};
+        if (affectedCount > 0) {
+            const reassignmentCheck = document.getElementById('confirmReassignment');
+            reassignmentCheck.disabled = false;
+            
+            // Add emphasis to student impact
+            const impactSection = document.querySelector('.impact-item .text-danger');
+            if (impactSection) {
+                impactSection.innerHTML = `
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <strong>${affectedCount}</strong> {% trans "student allocations will need reassignment!" %}
+                `;
+            }
+        }
+        
+        // Prevent accidental form submission
+        document.querySelector('form').addEventListener('submit', function(e) {
+            if (deleteButton.disabled) {
+                e.preventDefault();
+                alert('{% trans "Please confirm all safety checks before deleting." %}');
+            }
+        });
+        
+        // Add keyboard shortcut prevention
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.key === 'Return')) {
+                e.preventDefault();
+                alert('{% trans "Please use the delete button instead of keyboard shortcuts for this critical action." %}');
+            }
+        });
+        
+        // Show sequence impact details
+        const subsequentCount = {{ subsequent_stops.count|default:0 }};
+        if (subsequentCount > 0) {
+            const sequenceItem = document.querySelector('.affected-item .item-count:nth-child(2)');
+            if (sequenceItem) {
+                sequenceItem.parentElement.querySelector('p').innerHTML = `
+                    {% trans "The following" %} <strong>${subsequentCount}</strong> {% trans "stops will need sequence adjustment:" %}
+                    {% for stop in subsequent_stops|slice:":3" %}
+                    ${stop.sequence}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                    {% if subsequent_stops.count > 3 %}...{% endif %}
+                `;
+            }
+        }
+    });
+</script>
+{% endblock %}

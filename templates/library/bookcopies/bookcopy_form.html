@@ -1,0 +1,969 @@
+<!-- templates/library/bookcopies/bookcopy_form.html -->
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Book Copy" %} - {{ form.instance.book.title }}
+    {% else %}
+        {% trans "Add New Book Copy" %}
+    {% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if form.instance.pk %}
+        {% trans "Edit Book Copy" %}
+    {% else %}
+        {% trans "Add New Book Copy" %}
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:book_list' %}">{% trans "Books" %}</a></li>
+{% if form.instance.pk and form.instance.book and form.instance.book.pk %}
+<li class="breadcrumb-item"><a href="{% url 'library:book_detail' form.instance.book.pk %}">{{ form.instance.book.title }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Edit Copy" %} {{ form.instance.copy_number }}</li>
+{% else %}
+<li class="breadcrumb-item active" aria-current="page">{% trans "Add New Copy" %}</li>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Book Copy Form Specific Styles */
+    .form-card {
+        border-left: 4px solid #17a2b8;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .form-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .preview-card {
+        border-left: 4px solid #28a745;
+        background-color: #f8f9fa;
+    }
+    
+    .book-info-card {
+        border-left: 4px solid #6f42c1;
+    }
+    
+    .copy-icon-preview {
+        width: 80px;
+        height: 80px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #17a2b8, #6f42c1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2rem;
+        margin: 0 auto;
+        border: 3px solid white;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .form-section {
+        border-bottom: 1px solid #e9ecef;
+        padding-bottom: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    
+    .section-title {
+        color: #495057;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #17a2b8;
+        display: inline-block;
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .help-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .character-count {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-align: right;
+        margin-top: 0.25rem;
+    }
+    
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .status-available { background-color: #28a745; }
+    .status-borrowed { background-color: #ffc107; }
+    .status-reserved { background-color: #17a2b8; }
+    .status-lost { background-color: #dc3545; }
+    .status-damaged { background-color: #fd7e14; }
+    .status-maintenance { background-color: #6c757d; }
+    .status-withdrawn { background-color: #343a40; }
+    
+    .book-cover-preview {
+        width: 100px;
+        height: 130px;
+        object-fit: cover;
+        border-radius: 6px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .copy-details-preview {
+        background-color: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .barcode-preview {
+        font-family: 'Libre Barcode 39', monospace;
+        font-size: 2rem;
+        text-align: center;
+        letter-spacing: 2px;
+        background: white;
+        padding: 0.5rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+    }
+    
+    .action-buttons {
+        position: sticky;
+        bottom: 0;
+        background: white;
+        padding: 1rem 0;
+        border-top: 1px solid #dee2e6;
+        margin-top: 2rem;
+    }
+    
+    .condition-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .condition-excellent { background-color: #28a745; }
+    .condition-good { background-color: #20c997; }
+    .condition-fair { background-color: #ffc107; }
+    .condition-poor { background-color: #fd7e14; }
+    .condition-damaged { background-color: #dc3545; }
+    
+    @media (max-width: 768px) {
+        .copy-icon-preview {
+            width: 60px;
+            height: 60px;
+            font-size: 1.5rem;
+        }
+        
+        .book-cover-preview {
+            width: 80px;
+            height: 104px;
+        }
+        
+        .barcode-preview {
+            font-size: 1.5rem;
+        }
+        
+        .action-buttons .btn {
+            margin-bottom: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <form method="post" novalidate>
+        {% csrf_token %}
+        
+        <div class="row">
+            <!-- Left Column: Form Fields -->
+            <div class="col-lg-8">
+                <div class="card form-card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-journal-plus text-info me-2"></i>
+                            {% if form.instance.pk %}
+                                {% trans "Edit Book Copy Information" %}
+                            {% else %}
+                                {% trans "Book Copy Information" %}
+                            {% endif %}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Basic Information Section -->
+                        <div class="form-section">
+                            <h6 class="section-title">
+                                <i class="bi bi-info-circle me-2"></i>{% trans "Basic Information" %}
+                            </h6>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.book.id_for_label }}" class="form-label required-field">
+                                        {{ form.book.label }}
+                                    </label>
+                                    {{ form.book }}
+                                    {% if form.book.help_text %}
+                                    <div class="help-text">{{ form.book.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.book.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.book.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.copy_number.id_for_label }}" class="form-label required-field">
+                                        {{ form.copy_number.label }}
+                                    </label>
+                                    {{ form.copy_number }}
+                                    {% if form.copy_number.help_text %}
+                                    <div class="help-text">{{ form.copy_number.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.copy_number.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.copy_number.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.barcode.id_for_label }}" class="form-label required-field">
+                                        {{ form.barcode.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        {{ form.barcode }}
+                                        <button type="button" class="btn btn-outline-secondary" id="generate-barcode">
+                                            <i class="bi bi-arrow-repeat"></i>
+                                        </button>
+                                    </div>
+                                    {% if form.barcode.help_text %}
+                                    <div class="help-text">{{ form.barcode.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.barcode.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.barcode.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.copy_status.id_for_label }}" class="form-label required-field">
+                                        {{ form.copy_status.label }}
+                                    </label>
+                                    {{ form.copy_status }}
+                                    {% if form.copy_status.help_text %}
+                                    <div class="help-text">{{ form.copy_status.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.copy_status.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.copy_status.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Acquisition Details Section -->
+                        <div class="form-section">
+                            <h6 class="section-title">
+                                <i class="bi bi-cart-plus me-2"></i>{% trans "Acquisition Details" %}
+                            </h6>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.acquisition_date.id_for_label }}" class="form-label">
+                                        {{ form.acquisition_date.label }}
+                                    </label>
+                                    {{ form.acquisition_date }}
+                                    {% if form.acquisition_date.help_text %}
+                                    <div class="help-text">{{ form.acquisition_date.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.acquisition_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.acquisition_date.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.purchase_price.id_for_label }}" class="form-label">
+                                        {{ form.purchase_price.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        {{ form.purchase_price }}
+                                    </div>
+                                    {% if form.purchase_price.help_text %}
+                                    <div class="help-text">{{ form.purchase_price.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.purchase_price.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.purchase_price.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Condition & Maintenance Section -->
+                        <div class="form-section">
+                            <h6 class="section-title">
+                                <i class="bi bi-tools me-2"></i>{% trans "Condition & Maintenance" %}
+                            </h6>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.last_maintenance_date.id_for_label }}" class="form-label">
+                                        {{ form.last_maintenance_date.label }}
+                                    </label>
+                                    {{ form.last_maintenance_date }}
+                                    {% if form.last_maintenance_date.help_text %}
+                                    <div class="help-text">{{ form.last_maintenance_date.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.last_maintenance_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.last_maintenance_date.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">{% trans "Condition Assessment" %}</label>
+                                    <div class="btn-group w-100" role="group">
+                                        <input type="radio" class="btn-check" name="condition" id="condition-excellent" value="excellent">
+                                        <label class="btn btn-outline-success" for="condition-excellent" title="{% trans 'Excellent' %}">
+                                            <span class="condition-indicator condition-excellent"></span>
+                                        </label>
+                                        
+                                        <input type="radio" class="btn-check" name="condition" id="condition-good" value="good">
+                                        <label class="btn btn-outline-info" for="condition-good" title="{% trans 'Good' %}">
+                                            <span class="condition-indicator condition-good"></span>
+                                        </label>
+                                        
+                                        <input type="radio" class="btn-check" name="condition" id="condition-fair" value="fair">
+                                        <label class="btn btn-outline-warning" for="condition-fair" title="{% trans 'Fair' %}">
+                                            <span class="condition-indicator condition-fair"></span>
+                                        </label>
+                                        
+                                        <input type="radio" class="btn-check" name="condition" id="condition-poor" value="poor">
+                                        <label class="btn btn-outline-orange" for="condition-poor" title="{% trans 'Poor' %}">
+                                            <span class="condition-indicator condition-poor"></span>
+                                        </label>
+                                        
+                                        <input type="radio" class="btn-check" name="condition" id="condition-damaged" value="damaged">
+                                        <label class="btn btn-outline-danger" for="condition-damaged" title="{% trans 'Damaged' %}">
+                                            <span class="condition-indicator condition-damaged"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.condition_notes.id_for_label }}" class="form-label">
+                                    {{ form.condition_notes.label }}
+                                </label>
+                                {{ form.condition_notes }}
+                                <div class="character-count">
+                                    <span id="condition-notes-char-count">0</span> {% trans "characters" %}
+                                </div>
+                                {% if form.condition_notes.help_text %}
+                                <div class="help-text">{{ form.condition_notes.help_text }}</div>
+                                {% endif %}
+                                {% if form.condition_notes.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.condition_notes.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Additional Information Section -->
+                        <div class="form-section">
+                            <h6 class="section-title">
+                                <i class="bi bi-chat-text me-2"></i>{% trans "Additional Information" %}
+                            </h6>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.notes.id_for_label }}" class="form-label">
+                                    {{ form.notes.label }}
+                                </label>
+                                {{ form.notes }}
+                                <div class="character-count">
+                                    <span id="notes-char-count">0</span> {% trans "characters" %}
+                                </div>
+                                {% if form.notes.help_text %}
+                                <div class="help-text">{{ form.notes.help_text }}</div>
+                                {% endif %}
+                                {% if form.notes.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.notes.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Status Section -->
+                        <div class="form-section">
+                            <h6 class="section-title">
+                                <i class="bi bi-toggle-on me-2"></i>{% trans "Status" %}
+                            </h6>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.status.id_for_label }}" class="form-label required-field">
+                                    {{ form.status.label }}
+                                </label>
+                                {{ form.status }}
+                                {% if form.status.help_text %}
+                                <div class="help-text">{{ form.status.help_text }}</div>
+                                {% endif %}
+                                {% if form.status.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.status.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Form Errors Display -->
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            <h6 class="alert-heading">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                {% trans "Please correct the following errors:" %}
+                            </h6>
+                            <ul class="mb-0">
+                                {% for error in form.non_field_errors %}
+                                <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column: Preview and Actions -->
+            <div class="col-lg-4">
+                <!-- Copy Preview -->
+                <div class="card preview-card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-eye text-success me-2"></i>
+                            {% trans "Copy Preview" %}
+                        </h5>
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="copy-icon-preview mb-3">
+                            <i class="bi bi-journal"></i>
+                        </div>
+                        
+                        <h5 id="preview-book-title" class="mb-2">{% trans "Book Title" %}</h5>
+                        
+                        <div class="mb-3">
+                            <code id="preview-copy-number" class="bg-light px-2 py-1 rounded">{% trans "Copy" %} 0</code>
+                            <span id="preview-status" class="badge bg-success ms-1">{% trans "Status" %}</span>
+                        </div>
+                        
+                        <!-- Barcode Preview -->
+                        <div class="barcode-preview mb-3" id="barcode-preview">
+                            *{% trans "BARCODE" %}*
+                        </div>
+                        
+                        <!-- Copy Details -->
+                        <div class="copy-details-preview text-start">
+                            <div class="row small">
+                                <div class="col-6">
+                                    <small class="text-muted">{% trans "Acquired:" %}</small>
+                                    <div id="preview-acquisition-date">{% trans "Not set" %}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">{% trans "Price:" %}</small>
+                                    <div id="preview-purchase-price">$0.00</div>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">{% trans "Last Maintenance:" %}</small>
+                                <div id="preview-maintenance-date">{% trans "Never" %}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Book Information -->
+                <div class="card book-info-card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-book text-primary me-2"></i>
+                            {% trans "Book Information" %}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center mb-3">
+                            <div id="book-cover-preview" class="book-cover-preview bg-light d-flex align-items-center justify-content-center mx-auto mb-2">
+                                <i class="bi bi-book text-muted"></i>
+                            </div>
+                            <h6 id="selected-book-title" class="mb-1">{% trans "No book selected" %}</h6>
+                            <p id="selected-book-authors" class="text-muted small mb-2">{% trans "Authors will appear here" %}</p>
+                            <p id="selected-book-isbn" class="text-muted small mb-0">{% trans "ISBN: Not set" %}</p>
+                        </div>
+                        
+                        <div class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#bookSelectionModal">
+                                <i class="bi bi-search me-1"></i> {% trans "Browse Books" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Stats -->
+                {% if form.instance.pk and form.instance.book %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-graph-up text-info me-2"></i>
+                            {% trans "Copy Statistics" %}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6 mb-3">
+                                <div class="h4 text-primary mb-1">{{ form.instance.borrow_records.count }}</div>
+                                <small class="text-muted">{% trans "Total Borrows" %}</small>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <div class="h4 text-success mb-1">{{ form.instance.book.copies.count }}</div>
+                                <small class="text-muted">{% trans "Total Copies" %}</small>
+                            </div>
+                        </div>
+                        
+                        {% if form.instance.last_maintenance_date %}
+                        <div class="alert alert-info py-2 mb-0">
+                            <i class="bi bi-tools me-2"></i>
+                            <small>{% trans "Last maintained" %}: {{ form.instance.last_maintenance_date|timesince }} ago</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Quick Actions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-lightning-charge text-warning me-2"></i>
+                            {% trans "Quick Actions" %}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            {% if form.instance.pk and form.instance.book and form.instance.book.pk %}
+                            <a href="{% url 'library:book_detail' form.instance.book.pk %}" class="btn btn-outline-primary">
+                                <i class="bi bi-eye me-2"></i> {% trans "View Book" %}
+                            </a>
+                            <a href="{% url 'library:bookcopy_list' %}?book={{ form.instance.book.id }}" class="btn btn-outline-info">
+                                <i class="bi bi-list-ul me-2"></i> {% trans "View All Copies" %}
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'library:book_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i> {% trans "Back to Books" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex gap-2 justify-content-end">
+                        {% if form.instance.pk and form.instance.book and form.instance.book.pk %}
+                        <a href="{% url 'library:book_detail' form.instance.book.pk %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-2"></i> {% trans "Cancel" %}
+                        </a>
+                        {% else %}
+                        <a href="{% url 'library:book_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-2"></i> {% trans "Cancel" %}
+                        </a>
+                        {% endif %}
+                        <button type="submit" name="save" class="btn btn-info">
+                            <i class="bi bi-check-circle me-2"></i>
+                            {% if form.instance.pk %}
+                                {% trans "Update Copy" %}
+                            {% else %}
+                                {% trans "Create Copy" %}
+                            {% endif %}
+                        </button>
+                        {% if form.instance.pk %}
+                        <button type="submit" name="save_and_continue" class="btn btn-outline-info">
+                            <i class="bi bi-check2-all me-2"></i> {% trans "Save & Continue Editing" %}
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Book Selection Modal -->
+<div class="modal fade" id="bookSelectionModal" tabindex="-1" aria-labelledby="bookSelectionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bookSelectionModalLabel">{% trans "Select a Book" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" placeholder="{% trans 'Search books by title, author, or ISBN...' %}" id="book-search-input">
+                    <button class="btn btn-outline-primary" type="button" id="book-search-btn">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+                
+                <div id="book-search-results" class="list-group" style="max-height: 400px; overflow-y: auto;">
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-search display-6 d-block mb-2"></i>
+                        <p>{% trans "Search for books to select" %}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get form elements
+        const bookInput = document.getElementById('{{ form.book.id_for_label }}');
+        const copyNumberInput = document.getElementById('{{ form.copy_number.id_for_label }}');
+        const barcodeInput = document.getElementById('{{ form.barcode.id_for_label }}');
+        const copyStatusInput = document.getElementById('{{ form.copy_status.id_for_label }}');
+        const acquisitionDateInput = document.getElementById('{{ form.acquisition_date.id_for_label }}');
+        const purchasePriceInput = document.getElementById('{{ form.purchase_price.id_for_label }}');
+        const lastMaintenanceDateInput = document.getElementById('{{ form.last_maintenance_date.id_for_label }}');
+        const conditionNotesInput = document.getElementById('{{ form.condition_notes.id_for_label }}');
+        const notesInput = document.getElementById('{{ form.notes.id_for_label }}');
+        const statusInput = document.getElementById('{{ form.status.id_for_label }}');
+        
+        // Preview elements
+        const previewBookTitle = document.getElementById('preview-book-title');
+        const previewCopyNumber = document.getElementById('preview-copy-number');
+        const previewStatus = document.getElementById('preview-status');
+        const barcodePreview = document.getElementById('barcode-preview');
+        const previewAcquisitionDate = document.getElementById('preview-acquisition-date');
+        const previewPurchasePrice = document.getElementById('preview-purchase-price');
+        const previewMaintenanceDate = document.getElementById('preview-maintenance-date');
+        const bookCoverPreview = document.getElementById('book-cover-preview');
+        const selectedBookTitle = document.getElementById('selected-book-title');
+        const selectedBookAuthors = document.getElementById('selected-book-authors');
+        const selectedBookIsbn = document.getElementById('selected-book-isbn');
+        const conditionNotesCharCount = document.getElementById('condition-notes-char-count');
+        const notesCharCount = document.getElementById('notes-char-count');
+        
+        // Generate random barcode
+        function generateBarcode() {
+            const prefix = 'BK';
+            const timestamp = Date.now().toString().slice(-8);
+            const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            return `${prefix}${timestamp}${random}`;
+        }
+        
+        // Update character counts
+        function updateCharCounts() {
+            if (conditionNotesInput && conditionNotesCharCount) {
+                const count = conditionNotesInput.value.length;
+                conditionNotesCharCount.textContent = count;
+                conditionNotesCharCount.className = `character-count ${count > 500 ? 'text-danger' : 'text-success'}`;
+            }
+            
+            if (notesInput && notesCharCount) {
+                const count = notesInput.value.length;
+                notesCharCount.textContent = count;
+                notesCharCount.className = `character-count ${count > 1000 ? 'text-danger' : 'text-success'}`;
+            }
+        }
+        
+        // Update book information preview
+        function updateBookPreview() {
+            const bookId = bookInput ? bookInput.value : '';
+            
+            if (bookId) {
+                // In a real app, this would be an AJAX call to get book details
+                const bookTitle = bookInput.options[bookInput.selectedIndex].text;
+                previewBookTitle.textContent = bookTitle;
+                selectedBookTitle.textContent = bookTitle;
+                
+                // Mock book details
+                selectedBookAuthors.textContent = '{% trans "Sample Author" %}';
+                selectedBookIsbn.textContent = 'ISBN: 978-0123456789';
+                bookCoverPreview.innerHTML = '<i class="bi bi-book text-muted"></i>';
+            } else {
+                previewBookTitle.textContent = '{% trans "Book Title" %}';
+                selectedBookTitle.textContent = '{% trans "No book selected" %}';
+                selectedBookAuthors.textContent = '{% trans "Authors will appear here" %}';
+                selectedBookIsbn.textContent = '{% trans "ISBN: Not set" %}';
+                bookCoverPreview.innerHTML = '<i class="bi bi-book text-muted"></i>';
+            }
+        }
+        
+        // Update copy number preview
+        function updateCopyNumberPreview() {
+            const copyNumber = copyNumberInput ? copyNumberInput.value : '';
+            
+            if (copyNumber) {
+                previewCopyNumber.textContent = `{% trans "Copy" %} ${copyNumber}`;
+            } else {
+                previewCopyNumber.textContent = '{% trans "Copy" %} 0';
+            }
+        }
+        
+        // Update status preview
+        function updateStatusPreview() {
+            const status = copyStatusInput ? copyStatusInput.value : '';
+            
+            if (status) {
+                const statusText = copyStatusInput.options[copyStatusInput.selectedIndex].text;
+                previewStatus.textContent = statusText;
+                
+                // Update status badge color
+                const statusClasses = {
+                    'available': 'bg-success',
+                    'borrowed': 'bg-warning',
+                    'reserved': 'bg-info',
+                    'lost': 'bg-danger',
+                    'damaged': 'bg-orange',
+                    'under_maintenance': 'bg-secondary',
+                    'withdrawn': 'bg-dark'
+                };
+                
+                previewStatus.className = `badge ${statusClasses[status] || 'bg-secondary'} ms-1`;
+                previewStatus.style.display = 'inline-block';
+            } else {
+                previewStatus.style.display = 'none';
+            }
+        }
+        
+        // Update barcode preview
+        function updateBarcodePreview() {
+            const barcode = barcodeInput ? barcodeInput.value : '';
+            
+            if (barcode) {
+                barcodePreview.textContent = `*${barcode}*`;
+            } else {
+                barcodePreview.textContent = '*{% trans "BARCODE" %}*';
+            }
+        }
+        
+        // Update acquisition details preview
+        function updateAcquisitionPreview() {
+            const acquisitionDate = acquisitionDateInput ? acquisitionDateInput.value : '';
+            const purchasePrice = purchasePriceInput ? purchasePriceInput.value : '';
+            
+            if (acquisitionDate) {
+                previewAcquisitionDate.textContent = new Date(acquisitionDate).toLocaleDateString();
+            } else {
+                previewAcquisitionDate.textContent = '{% trans "Not set" %}';
+            }
+            
+            if (purchasePrice) {
+                previewPurchasePrice.textContent = `$${parseFloat(purchasePrice).toFixed(2)}`;
+            } else {
+                previewPurchasePrice.textContent = '$0.00';
+            }
+        }
+        
+        // Update maintenance preview
+        function updateMaintenancePreview() {
+            const maintenanceDate = lastMaintenanceDateInput ? lastMaintenanceDateInput.value : '';
+            
+            if (maintenanceDate) {
+                previewMaintenanceDate.textContent = new Date(maintenanceDate).toLocaleDateString();
+            } else {
+                previewMaintenanceDate.textContent = '{% trans "Never" %}';
+            }
+        }
+        
+        // Initialize all previews
+        function initializePreviews() {
+            updateBookPreview();
+            updateCopyNumberPreview();
+            updateStatusPreview();
+            updateBarcodePreview();
+            updateAcquisitionPreview();
+            updateMaintenancePreview();
+            updateCharCounts();
+            
+            // Generate initial barcode if empty
+            if (barcodeInput && !barcodeInput.value) {
+                barcodeInput.value = generateBarcode();
+                updateBarcodePreview();
+            }
+        }
+        
+        // Add event listeners
+        if (bookInput) {
+            bookInput.addEventListener('change', updateBookPreview);
+        }
+        
+        if (copyNumberInput) {
+            copyNumberInput.addEventListener('input', updateCopyNumberPreview);
+        }
+        
+        if (barcodeInput) {
+            barcodeInput.addEventListener('input', updateBarcodePreview);
+        }
+        
+        if (copyStatusInput) {
+            copyStatusInput.addEventListener('change', updateStatusPreview);
+        }
+        
+        if (acquisitionDateInput) {
+            acquisitionDateInput.addEventListener('change', updateAcquisitionPreview);
+        }
+        
+        if (purchasePriceInput) {
+            purchasePriceInput.addEventListener('input', updateAcquisitionPreview);
+        }
+        
+        if (lastMaintenanceDateInput) {
+            lastMaintenanceDateInput.addEventListener('change', updateMaintenancePreview);
+        }
+        
+        if (conditionNotesInput) {
+            conditionNotesInput.addEventListener('input', updateCharCounts);
+        }
+        
+        if (notesInput) {
+            notesInput.addEventListener('input', updateCharCounts);
+        }
+        
+        // Generate barcode button
+        const generateBarcodeBtn = document.getElementById('generate-barcode');
+        if (generateBarcodeBtn) {
+            generateBarcodeBtn.addEventListener('click', function() {
+                barcodeInput.value = generateBarcode();
+                updateBarcodePreview();
+            });
+        }
+        
+        // Initialize on page load
+        initializePreviews();
+        
+        // Form validation enhancement
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function(event) {
+                let isValid = true;
+                const requiredFields = form.querySelectorAll('.required-field');
+                
+                requiredFields.forEach(function(label) {
+                    const field = label.closest('.mb-3').querySelector('input, select, textarea');
+                    if (field && !field.value.trim()) {
+                        isValid = false;
+                        field.classList.add('is-invalid');
+                    } else if (field) {
+                        field.classList.remove('is-invalid');
+                    }
+                });
+                
+                // Validate copy number uniqueness (this would typically be server-side)
+                if (copyNumberInput && bookInput && copyNumberInput.value) {
+                    // This would be an AJAX check in a real application
+                    console.log('Validating copy number uniqueness...');
+                }
+                
+                if (!isValid) {
+                    event.preventDefault();
+                    // Scroll to first error
+                    const firstError = form.querySelector('.is-invalid');
+                    if (firstError) {
+                        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        firstError.focus();
+                    }
+                }
+            });
+        }
+        
+        // Book search functionality for modal
+        const bookSearchInput = document.getElementById('book-search-input');
+        const bookSearchBtn = document.getElementById('book-search-btn');
+        const bookSearchResults = document.getElementById('book-search-results');
+        
+        if (bookSearchBtn && bookSearchInput) {
+            bookSearchBtn.addEventListener('click', function() {
+                const query = bookSearchInput.value.trim();
+                if (query) {
+                    // Simulate AJAX search
+                    bookSearchResults.innerHTML = `
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">Sample Book Title</h6>
+                                    <p class="mb-1 small text-muted">By: Sample Author</p>
+                                    <p class="mb-0 small text-muted">ISBN: 978-0123456789</p>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary select-book" data-book-id="1">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Add event listeners to select buttons
+                    document.querySelectorAll('.select-book').forEach(button => {
+                        button.addEventListener('click', function() {
+                            const bookId = this.getAttribute('data-book-id');
+                            // This would set the book input value in a real app
+                            console.log('Selected book ID:', bookId);
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('bookSelectionModal'));
+                            modal.hide();
+                        });
+                    });
+                }
+            });
+        }
+        
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% translate "Invoices" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">{% translate "Invoices" %}</h1>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">{% translate "All Invoices" %}</h6>
+            <a href="{% url 'finance:invoice_create' %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus"></i> {% translate "Create New Invoice" %}
+            </a>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="mb-4">
+                <div class="form-row">
+                    <div class="col-md-3 mb-3">
+                        <label for="id_session">{% translate "Academic Session" %}</label>
+                        <select name="session" id="id_session" class="form-control">
+                            <option value="">{% translate "All Sessions" %}</option>
+                            {% for session in academic_sessions %}
+                                <option value="{{ session.pk }}" {% if request.GET.session == session.pk|stringformat:"s" %}selected{% endif %}>{{ session.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="id_student">{% translate "Student" %}</label>
+                        <select name="student" id="id_student" class="form-control">
+                            <option value="">{% translate "All Students" %}</option>
+                            {% for student in students %}
+                                <option value="{{ student.pk }}" {% if request.GET.student == student.pk|stringformat:"s" %}selected{% endif %}>{{ student.user.get_full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="id_status">{% translate "Status" %}</label>
+                        <select name="status" id="id_status" class="form-control">
+                            <option value="">{% translate "All Statuses" %}</option>
+                            {% for status_value, status_label in invoice_statuses %}
+                                <option value="{{ status_value }}" {% if request.GET.status == status_value %}selected{% endif %}>{{ status_label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary mr-2">{% translate "Filter" %}</button>
+                        <a href="{% url 'finance:invoice_list' %}" class="btn btn-secondary">{% translate "Reset" %}</a>
+                    </div>
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Invoice #" %}</th>
+                            <th>{% translate "Student" %}</th>
+                            <th>{% translate "Session" %}</th>
+                            <th>{% translate "Issue Date" %}</th>
+                            <th>{% translate "Due Date" %}</th>
+                            <th>{% translate "Total Amount" %}</th>
+                            <th>{% translate "Balance Due" %}</th>
+                            <th>{% translate "Status" %}</th>
+                            <th>{% translate "Actions" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in invoices %}
+                        <tr>
+                            <td><a href="{% url 'finance:invoice_detail' pk=invoice.pk %}">{{ invoice.invoice_number }}</a></td>
+                            <td>{{ invoice.student.user.get_full_name }}</td>
+                            <td>{{ invoice.academic_session.name }}</td>
+                            <td>{{ invoice.issue_date|date:"M d, Y" }}</td>
+                            <td>{{ invoice.due_date|date:"M d, Y" }}</td>
+                            <td>${{ invoice.total_amount|floatformat:2 }}</td>
+                            <td>${{ invoice.balance_due|floatformat:2 }}</td>
+                            <td><span class="badge badge-{{ invoice.get_status_display|lower }}">{{ invoice.get_status_display }}</span></td>
+                            <td>
+                                <a href="{% url 'finance:invoice_update' pk=invoice.pk %}" class="btn btn-info btn-sm">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'finance:invoice_delete' pk=invoice.pk %}" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                                {% if invoice.balance_due > 0 %}
+                                    <a href="{% url 'finance:payment_create' invoice_pk=invoice.pk %}" class="btn btn-success btn-sm" title="{% translate 'Record Payment' %}">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                    </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9">{% translate "No invoices found." %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if is_paginated %}
+                <nav aria-label="Page navigation example">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.session %}&session={{ request.GET.session }}{% endif %}{% if request.GET.student %}&student={{ request.GET.student }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">{% translate "Previous" %}</a></li>
+                        {% endif %}
+                        <li class="page-item active"><a class="page-link" href="#">{{ page_obj.number }}</a></li>
+                        {% if page_obj.has_next %}
+                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.session %}&session={{ request.GET.session }}{% endif %}{% if request.GET.student %}&student={{ request.GET.student }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">{% translate "Next" %}</a></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Placeholder for any specific JavaScript for invoice list
+    });
+</script>
+{% endblock %}

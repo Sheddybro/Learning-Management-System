@@ -1,0 +1,819 @@
+<!-- templates/library/reports/member_activity.html -->
+{% extends 'base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Member Activity Report" %}{% endblock %}
+
+{% block page_title %}{% trans "Member Activity Report" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Library" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'library:dashboard' %}">{% trans "Reports" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Member Activity" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Member Activity Report Specific Styles */
+    .report-header-card {
+        border-left: 4px solid #17a2b8;
+        background: linear-gradient(135deg, #fff, #f8f9fa);
+    }
+    
+    .stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .stats-card-1 { border-left-color: #17a2b8; }
+    .stats-card-2 { border-left-color: #28a745; }
+    .stats-card-3 { border-left-color: #ffc107; }
+    .stats-card-4 { border-left-color: #6f42c1; }
+    
+    .stat-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+        opacity: 0.8;
+    }
+    
+    .filter-card {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+    }
+    
+    .member-card {
+        border-left: 4px solid #28a745;
+        transition: all 0.2s ease;
+    }
+    
+    .member-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .member-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #17a2b8, #6f42c1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 1.5rem;
+    }
+    
+    .activity-badge {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.6rem;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 300px;
+        background: white;
+        border-radius: 0.375rem;
+        padding: 1rem;
+    }
+    
+    .trend-indicator {
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .trend-up { color: #28a745; }
+    .trend-down { color: #dc3545; }
+    .trend-neutral { color: #6c757d; }
+    
+    .progress-thin {
+        height: 6px;
+    }
+    
+    .member-type-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.5rem;
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: rgba(23, 162, 184, 0.05);
+    }
+    
+    .export-btn-group .btn {
+        border-radius: 0.375rem;
+    }
+    
+    .insight-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .insight-card .stat-number {
+        color: white;
+    }
+    
+    .insight-card .stat-label {
+        color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .activity-level {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .level-high { background-color: #28a745; }
+    .level-medium { background-color: #ffc107; }
+    .level-low { background-color: #dc3545; }
+    .level-inactive { background-color: #6c757d; }
+    
+    @media (max-width: 768px) {
+        .stat-number {
+            font-size: 1.5rem;
+        }
+        
+        .chart-container {
+            height: 250px;
+        }
+        
+        .member-avatar {
+            width: 50px;
+            height: 50px;
+            font-size: 1.2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Report Header -->
+    <div class="card report-header-card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="card-title mb-2">
+                        <i class="bi bi-activity text-info me-2"></i>
+                        {% trans "Member Activity Report" %}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {% trans "Comprehensive analysis of member borrowing patterns and engagement" %}
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <div class="btn-group export-btn-group">
+                        <button type="button" class="btn btn-success">
+                            <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+                        </button>
+                        <button type="button" class="btn btn-success">
+                            <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                        </button>
+                        <button type="button" class="btn btn-success">
+                            <i class="bi bi-file-earmark-text me-1"></i> CSV
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Period Filter -->
+    <div class="card filter-card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label for="start_date" class="form-label">{% trans "Start Date" %}</label>
+                    <input type="date" class="form-control" id="start_date" name="start_date" value="{{ request.GET.start_date }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="end_date" class="form-label">{% trans "End Date" %}</label>
+                    <input type="date" class="form-control" id="end_date" name="end_date" value="{{ request.GET.end_date }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="member_type" class="form-label">{% trans "Member Type" %}</label>
+                    <select class="form-select" id="member_type" name="member_type">
+                        <option value="">{% trans "All Types" %}</option>
+                        <option value="student" {% if request.GET.member_type == 'student' %}selected{% endif %}>{% trans "Student" %}</option>
+                        <option value="teacher" {% if request.GET.member_type == 'teacher' %}selected{% endif %}>{% trans "Teacher" %}</option>
+                        <option value="staff" {% if request.GET.member_type == 'staff' %}selected{% endif %}>{% trans "Staff" %}</option>
+                        <option value="external" {% if request.GET.member_type == 'external' %}selected{% endif %}>{% trans "External" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="activity_level" class="form-label">{% trans "Activity Level" %}</label>
+                    <select class="form-select" id="activity_level" name="activity_level">
+                        <option value="">{% trans "All Levels" %}</option>
+                        <option value="high" {% if request.GET.activity_level == 'high' %}selected{% endif %}>{% trans "High" %}</option>
+                        <option value="medium" {% if request.GET.activity_level == 'medium' %}selected{% endif %}>{% trans "Medium" %}</option>
+                        <option value="low" {% if request.GET.activity_level == 'low' %}selected{% endif %}>{% trans "Low" %}</option>
+                        <option value="inactive" {% if request.GET.activity_level == 'inactive' %}selected{% endif %}>{% trans "Inactive" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="sort_by" class="form-label">{% trans "Sort By" %}</label>
+                    <select class="form-select" id="sort_by" name="sort_by">
+                        <option value="-total_borrows" {% if request.GET.sort_by == '-total_borrows' %}selected{% endif %}>{% trans "Most Active" %}</option>
+                        <option value="total_borrows" {% if request.GET.sort_by == 'total_borrows' %}selected{% endif %}>{% trans "Least Active" %}</option>
+                        <option value="-current_borrows" {% if request.GET.sort_by == '-current_borrows' %}selected{% endif %}>{% trans "Most Current" %}</option>
+                        <option value="user__last_name" {% if request.GET.sort_by == 'user__last_name' %}selected{% endif %}>{% trans "Name (A-Z)" %}</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel me-1"></i> {% trans "Apply Filters" %}
+                    </button>
+                </div>
+            </form>
+            
+            {% if request.GET.start_date or request.GET.end_date or request.GET.member_type or request.GET.activity_level %}
+            <div class="mt-3">
+                <div class="d-flex flex-wrap gap-2">
+                    {% if request.GET.start_date %}
+                    <span class="badge bg-primary">{% trans "From" %}: {{ request.GET.start_date }}</span>
+                    {% endif %}
+                    {% if request.GET.end_date %}
+                    <span class="badge bg-primary">{% trans "To" %}: {{ request.GET.end_date }}</span>
+                    {% endif %}
+                    {% if request.GET.member_type %}
+                    <span class="badge bg-info">{% trans "Type" %}: {{ request.GET.member_type|title }}</span>
+                    {% endif %}
+                    {% if request.GET.activity_level %}
+                    <span class="badge bg-warning">{% trans "Activity" %}: {{ request.GET.activity_level|title }}</span>
+                    {% endif %}
+                    <a href="{% url 'library:report_member_activity' %}" class="badge bg-danger text-decoration-none">
+                        <i class="bi bi-x-circle me-1"></i> {% trans "Clear Filters" %}
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Key Statistics -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-1 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-info">{{ total_members }}</div>
+                            <div class="stat-label">{% trans "Total Members" %}</div>
+                            <div class="trend-indicator trend-up mt-1">
+                                <i class="bi bi-arrow-up-right me-1"></i> 5.2% {% trans "from last period" %}
+                            </div>
+                        </div>
+                        <div class="stat-icon text-info">
+                            <i class="bi bi-people"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-2 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-success">{{ active_members }}</div>
+                            <div class="stat-label">{% trans "Active Members" %}</div>
+                            <div class="trend-indicator trend-up mt-1">
+                                <i class="bi bi-arrow-up-right me-1"></i> 8.7% {% trans "from last period" %}
+                            </div>
+                        </div>
+                        <div class="stat-icon text-success">
+                            <i class="bi bi-person-check"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-3 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-warning">{{ total_borrows }}</div>
+                            <div class="stat-label">{% trans "Total Borrows" %}</div>
+                            <div class="trend-indicator trend-up mt-1">
+                                <i class="bi bi-arrow-up-right me-1"></i> 12.3% {% trans "from last period" %}
+                            </div>
+                        </div>
+                        <div class="stat-icon text-warning">
+                            <i class="bi bi-journal-arrow-down"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-number text-primary">{{ avg_borrows_per_member|floatformat:1 }}</div>
+                            <div class="stat-label">{% trans "Avg Borrows per Member" %}</div>
+                            <div class="trend-indicator trend-neutral mt-1">
+                                <i class="bi bi-dash me-1"></i> 1.2% {% trans "from last period" %}
+                            </div>
+                        </div>
+                        <div class="stat-icon text-primary">
+                            <i class="bi bi-graph-up"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts and Visualizations -->
+    <div class="row mb-4">
+        <!-- Member Activity Over Time -->
+        <div class="col-lg-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bar-chart-line text-primary me-2"></i>
+                        {% trans "Member Activity Over Time" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="activityOverTimeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Member Type Distribution -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-pie-chart text-success me-2"></i>
+                        {% trans "Member Type Distribution" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="memberTypeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Active Members -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-trophy text-warning me-2"></i>
+                {% trans "Top Active Members" %}
+            </h5>
+            <span class="badge bg-warning rounded-pill">{{ top_members.paginator.count }}</span>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for member in top_members|slice:":6" %}
+                <div class="col-xl-4 col-lg-6 mb-4">
+                    <div class="card member-card h-100">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-3">
+                                    <div class="member-avatar">
+                                        {{ member.user.first_name|first }}{{ member.user.last_name|first }}
+                                    </div>
+                                </div>
+                                <div class="col-9">
+                                    <h6 class="card-title mb-1">{{ member.user.get_full_name }}</h6>
+                                    <div class="mb-2">
+                                        <span class="member-type-badge badge 
+                                            {% if member.member_type == 'student' %}bg-success
+                                            {% elif member.member_type == 'teacher' %}bg-primary
+                                            {% elif member.member_type == 'staff' %}bg-info
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ member.get_member_type_display }}
+                                        </span>
+                                        <span class="badge bg-light text-dark">{{ member.member_id }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="activity-badge bg-primary">
+                                            {{ member.total_borrows }} {% trans "borrows" %}
+                                        </span>
+                                        <span class="activity-badge bg-success">
+                                            {{ member.current_borrows }} {% trans "current" %}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="d-flex justify-content-between small text-muted mb-1">
+                                    <span>{% trans "Activity Level" %}</span>
+                                    <span>
+                                        <span class="activity-level level-{{ member.activity_level }}"></span>
+                                        {{ member.activity_level|title }}
+                                    </span>
+                                </div>
+                                <div class="progress progress-thin">
+                                    <div class="progress-bar 
+                                        {% if member.activity_level == 'high' %}bg-success
+                                        {% elif member.activity_level == 'medium' %}bg-warning
+                                        {% elif member.activity_level == 'low' %}bg-danger
+                                        {% else %}bg-secondary{% endif %}" 
+                                        style="width: {{ member.activity_percentage }}%">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent py-2">
+                            <div class="btn-group w-100">
+                                <a href="{% url 'library:librarymember_detail' member.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i> {% trans "Profile" %}
+                                </a>
+                                <a href="{% url 'library:borrowrecord_list' %}?member={{ member.id }}" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-journal-text"></i> {% trans "History" %}
+                                </a>
+                                <button class="btn btn-sm btn-outline-success" onclick="sendReminder('{{ member.id }}')">
+                                    <i class="bi bi-envelope"></i> {% trans "Remind" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12 text-center py-5">
+                    <i class="bi bi-people display-4 text-muted d-block mb-3"></i>
+                    <h4>{% trans "No Members Found" %}</h4>
+                    <p class="text-muted">
+                        {% trans "No members match your current filters." %}
+                    </p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Member Activity Table -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-table text-info me-2"></i>
+                {% trans "Member Activity Details" %}
+            </h5>
+            <span class="badge bg-info rounded-pill">{{ members.paginator.count }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "Member" %}</th>
+                            <th>{% trans "Type" %}</th>
+                            <th class="text-center">{% trans "Total Borrows" %}</th>
+                            <th class="text-center">{% trans "Current Borrows" %}</th>
+                            <th class="text-center">{% trans "Reservations" %}</th>
+                            <th class="text-center">{% trans "Overdue" %}</th>
+                            <th class="text-center">{% trans "Activity Level" %}</th>
+                            <th class="text-center">{% trans "Last Activity" %}</th>
+                            <th class="text-center">{% trans "Actions" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for member in members %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="member-avatar me-3" style="width: 40px; height: 40px; font-size: 1rem;">
+                                        {{ member.user.first_name|first }}{{ member.user.last_name|first }}
+                                    </div>
+                                    <div>
+                                        <strong>{{ member.user.get_full_name }}</strong>
+                                        <div class="text-muted small">{{ member.member_id }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="member-type-badge badge 
+                                    {% if member.member_type == 'student' %}bg-success
+                                    {% elif member.member_type == 'teacher' %}bg-primary
+                                    {% elif member.member_type == 'staff' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ member.get_member_type_display }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <strong>{{ member.total_borrows }}</strong>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge {% if member.current_borrows > 0 %}bg-primary{% else %}bg-secondary{% endif %}">
+                                    {{ member.current_borrows }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-info">{{ member.reservation_count }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% if member.overdue_count > 0 %}
+                                <span class="badge bg-danger">{{ member.overdue_count }}</span>
+                                {% else %}
+                                <span class="badge bg-success">0</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="activity-level level-{{ member.activity_level }}"></span>
+                                <small class="text-muted">{{ member.activity_level|title }}</small>
+                            </td>
+                            <td class="text-center">
+                                {% if member.last_activity %}
+                                <small>{{ member.last_activity|date:"M d, Y" }}</small>
+                                <div class="text-muted smaller">{{ member.last_activity|timesince }} ago</div>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'library:librarymember_detail' member.pk %}" class="btn btn-outline-primary" title="{% trans 'View Profile' %}">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{% url 'library:borrowrecord_list' %}?member={{ member.id }}" class="btn btn-outline-info" title="{% trans 'View History' %}">
+                                        <i class="bi bi-clock-history"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <i class="bi bi-people display-4 text-muted d-block mb-3"></i>
+                                <h4>{% trans "No Members Found" %}</h4>
+                                <p class="text-muted">
+                                    {% trans "No members match your current filters." %}
+                                </p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        {% if members.has_other_pages %}
+        <div class="card-footer">
+            <nav aria-label="Members pagination">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if members.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ members.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in members.paginator.page_range %}
+                        {% if members.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > members.number|add:'-3' and num < members.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if members.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ members.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ members.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Insights and Recommendations -->
+    <div class="row">
+        <!-- Activity Insights -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightbulb text-warning me-2"></i>
+                        {% trans "Activity Insights" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{% trans "Peak Borrowing Times" %}</h6>
+                                <small class="text-success">{% trans "High" %}</small>
+                            </div>
+                            <p class="mb-1">{% trans "Most borrowing activity occurs between 2 PM - 4 PM on weekdays" %}</p>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{% trans "Student Engagement" %}</h6>
+                                <small class="text-warning">{% trans "Medium" %}</small>
+                            </div>
+                            <p class="mb-1">{% trans "Student members show 45% higher engagement than other member types" %}</p>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{% trans "Inactive Members" %}</h6>
+                                <small class="text-danger">{% trans "Attention" %}</small>
+                            </div>
+                            <p class="mb-1">{% trans "23% of members haven't borrowed any books in the last 3 months" %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Engagement Opportunities -->
+        <div class="col-lg-6 mb-4">
+            <div class="card insight-card h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-white mb-4">
+                        <i class="bi bi-graph-up-arrow me-2"></i>
+                        {% trans "Engagement Opportunities" %}
+                    </h5>
+                    <div class="stat-number">{{ engagement_opportunities }}</div>
+                    <div class="stat-label">{% trans "Potential Engagement Increase" %}</div>
+                    <div class="mt-4">
+                        <div class="mb-3">
+                            <h6 class="text-white">{% trans "Recommended Actions" %}</h6>
+                            <ul class="list-unstyled text-light">
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    {% trans "Launch reading challenges for inactive members" %}
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    {% trans "Promote new arrivals to frequent borrowers" %}
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    {% trans "Implement loyalty rewards for top borrowers" %}
+                                </li>
+                            </ul>
+                        </div>
+                        <a href="#" class="btn btn-light">
+                            <i class="bi bi-megaphone me-1"></i> {% trans "Launch Campaign" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Summary -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-clipboard-data text-info me-2"></i>
+                {% trans "Report Summary" %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>{% trans "Key Performance Indicators" %}</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            {% trans "Member engagement:" %} <strong>{{ engagement_rate }}%</strong>
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-arrow-up-right text-primary me-2"></i>
+                            {% trans "Monthly growth:" %} <strong>8.7%</strong>
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-people text-warning me-2"></i>
+                            {% trans "Most active member type:" %} <strong>{% trans "Students" %} (52%)</strong>
+                        </li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>{% trans "Next Steps" %}</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="bi bi-calendar-check text-info me-2"></i>
+                            {% trans "Schedule follow-up with inactive members" %}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-envelope text-info me-2"></i>
+                            {% trans "Send personalized recommendations to top borrowers" %}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-gift text-info me-2"></i>
+                            {% trans "Plan rewards program for consistent borrowers" %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Member Details Modal -->
+<div class="modal fade" id="memberDetailsModal" tabindex="-1" aria-labelledby="memberDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="memberDetailsModalLabel">{% trans "Member Details" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="memberDetailsContent">
+                <!-- Content will be loaded via AJAX -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <a href="#" class="btn btn-primary" id="viewFullProfile">
+                    <i class="bi bi-person me-1"></i> {% trans "Full Profile" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Activity Over Time Chart
+        const activityCtx = document.getElementById('activityOverTimeChart').getContext('2d');
+        const activityOverTimeChart = new Chart(activityCtx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                datasets: [{
+                    label: '{% trans "Borrowing Activity" %}',
+                    data: [450, 520, 480, 610, 580, 650, 720, 680, 750, 810, 790, 850],
+                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                    borderColor: 'rgba(23, 162, 184, 1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '{% trans "Number of Borrows" %}'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Member Type Distribution Chart
+        const typeCtx = document.getElementById('memberTypeChart').getContext('2d');
+        const memberType

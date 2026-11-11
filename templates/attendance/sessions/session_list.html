@@ -1,0 +1,323 @@
+<!-- templates/attendance/sessions/session_list.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Attendance Sessions - School Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+.attendance-stats-card {
+    border-left: 4px solid #007bff;
+    transition: transform 0.2s;
+}
+.attendance-stats-card:hover {
+    transform: translateY(-2px);
+}
+.attendance-stats-card.present {
+    border-left-color: #28a745;
+}
+.attendance-stats-card.absent {
+    border-left-color: #dc3545;
+}
+.attendance-stats-card.late {
+    border-left-color: #ffc107;
+}
+.attendance-stats-card.leave {
+    border-left-color: #17a2b8;
+}
+.attendance-calendar {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+}
+.calendar-day {
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 2px;
+    border-radius: 50%;
+    font-size: 0.9rem;
+}
+.calendar-day.present {
+    background-color: #28a745;
+    color: white;
+}
+.calendar-day.absent {
+    background-color: #dc3545;
+    color: white;
+}
+.calendar-day.late {
+    background-color: #ffc107;
+    color: #212529;
+}
+.calendar-day.leave {
+    background-color: #17a2b8;
+    color: white;
+}
+.calendar-day.half_day {
+    background-color: #fd7e14;
+    color: white;
+}
+.calendar-day.holiday {
+    background-color: #6c757d;
+    color: white;
+}
+.calendar-day.today {
+    border: 2px solid #007bff;
+}
+.attendance-timeline {
+    position: relative;
+    padding-left: 30px;
+}
+.attendance-timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #e9ecef;
+}
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -23px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #007bff;
+    border: 2px solid white;
+}
+.progress-thin {
+    height: 8px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-2">Attendance Sessions</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'attendance:dashboard' %}">Attendance</a></li>
+                            <li class="breadcrumb-item active">Sessions</li>
+                        </ol>
+                    </nav>
+                </div>
+                {% if perms.attendance.add_attendancesession %}
+                <div class="d-flex gap-2">
+                    <a href="{% url 'attendance:session_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i> Create Session
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="session" class="form-label">Academic Session</label>
+                            <select name="session" id="session" class="form-select">
+                                <option value="">All Sessions</option>
+                                {% for academic_session in academic_sessions %}
+                                <option value="{{ academic_session.id }}" {% if request.GET.session == academic_session.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ academic_session.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-outline-primary me-2">
+                                <i class="fas fa-filter me-1"></i> Apply Filters
+                            </button>
+                            <a href="{% url 'attendance:session_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i> Clear
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sessions List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Attendance Sessions</h6>
+                </div>
+                <div class="card-body">
+                    {% if sessions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Session Name</th>
+                                    <th>Type</th>
+                                    <th>Academic Session</th>
+                                    <th>Start Time</th>
+                                    <th>End Time</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for session in sessions %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ session.name }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ session.get_session_type_display }}</span>
+                                    </td>
+                                    <td>{{ session.academic_session.name }}</td>
+                                    <td>
+                                        {% if session.start_time %}
+                                            {{ session.start_time|time:"H:i" }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if session.end_time %}
+                                            {{ session.end_time|time:"H:i" }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if session.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ session.created_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        {% if perms.attendance.view_attendancesession %}
+                                        <a href="{% url 'attendance:daily_list' %}?session={{ session.id }}" class="btn btn-sm btn-outline-info me-1" title="View Attendance">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.attendance.change_attendancesession %}
+                                        <a href="{% url 'attendance:session_edit' session.pk %}" class="btn btn-sm btn-outline-warning me-1" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.attendance.delete_attendancesession %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Delete" onclick="confirmDelete({{ session.pk }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if is_paginated %}
+                    <nav aria-label="Sessions pagination" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.session %}&session={{ request.GET.session }}{% endif %}">Previous</a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if request.GET.session %}&session={{ request.GET.session }}{% endif %}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.session %}&session={{ request.GET.session }}{% endif %}">Next</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-calendar-alt fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No Attendance Sessions Found</h5>
+                        <p class="text-muted">There are no attendance sessions configured yet.</p>
+                        {% if perms.attendance.add_attendancesession %}
+                        <a href="{% url 'attendance:session_create' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i> Create First Session
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete this attendance session? This action cannot be undone and may affect existing attendance records.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form method="post" action="" id="deleteForm">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">Delete Session</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete(sessionId) {
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const deleteForm = document.getElementById('deleteForm');
+
+    // Update form action to include session ID (you would need to create a proper delete URL)
+    deleteForm.action = `/attendance/sessions/${sessionId}/delete/`;
+
+    deleteModal.show();
+}
+</script>
+{% endblock %}

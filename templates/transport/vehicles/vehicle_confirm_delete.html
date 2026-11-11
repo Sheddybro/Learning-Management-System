@@ -1,0 +1,753 @@
+<!-- templates/transport/vehicles/vehicle_confirm_delete.html -->
+{% extends 'base/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Delete Vehicle" %} - {{ vehicle.vehicle_number }}{% endblock %}
+
+{% block page_title %}{% trans "Delete Vehicle" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:dashboard' %}">{% trans "Transport" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:vehicle_list' %}">{% trans "Vehicles" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:vehicle_detail' vehicle.pk %}">{{ vehicle.vehicle_number }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Delete" %}</li>
+{% endblock %}
+
+{% block page_actions %}
+<div class="page-actions">
+    <a href="{% url 'transport:vehicle_detail' vehicle.pk %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> {% trans "Back to Vehicle" %}
+    </a>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-confirmation {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .warning-header {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .warning-header::before {
+        content: '';
+        position: absolute;
+        top: -50px;
+        right: -50px;
+        width: 150px;
+        height: 150px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+    }
+    
+    .warning-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.9;
+    }
+    
+    .vehicle-card {
+        border-radius: 12px;
+        border: 2px solid #e9ecef;
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+    
+    .vehicle-card-header {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .vehicle-card-body {
+        padding: 1.5rem;
+    }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .info-item {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .info-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+    
+    .info-value {
+        font-size: 1rem;
+        color: #495057;
+        font-weight: 600;
+    }
+    
+    .impact-section {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .impact-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .impact-icon {
+        width: 40px;
+        height: 40px;
+        background: #f39c12;
+        color: white;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        font-size: 1.2rem;
+    }
+    
+    .impact-items {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+    
+    .impact-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        background: white;
+        border-radius: 6px;
+        border-left: 4px solid #e74c3c;
+    }
+    
+    .impact-count {
+        background: #e74c3c;
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-right: 0.75rem;
+    }
+    
+    .confirmation-form {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+    
+    .verification-input {
+        font-family: 'Courier New', monospace;
+        font-size: 1.1rem;
+        font-weight: 600;
+        text-align: center;
+        letter-spacing: 0.1em;
+    }
+    
+    .alternative-actions {
+        background: #e7f3ff;
+        border: 1px solid #b3d9ff;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .btn-danger {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border: none;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+    }
+    
+    .btn-danger:hover {
+        background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
+        transform: translateY(-1px);
+    }
+    
+    .safety-measures {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .safety-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .safety-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .safety-item i {
+        color: #28a745;
+        margin-right: 0.5rem;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .warning-header {
+            padding: 1.5rem;
+        }
+        
+        .warning-icon {
+            font-size: 3rem;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .action-buttons .btn {
+            width: 100%;
+        }
+        
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .impact-items {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="delete-confirmation">
+    <!-- Warning Header -->
+    <div class="warning-header">
+        <div class="warning-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <h1 class="h2 mb-3">{% trans "Delete Vehicle Confirmation" %}</h1>
+        <p class="lead mb-0 opacity-90">
+            {% trans "You are about to permanently delete a vehicle from the system. This action cannot be undone." %}
+        </p>
+    </div>
+
+    <!-- Vehicle Information Card -->
+    <div class="vehicle-card">
+        <div class="vehicle-card-header">
+            <h3 class="h5 mb-0">
+                <i class="fas fa-bus text-primary me-2"></i>
+                {% trans "Vehicle to be Deleted" %}
+            </h3>
+        </div>
+        <div class="vehicle-card-body">
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">{% trans "Vehicle Number" %}</span>
+                    <span class="info-value">{{ vehicle.vehicle_number }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">{% trans "Registration Number" %}</span>
+                    <span class="info-value">{{ vehicle.registration_number }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">{% trans "Make & Model" %}</span>
+                    <span class="info-value">{{ vehicle.make }} {{ vehicle.model }} ({{ vehicle.year }})</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">{% trans "Vehicle Type" %}</span>
+                    <span class="info-value">{{ vehicle.get_vehicle_type_display }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">{% trans "Current Status" %}</span>
+                    <span class="info-value">
+                        <span class="badge 
+                            {% if vehicle.status == 'active' %}bg-success
+                            {% elif vehicle.status == 'maintenance' %}bg-warning
+                            {% elif vehicle.status == 'inactive' %}bg-secondary
+                            {% else %}bg-danger{% endif %}">
+                            {{ vehicle.get_status_display }}
+                        </span>
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">{% trans "Seating Capacity" %}</span>
+                    <span class="info-value">{{ vehicle.seating_capacity }} {% trans "seats" %}</span>
+                </div>
+            </div>
+            
+            {% if vehicle.notes %}
+            <div class="mt-3">
+                <span class="info-label">{% trans "Notes" %}</span>
+                <p class="info-value mb-0">{{ vehicle.notes }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Impact Assessment -->
+    <div class="impact-section">
+        <div class="impact-header">
+            <div class="impact-icon">
+                <i class="fas fa-exclamation-circle"></i>
+            </div>
+            <div>
+                <h4 class="mb-1">{% trans "This action will also delete:" %}</h4>
+                <p class="mb-0 text-muted">{% trans "All associated records and data will be permanently removed" %}</p>
+            </div>
+        </div>
+        
+        <div class="impact-items">
+            <div class="impact-item">
+                <div class="impact-count">{{ vehicle.maintenance_records.count }}</div>
+                <div>
+                    <strong>{% trans "Maintenance Records" %}</strong>
+                    <div class="small text-muted">{% trans "Complete service history" %}</div>
+                </div>
+            </div>
+            <div class="impact-item">
+                <div class="impact-count">{{ vehicle.fuel_records.count }}</div>
+                <div>
+                    <strong>{% trans "Fuel Records" %}</strong>
+                    <div class="small text-muted">{% trans "Fuel consumption history" %}</div>
+                </div>
+            </div>
+            <div class="impact-item">
+                <div class="impact-count">{{ vehicle.route_schedules.count }}</div>
+                <div>
+                    <strong>{% trans "Route Schedules" %}</strong>
+                    <div class="small text-muted">{% trans "Assigned routes and timings" %}</div>
+                </div>
+            </div>
+            <div class="impact-item">
+                <div class="impact-count">{{ related_allocations_count }}</div>
+                <div>
+                    <strong>{% trans "Student Allocations" %}</strong>
+                    <div class="small text-muted">{% trans "Student transport assignments" %}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-3 p-3 bg-white rounded">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-clock text-warning me-2"></i>
+                <div>
+                    <strong>{% trans "Data Recovery:" %}</strong>
+                    <span class="text-muted ms-1">
+                        {% trans "Deleted data cannot be recovered. Consider archiving instead." %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Form -->
+    <div class="confirmation-form">
+        <h4 class="text-center mb-4">
+            <i class="fas fa-shield-alt text-danger me-2"></i>
+            {% trans "Confirm Deletion" %}
+        </h4>
+        
+        <form method="post" id="deleteForm">
+            {% csrf_token %}
+            
+            <!-- Safety Verification -->
+            <div class="form-group">
+                <label for="verificationText" class="form-label">
+                    {% trans "Type the vehicle number to confirm" %}
+                </label>
+                <input type="text" 
+                       class="form-control verification-input" 
+                       id="verificationText" 
+                       placeholder="{% trans 'Enter vehicle number' %}"
+                       required
+                       autocomplete="off">
+                <div class="form-text">
+                    {% trans "Type exactly:" %} <code class="verification-match">{{ vehicle.vehicle_number }}</code>
+                </div>
+            </div>
+
+            <!-- Reason for Deletion (Optional) -->
+            <div class="form-group">
+                <label for="deletionReason" class="form-label">
+                    {% trans "Reason for deletion (optional)" %}
+                </label>
+                <select class="form-select" id="deletionReason" name="deletion_reason">
+                    <option value="">{% trans "Select a reason..." %}</option>
+                    <option value="sold">{% trans "Vehicle sold" %}</option>
+                    <option value="scrapped">{% trans "Vehicle scrapped" %}</option>
+                    <option value="replaced">{% trans "Replaced with new vehicle" %}</option>
+                    <option value="accident">{% trans "Accident damage" %}</option>
+                    <option value="other">{% trans "Other reason" %}</option>
+                </select>
+            </div>
+
+            <!-- Additional Notes -->
+            <div class="form-group">
+                <label for="additionalNotes" class="form-label">
+                    {% trans "Additional notes (optional)" %}
+                </label>
+                <textarea class="form-control" 
+                          id="additionalNotes" 
+                          name="additional_notes" 
+                          rows="3"
+                          placeholder="{% trans 'Any additional information about this deletion...' %}"></textarea>
+            </div>
+
+            <!-- Safety Measures -->
+            <div class="safety-measures">
+                <div class="safety-item">
+                    <i class="fas fa-check-circle"></i>
+                    {% trans "Backup created before deletion" %}
+                </div>
+                <div class="safety-item">
+                    <i class="fas fa-check-circle"></i>
+                    {% trans "All related records will be archived" %}
+                </div>
+                <div class="safety-item">
+                    <i class="fas fa-check-circle"></i>
+                    {% trans "Deletion log will be maintained" %}
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons mt-4">
+                <button type="button" class="btn btn-secondary" onclick="history.back()">
+                    <i class="fas fa-arrow-left me-1"></i> {% trans "Cancel" %}
+                </button>
+                
+                <a href="{% url 'transport:vehicle_detail' vehicle.pk %}" class="btn btn-outline-primary">
+                    <i class="fas fa-eye me-1"></i> {% trans "View Vehicle" %}
+                </a>
+                
+                <button type="submit" 
+                        class="btn btn-danger" 
+                        id="deleteButton"
+                        disabled>
+                    <i class="fas fa-trash me-1"></i> {% trans "Permanently Delete Vehicle" %}
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Alternative Actions -->
+    <div class="alternative-actions">
+        <h5 class="text-center mb-3">
+            <i class="fas fa-lightbulb text-primary me-2"></i>
+            {% trans "Consider These Alternatives" %}
+        </h5>
+        
+        <div class="row text-center">
+            <div class="col-md-4 mb-3">
+                <div class="p-3">
+                    <i class="fas fa-ban text-warning fa-2x mb-2"></i>
+                    <h6>{% trans "Mark as Inactive" %}</h6>
+                    <p class="small text-muted mb-2">
+                        {% trans "Keep vehicle data but remove from active operations" %}
+                    </p>
+                    <a href="{% url 'transport:vehicle_update' vehicle.pk %}" class="btn btn-outline-warning btn-sm">
+                        {% trans "Update Status" %}
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="p-3">
+                    <i class="fas fa-archive text-info fa-2x mb-2"></i>
+                    <h6>{% trans "Archive Vehicle" %}</h6>
+                    <p class="small text-muted mb-2">
+                        {% trans "Preserve all data but remove from daily operations" %}
+                    </p>
+                    <button class="btn btn-outline-info btn-sm" onclick="showArchiveInfo()">
+                        {% trans "Learn More" %}
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="p-3">
+                    <i class="fas fa-tools text-success fa-2x mb-2"></i>
+                    <h6>{% trans "Mark for Maintenance" %}</h6>
+                    <p class="small text-muted mb-2">
+                        {% trans "Temporarily take vehicle out of service for repairs" %}
+                    </p>
+                    <a href="{% url 'transport:vehicle_update' vehicle.pk %}" class="btn btn-outline-success btn-sm">
+                        {% trans "Set Maintenance" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Final Warning -->
+    <div class="alert alert-danger text-center">
+        <i class="fas fa-radiation fa-2x mb-2 d-block"></i>
+        <h5 class="alert-heading">{% trans "Final Warning" %}</h5>
+        <p class="mb-2">
+            {% trans "This action is permanent and cannot be undone. All vehicle data, maintenance records, fuel history, and associated schedules will be permanently deleted from the system." %}
+        </p>
+        <p class="mb-0 small">
+            <strong>{% trans "Last backup was created:" %}</strong> 
+            <span id="backupTimestamp">{% now "F j, Y, g:i a" %}</span>
+        </p>
+    </div>
+</div>
+
+<!-- Archive Information Modal -->
+<div class="modal fade" id="archiveModal" tabindex="-1" aria-labelledby="archiveModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="archiveModalLabel">
+                    <i class="fas fa-archive me-2"></i>
+                    {% trans "Vehicle Archiving" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6>{% trans "Benefits of Archiving:" %}</h6>
+                <ul class="mb-3">
+                    <li>{% trans "Preserves complete vehicle history" %}</li>
+                    <li>{% trans "Maintains data for reporting and analysis" %}</li>
+                    <li>{% trans "Vehicle can be restored if needed" %}</li>
+                    <li>{% trans "No impact on existing reports" %}</li>
+                </ul>
+                
+                <h6>{% trans "When to Archive:" %}</h6>
+                <ul>
+                    <li>{% trans "Vehicle is temporarily out of service" %}</li>
+                    <li>{% trans "Seasonal or occasional use vehicles" %}</li>
+                    <li>{% trans "Vehicles with historical significance" %}</li>
+                    <li>{% trans "When legal compliance requires data retention" %}</li>
+                </ul>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>{% trans "Note:" %}</strong>
+                    {% trans "Contact your system administrator to archive this vehicle." %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                <a href="mailto:admin@school.com?subject=Archive Vehicle {{ vehicle.vehicle_number }}" class="btn btn-primary">
+                    <i class="fas fa-envelope me-1"></i> {% trans "Request Archive" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const verificationInput = document.getElementById('verificationText');
+        const deleteButton = document.getElementById('deleteButton');
+        const vehicleNumber = '{{ vehicle.vehicle_number }}';
+        
+        // Verification logic
+        verificationInput.addEventListener('input', function() {
+            const enteredText = this.value.trim();
+            const isMatch = enteredText === vehicleNumber;
+            
+            if (isMatch) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+                deleteButton.disabled = false;
+            } else {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+                deleteButton.disabled = true;
+            }
+        });
+        
+        // Form submission handling
+        const deleteForm = document.getElementById('deleteForm');
+        deleteForm.addEventListener('submit', function(e) {
+            if (verificationInput.value.trim() !== vehicleNumber) {
+                e.preventDefault();
+                showError('{% trans "Please enter the correct vehicle number to confirm deletion." %}');
+                return;
+            }
+            
+            // Additional confirmation
+            if (!confirm('{% trans "This is your final chance to cancel. Are you absolutely sure you want to permanently delete this vehicle?" %}')) {
+                e.preventDefault();
+                return;
+            }
+            
+            // Show loading state
+            deleteButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> {% trans "Deleting..." %}';
+            deleteButton.disabled = true;
+            
+            // Add slight delay to show loading state
+            setTimeout(() => {
+                deleteButton.innerHTML = '<i class="fas fa-trash me-1"></i> {% trans "Vehicle Deleted" %}';
+            }, 1000);
+        });
+        
+        // Safety timer - enable delete button only after reading time
+        let safetyTimer = setTimeout(() => {
+            // Enable verification input after safety period
+            verificationInput.disabled = false;
+            verificationInput.placeholder = '{% trans "Enter vehicle number to confirm" %}';
+            
+            // Show safety message
+            showInfo('{% trans "Safety period elapsed. You may now proceed with deletion if required." %}');
+        }, 5000); // 5 second safety period
+        
+        // Countdown display
+        let countdown = 5;
+        const countdownInterval = setInterval(() => {
+            verificationInput.placeholder = `{% trans "Safety period" %} (${countdown}s)`;
+            countdown--;
+            
+            if (countdown < 0) {
+                clearInterval(countdownInterval);
+            }
+        }, 1000);
+        
+        // Disable form elements initially
+        verificationInput.disabled = true;
+        document.getElementById('deletionReason').disabled = true;
+        document.getElementById('additionalNotes').disabled = true;
+        
+        // Enable other form elements after safety period
+        setTimeout(() => {
+            document.getElementById('deletionReason').disabled = false;
+            document.getElementById('additionalNotes').disabled = false;
+        }, 5000);
+        
+        // Utility functions
+        function showError(message) {
+            showNotification(message, 'danger');
+        }
+        
+        function showInfo(message) {
+            showNotification(message, 'info');
+        }
+        
+        function showNotification(message, type) {
+            // Remove existing notifications
+            const existingNotifications = document.querySelectorAll('.custom-notification');
+            existingNotifications.forEach(notification => notification.remove());
+            
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} custom-notification position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'danger' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                    <span>${message}</span>
+                </div>
+                <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+        
+        // Archive modal function
+        window.showArchiveInfo = function() {
+            const archiveModal = new bootstrap.Modal(document.getElementById('archiveModal'));
+            archiveModal.show();
+        };
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Escape key to go back
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                history.back();
+            }
+            
+            // Ctrl+Enter to submit form (when enabled)
+            if (e.ctrlKey && e.key === 'Enter' && !deleteButton.disabled) {
+                e.preventDefault();
+                deleteForm.requestSubmit();
+            }
+        });
+        
+        // Add confirmation dialog for navigation away
+        window.addEventListener('beforeunload', function(e) {
+            if (verificationInput.value.trim() === vehicleNumber) {
+                e.preventDefault();
+                e.returnValue = '{% trans "You have entered the verification text. Are you sure you want to leave?" %}';
+            }
+        });
+    });
+</script>
+
+<style>
+    .custom-notification {
+        animation: slideInRight 0.3s ease-out;
+    }
+    
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    .is-valid {
+        border-color: #198754 !important;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+    }
+    
+    .is-invalid {
+        border-color: #dc3545 !important;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 3.6.4.4.4-.4'/%3e%3cpath d='M6 7v1.5'/%3e%3c/svg%3e");
+    }
+</style>
+{% endblock %}

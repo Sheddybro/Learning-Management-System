@@ -1,0 +1,656 @@
+<!-- templates/transport/routes/route_optimization.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Route Optimization" %}{% endblock %}
+
+{% block page_title %}{% trans "Route Optimization" %}{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'users:dashboard' %}">{% trans "Home" %}</a></li>
+<li class="breadcrumb-item"><a href="{% url 'transport:route_list' %}">{% trans "Routes" %}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{% trans "Route Optimization" %}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Optimization Specific Styles */
+    .optimization-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+    }
+    
+    .optimization-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .optimization-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .optimization-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0;
+    }
+    
+    .optimization-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+    
+    .route-visualization {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        height: 100%;
+        min-height: 400px;
+    }
+    
+    .optimization-suggestion {
+        border-left: 4px solid #0d6efd;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .suggestion-highlight {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .suggestion-critical {
+        background-color: #f8d7da;
+        border-left: 4px solid #dc3545;
+    }
+    
+    .route-stop-item {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e9ecef;
+        transition: background-color 0.2s ease;
+    }
+    
+    .route-stop-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .stop-sequence {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background-color: #0d6efd;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 0.875rem;
+    }
+    
+    .optimization-progress {
+        height: 8px;
+        border-radius: 4px;
+    }
+    
+    .efficiency-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .map-container {
+        height: 300px;
+        background: #e9ecef;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    
+    .action-button {
+        border-radius: 8px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .optimization-value {
+            font-size: 1.5rem;
+        }
+        
+        .optimization-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 1.25rem;
+        }
+        
+        .route-visualization {
+            min-height: 300px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="route-optimization">
+    <!-- Optimization Overview -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3 class="mb-3">{% trans "Route Optimization Analysis" %}</h3>
+            <p class="text-muted">
+                {% trans "Analyze and optimize transport routes for better efficiency and cost savings." %}
+            </p>
+        </div>
+    </div>
+    
+    <!-- Key Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card optimization-card">
+                <div class="card-body text-center">
+                    <div class="optimization-icon bg-primary bg-opacity-10 text-primary mx-auto">
+                        <i class="fas fa-route"></i>
+                    </div>
+                    <h2 class="optimization-value text-primary">{{ total_routes }}</h2>
+                    <p class="optimization-label">{% trans "Total Routes" %}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card optimization-card">
+                <div class="card-body text-center">
+                    <div class="optimization-icon bg-success bg-opacity-10 text-success mx-auto">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                    <h2 class="optimization-value text-success">{{ total_stops }}</h2>
+                    <p class="optimization-label">{% trans "Total Stops" %}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card optimization-card">
+                <div class="card-body text-center">
+                    <div class="optimization-icon bg-info bg-opacity-10 text-info mx-auto">
+                        <i class="fas fa-road"></i>
+                    </div>
+                    <h2 class="optimization-value text-info">{{ total_distance_estimate|floatformat:0 }}</h2>
+                    <p class="optimization-label">{% trans "Total Distance (km)" %}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card optimization-card">
+                <div class="card-body text-center">
+                    <div class="optimization-icon bg-warning bg-opacity-10 text-warning mx-auto">
+                        <i class="fas fa-gas-pump"></i>
+                    </div>
+                    <h2 class="optimization-value text-warning" id="estimated-savings">0</h2>
+                    <p class="optimization-label">{% trans "Estimated Monthly Savings" %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Optimization Content -->
+    <div class="row">
+        <!-- Route Visualization and Analysis -->
+        <div class="col-lg-8 mb-4">
+            <div class="route-visualization">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">{% trans "Route Analysis" %}</h5>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="analyze-routes">
+                            <i class="fas fa-chart-line me-1"></i> {% trans "Analyze" %}
+                        </button>
+                        <button type="button" class="btn btn-outline-success btn-sm" id="optimize-routes">
+                            <i class="fas fa-magic me-1"></i> {% trans "Optimize" %}
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Map Placeholder -->
+                <div class="map-container">
+                    <div class="text-center">
+                        <i class="fas fa-map fa-3x mb-2"></i>
+                        <p>{% trans "Route visualization map will appear here" %}</p>
+                        <small class="text-muted">{% trans "Integration with mapping services required" %}</small>
+                    </div>
+                </div>
+                
+                <!-- Route Selection -->
+                <div class="mb-3">
+                    <label for="route-select" class="form-label">{% trans "Select Route for Analysis" %}</label>
+                    <select class="form-select" id="route-select">
+                        <option value="">{% trans "All Routes" %}</option>
+                        {% for route in routes %}
+                        <option value="{{ route.id }}">{{ route.code }} - {{ route.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Analysis Results -->
+                <div id="analysis-results" style="display: none;">
+                    <h6 class="mb-3">{% trans "Analysis Results" %}</h6>
+                    
+                    <div class="optimization-suggestion">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="mb-0">{% trans "Route Efficiency Score" %}</h6>
+                            <span class="badge bg-success efficiency-badge" id="efficiency-score">85%</span>
+                        </div>
+                        <p class="mb-2 small">{% trans "This route is performing well but has some optimization opportunities." %}</p>
+                        <div class="progress optimization-progress mb-2">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 85%" aria-valuenow="85" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="optimization-suggestion suggestion-highlight">
+                        <h6 class="mb-2">🚀 {% trans "Optimization Opportunity" %}</h6>
+                        <p class="mb-1 small">{% trans "Consolidating stops 3 and 4 could reduce travel time by approximately 15 minutes." %}</p>
+                        <button type="button" class="btn btn-sm btn-outline-warning mt-1">{% trans "Apply Suggestion" %}</button>
+                    </div>
+                    
+                    <div class="optimization-suggestion">
+                        <h6 class="mb-2">💡 {% trans "Fuel Efficiency" %}</h6>
+                        <p class="mb-0 small">{% trans "Current fuel consumption: 6.2 km/L. Target: 7.0 km/L" %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Optimization Suggestions -->
+        <div class="col-lg-4 mb-4">
+            <div class="route-visualization">
+                <h5 class="mb-3">{% trans "Optimization Suggestions" %}</h5>
+                
+                <div class="optimization-suggestion suggestion-critical">
+                    <h6 class="mb-2">⚠️ {% trans "High Priority" %}</h6>
+                    <p class="mb-1 small">{% trans "Route A-12 has 3 underutilized stops with less than 2 students each." %}</p>
+                    <button type="button" class="btn btn-sm btn-outline-danger mt-1">{% trans "Review Now" %}</button>
+                </div>
+                
+                <div class="optimization-suggestion suggestion-highlight">
+                    <h6 class="mb-2">📊 {% trans "Medium Priority" %}</h6>
+                    <p class="mb-1 small">{% trans "Route B-07 could be split into two routes to reduce travel time by 25%." %}</p>
+                    <button type="button" class="btn btn-sm btn-outline-warning mt-1">{% trans "Analyze Split" %}</button>
+                </div>
+                
+                <div class="optimization-suggestion">
+                    <h6 class="mb-2">💡 {% trans "Low Priority" %}</h6>
+                    <p class="mb-1 small">{% trans "Consider adjusting pickup times for Route C-03 to avoid traffic congestion." %}</p>
+                    <button type="button" class="btn btn-sm btn-outline-info mt-1">{% trans "Schedule Review" %}</button>
+                </div>
+                
+                <div class="mt-4">
+                    <h6 class="mb-2">{% trans "Quick Actions" %}</h6>
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-outline-primary action-button">
+                            <i class="fas fa-sync-alt me-2"></i> {% trans "Re-optimize All Routes" %}
+                        </button>
+                        <button type="button" class="btn btn-outline-success action-button">
+                            <i class="fas fa-file-export me-2"></i> {% trans "Export Optimization Report" %}
+                        </button>
+                        <button type="button" class="btn btn-outline-info action-button">
+                            <i class="fas fa-history me-2"></i> {% trans "View Optimization History" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Route Details and Stops -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="route-visualization">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">{% trans "Route Details" %}</h5>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="show-all-routes" checked>
+                        <label class="form-check-label" for="show-all-routes">{% trans "Show All Routes" %}</label>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover" id="routes-table">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Route Code" %}</th>
+                                <th>{% trans "Route Name" %}</th>
+                                <th>{% trans "Stops" %}</th>
+                                <th>{% trans "Distance" %}</th>
+                                <th>{% trans "Students" %}</th>
+                                <th>{% trans "Efficiency" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for route in routes %}
+                            <tr>
+                                <td>
+                                    <strong>{{ route.code }}</strong>
+                                    {% if route.is_active %}
+                                    <span class="badge bg-success ms-1">{% trans "Active" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary ms-1">{% trans "Inactive" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ route.name }}</td>
+                                <td>
+                                    <span class="badge bg-primary">{{ route.stops.count }}</span>
+                                </td>
+                                <td>{{ route.total_distance }} km</td>
+                                <td>
+                                    <span class="badge bg-info">{{ route.current_students_count }}</span>
+                                </td>
+                                <td>
+                                    {% with efficiency=route.current_students_count|default:0|add:0 %}
+                                    {% if efficiency > 15 %}
+                                    <span class="badge bg-success">{% trans "High" %}</span>
+                                    {% elif efficiency > 8 %}
+                                    <span class="badge bg-warning">{% trans "Medium" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">{% trans "Low" %}</span>
+                                    {% endif %}
+                                    {% endwith %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button type="button" class="btn btn-outline-primary" data-route-id="{{ route.id }}">
+                                            <i class="fas fa-chart-line"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-success" data-route-id="{{ route.id }}">
+                                            <i class="fas fa-magic"></i>
+                                        </button>
+                                        <a href="{% url 'transport:route_detail' route.id %}" class="btn btn-outline-info">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4">
+                                    <i class="fas fa-route fa-2x text-muted mb-2"></i>
+                                    <p class="text-muted">{% trans "No routes available for optimization" %}</p>
+                                    <a href="{% url 'transport:route_create' %}" class="btn btn-primary">
+                                        <i class="fas fa-plus me-1"></i> {% trans "Create First Route" %}
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Optimization Settings -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="route-visualization">
+                <h5 class="mb-3">{% trans "Optimization Settings" %}</h5>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">{% trans "Optimization Goal" %}</label>
+                            <select class="form-select" id="optimization-goal">
+                                <option value="time">{% trans "Minimize Travel Time" %}</option>
+                                <option value="distance">{% trans "Minimize Distance" %}</option>
+                                <option value="cost">{% trans "Minimize Cost" %}</option>
+                                <option value="balanced" selected>{% trans "Balanced Approach" %}</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">{% trans "Maximum Route Duration (minutes)" %}</label>
+                            <input type="number" class="form-control" id="max-duration" value="90" min="30" max="180">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">{% trans "Vehicle Capacity Consideration" %}</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="consider-capacity" checked>
+                                <label class="form-check-label" for="consider-capacity">
+                                    {% trans "Respect vehicle seating capacity" %}
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="consider-vehicle-type" checked>
+                                <label class="form-check-label" for="consider-vehicle-type">
+                                    {% trans "Consider vehicle type suitability" %}
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">{% trans "Traffic Considerations" %}</label>
+                            <select class="form-select" id="traffic-model">
+                                <option value="none">{% trans "No traffic data" %}</option>
+                                <option value="average">{% trans "Average traffic conditions" %}</option>
+                                <option value="peak">{% trans "Peak hour traffic" %}</option>
+                                <option value="real-time">{% trans "Real-time traffic (if available)" %}</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary" id="reset-settings">
+                        <i class="fas fa-undo me-1"></i> {% trans "Reset to Defaults" %}
+                    </button>
+                    <button type="button" class="btn btn-primary" id="save-settings">
+                        <i class="fas fa-save me-1"></i> {% trans "Save Optimization Settings" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize optimization page functionality
+        
+        // Calculate estimated savings (simulated)
+        function calculateSavings() {
+            // This would typically make an API call to calculate actual savings
+            const routesCount = {{ routes|length }};
+            const estimatedSavings = routesCount * 125; // Simulated calculation
+            document.getElementById('estimated-savings').textContent = '₹' + estimatedSavings.toLocaleString();
+        }
+        
+        // Route analysis functionality
+        document.getElementById('analyze-routes').addEventListener('click', function() {
+            const routeSelect = document.getElementById('route-select');
+            const selectedRoute = routeSelect.value;
+            const resultsDiv = document.getElementById('analysis-results');
+            
+            // Show loading state
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> {% trans "Analyzing..." %}';
+            this.disabled = true;
+            
+            // Simulate analysis process
+            setTimeout(function() {
+                resultsDiv.style.display = 'block';
+                document.getElementById('analyze-routes').innerHTML = originalText;
+                document.getElementById('analyze-routes').disabled = false;
+                
+                // Show success message
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-success alert-dismissible fade show mt-3';
+                alertDiv.innerHTML = `
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>{% trans "Analysis Complete!" %}</strong> {% trans "Route analysis completed successfully." %}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                resultsDiv.parentNode.insertBefore(alertDiv, resultsDiv.nextSibling);
+            }, 2000);
+        });
+        
+        // Route optimization functionality
+        document.getElementById('optimize-routes').addEventListener('click', function() {
+            const routeSelect = document.getElementById('route-select');
+            const selectedRoute = routeSelect.value;
+            
+            // Show loading state
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> {% trans "Optimizing..." %}';
+            this.disabled = true;
+            
+            // Simulate optimization process
+            setTimeout(function() {
+                document.getElementById('optimize-routes').innerHTML = originalText;
+                document.getElementById('optimize-routes').disabled = false;
+                
+                // Show success message with savings
+                calculateSavings();
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-success alert-dismissible fade show mt-3';
+                alertDiv.innerHTML = `
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>{% trans "Optimization Complete!" %}</strong> {% trans "Routes optimized successfully. Estimated monthly savings: " %}<strong id="savings-amount"></strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.querySelector('.route-visualization').appendChild(alertDiv);
+                
+                // Update efficiency score
+                document.getElementById('efficiency-score').textContent = '92%';
+                document.querySelector('.progress-bar').style.width = '92%';
+            }, 3000);
+        });
+        
+        // Route selection change handler
+        document.getElementById('route-select').addEventListener('change', function() {
+            const selectedRoute = this.value;
+            if (selectedRoute) {
+                // In a real implementation, this would fetch route-specific data
+                console.log('Selected route:', selectedRoute);
+            }
+        });
+        
+        // Show/hide all routes
+        document.getElementById('show-all-routes').addEventListener('change', function() {
+            const table = document.getElementById('routes-table');
+            const rows = table.querySelectorAll('tbody tr');
+            
+            if (!this.checked) {
+                // Show only active routes
+                rows.forEach(row => {
+                    const activeBadge = row.querySelector('.badge.bg-success');
+                    if (!activeBadge) {
+                        row.style.display = 'none';
+                    } else {
+                        row.style.display = '';
+                    }
+                });
+            } else {
+                // Show all routes
+                rows.forEach(row => {
+                    row.style.display = '';
+                });
+            }
+        });
+        
+        // Settings handlers
+        document.getElementById('reset-settings').addEventListener('click', function() {
+            document.getElementById('optimization-goal').value = 'balanced';
+            document.getElementById('max-duration').value = '90';
+            document.getElementById('consider-capacity').checked = true;
+            document.getElementById('consider-vehicle-type').checked = true;
+            document.getElementById('traffic-model').value = 'none';
+            
+            // Show confirmation
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-info alert-dismissible fade show mt-3';
+            alertDiv.innerHTML = `
+                <i class="fas fa-info-circle me-2"></i>
+                {% trans "Settings reset to default values." %}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            this.closest('.route-visualization').appendChild(alertDiv);
+        });
+        
+        document.getElementById('save-settings').addEventListener('click', function() {
+            // In a real implementation, this would save settings to the server
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-dismissible fade show mt-3';
+            alertDiv.innerHTML = `
+                <i class="fas fa-check-circle me-2"></i>
+                {% trans "Optimization settings saved successfully." %}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            this.closest('.route-visualization').appendChild(alertDiv);
+        });
+        
+        // Initialize page
+        calculateSavings();
+        
+        // Add animation to optimization cards
+        const optimizationCards = document.querySelectorAll('.optimization-card');
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, { threshold: 0.1 });
+        
+        optimizationCards.forEach(card => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            observer.observe(card);
+        });
+        
+        // Route action buttons
+        document.querySelectorAll('[data-route-id]').forEach(button => {
+            button.addEventListener('click', function() {
+                const routeId = this.getAttribute('data-route-id');
+                const action = this.querySelector('i').className;
+                
+                if (action.includes('fa-chart-line')) {
+                    // Analyze specific route
+                    document.getElementById('route-select').value = routeId;
+                    document.getElementById('analyze-routes').click();
+                } else if (action.includes('fa-magic')) {
+                    // Optimize specific route
+                    document.getElementById('route-select').value = routeId;
+                    document.getElementById('optimize-routes').click();
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

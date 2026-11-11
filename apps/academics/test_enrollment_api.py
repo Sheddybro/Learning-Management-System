@@ -107,6 +107,31 @@ class EnrollmentApiTests(TestCase):
         }))
         self.assertEqual(detail.status_code, 404)
 
+    def test_class_update_cannot_edit_other_school(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("academics:class_update", kwargs={
+            "pk": self.other_class.pk,
+        }))
+        self.assertEqual(response.status_code, 404)
+
+    def test_class_create_form_excludes_other_school_session(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("academics:class_create"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(
+            self.session,
+            list(response.context["form"].fields["academic_session"].queryset),
+        )
+
+    def test_class_list_invalid_filters_do_not_crash(self):
+        self.client.force_login(self.user)
+        for key in ("grade_level", "session"):
+            with self.subTest(key=key):
+                response = self.client.get(reverse("academics:class_list"), {
+                    key: "not-a-uuid",
+                })
+                self.assertEqual(response.status_code, 200)
+
     def test_calendar_excludes_other_school_session(self):
         self.client.force_login(self.user)
         self.session.is_current = True

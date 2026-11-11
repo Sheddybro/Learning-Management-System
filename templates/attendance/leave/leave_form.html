@@ -366,9 +366,6 @@
                                             <i class="fas fa-times me-1"></i> Cancel
                                         </a>
                                         <div class="btn-group">
-                                            <button type="submit" name="save_draft" value="true" class="btn btn-outline-primary">
-                                                <i class="fas fa-save me-1"></i> Save Draft
-                                            </button>
                                             <button type="submit" name="submit" value="true" class="btn btn-success">
                                                 <i class="fas fa-paper-plane me-1"></i> Submit Application
                                             </button>
@@ -592,9 +589,9 @@ function formatDate(date) {
 }
 
 function handleDrop(e) {
-    const dt = e.dataTransfer;
-    const files = dt.files;
-    handleFiles(files);
+    const input = document.getElementById('documentInput');
+    input.files = e.dataTransfer.files;
+    handleFiles(input.files);
 }
 
 function handleFileSelect(e) {
@@ -603,6 +600,8 @@ function handleFileSelect(e) {
 }
 
 function handleFiles(files) {
+    const fileList = document.getElementById('fileList');
+    const uploadedFilesList = document.getElementById('uploadedFilesList');
     if (files.length > 0) {
         fileList.innerHTML = '';
         
@@ -610,15 +609,14 @@ function handleFiles(files) {
             const file = files[i];
             const listItem = document.createElement('div');
             listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
-            listItem.innerHTML = `
-                <div>
-                    <i class="fas fa-file me-2 text-muted"></i>
-                    ${file.name} (${formatFileSize(file.size)})
-                </div>
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(this)">
-                    <i class="fas fa-times"></i>
-                </button>
-            `;
+            const label = document.createElement('span');
+            label.textContent = `${file.name} (${formatFileSize(file.size)})`;
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'btn btn-sm btn-outline-danger';
+            removeButton.textContent = 'Remove';
+            removeButton.addEventListener('click', () => removeFile(i));
+            listItem.append(label, removeButton);
             fileList.appendChild(listItem);
         }
         
@@ -626,12 +624,16 @@ function handleFiles(files) {
     }
 }
 
-function removeFile(button) {
-    button.closest('.list-group-item').remove();
-    
-    if (fileList.children.length === 0) {
-        uploadedFilesList.style.display = 'none';
-        documentInput.value = '';
+function removeFile(index) {
+    const input = document.getElementById('documentInput');
+    const remaining = new DataTransfer();
+    Array.from(input.files).forEach((file, i) => {
+        if (i !== index) remaining.items.add(file);
+    });
+    input.files = remaining.files;
+    handleFiles(input.files);
+    if (input.files.length === 0) {
+        document.getElementById('uploadedFilesList').style.display = 'none';
     }
 }
 
@@ -655,23 +657,13 @@ function updateLeaveBalance(leaveTypeId) {
     const balanceInfo = document.getElementById('leaveBalanceInfo');
     
     if (leaveTypeId) {
-        // This would typically be an AJAX call to get the user's leave balance
-        // For now, we'll simulate it
+        const option = document.querySelector(`#{{ form.leave_type.id_for_label }} option:checked`);
+        const maximum = option?.dataset.maxDays;
         balanceInfo.innerHTML = `
             <div class="text-center">
-                <div class="h4 text-primary">15</div>
-                <small class="text-muted">Available Days</small>
-                <div class="progress mt-2" style="height: 6px;">
-                    <div class="progress-bar" role="progressbar" style="width: 75%"></div>
-                </div>
-                <div class="row text-center mt-2">
-                    <div class="col-6">
-                        <div class="small">5 Used</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="small">2 Pending</div>
-                    </div>
-                </div>
+                <div class="h4 text-primary">${maximum || '—'}</div>
+                <small class="text-muted">Maximum days per year for this leave type</small>
+                <p class="small text-muted mt-2 mb-0">Remaining leave balance is not available here; contact your school administrator for confirmation.</p>
             </div>
         `;
     } else {

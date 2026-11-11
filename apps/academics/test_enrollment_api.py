@@ -15,6 +15,7 @@ from .models import (
     SchoolPolicy, ClassMaterial, Department, Subject,
 )
 from apps.core.models import InstitutionUser
+from .views import ClassMaterialCreateView
 
 
 class EnrollmentApiTests(TestCase):
@@ -147,6 +148,21 @@ class EnrollmentApiTests(TestCase):
         response = self.client.get(reverse("academics:material_create"))
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(subject, list(response.context["form"].fields["subject"].queryset))
+
+    def test_material_system_teacher_is_disabled_and_school_local(self):
+        view = ClassMaterialCreateView()
+        first = view.get_or_create_system_admin_teacher(self.school)
+        same = view.get_or_create_system_admin_teacher(self.school)
+        other = view.get_or_create_system_admin_teacher(self.other_school)
+        self.assertEqual(first.pk, same.pk)
+        self.assertNotEqual(first.pk, other.pk)
+        self.assertEqual(first.institution, self.school)
+        self.assertEqual(other.institution, self.other_school)
+        for teacher in (first, other):
+            self.assertFalse(teacher.user.is_active)
+            self.assertFalse(teacher.user.is_staff)
+            self.assertFalse(teacher.user.is_superuser)
+            self.assertFalse(teacher.user.has_usable_password())
 
     def test_timetable_create_form_excludes_other_school_session(self):
         self.client.force_login(self.user)

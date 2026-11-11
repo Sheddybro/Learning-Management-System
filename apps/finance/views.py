@@ -69,7 +69,7 @@ class FinanceAccessMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
-class AccountantRequiredMixin(UserPassesTestMixin):
+class AccountantRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
     """Mixin to ensure user is an accountant, staff, or admin."""
 
     def test_func(self):

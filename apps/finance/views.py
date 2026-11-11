@@ -81,6 +81,32 @@ class AccountantRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
         return user.user_roles.filter(role__role_type="accountant").exists()
 
 
+class FinanceObjectScopeMixin:
+    """Restrict finance object lookups to the signed-in user's institutions.
+
+    Applies to detail, update, and deletion views. A foreign-school object
+    is deliberately indistinguishable from a nonexistent one (HTTP 404).
+    """
+
+    def get_queryset(self):
+        from apps.core.middleware import get_user_accessible_institutions
+
+        queryset = super().get_queryset()
+        user = self.request.user
+        if user.is_superuser:
+            return queryset
+
+        institutions = get_user_accessible_institutions(user)
+        model = queryset.model
+        if model is Invoice:
+            return queryset.filter(student__institution__in=institutions)
+        if model is Payment:
+            return queryset.filter(invoice__student__institution__in=institutions)
+        if model is Expense:
+            return queryset.filter(institution__in=institutions)
+        return queryset.none()
+
+
 # =============================================================================
 # DASHBOARD VIEWS
 # =============================================================================
@@ -380,7 +406,7 @@ class InvoiceListView(FinanceAccessMixin, ListView):
         return context
 
 
-class InvoiceDetailView(FinanceAccessMixin, DetailView):
+class InvoiceDetailView(FinanceObjectScopeMixin, FinanceAccessMixin, DetailView):
     """Detail view for an invoice."""
 
     model = Invoice
@@ -407,7 +433,7 @@ class InvoiceCreateView(AccountantRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class InvoiceUpdateView(AccountantRequiredMixin, UpdateView):
+class InvoiceUpdateView(FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
     """Update an existing invoice."""
 
     model = Invoice
@@ -420,7 +446,7 @@ class InvoiceUpdateView(AccountantRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class InvoiceDeleteView(AccountantRequiredMixin, DeleteView):
+class InvoiceDeleteView(FinanceObjectScopeMixin, AccountantRequiredMixin, DeleteView):
     """Delete an invoice."""
 
     model = Invoice
@@ -484,7 +510,7 @@ class PaymentListView(FinanceAccessMixin, ListView):
         return context
 
 
-class PaymentDetailView(FinanceAccessMixin, DetailView):
+class PaymentDetailView(FinanceObjectScopeMixin, FinanceAccessMixin, DetailView):
     """Detail view for a payment."""
 
     model = Payment
@@ -572,7 +598,7 @@ class PaymentCreateView(AccountantRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class PaymentUpdateView(AccountantRequiredMixin, UpdateView):
+class PaymentUpdateView(FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
     """Update an existing payment."""
 
     model = Payment
@@ -585,7 +611,7 @@ class PaymentUpdateView(AccountantRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class PaymentDeleteView(AccountantRequiredMixin, DeleteView):
+class PaymentDeleteView(FinanceObjectScopeMixin, AccountantRequiredMixin, DeleteView):
     """Delete a payment."""
 
     model = Payment
@@ -651,7 +677,7 @@ class ExpenseListView(FinanceAccessMixin, ListView):
         return context
 
 
-class ExpenseDetailView(FinanceAccessMixin, DetailView):
+class ExpenseDetailView(FinanceObjectScopeMixin, FinanceAccessMixin, DetailView):
     """Detail view for an expense."""
 
     model = Expense
@@ -672,7 +698,7 @@ class ExpenseCreateView(AccountantRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ExpenseUpdateView(AccountantRequiredMixin, UpdateView):
+class ExpenseUpdateView(FinanceObjectScopeMixin, AccountantRequiredMixin, UpdateView):
     """Update an existing expense."""
 
     model = Expense
@@ -685,7 +711,7 @@ class ExpenseUpdateView(AccountantRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class ExpenseDeleteView(AccountantRequiredMixin, DeleteView):
+class ExpenseDeleteView(FinanceObjectScopeMixin, AccountantRequiredMixin, DeleteView):
     """Delete an expense."""
 
     model = Expense

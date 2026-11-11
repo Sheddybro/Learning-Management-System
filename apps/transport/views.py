@@ -840,34 +840,19 @@ class MaintenanceRecordListView(InstitutionPermissionMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        try:
-            from apps.core.middleware import get_user_accessible_institutions
+        from apps.core.middleware import get_user_accessible_institutions
 
-            if self.request.user.is_superuser:
-                from apps.core.middleware import get_user_accessible_institutions
-
-                if request.user.is_superuser:
-                    context["vehicles"] = Vehicle.objects.all()
-                else:
-                    accessible_insts = get_user_accessible_institutions(request.user)
-                    context["vehicles"] = Vehicle.objects.filter(
-                        institution__in=accessible_insts
-                    )
-            else:
+        if self.request.user.is_superuser:
+            context["vehicles"] = Vehicle.objects.all()
+        else:
+            # Fail closed when institution resolution is unavailable.
+            try:
                 accessible_insts = get_user_accessible_institutions(self.request.user)
                 context["vehicles"] = Vehicle.objects.filter(
                     institution__in=accessible_insts
                 )
-        except Exception:
-            from apps.core.middleware import get_user_accessible_institutions
-
-            if request.user.is_superuser:
-                context["vehicles"] = Vehicle.objects.all()
-            else:
-                accessible_insts = get_user_accessible_institutions(request.user)
-                context["vehicles"] = Vehicle.objects.filter(
-                    institution__in=accessible_insts
-                )
+            except Exception:
+                context["vehicles"] = Vehicle.objects.none()
         context["maintenance_types"] = MaintenanceRecord.MaintenanceType.choices
         return context
 

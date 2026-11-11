@@ -513,6 +513,7 @@ class ClassForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         self.fields["grade_level"].queryset = GradeLevel.objects.filter(status="active")
         self.fields["class_teacher"].queryset = Teacher.objects.filter(
@@ -521,6 +522,13 @@ class ClassForm(forms.ModelForm):
         self.fields["academic_session"].queryset = AcademicSession.objects.filter(
             status="active"
         )
+        if institution is not None:
+            self.fields["class_teacher"].queryset = self.fields[
+                "class_teacher"
+            ].queryset.filter(institution=institution)
+            self.fields["academic_session"].queryset = self.fields[
+                "academic_session"
+            ].queryset.filter(institution=institution)
 
         self.fields["grade_level"].empty_label = _("Select Grade Level")
         self.fields["class_teacher"].empty_label = _("Select Class Teacher (Optional)")

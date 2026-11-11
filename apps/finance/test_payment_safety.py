@@ -4,7 +4,7 @@ Run with: python manage.py test apps.finance.test_payment_safety
 These tests use request factories and mocks, not production school records.
 """
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.http import Http404
 from django.test import RequestFactory, SimpleTestCase
@@ -19,6 +19,7 @@ from apps.finance.views import (
     GenerateInvoiceAPIView,
     StudentInvoiceDetailView,
 )
+from apps.finance.models import Invoice, Payment
 
 
 def staff_request(path, method="get"):
@@ -201,3 +202,122 @@ class StudentInvoiceUiTests(SimpleTestCase):
         from django.template.loader import get_template
 
         self.assertIsNotNone(get_template("finance/student/invoice_detail.html"))
+
+
+class PaymentAccountingIdempotencyTests(SimpleTestCase):
+    def make_payment(self, invoice, amount="50.00", status=None):
+        from decimal import Decimal
+
+        return Payment(
+            payment_number="PAY-TEST-1",
+            invoice_id=invoice.pk,
+            institution_id="school-a",
+            amount=Decimal(amount),
+            status=status or Payment.PaymentStatus.COMPLETED,
+        )
+
+    @patch("apps.core.models.CoreBaseModel.save")
+    @patch("apps.finance.models.Invoice.objects.select_for_update")
+    def test_new_completed_payment_updates_invoice_once(self, lock_invoice, base_save):
+        from decimal import Decimal
+
+        invoice = SimpleNamespace(
+            pk="invoice-a",
+            amount_paid=Decimal("0.00"),
+            total_amount=Decimal("100.00"),
+            save=Mock(),
+        )
+        lock_invoice.return_value.get.return_value = invoice
+        payment = self.make_payment(invoice)
+
+        payment.save()
+
+        self.assertEqual(invoice.amount_paid, Decimal("50.00"))
+        invoice.save.assert_called_once()
+        base_save.assert_called_once()
+
+    @patch("apps.core.models.CoreBaseModel.save")
+    @patch("apps.finance.models.Payment.objects.select_for_update")
+    @patch("apps.finance.models.Invoice.objects.select_for_update")
+    def test_resaving_completed_payment_does_not_double_count(
+        self, lock_invoice, lock_payment, base_save
+    ):
+        from decimal import Decimal
+        from uuid import uuid4
+
+        invoice = SimpleNamespace(
+            pk="invoice-a",
+            amount_paid=Decimal("50.00"),
+            total_amount=Decimal("100.00"),
+            save=Mock(),
+        )
+        lock_invoice.return_value.get.return_value = invoice
+        lock_payment.return_value.filter.return_value.first.return_value = (
+            SimpleNamespace(
+                status=Payment.PaymentStatus.COMPLETED,
+                invoice_id="invoice-a",
+                amount=Decimal("50.00"),
+            )
+        )
+        payment = self.make_payment(invoice)
+        payment.pk = uuid4()
+
+        payment.save()
+
+        self.assertEqual(invoice.amount_paid, Decimal("50.00"))
+        base_save.assert_called_once()
+
+    @patch("apps.core.models.CoreBaseModel.save")
+    @patch("apps.finance.models.Payment.objects.select_for_update")
+    @patch("apps.finance.models.Invoice.objects.select_for_update")
+    def test_reversing_completed_payment_removes_its_amount(
+        self, lock_invoice, lock_payment, base_save
+    ):
+        from decimal import Decimal
+        from uuid import uuid4
+
+        invoice = SimpleNamespace(
+            pk="invoice-a",
+            amount_paid=Decimal("50.00"),
+            total_amount=Decimal("100.00"),
+            save=Mock(),
+        )
+        lock_invoice.return_value.get.return_value = invoice
+        lock_payment.return_value.filter.return_value.first.return_value = (
+            SimpleNamespace(
+                status=Payment.PaymentStatus.COMPLETED,
+                invoice_id="invoice-a",
+                amount=Decimal("50.00"),
+            )
+        )
+        payment = self.make_payment(
+            invoice, status=Payment.PaymentStatus.FAILED
+        )
+        payment.pk = uuid4()
+
+        payment.save()
+
+        self.assertEqual(invoice.amount_paid, Decimal("0.00"))
+        invoice.save.assert_called_once()
+        base_save.assert_called_once()
+
+    @patch("apps.core.models.CoreBaseModel.save")
+    @patch("apps.finance.models.Invoice.objects.select_for_update")
+    def test_completed_payment_cannot_overpay_invoice(self, lock_invoice, base_save):
+        from decimal import Decimal
+        from django.core.exceptions import ValidationError
+
+        invoice = SimpleNamespace(
+            pk="invoice-a",
+            amount_paid=Decimal("90.00"),
+            total_amount=Decimal("100.00"),
+            save=Mock(),
+        )
+        lock_invoice.return_value.get.return_value = invoice
+        payment = self.make_payment(invoice, amount="20.00")
+
+        with self.assertRaises(ValidationError):
+            payment.save()
+
+        invoice.save.assert_not_called()
+        base_save.assert_not_called()

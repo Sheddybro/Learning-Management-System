@@ -2214,13 +2214,18 @@ class BulkEnrollmentView(StaffRequiredMixin, View):
     """Bulk enroll students in a class."""
 
     def get(self, request):
-        form = BulkEnrollmentForm()
+        from apps.core.middleware import get_current_institution
+
+        form = BulkEnrollmentForm(institution=get_current_institution())
         return render(
             request, "academics/enrollments/bulk_enrollment.html", {"form": form}
         )
 
     def post(self, request):
-        form = BulkEnrollmentForm(request.POST)
+        from apps.core.middleware import get_current_institution
+
+        institution = get_current_institution()
+        form = BulkEnrollmentForm(request.POST, institution=institution)
 
         if form.is_valid():
             students = form.cleaned_data["students"]
@@ -2249,6 +2254,7 @@ class BulkEnrollmentView(StaffRequiredMixin, View):
                     roll_number = last_roll.roll_number + 1 if last_roll else 1
 
                     Enrollment.objects.create(
+                        institution=institution,
                         student=student,
                         class_enrolled=class_enrolled,
                         academic_session=academic_session,

@@ -1380,6 +1380,43 @@ class StudentInvoiceDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
+class StudentPaymentReceiptView(LoginRequiredMixin, View):
+    """Allow a student to print a receipt only for their own completed payment."""
+
+    def get(self, request, pk):
+        payment = get_object_or_404(
+            Payment.objects.select_related(
+                "institution",
+                "invoice__academic_session",
+                "student__user",
+                "received_by",
+            ),
+            pk=pk,
+            student__user=request.user,
+        )
+        if payment.status != Payment.PaymentStatus.COMPLETED:
+            messages.warning(
+                request,
+                _("A receipt is available only after the payment is completed."),
+            )
+            return redirect("finance:student_invoice_detail", pk=payment.invoice_id)
+
+        if not payment.receipt_issued:
+            Payment.objects.filter(pk=payment.pk).update(receipt_issued=True)
+            payment.receipt_issued = True
+
+        return render(
+            request,
+            "finance/payments/payment_receipt.html",
+            {
+                "payment": payment,
+                "institution": payment.institution,
+                "receipt_date": timezone.localdate(),
+                "student_receipt": True,
+            },
+        )
+
+
 class StudentInvoiceListView(LoginRequiredMixin, ListView):
     """View for students to see their invoices."""
 

@@ -2217,9 +2217,7 @@ class BulkEnrollmentView(StaffRequiredMixin, View):
         from apps.core.middleware import get_current_institution
 
         form = BulkEnrollmentForm(institution=get_current_institution())
-        return render(
-            request, "academics/enrollments/bulk_enrollment.html", {"form": form}
-        )
+        return render(request, "academics/enrollments/bulk_enrollment_form.html", {"form": form})
 
     def post(self, request):
         from apps.core.middleware import get_current_institution
@@ -2272,9 +2270,7 @@ class BulkEnrollmentView(StaffRequiredMixin, View):
             )
             return redirect("academics:enrollment_list")
 
-        return render(
-            request, "academics/enrollments/bulk_enrollment.html", {"form": form}
-        )
+        return render(request, "academics/enrollments/bulk_enrollment_form.html", {"form": form})
 
 
 # =============================================================================

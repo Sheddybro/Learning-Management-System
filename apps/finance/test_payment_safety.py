@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from django.http import Http404
-from django.test import RequestFactory, SimpleTestCase
+from django.test import RequestFactory, SimpleTestCase, TestCase
 
 from apps.finance.views import (
     FlutterwaveWebhookView,
@@ -206,7 +206,7 @@ class StudentInvoiceUiTests(SimpleTestCase):
         self.assertIsNotNone(get_template("finance/student/invoice_detail.html"))
 
 
-class PaymentAccountingIdempotencyTests(SimpleTestCase):
+class PaymentAccountingIdempotencyTests(TestCase):
     def make_payment(self, invoice, amount="50.00", status=None):
         from decimal import Decimal
 

@@ -346,4 +346,4 @@ class FinanceFormIsolationTests(SimpleTestCase):
                     "student" if form_class in (InvoiceForm, PaymentForm)
                     else "academic_session"
                 )
-                self.assertFalse(form.fields[field_name].queryset.query.where.children == [])
+                self.assertTrue(form.fields[field_name].queryset.query.is_empty())

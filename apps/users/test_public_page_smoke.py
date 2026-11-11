@@ -58,6 +58,17 @@ class PublicPageSmokeTests(TestCase):
             "core:institution_list",
             "core:institution_create",
             "core:school_admin_dashboard",
+            "academics:dashboard",
+            "academics:student_list",
+            "academics:student_create",
+            "academics:teacher_list",
+            "academics:teacher_create",
+            "academics:enrollment_list",
+            "academics:enrollment_create",
+            "attendance:dashboard",
+            "attendance:daily_list",
+            "assessment:dashboard",
+            "assessment:result_list",
         ):
             with self.subTest(page=name):
                 response = self.client.get(reverse(name), follow=True)

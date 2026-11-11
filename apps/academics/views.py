@@ -3307,6 +3307,15 @@ class HolidayDetailView(AcademicsAccessMixin, DetailView):
     template_name = "academics/holidays/holiday_detail.html"
     context_object_name = "holiday"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["other_holidays"] = (
+            self.object.academic_session.holidays.exclude(pk=self.object.pk)
+            .order_by("date")
+            if self.object.academic_session_id else []
+        )
+        return context
+
 
 class HolidayCreateView(StaffRequiredMixin, CreateView):
     """Create a new holiday."""

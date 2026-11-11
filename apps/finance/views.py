@@ -640,9 +640,11 @@ class ExpenseListView(FinanceAccessMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["expense_categories"] = Expense.ExpenseCategory.choices
-        context["years"] = Expense.objects.dates("expense_date", "year").order_by(
-            "-date"
-        )
+        from apps.core.middleware import get_current_institution
+
+        context["years"] = Expense.objects.filter(
+            institution=get_current_institution()
+        ).dates("expense_date", "year", order="DESC")
         context["months"] = [
             (i, timezone.datetime(1, i, 1).strftime("%B")) for i in range(1, 13)
         ]

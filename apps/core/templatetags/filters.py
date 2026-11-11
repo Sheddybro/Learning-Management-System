@@ -1,4 +1,6 @@
 from django import template
+from pathlib import PurePath
+import json
 
 register = template.Library()
 
@@ -34,5 +36,51 @@ def mul(value, arg):
     """
     try:
         return float(value) * float(arg)
-    except ValueError:
+    except (ValueError, TypeError):
         return 0
+
+
+@register.filter
+def multiply(value, arg):
+    return mul(value, arg)
+
+
+@register.filter
+def divide(value, arg):
+    return div(value, arg)
+
+
+@register.filter
+def sub(value, arg):
+    try:
+        return float(value) - float(arg)
+    except (ValueError, TypeError):
+        return 0
+
+
+@register.filter(name="filename")
+def file_basename(value):
+    return PurePath(str(value or "")).name
+
+
+@register.filter(name="map")
+def project_list(values, key):
+    """Serialize a list of model/dictionary attributes for chart JavaScript."""
+    result = []
+    for item in values or []:
+        if isinstance(item, dict):
+            result.append(item.get(key))
+        else:
+            result.append(getattr(item, key, None))
+    return json.dumps(result, default=str)
+
+
+@register.filter
+def split_lines(value):
+    return str(value or "").splitlines()
+
+
+@register.filter
+def config_field(form, config_id):
+    name = f"config_{config_id}"
+    return form[name] if name in form.fields else ""

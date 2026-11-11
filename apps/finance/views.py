@@ -124,12 +124,13 @@ class DashboardView(AccountantRequiredMixin, View):
     """Accountant dashboard showing financial overview."""
 
     def get(self, request):
-        current_session = AcademicSession.objects.filter(is_current=True).first()
-
-        # Get current institution for filtering
+        # Resolve the tenant before choosing its current academic session.
         from apps.core.middleware import get_current_institution
 
         current_institution = get_current_institution()
+        current_session = AcademicSession.objects.filter(
+            is_current=True, institution=current_institution
+        ).first()
 
         # Fee Collection Summary - FILTERED BY INSTITUTION
         total_invoiced = Invoice.objects.filter(
@@ -228,7 +229,12 @@ class FeeStructureListView(FinanceAccessMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["academic_sessions"] = AcademicSession.objects.filter(status="active")
+        from apps.core.middleware import get_current_institution
+
+        institution = get_current_institution()
+        context["academic_sessions"] = AcademicSession.objects.filter(
+            status="active", institution=institution
+        )
         context["fee_types"] = FeeStructure.FeeType.choices
         return context
 
@@ -406,10 +412,15 @@ class InvoiceListView(FinanceAccessMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["academic_sessions"] = AcademicSession.objects.filter(status="active")
-        context["students"] = Student.objects.filter(status="active").select_related(
-            "user"
+        from apps.core.middleware import get_current_institution
+
+        institution = get_current_institution()
+        context["academic_sessions"] = AcademicSession.objects.filter(
+            status="active", institution=institution
         )
+        context["students"] = Student.objects.filter(
+            status="active", institution=institution
+        ).select_related("user")
         context["invoice_statuses"] = Invoice.InvoiceStatus.choices
         return context
 
@@ -509,10 +520,15 @@ class PaymentListView(FinanceAccessMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["academic_sessions"] = AcademicSession.objects.filter(status="active")
-        context["students"] = Student.objects.filter(status="active").select_related(
-            "user"
+        from apps.core.middleware import get_current_institution
+
+        institution = get_current_institution()
+        context["academic_sessions"] = AcademicSession.objects.filter(
+            status="active", institution=institution
         )
+        context["students"] = Student.objects.filter(
+            status="active", institution=institution
+        ).select_related("user")
         context["payment_methods"] = Payment.PaymentMethod.choices
         context["payment_statuses"] = Payment.PaymentStatus.choices
         return context
@@ -745,7 +761,11 @@ class FinancialReportListView(FinanceAccessMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["report_types"] = FinancialReport.ReportType.choices
-        context["academic_sessions"] = AcademicSession.objects.filter(status="active")
+        from apps.core.middleware import get_current_institution
+
+        context["academic_sessions"] = AcademicSession.objects.filter(
+            status="active", institution=get_current_institution()
+        )
         return context
 
 
@@ -1119,7 +1139,9 @@ class GetStudentOutstandingFeesAPIView(FinanceAccessMixin, View):
             id=student_id,
             institution__in=get_user_accessible_institutions(request.user),
         )
-        current_session = AcademicSession.objects.filter(is_current=True).first()
+        current_session = AcademicSession.objects.filter(
+            is_current=True, institution=student.institution
+        ).first()
 
         if not current_session:
             return JsonResponse(

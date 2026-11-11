@@ -135,3 +135,39 @@ class InvoiceGenerationBoundaryTests(SimpleTestCase):
         response = GenerateInvoiceAPIView.as_view()(request)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(student_filter.call_args.kwargs["institution"], "school-a")
+
+
+class InvoiceStatusInitializationTests(SimpleTestCase):
+    @patch("apps.core.models.CoreBaseModel.save")
+    def test_initial_zero_total_does_not_mark_invoice_paid(self, base_save):
+        from decimal import Decimal
+        from django.utils import timezone
+        from apps.finance.models import Invoice
+
+        invoice = Invoice(
+            invoice_number="INV-TEST-1",
+            status=Invoice.InvoiceStatus.ISSUED,
+            issue_date=timezone.now().date(),
+            total_amount=Decimal("0.00"),
+            amount_paid=Decimal("0.00"),
+        )
+        invoice.save()
+        base_save.assert_called_once()
+        self.assertEqual(invoice.status, Invoice.InvoiceStatus.ISSUED)
+
+    @patch("apps.core.models.CoreBaseModel.save")
+    def test_genuinely_fully_paid_invoice_is_paid(self, base_save):
+        from decimal import Decimal
+        from django.utils import timezone
+        from apps.finance.models import Invoice
+
+        invoice = Invoice(
+            invoice_number="INV-TEST-2",
+            status=Invoice.InvoiceStatus.ISSUED,
+            issue_date=timezone.now().date(),
+            total_amount=Decimal("150.00"),
+            amount_paid=Decimal("150.00"),
+        )
+        invoice.save()
+        base_save.assert_called_once()
+        self.assertEqual(invoice.status, Invoice.InvoiceStatus.PAID)

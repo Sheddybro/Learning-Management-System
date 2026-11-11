@@ -214,6 +214,7 @@ class PaymentAccountingIdempotencyTests(TestCase):
         return Payment(
             payment_number="PAY-TEST-1",
             invoice_id=invoice.pk,
+            student_id="student-a",
             institution_id="school-a",
             amount=Decimal(amount),
             status=status or Payment.PaymentStatus.COMPLETED,
@@ -226,6 +227,8 @@ class PaymentAccountingIdempotencyTests(TestCase):
 
         invoice = SimpleNamespace(
             pk="invoice-a",
+            institution_id="school-a",
+            student_id="student-a",
             amount_paid=Decimal("0.00"),
             total_amount=Decimal("100.00"),
             save=Mock(),

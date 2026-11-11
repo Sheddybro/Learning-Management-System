@@ -5,6 +5,7 @@ from datetime import date, time
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
@@ -136,6 +137,45 @@ class EnrollmentApiTests(TestCase):
         record = Enrollment.objects.get(student=student, academic_session=session)
         self.assertEqual(record.institution, self.school)
         self.assertEqual(record.class_enrolled, school_class)
+
+    def test_csv_bulk_enrollment_imports_existing_school_student(self):
+        session = AcademicSession.objects.create(
+            name="CSV Session", institution=self.school,
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        school_class = Class.objects.create(
+            name="CSV Class", code="CSV-C1", institution=self.school,
+            academic_session=session,
+        )
+        account = get_user_model().objects.create_user(
+            email="csv-student@example.com", password="test-only-password"
+        )
+        student = Student.objects.create(
+            user=account, institution=self.school, student_id="CSV-STU",
+            admission_number="CSV-001", admission_date=date(2026, 1, 1),
+            date_of_birth=date(2010, 1, 1), gender="female",
+        )
+        self.client.force_login(self.user)
+        response = self.client.post(reverse("academics:bulk_enrollment"), {
+            "import_type": "csv", "class_enrolled": str(school_class.pk),
+            "academic_session": str(session.pk), "enrollment_date": "2026-04-02",
+            "csv_file": SimpleUploadedFile("students.csv", b"student_id\nCSV-STU\n", content_type="text/csv"),
+        })
+        self.assertRedirects(response, reverse("academics:enrollment_list"))
+        self.assertTrue(Enrollment.objects.filter(student=student, institution=self.school).exists())
+
+    def test_csv_bulk_enrollment_rejects_unknown_student_without_writing(self):
+        self.client.force_login(self.user)
+        before = Enrollment.objects.count()
+        response = self.client.post(reverse("academics:bulk_enrollment"), {
+            "import_type": "csv", "class_enrolled": str(self.other_class.pk),
+            "academic_session": str(self.session.pk), "enrollment_date": "2026-04-02",
+            "csv_file": SimpleUploadedFile("students.csv", b"student_id\nNOT-HERE\n", content_type="text/csv"),
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("class_enrolled", response.context["csv_form"].errors)
+        self.assertIn("academic_session", response.context["csv_form"].errors)
+        self.assertEqual(Enrollment.objects.count(), before)
 
     def test_enrollment_form_excludes_other_school_sessions(self):
         self.client.force_login(self.user)

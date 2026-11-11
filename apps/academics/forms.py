@@ -2324,3 +2324,23 @@ class BulkEnrollmentForm(forms.Form):
                     _("Adding these students would exceed the class capacity."),
                 )
         return cleaned_data
+
+
+class BulkEnrollmentCsvForm(BulkEnrollmentForm):
+    """CSV upload of existing student IDs, using the same class/session validation."""
+
+    csv_file = forms.FileField(
+        label=_("CSV file"),
+        help_text=_("UTF-8 CSV with a student_id header, maximum 1,000 students and 5 MB."),
+        widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".csv,text/csv"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        del self.fields["students"]
+
+    def clean_csv_file(self):
+        upload = self.cleaned_data["csv_file"]
+        if not upload.name.lower().endswith(".csv") or upload.size > 5 * 1024 * 1024:
+            raise forms.ValidationError(_("Upload a CSV file of 5 MB or less."))
+        return upload

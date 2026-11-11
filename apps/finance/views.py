@@ -519,70 +519,43 @@ class PaymentDetailView(FinanceObjectScopeMixin, FinanceAccessMixin, DetailView)
 
 
 class PaymentGatewayView(FinanceAccessMixin, View):
-    """
-    Placeholder view for handling payment gateway redirection and processing.
-    Actual payment gateway integration logic would go here.
-    """
+    """Online payments are disabled until a verified gateway is configured."""
 
     def get(self, request, invoice_pk):
-        invoice = get_object_or_404(Invoice, pk=invoice_pk)
-        # In a real scenario, this would redirect to a payment gateway
-        # or render a page with payment options.
-        messages.info(
-            request,
-            _(
-                f"Redirecting to payment gateway for Invoice #{invoice.invoice_number}. (Placeholder)"
-            ),
+        from apps.core.middleware import get_user_accessible_institutions
+
+        get_object_or_404(
+            Invoice,
+            pk=invoice_pk,
+            student__institution__in=get_user_accessible_institutions(request.user),
         )
-        return redirect(
-            reverse_lazy("finance:invoice_detail", kwargs={"pk": invoice_pk})
+        return JsonResponse(
+            {"success": False, "message": "Online payment gateway is not configured."},
+            status=503,
         )
 
     def post(self, request, invoice_pk):
-        invoice = get_object_or_404(Invoice, pk=invoice_pk)
-        # This would handle the callback from the payment gateway
-        messages.info(
-            request,
-            _(
-                f"Processing payment callback for Invoice #{invoice.invoice_number}. (Placeholder)"
-            ),
-        )
-        return redirect(
-            reverse_lazy("finance:payment_success", kwargs={"pk": invoice_pk})
-        )
+        return self.get(request, invoice_pk)
 
 
 class PaymentCancelView(FinanceAccessMixin, View):
-    """
-    Placeholder view for handling cancelled payment redirects.
-    In a real scenario, this would log the cancellation and inform the user.
-    """
+    """Do not claim to cancel a payment without provider verification."""
 
     def get(self, request, pk):
-        # pk here would typically be a payment ID or invoice ID
-        messages.warning(
-            request, _(f"Payment for ID {pk} was cancelled. (Placeholder)")
+        return JsonResponse(
+            {"success": False, "message": "Payment callback handling is unavailable."},
+            status=503,
         )
-        return redirect(
-            reverse_lazy("finance:invoice_list")
-        )  # Redirect to invoice list or detail
 
 
 class PaymentSuccessView(FinanceAccessMixin, View):
-    """
-    Placeholder view for handling successful payment redirects.
-    In a real scenario, this would confirm the payment and update invoice status.
-    """
+    """Never signal a successful payment from an unverified callback URL."""
 
     def get(self, request, pk):
-        # pk here would typically be a payment ID or invoice ID
-        # For now, we'll just show a success message.
-        messages.success(
-            request, _(f"Payment for ID {pk} was successful! (Placeholder)")
+        return JsonResponse(
+            {"success": False, "message": "Payment has not been verified."},
+            status=503,
         )
-        return redirect(
-            reverse_lazy("finance:invoice_list")
-        )  # Redirect to invoice list or detail
 
 
 class PaymentCreateView(AccountantRequiredMixin, CreateView):
@@ -831,21 +804,23 @@ class ReceiptDownloadView(FinanceAccessMixin, View):
 
 
 class PaystackWebhookView(View):
-    """Placeholder view for Paystack webhook."""
+    """Do not acknowledge unverified payment webhooks as successful."""
 
     def post(self, request):
-        # In a real scenario, verify webhook signature and process payment update
-        messages.info(request, _("Paystack webhook received. (Placeholder)"))
-        return JsonResponse({"status": "success"}, status=200)
+        return JsonResponse(
+            {"success": False, "message": "Paystack integration is not configured."},
+            status=503,
+        )
 
 
 class FlutterwaveWebhookView(View):
-    """Placeholder view for Flutterwave webhook."""
+    """Do not acknowledge unverified payment webhooks as successful."""
 
     def post(self, request):
-        # In a real scenario, verify webhook signature and process payment update
-        messages.info(request, _("Flutterwave webhook received. (Placeholder)"))
-        return JsonResponse({"status": "success"}, status=200)
+        return JsonResponse(
+            {"success": False, "message": "Flutterwave integration is not configured."},
+            status=503,
+        )
 
 
 class APIInvoiceListView(FinanceAccessMixin, ListView):

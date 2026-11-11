@@ -19,6 +19,7 @@ from apps.finance.views import (
     GenerateInvoiceAPIView,
     StudentInvoiceDetailView,
     ReceiptDownloadView,
+    StudentPaymentReceiptView,
 )
 from apps.finance.models import Invoice, Payment
 from apps.finance.forms import InvoiceForm, PaymentForm, FinancialReportForm
@@ -438,3 +439,36 @@ class PaymentDeletionTests(SimpleTestCase):
         payment.delete()
         self.assertEqual(payment.status, Payment.PaymentStatus.PENDING)
         base_delete.assert_called_once_with(using=None, keep_parents=False)
+
+
+class StudentReceiptOwnershipTests(SimpleTestCase):
+    @patch("apps.finance.views.render")
+    @patch("apps.finance.views.get_object_or_404")
+    @patch("apps.finance.models.Payment.objects.filter")
+    def test_student_can_print_only_own_completed_payment(
+        self, payment_filter, lookup, render_mock
+    ):
+        from django.http import HttpResponse
+
+        user = SimpleNamespace(is_authenticated=True, pk="student-user")
+        payment = SimpleNamespace(
+            pk="payment-a",
+            invoice_id="invoice-a",
+            invoice=SimpleNamespace(pk="invoice-a"),
+            status=Payment.PaymentStatus.COMPLETED,
+            receipt_issued=False,
+            institution=SimpleNamespace(name="Example School"),
+        )
+        lookup.return_value = payment
+        render_mock.return_value = HttpResponse("receipt")
+        request = staff_request("/finance/student/payments/receipt/")
+        request.user = user
+
+        response = StudentPaymentReceiptView().get(request, pk="payment-a")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIs(lookup.call_args.kwargs["student__user"], user)
+        self.assertTrue(payment.receipt_issued)
+        payment_filter.assert_called_once_with(pk="payment-a")
+        self.assertTrue(render_mock.call_args.kwargs["context"]["student_receipt"])
+

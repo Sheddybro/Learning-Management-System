@@ -2285,10 +2285,12 @@ class TimetableListView(AcademicsAccessMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
         queryset = (
             super()
             .get_queryset()
-            .filter(status="active", is_published=True)
+            .filter(status="active", is_published=True, institution=get_current_institution())
             .select_related("class_assigned", "subject", "teacher", "academic_session")
             .order_by(
                 "academic_session", "class_assigned", "day_of_week", "period_number"
@@ -2305,47 +2307,11 @@ class TimetableDetailView(AcademicsAccessMixin, DetailView):
     context_object_name = "timetable"
 
     def get_queryset(self):
-        queryset = Timetable.objects.filter(is_published=True).select_related(
-            "class_assigned", "subject", "teacher"
-        )
+        from apps.core.middleware import get_current_institution
 
-        # Filter by class if provided
-        class_id = self.request.GET.get("class")
-        if class_id:
-            queryset = queryset.filter(class_assigned_id=class_id)
-
-        # Filter by teacher if provided
-        teacher_id = self.request.GET.get("teacher")
-        if teacher_id:
-            queryset = queryset.filter(teacher_id=teacher_id)
-
-        # Filter by academic session if provided
-        session_id = self.request.GET.get("session")
-        if session_id:
-            queryset = queryset.filter(academic_session_id=session_id)
-        else:
-            # Default to current session
-            current_session = AcademicSession.objects.filter(is_current=True).first()
-            if current_session:
-                queryset = queryset.filter(academic_session=current_session)
-
-        return queryset.order_by("day_of_week", "period_number")
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["classes"] = Class.objects.filter(status="active")
-        context["teachers"] = Teacher.objects.filter(status="active")
-        context["sessions"] = AcademicSession.objects.all()
-
-        # Group timetable by day for easier display
-        timetable_data = {}
-        for entry in context["timetable_entries"]:
-            if entry.day_of_week not in timetable_data:
-                timetable_data[entry.day_of_week] = []
-            timetable_data[entry.day_of_week].append(entry)
-
-        context["timetable_data"] = timetable_data
-        return context
+        return Timetable.objects.filter(
+            is_published=True, institution=get_current_institution()
+        ).select_related("class_assigned", "subject", "teacher", "academic_session")
 
 
 class StudentTimetableView(StudentRequiredMixin, View):
@@ -2477,7 +2443,17 @@ class TimetableCreateView(StaffRequiredMixin, CreateView):
     template_name = "academics/timetable/timetable_form.html"
     success_url = reverse_lazy("academics:timetable_list")
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        form.instance.institution = get_current_institution()
         messages.success(self.request, _("Timetable entry created successfully."))
         return super().form_valid(form)
 
@@ -2489,6 +2465,18 @@ class TimetableUpdateView(StaffRequiredMixin, UpdateView):
     form_class = TimetableForm
     template_name = "academics/timetable/timetable_form.html"
     success_url = reverse_lazy("academics:timetable_list")
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, _("Timetable entry updated successfully."))

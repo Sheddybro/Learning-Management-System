@@ -7,12 +7,12 @@ from django.http import JsonResponse
 from django.views import View
 
 from apps.core.middleware import get_current_institution
-from apps.core.mixins import AcademicsAccessMixin
+from apps.core.mixins import StaffRequiredMixin
 
 from .models import AcademicSession, Class, Enrollment, Student
 
 
-class EnrollmentApiView(AcademicsAccessMixin, View):
+class EnrollmentApiView(StaffRequiredMixin, View):
     def school(self):
         return get_current_institution()
 

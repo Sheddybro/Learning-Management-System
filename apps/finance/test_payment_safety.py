@@ -253,6 +253,8 @@ class PaymentAccountingIdempotencyTests(TestCase):
 
         invoice = SimpleNamespace(
             pk="invoice-a",
+            institution_id="school-a",
+            student_id="student-a",
             amount_paid=Decimal("50.00"),
             total_amount=Decimal("100.00"),
             save=Mock(),
@@ -284,6 +286,8 @@ class PaymentAccountingIdempotencyTests(TestCase):
 
         invoice = SimpleNamespace(
             pk="invoice-a",
+            institution_id="school-a",
+            student_id="student-a",
             amount_paid=Decimal("50.00"),
             total_amount=Decimal("100.00"),
             save=Mock(),
@@ -338,6 +342,8 @@ class PaymentAccountingIdempotencyTests(TestCase):
 
         invoice = SimpleNamespace(
             pk="invoice-a",
+            institution_id="school-a",
+            student_id="student-a",
             amount_paid=Decimal("90.00"),
             total_amount=Decimal("100.00"),
             save=Mock(),

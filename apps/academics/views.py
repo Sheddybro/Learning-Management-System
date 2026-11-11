@@ -13,7 +13,7 @@ from django.views.generic import (
     DeleteView,
 )
 from django.urls import reverse_lazy
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q, Count, Avg, Sum
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
@@ -2224,6 +2224,7 @@ class BulkEnrollmentView(StaffRequiredMixin, View):
             "csv_form": BulkEnrollmentCsvForm(institution=institution),
         })
 
+    @transaction.atomic
     def post(self, request):
         from apps.core.middleware import get_current_institution
 

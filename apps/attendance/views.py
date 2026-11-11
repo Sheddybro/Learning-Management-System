@@ -530,9 +530,11 @@ class LeaveApplicationListView(AttendancePermissionMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['status_choices'] = LeaveApplication.LeaveStatus.choices
-        context['leave_types'] = LeaveType.objects.filter(
+        leave_types = LeaveType.objects.filter(
             Q(allowed_for_students=True) | Q(allowed_for_teachers=True)
         )
+        institution = get_current_institution()
+        context['leave_types'] = leave_types.filter(institution=institution) if institution else leave_types.none()
         return context
 
 
@@ -550,11 +552,16 @@ class LeaveApplicationCreateView(CreateView):
     
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
+        institution = get_current_institution()
+        if institution and user_can_access_institution(self.request.user, institution):
+            form.fields['leave_type'].queryset = LeaveType.objects.filter(institution=institution)
+        else:
+            form.fields['leave_type'].queryset = LeaveType.objects.none()
         # Filter leave types based on user role
         if hasattr(self.request.user, 'student_profile'):
-            form.fields['leave_type'].queryset = LeaveType.objects.filter(allowed_for_students=True)
+            form.fields['leave_type'].queryset = form.fields['leave_type'].queryset.filter(allowed_for_students=True)
         elif hasattr(self.request.user, 'teacher_profile'):
-            form.fields['leave_type'].queryset = LeaveType.objects.filter(allowed_for_teachers=True)
+            form.fields['leave_type'].queryset = form.fields['leave_type'].queryset.filter(allowed_for_teachers=True)
         return form
     
     def form_valid(self, form):
@@ -598,12 +605,28 @@ class LeaveApplicationUpdateView(UpdateView):
     fields = ['status', 'rejection_reason']
 
     def get_queryset(self):
-        return filter_queryset_by_institution(super().get_queryset(), self.request.user)
+        queryset = filter_queryset_by_institution(super().get_queryset(), self.request.user)
+        institution = get_current_institution()
+        return queryset.filter(institution=institution) if institution else queryset.none()
 
     def get_success_url(self):
         return reverse_lazy('attendance:leave_list')
 
     def form_valid(self, form):
+        if self.object.applicant_id == self.request.user.pk:
+            form.add_error(None, "You cannot approve or reject your own leave application.")
+            return self.form_invalid(form)
+        if not LeaveApplication.objects.filter(
+            pk=self.object.pk, status=LeaveApplication.LeaveStatus.PENDING
+        ).exists():
+            form.add_error(None, "Only pending applications can be reviewed.")
+            return self.form_invalid(form)
+        if form.instance.status not in (LeaveApplication.LeaveStatus.APPROVED, LeaveApplication.LeaveStatus.REJECTED):
+            form.add_error('status', "Select Approve or Reject.")
+            return self.form_invalid(form)
+        if form.instance.status == LeaveApplication.LeaveStatus.REJECTED and not form.cleaned_data.get('rejection_reason', '').strip():
+            form.add_error('rejection_reason', "Please provide a reason for rejection.")
+            return self.form_invalid(form)
         if form.instance.status == LeaveApplication.LeaveStatus.APPROVED:
             form.instance.approved_by = self.request.user
             form.instance.approved_at = timezone.now()
@@ -620,7 +643,9 @@ class LeaveApplicationDeleteView(DeleteView):
     success_url = reverse_lazy('attendance:leave_list')
 
     def get_queryset(self):
-        return filter_queryset_by_institution(super().get_queryset(), self.request.user)
+        queryset = filter_queryset_by_institution(super().get_queryset(), self.request.user)
+        institution = get_current_institution()
+        return queryset.filter(institution=institution) if institution else queryset.none()
 
     def get_success_url(self):
         messages.success(self.request, "Leave application deleted successfully.")

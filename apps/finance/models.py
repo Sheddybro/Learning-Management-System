@@ -345,11 +345,17 @@ class Invoice(CoreBaseModel):
 
         self.balance_due = self.total_amount - self.amount_paid
 
-        # Update status based on payment
+        # Recalculate payment state without treating an empty invoice as paid.
         if self.total_amount > Decimal("0.00") and self.amount_paid >= self.total_amount:
             self.status = self.InvoiceStatus.PAID
         elif self.amount_paid > Decimal("0.00"):
             self.status = self.InvoiceStatus.PARTIAL
+        elif self.status in (self.InvoiceStatus.PAID, self.InvoiceStatus.PARTIAL):
+            self.status = (
+                self.InvoiceStatus.OVERDUE
+                if self.due_date and self.due_date < timezone.localdate()
+                else self.InvoiceStatus.ISSUED
+            )
         elif self.status == self.InvoiceStatus.DRAFT and self.issue_date:
             self.status = self.InvoiceStatus.ISSUED
 
@@ -541,21 +547,73 @@ class Payment(CoreBaseModel):
         return f"Payment {self.payment_number} - {self.amount}"
 
     def save(self, *args, **kwargs):
-        """Generate payment number and update invoice before saving."""
-        if not self.payment_number:
-            from apps.core.models import SequenceGenerator
+        """Persist a payment and its invoice balance as one idempotent operation.
 
-            sequence, created = SequenceGenerator.objects.get_or_create(
-                sequence_type="receipt"
-            )
-            self.payment_number = sequence.get_next_number()
+        Re-saving an already completed payment must not count the same money
+        twice. Moving a payment away from Completed reverses its contribution.
+        """
+        from django.core.exceptions import ValidationError
+        from django.db import transaction
 
-        # Update invoice payment status
-        if self.status == self.PaymentStatus.COMPLETED:
-            self.invoice.amount_paid += self.amount
-            self.invoice.save()
+        with transaction.atomic():
+            if not self.payment_number:
+                from apps.core.models import SequenceGenerator
 
-        super().save(*args, **kwargs)
+                sequence, created = SequenceGenerator.objects.get_or_create(
+                    sequence_type="receipt",
+                    institution=self.institution,
+                )
+                self.payment_number = sequence.get_next_number()
+
+            previous = None
+            if self.pk:
+                previous = (
+                    Payment.objects.select_for_update()
+                    .filter(pk=self.pk)
+                    .first()
+                )
+
+            invoice_deltas = {}
+            if previous and previous.status == self.PaymentStatus.COMPLETED:
+                invoice_deltas[previous.invoice_id] = (
+                    invoice_deltas.get(previous.invoice_id, Decimal("0.00"))
+                    - previous.amount
+                )
+
+            if self.status == self.PaymentStatus.COMPLETED:
+                invoice_deltas[self.invoice_id] = (
+                    invoice_deltas.get(self.invoice_id, Decimal("0.00"))
+                    + self.amount
+                )
+
+            locked_invoices = {}
+            for invoice_id in invoice_deltas:
+                locked_invoices[invoice_id] = (
+                    Invoice.objects.select_for_update().get(pk=invoice_id)
+                )
+
+            target_invoice = locked_invoices.get(self.invoice_id)
+            if self.status == self.PaymentStatus.COMPLETED and target_invoice:
+                resulting_paid = (
+                    target_invoice.amount_paid
+                    + invoice_deltas.get(self.invoice_id, Decimal("0.00"))
+                )
+                if resulting_paid > target_invoice.total_amount:
+                    raise ValidationError(
+                        _("Payment would exceed the invoice's outstanding balance.")
+                    )
+
+            for invoice_id, delta in invoice_deltas.items():
+                invoice = locked_invoices[invoice_id]
+                updated_paid = invoice.amount_paid + delta
+                if updated_paid < Decimal("0.00"):
+                    raise ValidationError(
+                        _("Payment reversal would make the paid amount negative.")
+                    )
+                invoice.amount_paid = updated_paid
+                invoice.save()
+
+            super().save(*args, **kwargs)
 
 
 class Expense(CoreBaseModel):

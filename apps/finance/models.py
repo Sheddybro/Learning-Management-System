@@ -625,6 +625,12 @@ class Payment(CoreBaseModel):
 
             super().save(*args, **kwargs)
 
+    def delete(self, using=None, keep_parents=False):
+        """Reverse a completed payment before soft-deleting its record."""
+        if self.status == self.PaymentStatus.COMPLETED:
+            self.status = self.PaymentStatus.CANCELLED
+        return super().delete(using=using, keep_parents=keep_parents)
+
 
 class Expense(CoreBaseModel):
     """

@@ -16,6 +16,7 @@ from apps.finance.views import (
     PaymentGatewayView,
     APIPaymentStatusView,
     GetInvoiceDetailsAPIView,
+    GenerateInvoiceAPIView,
 )
 
 
@@ -80,3 +81,57 @@ class FinanceObjectAccessTests(SimpleTestCase):
             lookup.call_args.kwargs["invoice__student__institution__in"],
             ["school-a"],
         )
+
+
+class InvoiceGenerationBoundaryTests(SimpleTestCase):
+    @patch("apps.finance.views.get_object_or_404", side_effect=Http404)
+    @patch("apps.core.middleware.get_user_accessible_institutions")
+    def test_foreign_school_session_returns_not_found(self, accessible, lookup):
+        import json
+
+        accessible.return_value = ["school-a"]
+        request = RequestFactory().post(
+            "/finance/api/generate-invoices/",
+            data=json.dumps({
+                "student_ids": ["student-1"],
+                "academic_session_id": "foreign-session",
+                "billing_period": "Term 1",
+                "issue_date": "2026-11-11",
+                "due_date": "2026-12-11",
+            }),
+            content_type="application/json",
+        )
+        request.user = staff_request("/").user
+        response = GenerateInvoiceAPIView.as_view()(request)
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(
+            lookup.call_args.kwargs["institution__in"],
+            ["school-a"],
+        )
+
+    @patch("apps.finance.views.get_object_or_404")
+    @patch("apps.core.middleware.get_user_accessible_institutions")
+    @patch("apps.finance.views.Student.objects.filter")
+    def test_foreign_school_student_is_rejected_before_invoice_creation(
+        self, student_filter, accessible, lookup
+    ):
+        import json
+
+        accessible.return_value = ["school-a"]
+        lookup.return_value = SimpleNamespace(institution="school-a")
+        student_filter.return_value.count.return_value = 0
+        request = RequestFactory().post(
+            "/finance/api/generate-invoices/",
+            data=json.dumps({
+                "student_ids": ["foreign-student"],
+                "academic_session_id": "session-a",
+                "billing_period": "Term 1",
+                "issue_date": "2026-11-11",
+                "due_date": "2026-12-11",
+            }),
+            content_type="application/json",
+        )
+        request.user = staff_request("/").user
+        response = GenerateInvoiceAPIView.as_view()(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(student_filter.call_args.kwargs["institution"], "school-a")

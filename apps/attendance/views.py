@@ -379,75 +379,108 @@ class StudentAttendanceView(AttendancePermissionMixin, DetailView):
 @method_decorator(login_required, name='dispatch')
 @method_decorator(permission_required('attendance.add_dailyattendance', raise_exception=True), name='dispatch')
 class BulkAttendanceView(TeacherRequiredMixin, View):
-    """View for bulk attendance marking"""
-    
+    """Mark attendance only for classes and sessions in an accessible school."""
+
+    def get_authorized_classes(self, request):
+        queryset = filter_queryset_by_institution(Class.objects.all(), request.user)
+        institution = get_current_institution()
+        if institution and user_can_access_institution(request.user, institution):
+            queryset = queryset.filter(institution=institution)
+
+        # Teachers may mark only classes assigned to them. School staff can
+        # manage classes within the selected institution.
+        if hasattr(request.user, "teacher_profile") and not (
+            request.user.is_staff or request.user.is_superuser
+        ):
+            queryset = queryset.filter(
+                Q(class_teacher=request.user.teacher_profile)
+                | Q(subject_assignments__teacher=request.user.teacher_profile)
+            )
+        return queryset.distinct()
+
     def get(self, request, class_id=None):
         if class_id:
-            class_obj = get_object_or_404(Class, pk=class_id)
+            class_obj = get_object_or_404(
+                self.get_authorized_classes(request), pk=class_id
+            )
             students = Student.objects.filter(
+                institution=class_obj.institution,
                 enrollments__class_enrolled=class_obj,
-                enrollments__enrollment_status='active'
-            ).select_related('user')
-            
+                enrollments__enrollment_status="active",
+            ).select_related("user")
+
             context = {
-                'class_obj': class_obj,
-                'students': students,
-                'attendance_sessions': AttendanceSession.objects.filter(is_active=True),
-                'today': timezone.now().date()
+                "class_obj": class_obj,
+                "students": students,
+                "attendance_sessions": AttendanceSession.objects.filter(
+                    institution=class_obj.institution,
+                    academic_session__institution=class_obj.institution,
+                    is_active=True,
+                ),
+                "today": timezone.now().date(),
             }
-            return render(request, 'attendance/bulk/bulk_mark.html', context)
-        else:
-            # Show class selection
-            if hasattr(request.user, 'teacher_profile'):
-                classes = Class.objects.filter(
-                    Q(class_teacher=request.user.teacher_profile) |
-                    Q(subject_assignments__teacher=request.user.teacher_profile)
-                ).distinct()
-            else:
-                classes = Class.objects.all()
-            
-            context = {'classes': classes}
-            return render(request, 'attendance/bulk/bulk_class_select.html', context)
-    
+            return render(request, "attendance/bulk/bulk_mark.html", context)
+
+        context = {"classes": self.get_authorized_classes(request)}
+        return render(request, "attendance/bulk/bulk_class_select.html", context)
+
     def post(self, request, class_id):
-        class_obj = get_object_or_404(Class, pk=class_id)
-        date = request.POST.get('date')
-        attendance_session_id = request.POST.get('attendance_session')
-        
-        if not date or not attendance_session_id:
-            messages.error(request, "Please provide both date and attendance session.")
-            return redirect('bulk_mark', class_id=class_id)
-        
-        attendance_session = get_object_or_404(AttendanceSession, pk=attendance_session_id)
-        students = Student.objects.filter(
-            enrollments__class_enrolled=class_obj,
-            enrollments__enrollment_status='active'
+        from django.utils.dateparse import parse_date
+
+        class_obj = get_object_or_404(
+            self.get_authorized_classes(request), pk=class_id
         )
-        
+        attendance_date = parse_date(request.POST.get("date", ""))
+        attendance_session_id = request.POST.get("attendance_session")
+
+        if not attendance_date or not attendance_session_id:
+            messages.error(request, "Please provide a valid date and attendance session.")
+            return redirect("attendance:bulk_mark", class_id=class_id)
+
+        attendance_session = get_object_or_404(
+            AttendanceSession,
+            pk=attendance_session_id,
+            institution=class_obj.institution,
+            academic_session__institution=class_obj.institution,
+            is_active=True,
+        )
+        students = Student.objects.filter(
+            institution=class_obj.institution,
+            enrollments__class_enrolled=class_obj,
+            enrollments__enrollment_status="active",
+        ).distinct()
+
+        allowed_statuses = set(DailyAttendance.AttendanceStatus.values)
         marked_count = 0
         for student in students:
-            status_field = f'status_{student.id}'
-            remarks_field = f'remarks_{student.id}'
-            
-            if status_field in request.POST:
-                status = request.POST[status_field]
-                remarks = request.POST.get(remarks_field, '')
-                
-                # Create or update attendance record
-                attendance, created = DailyAttendance.objects.update_or_create(
-                    student=student,
-                    date=date,
-                    attendance_session=attendance_session,
-                    defaults={
-                        'status': status,
-                        'remarks': remarks,
-                        'marked_by': request.user
-                    }
-                )
-                marked_count += 1
-        
-        messages.success(request, f"Successfully marked attendance for {marked_count} students.")
-        return redirect('bulk_mark', class_id=class_id)
+            status_field = f"status_{student.id}"
+            remarks_field = f"remarks_{student.id}"
+            if status_field not in request.POST:
+                continue
+
+            status = request.POST[status_field]
+            if status not in allowed_statuses:
+                messages.error(request, "An invalid attendance status was submitted.")
+                return redirect("attendance:bulk_mark", class_id=class_id)
+
+            DailyAttendance.objects.update_or_create(
+                institution=class_obj.institution,
+                student=student,
+                date=attendance_date,
+                attendance_session=attendance_session,
+                defaults={
+                    "status": status,
+                    "remarks": request.POST.get(remarks_field, ""),
+                    "marked_by": request.user,
+                },
+            )
+            marked_count += 1
+
+        messages.success(
+            request,
+            f"Successfully marked attendance for {marked_count} students.",
+        )
+        return redirect("attendance:bulk_mark", class_id=class_id)
 
 
 # ==================== PERIOD ATTENDANCE VIEWS ====================

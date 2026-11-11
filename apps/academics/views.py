@@ -2698,8 +2698,10 @@ class SchoolPolicyListView(AcademicsAccessMixin, ListView):
     paginate_by = 10
 
     def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
         queryset = (
-            SchoolPolicy.objects.filter(status="active")
+            SchoolPolicy.objects.filter(status="active", institution=get_current_institution())
             .select_related("academic_session", "department")
             .prefetch_related("attachments")
         )
@@ -2713,18 +2715,28 @@ class SchoolPolicyListView(AcademicsAccessMixin, ListView):
         if policy_type:
             queryset = queryset.filter(policy_type=policy_type)
         if academic_session_id:
-            queryset = queryset.filter(academic_session_id=academic_session_id)
+            try:
+                queryset = queryset.filter(academic_session_id=UUID(academic_session_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
         if department_id:
-            queryset = queryset.filter(department_id=department_id)
+            try:
+                queryset = queryset.filter(department_id=UUID(department_id))
+            except (ValueError, TypeError, AttributeError):
+                return queryset.none()
         if is_active:
             queryset = queryset.filter(is_active=(is_active.lower() == "true"))
 
         return queryset.order_by("-effective_date", "policy_name")
 
     def get_context_data(self, **kwargs):
+        from apps.core.middleware import get_current_institution
+
         context = super().get_context_data(**kwargs)
         context["policy_types"] = SchoolPolicy.PolicyType.choices
-        context["academic_sessions"] = AcademicSession.objects.filter(status="active")
+        context["academic_sessions"] = AcademicSession.objects.filter(
+            status="active", institution=get_current_institution()
+        )
         context["departments"] = Department.objects.filter(status="active")
 
         # Pass current filter values for form pre-population
@@ -2745,6 +2757,11 @@ class SchoolPolicyDetailView(AcademicsAccessMixin, DetailView):
     template_name = "academics/policies/policy_detail.html"
     context_object_name = "policy"
 
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["attachments"] = self.object.attachments.all()
@@ -2759,7 +2776,17 @@ class SchoolPolicyCreateView(StaffRequiredMixin, CreateView):
     template_name = "academics/policies/policy_form.html"
     success_url = reverse_lazy("academics:policy_list")
 
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
+
     def form_valid(self, form):
+        from apps.core.middleware import get_current_institution
+
+        form.instance.institution = get_current_institution()
         messages.success(self.request, _("School policy created successfully."))
         return super().form_valid(form)
 
@@ -2777,6 +2804,18 @@ class SchoolPolicyUpdateView(StaffRequiredMixin, UpdateView):
     form_class = SchoolPolicyForm
     template_name = "academics/policies/policy_form.html"
     success_url = reverse_lazy("academics:policy_list")
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
+    def get_form_kwargs(self):
+        from apps.core.middleware import get_current_institution
+
+        kwargs = super().get_form_kwargs()
+        kwargs["institution"] = get_current_institution()
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, _("School policy updated successfully."))

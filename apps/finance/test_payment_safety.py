@@ -20,6 +20,8 @@ from apps.finance.views import (
     StudentInvoiceDetailView,
 )
 from apps.finance.models import Invoice, Payment
+from apps.finance.forms import InvoiceForm, PaymentForm, FinancialReportForm
+from apps.academics.models import Student
 
 
 def staff_request(path, method="get"):
@@ -321,3 +323,27 @@ class PaymentAccountingIdempotencyTests(SimpleTestCase):
 
         invoice.save.assert_not_called()
         base_save.assert_not_called()
+
+
+class FinanceFormIsolationTests(SimpleTestCase):
+    def test_invoice_form_uses_student_profile_queryset(self):
+        form = InvoiceForm()
+        self.assertIs(form.fields["student"].queryset.model, Student)
+
+    def test_payment_form_uses_student_profile_queryset(self):
+        form = PaymentForm()
+        self.assertIs(form.fields["student"].queryset.model, Student)
+
+    def test_report_generator_is_not_user_selectable(self):
+        form = FinancialReportForm()
+        self.assertNotIn("generated_by", form.fields)
+
+    def test_related_choices_fail_closed_without_active_school(self):
+        for form_class in (InvoiceForm, PaymentForm, FinancialReportForm):
+            with self.subTest(form=form_class.__name__):
+                form = form_class()
+                field_name = (
+                    "student" if form_class in (InvoiceForm, PaymentForm)
+                    else "academic_session"
+                )
+                self.assertFalse(form.fields[field_name].queryset.query.where.children == [])

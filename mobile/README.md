@@ -26,3 +26,8 @@ The app uses the same `https://learningmanagementsystem.pythonanywhere.com`
 site as the desktop client. Configure native deep links, accessibility, native
 notifications and token-based API authentication before replacing WebView
 journeys with fully native screens.
+
+The `Android debug APK` workflow also generates an unsigned-for-production
+development APK through the Android Gradle toolchain. It requires no Expo access
+token, but the result is a **debug test artifact only**. Release signing,
+device testing and production distribution remain separate gates.

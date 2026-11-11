@@ -2,13 +2,14 @@
 
 import json
 from datetime import date
+from uuid import uuid4
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
 from apps.core.models import Institution
-from .models import AcademicSession
+from .models import AcademicSession, Class
 
 
 class EnrollmentApiTests(TestCase):
@@ -21,6 +22,10 @@ class EnrollmentApiTests(TestCase):
         self.session = AcademicSession.objects.create(
             name="Other School Session", institution=self.other_school,
             start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        self.other_class = Class.objects.create(
+            name="Other School Class", code="OTHER-C1",
+            academic_session=self.session, institution=self.other_school,
         )
 
     def test_endpoints_require_authentication(self):
@@ -61,6 +66,36 @@ class EnrollmentApiTests(TestCase):
         self.client.force_login(ordinary_user)
         response = self.client.get(reverse("academics:api_students_available"))
         self.assertEqual(response.status_code, 403)
+
+    def test_class_info_does_not_expose_other_school(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("academics:api_class_info"), {
+            "class_id": str(self.other_class.pk),
+        })
+        self.assertEqual(response.status_code, 404)
+
+    def test_class_info_rejects_malformed_identifier(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("academics:api_class_info"), {
+            "class_id": "not-a-uuid",
+        })
+        self.assertEqual(response.status_code, 400)
+
+    def test_grade_class_lookup_does_not_expose_other_school(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("academics:api_classes_by_grade"), {
+            "grade_level_id": str(uuid4()), "session_id": str(self.session.pk),
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["classes"], [])
+
+    def test_timetable_lookup_does_not_expose_other_school(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("academics:api_timetable_by_class", kwargs={
+            "class_id": self.other_class.pk,
+        }))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["timetable"], [])
 
     def test_roll_number_rejects_cross_school_session(self):
         self.client.force_login(self.user)

@@ -1600,7 +1600,11 @@ class ClassListView(AcademicsAccessMixin, ListView):
     paginate_by = 12
 
     def get_queryset(self):
-        queryset = Class.objects.filter(status="active").select_related(
+        from apps.core.middleware import get_current_institution
+
+        queryset = Class.objects.filter(
+            status="active", institution=get_current_institution()
+        ).select_related(
             "grade_level", "class_teacher", "academic_session"
         )
 
@@ -1617,9 +1621,13 @@ class ClassListView(AcademicsAccessMixin, ListView):
         return queryset
 
     def get_context_data(self, **kwargs):
+        from apps.core.middleware import get_current_institution
+
         context = super().get_context_data(**kwargs)
         context["grade_levels"] = GradeLevel.objects.filter(status="active")
-        context["sessions"] = AcademicSession.objects.all()
+        context["sessions"] = AcademicSession.objects.filter(
+            institution=get_current_institution()
+        )
         return context
 
 
@@ -1629,6 +1637,11 @@ class ClassDetailView(AcademicsAccessMixin, DetailView):
     model = Class
     template_name = "academics/classes/class_detail.html"
     context_object_name = "class_obj"
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1696,7 +1709,11 @@ class StudentListView(AcademicsAccessMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = Student.objects.filter(status="active").select_related("user")
+        from apps.core.middleware import get_current_institution
+
+        queryset = Student.objects.filter(
+            status="active", institution=get_current_institution()
+        ).select_related("user")
 
         # Apply search filters
         form = StudentSearchForm(self.request.GET)
@@ -1742,9 +1759,13 @@ class StudentListView(AcademicsAccessMixin, ListView):
         return queryset.distinct()
 
     def get_context_data(self, **kwargs):
+        from apps.core.middleware import get_current_institution
+
         context = super().get_context_data(**kwargs)
         context["search_form"] = StudentSearchForm(self.request.GET)
-        context["classes"] = Class.objects.filter(status="active")
+        context["classes"] = Class.objects.filter(
+            status="active", institution=get_current_institution()
+        )
         return context
 
 
@@ -1754,6 +1775,11 @@ class StudentDetailView(AcademicsAccessMixin, DetailView):
     model = Student
     template_name = "academics/students/student_detail.html"
     context_object_name = "student"
+
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1827,7 +1853,11 @@ class TeacherListView(AcademicsAccessMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = Teacher.objects.filter(status="active").select_related(
+        from apps.core.middleware import get_current_institution
+
+        queryset = Teacher.objects.filter(
+            status="active", institution=get_current_institution()
+        ).select_related(
             "user", "department"
         )
 
@@ -1857,9 +1887,13 @@ class TeacherListView(AcademicsAccessMixin, ListView):
         return queryset
 
     def get_context_data(self, **kwargs):
+        from apps.core.middleware import get_current_institution
+
         context = super().get_context_data(**kwargs)
         context["search_form"] = TeacherSearchForm(self.request.GET)
-        context["departments"] = Department.objects.filter(status="active")
+        context["departments"] = Department.objects.filter(
+            status="active", institution=get_current_institution()
+        )
         return context
 
 
@@ -1870,10 +1904,17 @@ class TeacherDetailView(AcademicsAccessMixin, DetailView):
     template_name = "academics/teachers/teacher_detail.html"
     context_object_name = "teacher"
 
+    def get_queryset(self):
+        from apps.core.middleware import get_current_institution
+
+        return super().get_queryset().filter(institution=get_current_institution())
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         teacher = self.object
-        current_session = AcademicSession.objects.filter(is_current=True).first()
+        current_session = AcademicSession.objects.filter(
+            is_current=True, institution=teacher.institution
+        ).first()
 
         if current_session:
             # Current subject assignments
@@ -2797,8 +2838,19 @@ class AcademicCalendarView(AcademicsAccessMixin, View):
     """Academic calendar view."""
 
     def get(self, request):
-        current_session = AcademicSession.objects.filter(is_current=True).first()
-        holidays = Holiday.objects.filter(academic_session=current_session)
+        from apps.core.middleware import get_current_institution
+
+        school = get_current_institution()
+        current_session = AcademicSession.objects.filter(
+            is_current=True, institution=school
+        ).first()
+        if current_session is None:
+            return render(request, "academics/calendar/no_session.html", {
+                "current_session": None,
+            })
+        holidays = Holiday.objects.filter(
+            academic_session=current_session, institution=school
+        )
 
         context = {
             "current_session": current_session,

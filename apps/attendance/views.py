@@ -10,6 +10,8 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView, D
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.db.models import Q, Count, Avg, Sum
+from django.db import transaction
+from pathlib import Path
 from django.core.paginator import Paginator
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -26,6 +28,11 @@ from .forms import (
 from apps.academics.models import BehaviorRecord, Student, Class, AcademicSession
 from apps.users.models import User
 from apps.core.mixins import TeacherRequiredMixin
+from apps.core.middleware import (
+    get_current_institution, user_can_access_institution,
+    filter_queryset_by_institution,
+)
+from apps.academics.models import FileAttachment
 
 
 # ==================== MIXIN CLASSES ====================
@@ -488,7 +495,12 @@ class LeaveApplicationListView(AttendancePermissionMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = LeaveApplication.objects.all()
+        queryset = filter_queryset_by_institution(
+            LeaveApplication.objects.all(), self.request.user
+        )
+        institution = get_current_institution()
+        if institution:
+            queryset = queryset.filter(institution=institution)
 
         # Filter by status
         status = self.request.GET.get('status')
@@ -510,9 +522,8 @@ class LeaveApplicationListView(AttendancePermissionMixin, ListView):
             )
 
         # Restrict access based on user role
-        if not self.request.user.is_staff:
-            if hasattr(self.request.user, 'student_profile') or hasattr(self.request.user, 'teacher_profile'):
-                queryset = queryset.filter(applicant=self.request.user)
+        if not (self.request.user.is_staff or self.request.user.has_perm('attendance.change_leaveapplication')):
+            queryset = queryset.filter(applicant=self.request.user)
 
         return queryset.select_related('applicant', 'applicant__profile', 'leave_type', 'approved_by').order_by('-created_at')
 
@@ -530,7 +541,9 @@ class LeaveApplicationCreateView(CreateView):
     """Create a new leave application"""
     model = LeaveApplication
     template_name = 'attendance/leave/leave_form.html'
-    fields = ['leave_type', 'start_date', 'end_date', 'reason', 'supporting_documents']
+    # Uploaded files are handled separately; the model field expects existing
+    # FileAttachment primary keys, not the bytes sent by the file input.
+    fields = ['leave_type', 'start_date', 'end_date', 'reason']
     
     def get_success_url(self):
         return reverse_lazy('attendance:leave_list')
@@ -545,9 +558,35 @@ class LeaveApplicationCreateView(CreateView):
         return form
     
     def form_valid(self, form):
+        institution = get_current_institution()
+        if not institution or not user_can_access_institution(self.request.user, institution):
+            form.add_error(None, "Select a school you belong to before applying for leave.")
+            return self.form_invalid(form)
+
+        documents = self.request.FILES.getlist('supporting_documents')
+        allowed_extensions = {'.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'}
+        if len(documents) > 5:
+            form.add_error(None, "Attach no more than five supporting documents.")
+            return self.form_invalid(form)
+        for document in documents:
+            if Path(document.name).suffix.lower() not in allowed_extensions or document.size > 10 * 1024 * 1024:
+                form.add_error(None, "Documents must be PDF, DOC, DOCX, JPG or PNG and at most 10 MB each.")
+                return self.form_invalid(form)
+
         form.instance.applicant = self.request.user
+        form.instance.institution = institution
+        with transaction.atomic():
+            response = super().form_valid(form)
+            for document in documents:
+                attachment = FileAttachment.objects.create(
+                    institution=institution,
+                    uploaded_by=self.request.user,
+                    title=Path(document.name).name[:200],
+                    file=document,
+                )
+                self.object.supporting_documents.add(attachment)
         messages.success(self.request, "Leave application submitted successfully.")
-        return super().form_valid(form)
+        return response
 
 
 @method_decorator(login_required, name='dispatch')
@@ -557,6 +596,9 @@ class LeaveApplicationUpdateView(UpdateView):
     model = LeaveApplication
     template_name = 'attendance/leave/leave_review.html'
     fields = ['status', 'rejection_reason']
+
+    def get_queryset(self):
+        return filter_queryset_by_institution(super().get_queryset(), self.request.user)
 
     def get_success_url(self):
         return reverse_lazy('attendance:leave_list')
@@ -576,6 +618,9 @@ class LeaveApplicationDeleteView(DeleteView):
     model = LeaveApplication
     template_name = 'attendance/leave/leave_confirm_delete.html'
     success_url = reverse_lazy('attendance:leave_list')
+
+    def get_queryset(self):
+        return filter_queryset_by_institution(super().get_queryset(), self.request.user)
 
     def get_success_url(self):
         messages.success(self.request, "Leave application deleted successfully.")

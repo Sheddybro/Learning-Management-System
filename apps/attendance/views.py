@@ -332,24 +332,31 @@ class StudentAttendanceView(AttendancePermissionMixin, DetailView):
         return super().dispatch(request, *args, **kwargs)
 
     def get_object(self):
-        # If user is a student, show their own attendance
-        if hasattr(self.request.user, 'student_profile'):
+        # Students may only view their own attendance record.
+        if hasattr(self.request.user, "student_profile"):
             return self.request.user.student_profile
 
-        # If pk is provided, show specific student's attendance (for admins/teachers)
-        pk = self.kwargs.get('pk')
+        # Staff and teachers are restricted to institutions they can access.
+        pk = self.kwargs.get("pk")
         if pk:
-            return get_object_or_404(Student, pk=pk)
+            queryset = filter_queryset_by_institution(
+                Student.objects.select_related("user"), self.request.user
+            )
+            institution = get_current_institution()
+            if institution and user_can_access_institution(self.request.user, institution):
+                queryset = queryset.filter(institution=institution)
+            return get_object_or_404(queryset, pk=pk)
 
-        # This should not be reached due to dispatch check, but fallback
         raise Http404("Student not found")
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        student = self.get_object()
-        
-        # Get attendance summary for current academic session
-        current_session = AcademicSession.objects.filter(is_current=True).first()
+        student = self.object
+
+        # Attendance sessions must belong to the same school as the student.
+        current_session = AcademicSession.objects.filter(
+            is_current=True, institution=student.institution
+        ).first()
         if current_session:
             attendance_data = DailyAttendance.objects.filter(
                 student=student,

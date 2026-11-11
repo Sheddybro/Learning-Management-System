@@ -66,10 +66,10 @@ class FinanceAccessMixin(LoginRequiredMixin):
         ).exists()
 
         if not has_finance_role:
-                messages.error(
-                    request, _("You don't have permission to access finance resources.")
-                )
-                return redirect("users:dashboard")
+            messages.error(
+                request, _("You don't have permission to access finance resources.")
+            )
+            return redirect("users:dashboard")
 
         return super().dispatch(request, *args, **kwargs)
 

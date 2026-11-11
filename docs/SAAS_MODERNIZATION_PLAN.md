@@ -48,6 +48,23 @@ README acceptance scenarios do not have automated tests asserting their behavior
 7. **Release:** Run unit, integration, tenant-security, browser, accessibility,
    performance and regression suites; release by small batches with monitoring.
 
+## Required client applications
+
+- **Desktop:** An installable, accessible desktop client for Windows (and a
+  documented macOS/Linux path), with school/role aware navigation and update
+  distribution. The shared web manifest/service-worker foundation is an early
+  step, **not** proof of a signed desktop installer.
+- **Mobile:** A distributable Android APK (and an iOS packaging plan) that
+  authenticates securely to the same Django API and respects school tenancy.
+  A responsive Django website or PWA alone does not meet the APK requirement.
+- **Shared backend:** School records, permissions and subscriptions remain on
+  the Django SaaS server; do not cache sensitive school data in the browser
+  service worker. Design mobile token storage, logout, session expiry, push
+  notifications and offline constraints before enabling native persistence.
+- **Release gates:** Build and inspect actual desktop/mobile artifacts, verify
+  login and role-limited journeys on target devices, and publish tested download
+  links on the PythonAnywhere website only after signing/versioning decisions.
+
 ## Guardrails
 
 - Keep the existing PythonAnywhere site serving until a replacement is validated.

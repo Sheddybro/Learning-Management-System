@@ -313,7 +313,7 @@ class PaymentForm(InstitutionScopedModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['invoice'].queryset = Invoice.objects.filter(
-            status__in=["issued", "partial"],
+            status__in=["issued", "partial", "overdue"],
             student__institution=self.institution,
         ) if self.institution else Invoice.objects.none()
         self.fields['student'].queryset = self.scope(

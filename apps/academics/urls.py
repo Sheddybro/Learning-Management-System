@@ -3,11 +3,16 @@
 from django.urls import path, include
 from django.contrib.auth.decorators import login_required
 from . import views
+from . import enrollment_api
 
 app_name = 'academics'
 
 # URL patterns for different academic entities
 urlpatterns = [
+    path('api/students/available/', enrollment_api.AvailableStudentView.as_view(), name='api_students_available'),
+    path('api/sessions/info/', enrollment_api.EnrollmentSessionInfoView.as_view(), name='api_session_info'),
+    path('api/classes/available/', enrollment_api.AvailableClassesView.as_view(), name='api_classes_by_session'),
+    path('api/enrollment/check-roll-number/', enrollment_api.CheckRollNumberView.as_view(), name='api_check_roll_number'),
     # Dashboard
     path('dashboard/', views.AcademicsDashboardView.as_view(), name='dashboard'),
 

@@ -225,6 +225,55 @@ class EnrollmentApiTests(TestCase):
         self.assertIn("academic_session", response.context["form"].errors)
         self.assertFalse(ClassMaterial.objects.filter(title="Foreign Class Attempt").exists())
 
+    def test_material_edit_rejects_foreign_school_academic_references(self):
+        local_session = AcademicSession.objects.create(
+            institution=self.school, name="Edit Session",
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        local_class = Class.objects.create(
+            institution=self.school, name="Edit Class", code="EDIT-C1",
+            academic_session=local_session,
+        )
+        department = Department.objects.create(
+            institution=self.school, name="Edit Department", code="EDIT-D",
+        )
+        subject = Subject.objects.create(
+            institution=self.school, name="Edit Subject", code="EDIT-S",
+            department=department,
+        )
+        teacher = ClassMaterialCreateView().get_or_create_system_admin_teacher(self.school)
+        material = ClassMaterial.objects.create(
+            institution=self.school, title="Original local title",
+            external_url="https://example.com/original", subject=subject,
+            teacher=teacher, class_assigned=local_class,
+            academic_session=local_session,
+        )
+        self.client.force_login(self.user)
+        url = reverse("academics:material_update", kwargs={"pk": material.pk})
+        payload = {
+            "title": "Updated local title", "material_type": "link",
+            "external_url": "https://example.com/updated", "subject": str(subject.pk),
+            "teacher": str(teacher.pk), "class_assigned": str(local_class.pk),
+            "academic_session": str(local_session.pk), "version": "1",
+            "access_level": "public",
+            "publish_date": "2026-11-11T10:00", "display_order": "0",
+            "status": "active",
+        }
+        successful = self.client.post(url, payload)
+        self.assertEqual(successful.status_code, 302, getattr(successful, "context", None) and successful.context.get("form").errors)
+        material.refresh_from_db()
+        self.assertEqual(material.title, "Updated local title")
+        tampered = self.client.post(url, {
+            **payload, "title": "Foreign edit attempt",
+            "class_assigned": str(self.other_class.pk),
+            "academic_session": str(self.session.pk),
+        })
+        self.assertEqual(tampered.status_code, 200)
+        self.assertIn("class_assigned", tampered.context["form"].errors)
+        self.assertIn("academic_session", tampered.context["form"].errors)
+        material.refresh_from_db()
+        self.assertEqual(material.title, "Updated local title")
+
     def test_timetable_create_form_excludes_other_school_session(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse("academics:timetable_create"))

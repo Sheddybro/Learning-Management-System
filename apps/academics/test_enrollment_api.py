@@ -10,7 +10,10 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.core.models import Institution
-from .models import AcademicSession, Class, Student, Teacher, Timetable, Enrollment, SchoolPolicy
+from .models import (
+    AcademicSession, Class, Student, Teacher, Timetable, Enrollment,
+    SchoolPolicy, ClassMaterial, Department, Subject,
+)
 from apps.core.models import InstitutionUser
 
 
@@ -101,6 +104,49 @@ class EnrollmentApiTests(TestCase):
             self.session,
             list(response.context["form"].fields["academic_session"].queryset),
         )
+
+    def test_class_material_pages_do_not_expose_other_school(self):
+        account = get_user_model().objects.create_user(
+            email="material-teacher@example.com", password="test-only-password"
+        )
+        teacher = Teacher.objects.create(
+            user=account, institution=self.other_school,
+            teacher_id="MAT-TCH", employee_id="MAT-EMP",
+            joining_date=date(2026, 1, 1),
+        )
+        department = Department.objects.create(
+            name="Materials Department", code="MAT", institution=self.other_school,
+        )
+        subject = Subject.objects.create(
+            name="Materials Subject", code="MAT-SUB", department=department,
+            institution=self.other_school,
+        )
+        material = ClassMaterial.objects.create(
+            institution=self.other_school, title="Private Other School Material",
+            subject=subject, teacher=teacher, class_assigned=self.other_class,
+            academic_session=self.session, is_public=True,
+        )
+        self.client.force_login(self.user)
+        listing = self.client.get(reverse("academics:material_list"))
+        self.assertEqual(listing.status_code, 200)
+        self.assertNotIn(material, list(listing.context["materials"]))
+        for name in ("academics:material_detail", "academics:material_update"):
+            with self.subTest(name=name):
+                response = self.client.get(reverse(name, kwargs={"pk": material.pk}))
+                self.assertEqual(response.status_code, 404)
+
+    def test_class_material_form_excludes_other_school_subject(self):
+        department = Department.objects.create(
+            name="Foreign Department", code="FOR", institution=self.other_school,
+        )
+        subject = Subject.objects.create(
+            name="Foreign Subject", code="FOR-SUB", department=department,
+            institution=self.other_school,
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("academics:material_create"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(subject, list(response.context["form"].fields["subject"].queryset))
 
     def test_timetable_create_form_excludes_other_school_session(self):
         self.client.force_login(self.user)

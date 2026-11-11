@@ -1275,6 +1275,27 @@ class PublishFinancialReportAPIView(AccountantRequiredMixin, View):
 # =============================================================================
 
 
+class StudentInvoiceDetailView(LoginRequiredMixin, DetailView):
+    """Show students only their own invoice and related payment history."""
+
+    model = Invoice
+    template_name = "finance/student/invoice_detail.html"
+    context_object_name = "invoice"
+
+    def get_queryset(self):
+        return Invoice.objects.filter(
+            student__user=self.request.user
+        ).select_related("academic_session", "student__user").prefetch_related(
+            "items__fee_structure", "payments"
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["invoice_items"] = self.object.items.select_related("fee_structure")
+        context["payments"] = self.object.payments.order_by("-payment_date")
+        return context
+
+
 class StudentInvoiceListView(LoginRequiredMixin, ListView):
     """View for students to see their invoices."""
 

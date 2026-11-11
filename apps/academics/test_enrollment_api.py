@@ -87,6 +87,26 @@ class EnrollmentApiTests(TestCase):
             list(response.context["form"].fields["academic_session"].queryset),
         )
 
+    def test_bulk_enrollment_form_excludes_other_school_classes(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("academics:bulk_enrollment"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(
+            self.other_class,
+            list(response.context["form"].fields["class_enrolled"].queryset),
+        )
+
+    def test_bulk_enrollment_rejects_other_school_class(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse("academics:bulk_enrollment"), {
+            "students": [],
+            "class_enrolled": str(self.other_class.pk),
+            "academic_session": str(self.session.pk),
+            "enrollment_date": "2026-04-02",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("class_enrolled", response.context["form"].errors)
+
     def test_enrollment_form_excludes_other_school_sessions(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse("academics:enrollment_create"))

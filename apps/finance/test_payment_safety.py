@@ -18,6 +18,7 @@ from apps.finance.views import (
     GetInvoiceDetailsAPIView,
     GenerateInvoiceAPIView,
     StudentInvoiceDetailView,
+    ReceiptDownloadView,
 )
 from apps.finance.models import Invoice, Payment
 from apps.finance.forms import InvoiceForm, PaymentForm, FinancialReportForm
@@ -347,3 +348,45 @@ class FinanceFormIsolationTests(SimpleTestCase):
                     else "academic_session"
                 )
                 self.assertTrue(form.fields[field_name].queryset.query.is_empty())
+
+
+class PrintableReceiptTests(SimpleTestCase):
+    @patch("apps.finance.views.render")
+    @patch("apps.finance.views.get_object_or_404")
+    @patch("apps.core.middleware.get_user_accessible_institutions")
+    @patch("apps.finance.models.Payment.objects.filter")
+    def test_completed_payment_receipt_is_rendered_and_marked_issued(
+        self, payment_filter, accessible, lookup, render_mock
+    ):
+        from django.http import HttpResponse
+
+        payment = SimpleNamespace(
+            pk="payment-a",
+            status=Payment.PaymentStatus.COMPLETED,
+            receipt_issued=False,
+            institution=SimpleNamespace(name="Example School"),
+        )
+        accessible.return_value = ["school-a"]
+        lookup.return_value = payment
+        render_mock.return_value = HttpResponse("receipt")
+        response = ReceiptDownloadView().get(
+            staff_request("/finance/payments/receipt/"), pk="payment-a"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(payment.receipt_issued)
+        self.assertEqual(
+            lookup.call_args.kwargs["invoice__student__institution__in"],
+            ["school-a"],
+        )
+        payment_filter.assert_called_once_with(pk="payment-a")
+        render_mock.assert_called_once()
+        self.assertEqual(
+            render_mock.call_args.args[1],
+            "finance/payments/payment_receipt.html",
+        )
+
+    def test_printable_receipt_template_is_available(self):
+        from django.template.loader import get_template
+
+        self.assertIsNotNone(get_template("finance/payments/payment_receipt.html"))

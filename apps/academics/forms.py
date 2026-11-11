@@ -1108,6 +1108,7 @@ class TimetableForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         self.fields["class_assigned"].queryset = Class.objects.filter(status="active")
         self.fields["academic_session"].queryset = AcademicSession.objects.filter(
@@ -1120,6 +1121,11 @@ class TimetableForm(forms.ModelForm):
         self.fields["shared_with_classes"].queryset = Class.objects.filter(
             status="active"
         )
+        if institution is not None:
+            for field in ("class_assigned", "academic_session", "subject", "teacher", "shared_with_classes"):
+                self.fields[field].queryset = self.fields[field].queryset.filter(
+                    institution=institution
+                )
 
         self.fields["class_assigned"].empty_label = _("Select Class (Optional)")
         self.fields["academic_session"].empty_label = _("Select Academic Session")

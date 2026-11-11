@@ -1,5 +1,27 @@
 # 🏫 School Management System - Complete Feature Specification
 
+## Local Development
+
+1. Use Python 3.10 or newer and install the project dependencies:
+
+   ```sh
+   python -m venv .venv
+   python -m pip install -r requirements.txt
+   ```
+
+2. Copy `setup/.env.example` to `setup/.env` and replace `SECRET_KEY` with a
+   newly generated Django secret key. Keep `setup/.env` private; it is ignored
+   by Git. The example uses Django's console email backend so local development
+   does not need SMTP credentials.
+3. Initialize the database and start the development server:
+
+   ```sh
+   python manage.py migrate
+   python manage.py runserver
+   ```
+
+   Create an administrator account with `python manage.py createsuperuser`.
+
 ## 📋 Table of Contents
 
 ### 🎯 Core System Roles

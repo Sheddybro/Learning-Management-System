@@ -305,20 +305,31 @@ MANAGERS = ADMINS
 # ============================
 
 # Email Backend Configuration
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_USE_SSL = False
-EMAIL_HOST_USER = os.getenv(
-    "EMAIL_HOST_USER", "supereaglepilot@gmail.com"
-)  # Use environment variable
-EMAIL_HOST_PASSWORD = os.getenv(
-    "EMAIL_HOST_PASSWORD", "lwuiaxslniodkwcr"
-)  # Use environment variable (app password)
-EMAIL_TIMEOUT = 30
-DEFAULT_FROM_EMAIL = "noreply@NordaLMS.pythonanywhere.com"
-SERVER_EMAIL = "errors@NordaLMS.pythonanywhere.com"
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend"
+    if DEBUG
+    else "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "30"))
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "webmaster@localhost")
+SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 
 # Gmail-specific settings for better compatibility
 if EMAIL_HOST == "smtp.gmail.com":
@@ -326,7 +337,10 @@ if EMAIL_HOST == "smtp.gmail.com":
     EMAIL_USE_TLS = True
     EMAIL_USE_SSL = False
     # Gmail requires authentication
-    if not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD:
+    if (
+        EMAIL_BACKEND == "django.core.mail.backends.smtp.EmailBackend"
+        and (not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD)
+    ):
         logger.warning(
             "Gmail SMTP configured but EMAIL_HOST_USER or EMAIL_HOST_PASSWORD not set"
         )

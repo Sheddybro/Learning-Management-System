@@ -1,7 +1,7 @@
 """Enrollment form API must not expose another institution's data."""
 
 import json
-from datetime import date
+from datetime import date, time
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
@@ -9,7 +9,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.core.models import Institution
-from .models import AcademicSession, Class, Student, Teacher
+from .models import AcademicSession, Class, Student, Teacher, Timetable
 from apps.core.models import InstitutionUser
 
 
@@ -62,6 +62,30 @@ class EnrollmentApiTests(TestCase):
                 })
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(list(response.context["enrollments"]), [])
+
+    def test_timetable_pages_do_not_expose_other_school(self):
+        entry = Timetable.objects.create(
+            institution=self.other_school, academic_session=self.session,
+            class_assigned=self.other_class, day_of_week="monday", period_number=1,
+            start_time=time(8, 0), end_time=time(9, 0), is_published=True,
+        )
+        self.client.force_login(self.user)
+        listing = self.client.get(reverse("academics:timetable_list"))
+        self.assertEqual(listing.status_code, 200)
+        self.assertNotIn(entry, list(listing.context["timetable_entries"]))
+        for name in ("academics:timetable_detail", "academics:timetable_update"):
+            with self.subTest(name=name):
+                response = self.client.get(reverse(name, kwargs={"pk": entry.pk}))
+                self.assertEqual(response.status_code, 404)
+
+    def test_timetable_create_form_excludes_other_school_session(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("academics:timetable_create"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(
+            self.session,
+            list(response.context["form"].fields["academic_session"].queryset),
+        )
 
     def test_enrollment_form_excludes_other_school_sessions(self):
         self.client.force_login(self.user)

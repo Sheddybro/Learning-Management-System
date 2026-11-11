@@ -309,6 +309,29 @@ class PaymentAccountingIdempotencyTests(TestCase):
 
     @patch("apps.core.models.CoreBaseModel.save")
     @patch("apps.finance.models.Invoice.objects.select_for_update")
+    def test_payment_must_match_invoice_student_and_school(self, lock_invoice, base_save):
+        from decimal import Decimal
+        from django.core.exceptions import ValidationError
+
+        invoice = SimpleNamespace(
+            pk="invoice-a",
+            institution_id="school-a",
+            student_id="different-student",
+            amount_paid=Decimal("0.00"),
+            total_amount=Decimal("100.00"),
+            save=Mock(),
+        )
+        lock_invoice.return_value.get.return_value = invoice
+        payment = self.make_payment(invoice)
+
+        with self.assertRaises(ValidationError):
+            payment.save()
+
+        invoice.save.assert_not_called()
+        base_save.assert_not_called()
+
+    @patch("apps.core.models.CoreBaseModel.save")
+    @patch("apps.finance.models.Invoice.objects.select_for_update")
     def test_completed_payment_cannot_overpay_invoice(self, lock_invoice, base_save):
         from decimal import Decimal
         from django.core.exceptions import ValidationError

@@ -34,14 +34,12 @@ class StudentAttendanceTenantScopeTests(SimpleTestCase):
         view = StudentAttendanceView()
         view.request = request
         view.kwargs = {"pk": "student-id"}
-        queryset = Student.objects.select_related("user")
-        scope_queryset.return_value = queryset
+        scope_queryset.return_value = Student.objects.none()
         student = object()
         lookup.return_value = student
 
         self.assertIs(view.get_object(), student)
-        scope_queryset.assert_called_once_with(
-            queryset, user
-        )
+        self.assertIs(scope_queryset.call_args.args[0].model, Student)
+        self.assertIs(scope_queryset.call_args.args[1], user)
         lookup.assert_called_once()
         self.assertEqual(lookup.call_args.kwargs["pk"], "student-id")

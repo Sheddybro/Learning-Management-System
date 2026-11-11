@@ -164,6 +164,67 @@ class EnrollmentApiTests(TestCase):
             self.assertFalse(teacher.user.is_superuser)
             self.assertFalse(teacher.user.has_usable_password())
 
+    def test_staff_can_publish_material_without_teacher_profile(self):
+        local_session = AcademicSession.objects.create(
+            institution=self.school, name="Home Session",
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        local_class = Class.objects.create(
+            institution=self.school, name="Home Class", code="HOME-C1",
+            academic_session=local_session,
+        )
+        department = Department.objects.create(
+            institution=self.school, name="Local Materials", code="LOCAL-MAT",
+        )
+        subject = Subject.objects.create(
+            institution=self.school, name="Local Subject", code="LOCAL-SUB",
+            department=department,
+        )
+        self.client.force_login(self.user)
+        response = self.client.post(reverse("academics:material_create"), {
+            "title": "Staff uploaded resource",
+            "material_type": "link",
+            "external_url": "https://example.com/school-material",
+            "subject": str(subject.pk),
+            "class_assigned": str(local_class.pk),
+            "academic_session": str(local_session.pk),
+            "access_level": "public",
+            "version": "1",
+            "publish_date": "2026-11-11T10:00",
+            "display_order": "0",
+            "status": "active",
+        })
+        self.assertEqual(response.status_code, 302, getattr(response, "context", None) and response.context.get("form").errors)
+        material = ClassMaterial.objects.get(title="Staff uploaded resource")
+        self.assertEqual(material.institution, self.school)
+        self.assertEqual(material.teacher.institution, self.school)
+        self.assertFalse(material.teacher.user.is_active)
+        self.assertEqual(response.url, reverse("academics:material_detail", kwargs={"pk": material.pk}))
+
+    def test_material_upload_rejects_foreign_school_class_and_session(self):
+        department = Department.objects.create(
+            institution=self.school, name="Own Department", code="OWN-MAT",
+        )
+        subject = Subject.objects.create(
+            institution=self.school, name="Own Subject", code="OWN-SUB",
+            department=department,
+        )
+        self.client.force_login(self.user)
+        response = self.client.post(reverse("academics:material_create"), {
+            "title": "Foreign Class Attempt",
+            "material_type": "link",
+            "external_url": "https://example.com/foreign-attempt",
+            "subject": str(subject.pk),
+            "class_assigned": str(self.other_class.pk),
+            "academic_session": str(self.session.pk),
+            "publish_date": "2026-11-11T10:00",
+            "version": "1", "display_order": "0", "status": "active",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("class_assigned", response.context["form"].errors)
+        self.assertIn("academic_session", response.context["form"].errors)
+        self.assertFalse(ClassMaterial.objects.filter(title="Foreign Class Attempt").exists())
+
     def test_timetable_create_form_excludes_other_school_session(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse("academics:timetable_create"))

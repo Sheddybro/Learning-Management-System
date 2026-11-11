@@ -164,6 +164,37 @@ class EnrollmentApiTests(TestCase):
         self.assertRedirects(response, reverse("academics:enrollment_list"))
         self.assertTrue(Enrollment.objects.filter(student=student, institution=self.school).exists())
 
+        repeat = self.client.post(reverse("academics:bulk_enrollment"), {
+            "import_type": "csv", "class_enrolled": str(school_class.pk),
+            "academic_session": str(session.pk), "enrollment_date": "2026-04-02",
+            "csv_file": SimpleUploadedFile("students.csv", b"student_id\nCSV-STU\n", content_type="text/csv"),
+        })
+        self.assertEqual(repeat.status_code, 200)
+        self.assertIn("students", repeat.context["form"].errors)
+        self.assertEqual(Enrollment.objects.filter(student=student).count(), 1)
+
+    def test_csv_bulk_enrollment_rejects_malformed_file(self):
+        session = AcademicSession.objects.create(
+            name="CSV Validation Session", institution=self.school,
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        school_class = Class.objects.create(
+            name="CSV Validation Class", code="CSV-VALID-C1",
+            institution=self.school, academic_session=session,
+        )
+        self.client.force_login(self.user)
+        for contents in (b"wrong_header\nSTU-01\n", b"student_id\nUNKNOWN-STUDENT\n",
+                         b"student_id\nDUPLICATE\nDUPLICATE\n", b"student_id\n"):
+            with self.subTest(contents=contents):
+                response = self.client.post(reverse("academics:bulk_enrollment"), {
+                    "import_type": "csv", "class_enrolled": str(school_class.pk),
+                    "academic_session": str(session.pk), "enrollment_date": "2026-04-02",
+                    "csv_file": SimpleUploadedFile("students.csv", contents, content_type="text/csv"),
+                })
+                self.assertEqual(response.status_code, 200)
+                self.assertIn("csv_file", response.context["csv_form"].errors)
+                self.assertFalse(Enrollment.objects.exists())
+
     def test_csv_bulk_enrollment_rejects_unknown_student_without_writing(self):
         self.client.force_login(self.user)
         before = Enrollment.objects.count()

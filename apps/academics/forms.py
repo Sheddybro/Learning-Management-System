@@ -2118,6 +2118,7 @@ class SchoolPolicyForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        institution = kwargs.pop("institution", None)
         super().__init__(*args, **kwargs)
         self.fields["academic_session"].queryset = AcademicSession.objects.filter(
             status="active"
@@ -2126,6 +2127,13 @@ class SchoolPolicyForm(forms.ModelForm):
         self.fields["attachments"].queryset = FileAttachment.objects.filter(
             status="active"
         )
+        if institution is not None:
+            self.fields["academic_session"].queryset = self.fields[
+                "academic_session"
+            ].queryset.filter(institution=institution)
+            self.fields["attachments"].queryset = self.fields[
+                "attachments"
+            ].queryset.filter(institution=institution)
 
         self.fields["academic_session"].empty_label = _(
             "Select Academic Session (Optional)"
@@ -2139,22 +2147,11 @@ class SchoolPolicyForm(forms.ModelForm):
         cleaned_data = super().clean()
         effective_date = cleaned_data.get("effective_date")
         expiry_date = cleaned_data.get("expiry_date")
-        policy_content = cleaned_data.get("policy_content")
 
         if effective_date and expiry_date and expiry_date <= effective_date:
             self.add_error(
                 "expiry_date", _("Expiry date must be after effective date.")
             )
-
-        if policy_content:
-            import json
-
-            try:
-                json.loads(policy_content)
-            except json.JSONDecodeError:
-                self.add_error(
-                    "policy_content", _("Invalid JSON format for policy content.")
-                )
 
         return cleaned_data
 
